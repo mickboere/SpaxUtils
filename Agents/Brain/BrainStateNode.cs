@@ -13,7 +13,7 @@ namespace SpaxUtils
 		public override string Name => state;
 		public override string UserFacingName => state;
 
-		[SerializeField, ConstDropdown(typeof(IStateIdentifiers))] private string state;
+		[SerializeField, ConstDropdown(typeof(IStateIdentifierConstants))] private string state;
 		[SerializeField, Output(backingValue = ShowBackingValue.Never, typeConstraint = TypeConstraint.Inherited)] private Connections.State subStates;
 		[SerializeField, Input(backingValue = ShowBackingValue.Never, typeConstraint = TypeConstraint.Inherited, connectionType = ConnectionType.Override)] private Connections.State parentState;
 

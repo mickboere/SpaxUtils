@@ -25,8 +25,7 @@ namespace SpaxUtils
 
 		public void GenerateStats()
 		{
-			// TODO: Remove spirit axis dependency.
-			List<string> allStats = typeof(SpiritAxis.EntityStatIdentifiers).GetAllPublicConstStrings(false);
+			List<string> allStats = typeof(IStatIdentifierConstants).GetAllPublicConstStrings(false);
 			List<string> currentStats = settings.Select((setting) => setting.Identifier).ToList();
 			List<string> missingStats = allStats.Where((stat) => !currentStats.Contains(stat)).ToList();
 

@@ -37,7 +37,7 @@ namespace SpaxUtils
 
 		protected override string GameObjectNamePrefix => "[Agent]";
 
-		[SerializeField, ConstDropdown(typeof(IStateIdentifiers))] private string state;
+		[SerializeField, ConstDropdown(typeof(IStateIdentifierConstants))] private string state;
 		[SerializeField] private StateMachineGraph brainGraph;
 
 		private CallbackService callbackService;

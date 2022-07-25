@@ -17,7 +17,7 @@ namespace SpaxUtils
 		[SerializeField, ConstDropdown(typeof(IInputActionMaps))] private string actionMap;
 		[SerializeField, ConstDropdown(typeof(IInputActions))] private List<string> actions;
 		[SerializeField] private InputActionPhase phase;
-		[SerializeField, ConstDropdown(typeof(IStateIdentifiers))] private string nextState;
+		[SerializeField, ConstDropdown(typeof(IStateIdentifierConstants))] private string nextState;
 
 		private Brain brain;
 		private PlayerInputWrapper playerInputWrapper;
