@@ -11,6 +11,7 @@ namespace SpaxUtils
 	/// Base <see cref="IDependencyManager"/> implementation.
 	/// Able to bind, inject and locate dependencies.
 	/// </summary>
+	/// https://github.com/mickboere/SpaxUtils/blob/master/Dependencies/DependencyManager.cs
 	public class DependencyManager : IDependencyManager
 	{
 		/// <summary>
@@ -19,8 +20,8 @@ namespace SpaxUtils
 		public const string DEPENDENCY_OBJECT_PREFIX = "[Dependency] ";
 
 		/// <summary>
-		/// The index of this dependency locator, in order of creation. So global = 0, etc.
-		/// Used in the <see cref="IdentifierPrefix"/>, which is added to all debug logs.
+		/// The index of this dependency manager, in order of creation with global being 0.
+		/// Used in the <see cref="IdentifierPrefix"/>, which is used for debugging.
 		/// </summary>
 		public int GlobalIndex => GlobalDependencyManager.AllLocators.IndexOf(this);
 
@@ -45,12 +46,12 @@ namespace SpaxUtils
 		protected IDependencyManager parent;
 
 		/// <summary>
-		/// The name of this dependency injector (optional) Useful for debugging.
+		/// The name of this dependency injector, used for debugging.
 		/// </summary>
 		protected string name;
 
 		/// <summary>
-		/// Object that is currently being injected.
+		/// Object that is currently being injected, used for debugging.
 		/// </summary>
 		protected object context;
 
@@ -73,16 +74,12 @@ namespace SpaxUtils
 			BindUnchecked(typeof(IDependencyManager), this);
 		}
 
-		#region IDisposable
-
 		public virtual void Dispose()
 		{
 			bindings.Clear();
 		}
 
-		#endregion // IDisposable
-
-		#region IDependencyManager
+		#region Public Methods
 
 		/// <inheritdoc/>
 		public virtual T Get<T>(bool includeParents = true, bool createIfNull = true)
@@ -99,7 +96,6 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public virtual object Get(object key, Type valueType, bool includeParents = true, bool createIfNull = true)
 		{
-			// We don't deal with null.
 			if (key == null || valueType == null)
 			{
 				throw new ArgumentException();
@@ -288,7 +284,8 @@ namespace SpaxUtils
 
 		/// <summary>
 		/// Will try to create a new instance of <see cref="Type"/> <paramref name="type"/>, injecting all its dependencies.
-		/// For regular classes this is the constructor and for <see cref="Component"/>s it's "InjectDependencies" by default.
+		/// For regular classes the dependencies are injected in the constructor.
+		/// For <see cref="Component"/>s the dependencies are injected in the <see cref="IDependencyManager.INJECT_DEPENDENCIES_METHOD"/> by default.
 		/// </summary>
 		/// <returns>Success in creating the instance.</returns>
 		protected virtual bool TryInstantiateDependency(Type type, out object dependency)
@@ -439,7 +436,7 @@ namespace SpaxUtils
 					Array.Copy(objectParams, destinationArray, objectParams.Length);
 					arguments[i] = destinationArray;
 				}
-				// Else try get
+				// Else try get.
 				else
 				{
 					arguments[i] = Get(key, type, true, true);
@@ -460,7 +457,7 @@ namespace SpaxUtils
 		/// </summary>
 		protected virtual void BindUnchecked(object key, object value)
 		{
-			bindings.Add(key, value);
+			bindings[key] = value;
 			SpaxDebug.Log(IdentifierPrefix + "Bind: ", $"({key}, {value})", LogType.Notify, new Color(0.4f, 1f, 0.9f));
 		}
 

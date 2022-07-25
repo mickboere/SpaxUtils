@@ -8,6 +8,7 @@ namespace SpaxUtils
 	/// Calculates a final value by applying a collection of modifiers to a base value.
 	/// Calculations happen on-demand to prevent a recalculation for every change.
 	/// </summary>
+	/// https://github.com/mickboere/SpaxUtils/blob/master/Utilities/Float/CompositeFloatBase.cs
 	public abstract class CompositeFloatBase
 	{
 		/// <summary>

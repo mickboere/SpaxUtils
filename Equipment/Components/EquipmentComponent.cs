@@ -8,6 +8,7 @@ namespace SpaxUtils
 	/// <summary>
 	/// <see cref="IEntityComponent"/> that handles equipment data and visuals.
 	/// </summary>
+	/// https://github.com/mickboere/SpaxUtils/blob/master/Equipment/Components/EquipmentComponent.cs
 	public class EquipmentComponent : EntityComponentBase, IEquipmentComponent
 	{
 		public event Action<RuntimeEquipedData> EquipedEvent;
@@ -19,7 +20,6 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public IReadOnlyCollection<RuntimeEquipedData> EquipedItems => equipedItems.Values;
 
-		private TransformLookup transformLookup;
 		private SharedRigHandler sharedRigHandler;
 
 		private ICommunicationChannel comms;
@@ -28,11 +28,9 @@ namespace SpaxUtils
 		private Dictionary<string, RuntimeEquipedData> equipedItems = new Dictionary<string, RuntimeEquipedData>();
 
 		public void InjectDependencies(
-			TransformLookup transformLookup,
 			SharedRigHandler sharedRigHandler,
 			ICommunicationChannel comms)
 		{
-			this.transformLookup = transformLookup;
 			this.sharedRigHandler = sharedRigHandler;
 			this.comms = comms;
 		}

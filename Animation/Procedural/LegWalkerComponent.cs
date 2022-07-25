@@ -1,9 +1,11 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
 namespace SpaxUtils
 {
+	/// <summary>
+	/// Surveyor wheel implementation that simulates foot movement of an entity to dictate more accurate movement animation.
+	/// </summary>
+	/// https://github.com/mickboere/SpaxUtils/blob/master/Animation/Procedural/LegWalkerComponent.cs
 	public class LegWalkerComponent : EntityComponentBase
 	{
 		public float Effect { get; private set; }

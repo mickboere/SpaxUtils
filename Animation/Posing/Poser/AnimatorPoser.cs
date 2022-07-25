@@ -4,6 +4,11 @@ using UnityEngine;
 
 namespace SpaxUtils
 {
+	/// <summary>
+	/// Component responsible for applying posing instructions to the <see cref="Animator"/>.
+	/// Posing instructions allow for pose-to-pose animation through clever use of blend trees and animation overrides.
+	/// </summary>
+	/// https://github.com/mickboere/SpaxUtils/blob/master/Animation/Posing/Poser/AnimatorPoser.cs
 	public class AnimatorPoser : MonoBehaviour, IDependency
 	{
 		public IPoser Control { get; private set; }
@@ -49,6 +54,11 @@ namespace SpaxUtils
 			}
 		}
 
+		/// <summary>
+		/// Returns the default poser for <paramref name="layer"/>.
+		/// </summary>
+		/// <param name="layer">The posing layer to retrieve the default poser for.</param>
+		/// <returns>The default poser for <paramref name="layer"/>.</returns>
 		public Poser GetMainPoser(string layer)
 		{
 			if (!ValidateRequest(layer))
@@ -59,6 +69,11 @@ namespace SpaxUtils
 			return layers[layer].main;
 		}
 
+		/// <summary>
+		/// Return the current complete posing instructions for <paramref name="layer"/>.
+		/// </summary>
+		/// <param name="layer">The posing layer to retrieve the instructions from.</param>
+		/// <returns>The current complete posing instructions for <paramref name="layer"/>.</returns>
 		public IPoser GetPose(string layer)
 		{
 			if (!ValidateRequest(layer))
@@ -74,6 +89,14 @@ namespace SpaxUtils
 			return posers[layer];
 		}
 
+		/// <summary>
+		/// Provide new posing instructions for <paramref name="layer"/>.
+		/// </summary>
+		/// <param name="provider">Object used to identify the instructions' provider, required for revoking instructions.</param>
+		/// <param name="layer">The posing layer to provide the instructions for.</param>
+		/// <param name="instructions"><see cref="IPoser"/> implementation defining a desired pose blend.</param>
+		/// <param name="prio">The priority of these instructions, higher is more important.</param>
+		/// <param name="weight">The weight of these instructions clamped between 0 and 1, higher weight is more important.</param>
 		public void ProvideInstructions(object provider, string layer, IPoser instructions, int prio = 0, float weight = 1f)
 		{
 			if (!ValidateRequest(layer))
@@ -84,6 +107,14 @@ namespace SpaxUtils
 			layers[layer].providers[provider] = (instructions, prio, weight);
 		}
 
+		/// <summary>
+		/// Provide new posing instructions for <paramref name="layer"/>.
+		/// </summary>
+		/// <param name="provider">Object used to identify the instructions' provider, required for revoking instructions.</param>
+		/// <param name="layer">The posing layer to provide the instructions for.</param>
+		/// <param name="pose">The desired pose blend instructions.</param>
+		/// <param name="prio">The priority of these instructions, higher is more important.</param>
+		/// <param name="weight">The weight of these instructions clamped between 0 and 1, higher weight is more important.</param>
 		public void ProvideInstructions(object provider, string layer, PoseInstructions pose, int prio = 0, float weight = 1f)
 		{
 			if (!ValidateRequest(layer))
@@ -94,6 +125,14 @@ namespace SpaxUtils
 			layers[layer].providers[provider] = (new PoserStruct(pose), prio, weight);
 		}
 
+		/// <summary>
+		/// Provide new posing instructions for <paramref name="layer"/>.
+		/// </summary>
+		/// <param name="provider">Object used to identify the instructions' provider, required for revoking instructions.</param>
+		/// <param name="layer">The posing layer to provide the instructions for.</param>
+		/// <param name="pose">The desired pose blend.</param>
+		/// <param name="prio">The priority of these instructions, higher is more important.</param>
+		/// <param name="weight">The weight of these instructions clamped between 0 and 1, higher weight is more important.</param>
 		public void ProvideInstructions(object provider, string layer, PoseTransition pose, int prio = 0, float weight = 1f)
 		{
 			if (!ValidateRequest(layer))
@@ -104,6 +143,10 @@ namespace SpaxUtils
 			layers[layer].providers[provider] = (new PoserStruct(new PoseInstructions(pose, 1f)), prio, weight);
 		}
 
+		/// <summary>
+		/// Remove the posing instructions previously provided by <paramref name="provider"/>.
+		/// </summary>
+		/// <param name="provider">The object the instructions were provided with.</param>
 		public void RevokeInstructions(object provider)
 		{
 			foreach ((Poser main, Dictionary<object, (IPoser instructions, int prio, float weight)> providers) layer in layers.Values)

@@ -8,7 +8,7 @@ using UnityEngine;
 namespace SpaxUtils
 {
 	/// <summary>
-	/// Node that catches all <see cref="IAct"/>s coming through the <see cref="IActor"/> and tries to pass it to a <see cref="IPerformer"/>.
+	/// Node that catches all <see cref="IAct"/>s relating to combat and tries to pass them to an <see cref="IPerformer"/> for execution.
 	/// </summary>
 	public class AgentCombatControllerNode : StateMachineNodeBase
 	{
