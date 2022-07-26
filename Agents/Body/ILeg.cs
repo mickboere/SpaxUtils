@@ -24,7 +24,6 @@ namespace SpaxUtils
 		Vector3 CastDirection { get; set; }
 
 		float WalkCycleOffset { get; }
-		Vector3 OriginOffset { get; }
 
 		void UpdateFoot(bool grounded, float groundedAmount, bool validGround, Vector3 targetPoint, RaycastHit groundedHit);
 	}

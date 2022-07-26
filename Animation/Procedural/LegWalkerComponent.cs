@@ -21,14 +21,17 @@ namespace SpaxUtils
 		[SerializeField] private AnimationCurve surfaceTractionStride = new AnimationCurve(new Keyframe(0f, 0f), new Keyframe(1f, 1f));
 		[SerializeField] private AnimationCurve terrainTractionStride = new AnimationCurve(new Keyframe(0f, 0f), new Keyframe(1f, 1f));
 		[SerializeField, MinMaxRange(0f, 1f, true)] private Vector2 groundedRange = new Vector2(0.4f, 0.6f);
+		[SerializeField] private float surveyLength = 1.3f;
+		[SerializeField] private float maxReach = 1.5f;
+		[SerializeField] private Vector3 surveyOriginOffset;
+		[SerializeField, Range(0f, 1f)] private float surveyOriginCOMInfluence = 0.5f;
+		[SerializeField, Range(0f, 2f)] private float surveyOriginVelocityInfluence = 0.5f;
 		[Header("Ground check")]
 		[SerializeField] private LayerMask layerMask;
 		[SerializeField, Tooltip("Grounded amount calculated from raycast approaching the ground.")] private AnimationCurve anticipationCurve = new AnimationCurve(new Keyframe(0f, 0f), new Keyframe(1f, 1f));
 		[SerializeField, Tooltip("Grounded amount calculated from raycast exiting the ground.")] private AnimationCurve exitCurve = new AnimationCurve(new Keyframe(0f, 0f), new Keyframe(1f, 1f));
 		[SerializeField, Range(0f, 1f)] private float groundedOvershoot = 0f;
 		[SerializeField] private float checkRadius = 0.1f;
-		[SerializeField] private float surveyLength = 1.3f;
-		[SerializeField] private Vector3 spokeOffset;
 		[SerializeField] private float groundedAmountSmoothing = 16f;
 
 		[SerializeField, Header("Gizmos")] private bool drawGizmos;
@@ -39,12 +42,14 @@ namespace SpaxUtils
 		private RigidbodyWrapper wrapper;
 		private ILegsComponent legs;
 		private IGrounderComponent grounder;
+		private IAgentBody body;
 
-		public void InjectDependencies(RigidbodyWrapper wrapper, ILegsComponent legs, IGrounderComponent grounder)
+		public void InjectDependencies(RigidbodyWrapper wrapper, ILegsComponent legs, IGrounderComponent grounder, IAgentBody body)
 		{
 			this.wrapper = wrapper;
 			this.legs = legs;
 			this.grounder = grounder;
+			this.body = body;
 		}
 
 		public void ResetSurveyor()
@@ -99,7 +104,7 @@ namespace SpaxUtils
 			float z = Mathf.Cos(progress * Mathf.PI);
 			float y = Mathf.Sin(-progress * Mathf.PI);
 			Vector3 dir = transform.rotation * (new Vector3(0f, y, z).normalized * Stride);
-			origin = transform.position + transform.rotation * (spokeOffset + (Vector3.up * Stride));
+			origin = transform.position + transform.rotation * (surveyOriginOffset + (Vector3.up * Stride));
 			return dir;
 		}
 
@@ -114,7 +119,16 @@ namespace SpaxUtils
 			{
 				float progress = GetProgress(leg.WalkCycleOffset);
 				Vector3 direction = GetSurveyorSpoke(progress, out Vector3 origin);
-				origin += transform.rotation * leg.OriginOffset;
+
+				// Move origin sideways to match thigh.
+				origin += (leg.Thigh.position - origin).Localize(transform).FlattenYZ().Globalize(transform);
+
+				// Move origin forwards to meet center of mass.
+				origin += (body.Center - origin).Localize(transform).FlattenXY().Globalize(transform) * surveyOriginCOMInfluence;
+
+				// Move origin to match velocity.
+				origin += wrapper.Velocity * delta * surveyOriginVelocityInfluence;
+
 				direction *= surveyLength;
 				leg.CastOrigin = origin;
 				leg.CastDirection = direction;
@@ -136,7 +150,7 @@ namespace SpaxUtils
 					groundedAmount = progress < 0.5f ? anticipationCurve.Evaluate(fade * 2f) : exitCurve.Evaluate((fade - 0.5f) * 2f);
 				}
 
-				if (targetPoint.Distance(leg.Thigh.position) > leg.Length)
+				if (targetPoint.Distance(leg.Thigh.position) > leg.Length * maxReach)
 				{
 					groundedAmount = 0f;
 				}

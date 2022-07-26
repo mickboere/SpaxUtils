@@ -57,6 +57,10 @@ namespace SpaxUtils
 		public Vector3 TargetVelocity { get; set; }
 		public CompositeFloat Control { get; set; } = new CompositeFloat(1f);
 		public Vector3 ControlAxis { get; set; } = Vector3.one;
+
+		/// <summary>
+		/// Returns true if <see cref="Control"/> is greater than 0.5.
+		/// </summary>
 		public bool HasControl => Control > 0.5f;
 
 		public float Grip { get; private set; }

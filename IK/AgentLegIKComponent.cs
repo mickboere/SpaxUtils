@@ -61,9 +61,14 @@ namespace SpaxUtils
 				}
 				else if (grounder.Grounded)
 				{
-					float movement = Mathf.Clamp01(wrapper.Speed * 5f).InOutSine();
+					float movement = Mathf.Clamp01(wrapper.Speed * 10f).InOutSine();
 					weight = Leg.GroundedAmount * wrapper.Grip * movement;
 				}
+
+				//if (debug)
+				//{
+				//	SpaxDebug.Log($"IK {ikChain}", $"weight{weight:N2}, ground{Leg.GroundedAmount:N2}, grip{wrapper.Grip:N2}, move{Mathf.Clamp01(wrapper.Speed * 10f).InOutSine():N2}");
+				//}
 
 				ikComponent.AddInfluencer(this, ikChain, TargetPosition, weight, TargetRotation * FootRotationOffset, weight);
 				hint.position = HintPosition;

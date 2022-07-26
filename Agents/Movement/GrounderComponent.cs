@@ -82,7 +82,10 @@ namespace SpaxUtils
 			if (Physics.SphereCast(origin, groundRadius, -wrapper.Up, out groundedHit, groundOffset + groundReach, layerMask))
 			{
 				Grounded = true;
-				Debug.DrawLine(origin, groundedHit.point, Color.red);
+				if(debug)
+				{
+					Debug.DrawLine(origin, groundedHit.point, Color.red);
+				}
 			}
 		}
 

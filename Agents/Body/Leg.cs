@@ -19,7 +19,6 @@ namespace SpaxUtils
 		public Vector3 CastOrigin { get; set; }
 		public Vector3 CastDirection { get; set; }
 
-		public Vector3 OriginOffset { get => originOffset; }
 		public float MainCycleOffset { get; set; }
 		public float WalkCycleOffset { get => walkCycleOffset + MainCycleOffset; }
 
@@ -30,7 +29,6 @@ namespace SpaxUtils
 		public float Length => (Knee.position - Thigh.position).magnitude + (Foot.position - Knee.position).magnitude;
 
 		[SerializeField, Range(-1f, 1f)] private float walkCycleOffset;
-		[SerializeField] private Vector3 originOffset;
 
 		public void UpdateFoot(bool grounded, float groundedAmount, bool validGround, Vector3 groundedPoint, RaycastHit groundedHit)
 		{

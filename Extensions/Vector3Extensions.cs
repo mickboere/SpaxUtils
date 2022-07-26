@@ -6,6 +6,7 @@ namespace SpaxUtils
 	public static class Vector3Extensions
 	{
 		#region In-Line Flattening
+
 		/// <summary>
 		/// Handy method to flatten the X axis in-line.
 		/// </summary>
@@ -32,9 +33,32 @@ namespace SpaxUtils
 			vector3.z = 0f;
 			return vector3;
 		}
+
+		public static Vector3 FlattenXY(this Vector3 vector3)
+		{
+			vector3.x = 0f;
+			vector3.y = 0f;
+			return vector3;
+		}
+
+		public static Vector3 FlattenYZ(this Vector3 vector3)
+		{
+			vector3.y = 0f;
+			vector3.z = 0f;
+			return vector3;
+		}
+
+		public static Vector3 FlattenXZ(this Vector3 vector3)
+		{
+			vector3.x = 0f;
+			vector3.z = 0f;
+			return vector3;
+		}
+
 		#endregion In-Line Flattening
 
 		#region In-Line Setting
+
 		/// <summary>
 		/// Handy method to set the X axis in-line.
 		/// </summary>
