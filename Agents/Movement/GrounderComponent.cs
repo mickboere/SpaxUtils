@@ -11,10 +11,13 @@ namespace SpaxUtils
 		public bool Grounded { get; private set; }
 
 		/// <inheritdoc/>
-		public float Traction => Mathf.Min(SurfaceTraction, TerrainTraction);
+		public float SurfaceSlope { get; private set; }
 
 		/// <inheritdoc/>
 		public float SurfaceTraction { get; private set; }
+
+		/// <inheritdoc/>
+		public float TerrainSlope { get; private set; }
 
 		/// <inheritdoc/>
 		public float TerrainTraction { get; private set; }
@@ -36,10 +39,12 @@ namespace SpaxUtils
 		[SerializeField] private int rayCount = 8;
 		[Header("Traction")]
 		[SerializeField, Range(0f, 20f)] private float normalSmoothing = 10f;
-		[SerializeField, Range(0f, 5f)] private float surfaceGrip = 1f;
 		[SerializeField, Range(0f, 90f)] private float maxSurfaceAngle = 90f;
+		[SerializeField, Range(0f, 2f)] private float surfaceGrip = 1f;
+		[SerializeField] private AnimationCurve surfaceGripCurve = new AnimationCurve(new Keyframe(0f, 0f), new Keyframe(1f, 1f));
 		[SerializeField, Range(0f, 90f)] private float maxTerrainAngle = 90f;
-		[SerializeField] private AnimationCurve surfaceTractionCurve = new AnimationCurve(new Keyframe(0f, 0f), new Keyframe(1f, 1f));
+		[SerializeField, Range(0f, 2f)] private float terrainGrip = 1f;
+		[SerializeField] private AnimationCurve terrainGripCurve = new AnimationCurve(new Keyframe(0f, 0f), new Keyframe(1f, 1f));
 		[Header("Debug")]
 		[SerializeField] private bool debug;
 		[SerializeField, Conditional(nameof(debug))] private float debugSize = 0.25f;
@@ -59,22 +64,10 @@ namespace SpaxUtils
 		{
 			GroundCheck();
 			StepCheck();
-			SurfaceTraction = CalculateTraction(SurfaceNormal, maxSurfaceAngle);
-			TerrainTraction = CalculateTraction(TerrainNormal, maxTerrainAngle);
+			CalculateTraction();
 			ApplyGravity();
 		}
 
-		private void ApplyGravity()
-		{
-			if (!Grounded || SurfaceTraction.Approx(0f))
-			{
-				wrapper.Rigidbody.AddForce(Vector3.down * gravity, ForceMode.Acceleration);
-			}
-		}
-
-		/// <summary>
-		/// Check if grounded.
-		/// </summary>
 		private void GroundCheck()
 		{
 			Grounded = false;
@@ -82,16 +75,13 @@ namespace SpaxUtils
 			if (Physics.SphereCast(origin, groundRadius, -wrapper.Up, out groundedHit, groundOffset + groundReach, layerMask))
 			{
 				Grounded = true;
-				if(debug)
+				if (debug)
 				{
 					Debug.DrawLine(origin, groundedHit.point, Color.red);
 				}
 			}
 		}
 
-		/// <summary>
-		/// Move to average point on terrain.
-		/// </summary>
 		private void StepCheck()
 		{
 			if (!Grounded)
@@ -121,9 +111,16 @@ namespace SpaxUtils
 				Debug.DrawRay(StepPoint, TerrainNormal * debugSize, Color.magenta);
 			}
 
-			wrapper.Position = wrapper.Position.SetY(StepPoint.y);
-			//float grip = wrapper.Velocity.normalized.Dot(SurfaceNormal) < 0f ? surfaceTractionCurve.Evaluate(SurfaceTraction * surfaceGrip) : 1f;
-			wrapper.Velocity = wrapper.Velocity.Disperse(SurfaceNormal);// * grip;
+			if ((wrapper.Velocity.y > 0f && wrapper.Position.y < StepPoint.y) ||
+				(wrapper.Velocity.y < 0f && wrapper.Position.y > StepPoint.y))
+			{
+				wrapper.Position = wrapper.Position.SetY(StepPoint.y);
+			}
+
+			if (!SurfaceTraction.Approx(0f))
+			{
+				wrapper.Velocity = wrapper.Velocity.FlattenY();
+			}
 
 			if (debug)
 			{
@@ -134,15 +131,33 @@ namespace SpaxUtils
 			}
 		}
 
-		private float CalculateTraction(Vector3 normal, float maxAngle)
+		private void CalculateTraction()
+		{
+			SurfaceTraction = CalculateTraction(SurfaceNormal, maxSurfaceAngle, surfaceGrip, surfaceGripCurve, out float surfaceSlope);
+			SurfaceSlope = surfaceSlope;
+			TerrainTraction = CalculateTraction(TerrainNormal, maxTerrainAngle, terrainGrip, terrainGripCurve, out float terrainSlope);
+			TerrainSlope = terrainSlope;
+		}
+
+		private float CalculateTraction(Vector3 normal, float maxAngle, float grip, AnimationCurve curve, out float slope)
 		{
 			if (!Grounded)
 			{
+				slope = 0f;
 				return 0f;
 			}
 
 			float angle = Vector3.Angle(wrapper.Up, normal);
-			return angle > maxAngle ? 0f : Mathf.Clamp01(angle / 90f).Invert();
+			slope = Mathf.Clamp01(angle / 90f);
+			return curve.Evaluate(Mathf.Clamp01(angle / maxAngle * grip).Invert());
+		}
+
+		private void ApplyGravity()
+		{
+			if (!Grounded || SurfaceTraction.Approx(0f))
+			{
+				wrapper.Rigidbody.AddForce(Vector3.down * gravity, ForceMode.Acceleration);
+			}
 		}
 	}
 }

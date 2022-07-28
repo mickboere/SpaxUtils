@@ -11,14 +11,19 @@ namespace SpaxUtils
 		bool Grounded { get; }
 
 		/// <summary>
-		/// The minimum between <see cref="SurfaceTraction"/> and <see cref="TerrainTraction"/>.
+		/// Normalized slope of the current surface.
 		/// </summary>
-		float Traction { get; }
+		float SurfaceSlope { get; }
 
 		/// <summary>
 		/// The ability to move on the current surface.
 		/// </summary>
 		float SurfaceTraction { get; }
+
+		/// <summary>
+		/// Normalized slope of the current terrain.
+		/// </summary>
+		float TerrainSlope { get; }
 
 		/// <summary>
 		/// The ability to move on the current terrain.
