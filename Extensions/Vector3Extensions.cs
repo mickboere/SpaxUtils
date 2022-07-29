@@ -327,6 +327,14 @@ namespace SpaxUtils
 			return centre + new Vector3(Mathf.Sin(t * Mathf.PI * 2f), Mathf.Cos(t * Mathf.PI * 2f), 0f).Multiply(radius).Look(forward, up);
 		}
 
+		/// <summary>
+		/// Sample point on circle at <paramref name="t"/> from <paramref name="centre"/> pointing in <paramref name="forward"/>.
+		/// </summary>
+		public static Vector3 Circle(this Vector3 centre, Vector2 scale, float t, Vector3 forward, Vector3 up)
+		{
+			return centre + new Vector3(Mathf.Sin(t * Mathf.PI * 2f), Mathf.Cos(t * Mathf.PI * 2f), 0f).Multiply(scale).Look(forward, up);
+		}
+
 		#region Averaging
 
 		/// <summary>

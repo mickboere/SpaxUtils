@@ -34,7 +34,7 @@ namespace SpaxUtils
 		[SerializeField] private float groundRadius = 0.2f;
 		[Header("Step")]
 		[SerializeField] private float stepHeight = 1f;
-		[SerializeField] private float stepRadius = 0.35f;
+		[SerializeField] private Vector2 stepRadius = new Vector2(0.35f, 0.35f);
 		[SerializeField, Range(0f, 20f)] private float stepSmooth = 20f;
 		[SerializeField] private int rayCount = 8;
 		[Header("Traction")]
@@ -111,11 +111,17 @@ namespace SpaxUtils
 				Debug.DrawRay(StepPoint, TerrainNormal * debugSize, Color.magenta);
 			}
 
-			if ((wrapper.Velocity.y > 0f && wrapper.Position.y < StepPoint.y) ||
-				(wrapper.Velocity.y < 0f && wrapper.Position.y > StepPoint.y))
-			{
-				wrapper.Position = wrapper.Position.SetY(StepPoint.y);
-			}
+			//if ((wrapper.Velocity.y >= 0f && wrapper.Position.y < StepPoint.y) ||
+			//	(wrapper.Velocity.y < 0f && wrapper.Position.y > StepPoint.y))
+			//{
+			//	wrapper.Position = wrapper.Position.SetY(StepPoint.y);
+			//}
+
+			// Disperse velocity depending on slope, pushing back when grounded
+			// OR
+			// Set X,Z pos if sliding and less so Y.
+
+			wrapper.Position = wrapper.Position.SetY(StepPoint.y);
 
 			if (!SurfaceTraction.Approx(0f))
 			{
