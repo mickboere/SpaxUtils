@@ -20,11 +20,6 @@ namespace SpaxUtils
 		[SerializeField] private float controlForce = 2000f;
 		[SerializeField] private float brakeForce = 200f;
 		[SerializeField] private float power = 20f;
-		[Header("Slopes")]
-		[SerializeField, Range(0f, 90f)] private float maxSurfaceSlope = 45f;
-		[SerializeField] private AnimationCurve surfaceTractionCurve = new AnimationCurve(new Keyframe(1f, 1f), new Keyframe(0f, 0f));
-		[SerializeField, Range(0f, 90f)] private float maxTerrainSlope = 60f;
-		[SerializeField] private AnimationCurve terrainTractionCurve = new AnimationCurve(new Keyframe(1f, 1f), new Keyframe(0f, 0f));
 
 		private RigidbodyWrapper wrapper;
 		private IGrounderComponent grounder;
@@ -111,14 +106,10 @@ namespace SpaxUtils
 		{
 			wrapper.ControlAxis = Vector3.one.FlattenY();
 
-			float surfaceAngle = grounder.SurfaceTraction.Invert() * 90f;
-			float surfaceLoss = surfaceAngle > maxSurfaceSlope ? 0f : surfaceAngle / maxSurfaceSlope;
-			float terrainAngle = grounder.TerrainTraction.Invert() * 90f;
-			float terrainLoss = terrainAngle > maxTerrainSlope ? 0f : terrainAngle / maxTerrainSlope;
-			float traction = surfaceLoss > terrainLoss ? surfaceTractionCurve.Evaluate(surfaceLoss) : terrainTractionCurve.Evaluate(terrainLoss);
-
-			//SpaxDebug.Log($"{traction}", $"surfAngle={surfaceAngle}, surfTrac={surfaceLoss}, terAngle={terrainAngle}, terTrac={terrainLoss}");
-			wrapper.ApplyMovement(controlForce, brakeForce, power, false, traction);
+			if (!grounder.Sliding)
+			{
+				wrapper.ApplyMovement(controlForce, brakeForce, power, false, grounder.Traction * grounder.Mobility);
+			}
 
 			SetTargetDirection(Vector3.Lerp(Vector3.Lerp(Transform.forward, wrapper.Velocity, wrapper.Control),
 				wrapper.TargetVelocity, wrapper.Grip));

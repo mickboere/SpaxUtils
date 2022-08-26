@@ -75,7 +75,7 @@ namespace SpaxUtils
 			}
 
 			Effect = velocity / defaultSpeed;
-			Stride = Mathf.Clamp(strideLength * Effect, minStride, maxStride) * Mathf.Min(surfaceTractionStride.Evaluate(grounder.SurfaceTraction), terrainTractionStride.Evaluate(grounder.TerrainTraction));
+			Stride = Mathf.Clamp(strideLength * Effect, minStride, maxStride);// * Mathf.Min(surfaceTractionStride.Evaluate(grounder.Traction), terrainTractionStride.Evaluate(grounder.Mobility));
 			Circumference = Stride * Mathf.PI;
 
 			float travel = velocity / Circumference;

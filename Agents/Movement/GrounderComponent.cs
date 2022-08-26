@@ -11,16 +11,20 @@ namespace SpaxUtils
 		public bool Grounded { get; private set; }
 
 		/// <inheritdoc/>
-		public float SurfaceSlope { get; private set; }
+		public bool Sliding => Traction <= slidingThreshold;// ||
+															//((rigidbodyWrapper.TargetVelocity.magnitude / (rigidbodyWrapper.Speed * Traction)) - 1) > slidingThreshold;
 
 		/// <inheritdoc/>
-		public float SurfaceTraction { get; private set; }
+		public float SurfaceSlope { get; private set; }
 
 		/// <inheritdoc/>
 		public float TerrainSlope { get; private set; }
 
 		/// <inheritdoc/>
-		public float TerrainTraction { get; private set; }
+		public float Traction { get; private set; }
+
+		/// <inheritdoc/>
+		public float Mobility { get; private set; }
 
 		public Vector3 SurfaceNormal { get; private set; }
 		public Vector3 TerrainNormal { get; private set; }
@@ -28,28 +32,30 @@ namespace SpaxUtils
 
 		[SerializeField] private LayerMask layerMask;
 		[SerializeField] private float gravity = 9f;
-		[Header("Ground")]
+		[Header("Grounding")]
 		[SerializeField] private float groundOffset = 1f;
 		[SerializeField] private float groundReach = 0.25f;
 		[SerializeField] private float groundRadius = 0.2f;
-		[Header("Step")]
+		[Header("Stepping")]
 		[SerializeField] private float stepHeight = 1f;
 		[SerializeField] private Vector2 stepRadius = new Vector2(0.35f, 0.35f);
 		[SerializeField, Range(0f, 20f)] private float stepSmooth = 20f;
 		[SerializeField] private int rayCount = 8;
 		[Header("Traction")]
-		[SerializeField, Range(0f, 20f)] private float normalSmoothing = 10f;
+		[SerializeField, Range(0f, 20f)] private float normalSmoothing = 5f;
 		[SerializeField, Range(0f, 90f)] private float maxSurfaceAngle = 90f;
-		[SerializeField, Range(0f, 2f)] private float surfaceGrip = 1f;
-		[SerializeField] private AnimationCurve surfaceGripCurve = new AnimationCurve(new Keyframe(0f, 0f), new Keyframe(1f, 1f));
+		[SerializeField, Range(0f, 2f)] private float traction = 1f;
+		[SerializeField] private AnimationCurve tractionCurve = new AnimationCurve(new Keyframe(0f, 0f), new Keyframe(1f, 1f));
+		[SerializeField, Range(0f, 1f)] private float slidingThreshold = 0f;
+		[Header("Mobility")]
 		[SerializeField, Range(0f, 90f)] private float maxTerrainAngle = 90f;
-		[SerializeField, Range(0f, 2f)] private float terrainGrip = 1f;
-		[SerializeField] private AnimationCurve terrainGripCurve = new AnimationCurve(new Keyframe(0f, 0f), new Keyframe(1f, 1f));
+		[SerializeField, Range(0f, 2f)] private float mobility = 1f;
+		[SerializeField] private AnimationCurve mobilityCurve = new AnimationCurve(new Keyframe(0f, 0f), new Keyframe(1f, 1f));
 		[Header("Debug")]
 		[SerializeField] private bool debug;
 		[SerializeField, Conditional(nameof(debug))] private float debugSize = 0.25f;
 
-		private RigidbodyWrapper wrapper;
+		private RigidbodyWrapper rigidbodyWrapper;
 
 		private RaycastHit groundedHit;
 		private Vector3[] stepPoints;
@@ -57,7 +63,7 @@ namespace SpaxUtils
 
 		public void InjectDependencies(RigidbodyWrapper wrapper)
 		{
-			this.wrapper = wrapper;
+			this.rigidbodyWrapper = wrapper;
 		}
 
 		protected void FixedUpdate()
@@ -65,14 +71,14 @@ namespace SpaxUtils
 			GroundCheck();
 			StepCheck();
 			CalculateTraction();
-			ApplyGravity();
+			ApplyForces();
 		}
 
 		private void GroundCheck()
 		{
 			Grounded = false;
-			Vector3 origin = wrapper.Position + wrapper.Up * groundOffset;
-			if (Physics.SphereCast(origin, groundRadius, -wrapper.Up, out groundedHit, groundOffset + groundReach, layerMask))
+			Vector3 origin = rigidbodyWrapper.Position + rigidbodyWrapper.Up * groundOffset;
+			if (Physics.SphereCast(origin, groundRadius, -rigidbodyWrapper.Up, out groundedHit, groundOffset + groundReach, layerMask))
 			{
 				Grounded = true;
 				if (debug)
@@ -86,50 +92,33 @@ namespace SpaxUtils
 		{
 			if (!Grounded)
 			{
-				StepPoint = wrapper.Position + wrapper.Velocity.ClampMagnitude(stepHeight * 0.9f);
+				StepPoint = rigidbodyWrapper.Position + rigidbodyWrapper.Velocity.ClampMagnitude(stepHeight * 0.9f);
 				return;
 			}
 
-			Vector3 origin = wrapper.Position + wrapper.Up * stepHeight;
-			if (!PhysicsUtils.TubeCast(origin, stepRadius, -wrapper.Up, wrapper.Forward, stepHeight * 2f, layerMask, rayCount, out List<RaycastHit> hits, true))
+			Vector3 origin = rigidbodyWrapper.Position + rigidbodyWrapper.Up * stepHeight;
+			if (!PhysicsUtils.TubeCast(origin, stepRadius, -rigidbodyWrapper.Up, rigidbodyWrapper.Forward, stepHeight * 2f, layerMask, rayCount, out List<RaycastHit> hits, true))
 			{
 				SurfaceNormal = Vector3.Lerp(SurfaceNormal, groundedHit.normal, normalSmoothing * Time.fixedDeltaTime);
-				TerrainNormal = Vector3.Lerp(TerrainNormal, wrapper.Up, normalSmoothing * Time.fixedDeltaTime);
+				TerrainNormal = Vector3.Lerp(TerrainNormal, rigidbodyWrapper.Up, normalSmoothing * Time.fixedDeltaTime);
 				return;
 			}
 
+			// Calculate surface
 			stepNormals = hits.Select(h => h.normal).ToArray();
 			SurfaceNormal = Vector3.Lerp(SurfaceNormal, stepNormals.AverageDirection(), normalSmoothing * Time.fixedDeltaTime);
 
+			// Calculate terrain
 			stepPoints = hits.Select(h => h.point).ToArray();
-			TerrainNormal = Vector3.Lerp(TerrainNormal, stepPoints.ApproxNormalFromPoints(wrapper.Up, out Vector3 center, debug, debugSize), normalSmoothing * Time.fixedDeltaTime);
+			TerrainNormal = Vector3.Lerp(TerrainNormal, stepPoints.ApproxNormalFromPoints(rigidbodyWrapper.Up, out Vector3 center, debug, debugSize), normalSmoothing * Time.fixedDeltaTime);
 
-			StepPoint = Vector3.Lerp(StepPoint, center, stepSmooth * Time.fixedDeltaTime);
+			// Calculate desired position.
+			StepPoint = rigidbodyWrapper.Position + Vector3.Lerp(StepPoint - rigidbodyWrapper.Position, center - rigidbodyWrapper.Position, stepSmooth * Time.fixedDeltaTime);
 
 			if (debug)
 			{
 				Debug.DrawRay(StepPoint, TerrainNormal * debugSize, Color.magenta);
-			}
 
-			//if ((wrapper.Velocity.y >= 0f && wrapper.Position.y < StepPoint.y) ||
-			//	(wrapper.Velocity.y < 0f && wrapper.Position.y > StepPoint.y))
-			//{
-			//	wrapper.Position = wrapper.Position.SetY(StepPoint.y);
-			//}
-
-			// Disperse velocity depending on slope, pushing back when grounded
-			// OR
-			// Set X,Z pos if sliding and less so Y.
-
-			wrapper.Position = wrapper.Position.SetY(StepPoint.y);
-
-			if (!SurfaceTraction.Approx(0f))
-			{
-				wrapper.Velocity = wrapper.Velocity.FlattenY();
-			}
-
-			if (debug)
-			{
 				foreach (RaycastHit hit in hits)
 				{
 					Debug.DrawLine(origin, hit.point, Color.blue);
@@ -139,30 +128,55 @@ namespace SpaxUtils
 
 		private void CalculateTraction()
 		{
-			SurfaceTraction = CalculateTraction(SurfaceNormal, maxSurfaceAngle, surfaceGrip, surfaceGripCurve, out float surfaceSlope);
-			SurfaceSlope = surfaceSlope;
-			TerrainTraction = CalculateTraction(TerrainNormal, maxTerrainAngle, terrainGrip, terrainGripCurve, out float terrainSlope);
-			TerrainSlope = terrainSlope;
-		}
-
-		private float CalculateTraction(Vector3 normal, float maxAngle, float grip, AnimationCurve curve, out float slope)
-		{
 			if (!Grounded)
 			{
-				slope = 0f;
-				return 0f;
+				Traction = 0f;
+				SurfaceSlope = 0f;
+				Mobility = 0f;
+				TerrainSlope = 0f;
+				return;
 			}
 
-			float angle = Vector3.Angle(wrapper.Up, normal);
-			slope = Mathf.Clamp01(angle / 90f);
-			return curve.Evaluate(Mathf.Clamp01(angle / maxAngle * grip).Invert());
+			// Walk slowly up and down stairs.
+			//		Decrease mobility depending on slope.
+			// Walk slowly up slopes and increasingly fast down.
+			//		Decrease traction depending on slope.
+			//		Lower traction should increase downwards slope speed over time.
+
+			// Traction
+			float surfaceAngle = Vector3.Angle(rigidbodyWrapper.Up, SurfaceNormal);
+			Traction = tractionCurve.Evaluate(Mathf.Clamp01(surfaceAngle / maxSurfaceAngle * traction).Invert());
+			SurfaceSlope = Mathf.Clamp01(surfaceAngle / 90f);
+
+			// Mobility
+			float terrainAngle = Vector3.Angle(rigidbodyWrapper.Up, TerrainNormal);
+			Mobility = mobilityCurve.Evaluate(Mathf.Clamp01(terrainAngle / maxTerrainAngle * mobility).Invert());
+			TerrainSlope = Mathf.Clamp01(terrainAngle / 90f);
+
+			// Down-slope
+			Mobility += Mathf.Clamp01(Traction.Invert() * rigidbodyWrapper.Forward.Dot(SurfaceNormal));
 		}
 
-		private void ApplyGravity()
+		private void ApplyForces()
 		{
-			if (!Grounded || SurfaceTraction.Approx(0f))
+			if (Grounded)
 			{
-				wrapper.Rigidbody.AddForce(Vector3.down * gravity, ForceMode.Acceleration);
+				if (Sliding)
+				{
+					Vector3 slidingForce = (Vector3.down * gravity).ProjectOnPlane(TerrainNormal);
+					rigidbodyWrapper.Rigidbody.AddForce(slidingForce, ForceMode.Acceleration);
+				}
+				else
+				{
+					Vector3 movementDispersion = rigidbodyWrapper.Velocity.DisperseOnPlane(TerrainNormal) * Mobility;
+					rigidbodyWrapper.Rigidbody.AddForce(movementDispersion, ForceMode.VelocityChange);
+				}
+
+				rigidbodyWrapper.Position = rigidbodyWrapper.Position.SetY(StepPoint.y);
+			}
+			else
+			{
+				rigidbodyWrapper.Rigidbody.AddForce(Vector3.down * gravity, ForceMode.Acceleration);
 			}
 		}
 	}

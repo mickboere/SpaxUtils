@@ -183,20 +183,23 @@ namespace SpaxUtils
 			return vector;
 		}
 
+		/// <summary>
+		/// Projects <paramref name="vector"/> onto plane with <paramref name="normal"/>.
+		/// </summary>
+		/// <param name="vector"></param>
+		/// <param name="normal"></param>
+		/// <returns></returns>
 		public static Vector3 ProjectOnPlane(this Vector3 vector, Vector3 normal)
 		{
 			return Vector3.ProjectOnPlane(vector, normal);
 		}
 
 		/// <summary>
-		/// Returns the difference between <paramref name="vector"/> and it projected on <paramref name="normal"/>.
+		/// Projects <paramref name="vector"/> onto a plane with <paramref name="normal"/> and returns the difference.
 		/// </summary>
-		/// <param name="vector"></param>
-		/// <param name="normal"></param>
-		/// <returns></returns>
-		public static Vector3 Disperse(this Vector3 vector, Vector3 normal)
+		public static Vector3 DisperseOnPlane(this Vector3 vector, Vector3 normal)
 		{
-			return Vector3.ProjectOnPlane(vector, normal).normalized.Multiply(vector.magnitude);
+			return Vector3.ProjectOnPlane(vector, normal) - vector;
 		}
 
 		/// <summary>

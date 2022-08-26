@@ -11,23 +11,30 @@ namespace SpaxUtils
 		bool Grounded { get; }
 
 		/// <summary>
-		/// Normalized slope of the current surface.
+		/// Returns true when the entity is unable to move due to too low <see cref="Traction"/>.
+		/// </summary>
+		bool Sliding { get; }
+
+		/// <summary>
+		/// Normalized slope of the average surface normal.
 		/// </summary>
 		float SurfaceSlope { get; }
 
 		/// <summary>
-		/// The ability to move on the current surface.
-		/// </summary>
-		float SurfaceTraction { get; }
-
-		/// <summary>
-		/// Normalized slope of the current terrain.
+		/// Normalized slope of the average terrain height.
 		/// </summary>
 		float TerrainSlope { get; }
 
 		/// <summary>
-		/// The ability to move on the current terrain.
+		/// The grip on the current surface.
+		/// When too low, <see cref="Sliding"/> will be true.
 		/// </summary>
-		float TerrainTraction { get; }
+		float Traction { get; }
+
+		/// <summary>
+		/// The ability to move on the current terrain.
+		/// Running down-hill may increase mobility, up-hill decrease. Stuff like walking in water may also decrease it.
+		/// </summary>
+		float Mobility { get; }
 	}
 }

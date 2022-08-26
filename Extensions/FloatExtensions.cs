@@ -30,14 +30,28 @@ namespace SpaxUtils
 			return f * (1f + overshot * 2f) - overshot;
 		}
 
+		/// <summary>
+		/// Returns 1 - <paramref name="f"/>.
+		/// </summary>
 		public static float Invert(this float f)
 		{
 			return 1f - f;
 		}
 
+		/// <summary>
+		/// Returns 1 - <paramref name="f"/> clamped between 0 and 1.
+		/// </summary>
 		public static float InvertClamp(this float f)
 		{
 			return 1f - Mathf.Clamp01(f);
+		}
+
+		/// <summary>
+		/// Returns absolute of <paramref name="f"/>.
+		/// </summary>
+		public static float Abs(this float f)
+		{
+			return Mathf.Abs(f);
 		}
 
 		#region Easing functions
