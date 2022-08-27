@@ -192,7 +192,7 @@ namespace SpaxUtils
 		public float CalculateGrip(bool controlled = true)
 		{
 			float grip = TargetVelocity == Vector3.zero || Speed.Approx(0f) ? 1f :
-				Mathf.Clamp01(Vector3.Dot(Rigidbody.velocity.normalized, TargetVelocity.normalized) * (Speed / TargetVelocity.magnitude));
+				Mathf.Clamp01(Rigidbody.velocity.normalized.NormalizedDot(TargetVelocity.normalized) * (Speed / TargetVelocity.magnitude));
 
 			if (controlled)
 			{

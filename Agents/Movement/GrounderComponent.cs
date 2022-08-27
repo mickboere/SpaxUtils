@@ -11,8 +11,7 @@ namespace SpaxUtils
 		public bool Grounded { get; private set; }
 
 		/// <inheritdoc/>
-		public bool Sliding => Traction <= slidingThreshold;// ||
-															//((rigidbodyWrapper.TargetVelocity.magnitude / (rigidbodyWrapper.Speed * Traction)) - 1) > slidingThreshold;
+		public bool Sliding => Grounded && Traction <= slidingThreshold;
 
 		/// <inheritdoc/>
 		public float SurfaceSlope { get; private set; }

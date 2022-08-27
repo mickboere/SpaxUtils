@@ -23,14 +23,16 @@ namespace SpaxUtils
 
 		private RigidbodyWrapper wrapper;
 		private IGrounderComponent grounder;
+		private ILegsComponent legs;
 
 		private Vector3 targetDirection;
 		private Vector3 inputAxis;
 
-		public void InjectDependencies(RigidbodyWrapper wrapper, IGrounderComponent grounder)
+		public void InjectDependencies(RigidbodyWrapper wrapper, IGrounderComponent grounder, ILegsComponent legs)
 		{
 			this.wrapper = wrapper;
 			this.grounder = grounder;
+			this.legs = legs;
 		}
 
 		protected void OnEnable()
@@ -108,7 +110,7 @@ namespace SpaxUtils
 
 			if (!grounder.Sliding)
 			{
-				wrapper.ApplyMovement(controlForce, brakeForce, power, false, grounder.Traction * grounder.Mobility);
+				wrapper.ApplyMovement(controlForce, brakeForce, power, false, grounder.Mobility);
 			}
 
 			SetTargetDirection(Vector3.Lerp(Vector3.Lerp(Transform.forward, wrapper.Velocity, wrapper.Control),

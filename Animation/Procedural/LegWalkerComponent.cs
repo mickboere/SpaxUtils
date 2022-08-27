@@ -26,6 +26,7 @@ namespace SpaxUtils
 		[SerializeField] private Vector3 surveyOriginOffset;
 		[SerializeField, Range(0f, 1f)] private float surveyOriginCOMInfluence = 0.5f;
 		[SerializeField, Range(0f, 2f)] private float surveyOriginVelocityInfluence = 0.5f;
+		[SerializeField] private float maxFootingAngle = 75f;
 		[Header("Ground check")]
 		[SerializeField] private LayerMask layerMask;
 		[SerializeField, Tooltip("Grounded amount calculated from raycast approaching the ground.")] private AnimationCurve anticipationCurve = new AnimationCurve(new Keyframe(0f, 0f), new Keyframe(1f, 1f));
@@ -39,14 +40,14 @@ namespace SpaxUtils
 		[SerializeField, Conditional(nameof(drawGizmos))] private bool drawRaycasts;
 
 		private float progress;
-		private RigidbodyWrapper wrapper;
+		private RigidbodyWrapper rigidbodyWrapper;
 		private ILegsComponent legs;
 		private IGrounderComponent grounder;
 		private IAgentBody body;
 
 		public void InjectDependencies(RigidbodyWrapper wrapper, ILegsComponent legs, IGrounderComponent grounder, IAgentBody body)
 		{
-			this.wrapper = wrapper;
+			this.rigidbodyWrapper = wrapper;
 			this.legs = legs;
 			this.grounder = grounder;
 			this.body = body;
@@ -63,7 +64,7 @@ namespace SpaxUtils
 
 		public void UpdateSurveyor(float delta)
 		{
-			UpdateSurveyor(delta, wrapper.HorizontalSpeed);
+			UpdateSurveyor(delta, rigidbodyWrapper.HorizontalSpeed);
 			UpdateLegs(delta);
 		}
 
@@ -110,7 +111,7 @@ namespace SpaxUtils
 
 		private void UpdateLegs(float delta)
 		{
-			if (!wrapper.HasControl)
+			if (!rigidbodyWrapper.HasControl)
 			{
 				return;
 			}
@@ -127,7 +128,7 @@ namespace SpaxUtils
 				origin += (body.Center - origin).Localize(transform).FlattenXY().Globalize(transform) * surveyOriginCOMInfluence;
 
 				// Move origin to match velocity.
-				origin += wrapper.Velocity * delta * surveyOriginVelocityInfluence;
+				origin += rigidbodyWrapper.Velocity * delta * surveyOriginVelocityInfluence;
 
 				direction *= surveyLength;
 				leg.CastOrigin = origin;
@@ -139,6 +140,11 @@ namespace SpaxUtils
 				bool validGround = false;
 				if (Physics.SphereCast(origin, checkRadius, direction, out RaycastHit hit, Stride * surveyLength, layerMask))
 				{
+					if (hit.normal.Dot(rigidbodyWrapper.Up) * 90f > maxFootingAngle && TryFindSafeSpot(hit.point, out RaycastHit safeSpot))
+					{
+						hit = safeSpot;
+					}
+
 					validGround = true;
 					groundedHit = hit;
 					if (progress < 0.5f)
@@ -159,6 +165,24 @@ namespace SpaxUtils
 				groundedAmount = Mathf.Lerp(leg.GroundedAmount, groundedAmount, groundedAmountSmoothing * delta);
 				leg.UpdateFoot(grounded, groundedAmount, validGround, targetPoint, groundedHit);
 			}
+		}
+
+		private bool TryFindSafeSpot(Vector3 end, out RaycastHit safeSpot, int iterations = 6)
+		{
+			for (int i = 1; i <= iterations; i++)
+			{
+				float f = (float)i / iterations;
+				Vector3 t = Vector3.Lerp(end, rigidbodyWrapper.Position, f);
+				Vector3 origin = t + rigidbodyWrapper.Up * body.Scale;
+				if (Physics.SphereCast(origin, checkRadius, -rigidbodyWrapper.Up, out RaycastHit hit, surveyLength * body.Scale, layerMask))
+				{
+					safeSpot = hit;
+					return true;
+				}
+			}
+
+			safeSpot = default;
+			return false;
 		}
 
 		protected void OnDrawGizmos()

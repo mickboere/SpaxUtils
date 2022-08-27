@@ -84,9 +84,9 @@ namespace SpaxUtils
 				float scale = (Leg.Knee.position - Leg.Foot.position).magnitude * 0.05f;
 
 				// Knee Hint
-				//Gizmos.color = Color.magenta;
-				//Gizmos.DrawLine(Leg.Knee.position, HintPosition);
-				//Gizmos.DrawSphere(HintPosition, 0.05f);
+				Gizmos.color = Color.magenta;
+				Gizmos.DrawLine(Leg.Knee.position, HintPosition);
+				Gizmos.DrawSphere(HintPosition, 0.05f);
 
 				// Target position and orientation.
 				Gizmos.color = Color.black;
