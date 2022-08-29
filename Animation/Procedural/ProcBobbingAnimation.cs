@@ -13,10 +13,10 @@ namespace SpaxUtils
 		[SerializeField] private float smoothingSpeed = 8f;
 
 		private RigidbodyWrapper wrapper;
-		private LegWalkerComponent walker;
+		private SurveyorComponent walker;
 		private ILegsComponent legs;
 
-		public void InjectDependencies(RigidbodyWrapper wrapper, LegWalkerComponent walker, ILegsComponent legs)
+		public void InjectDependencies(RigidbodyWrapper wrapper, SurveyorComponent walker, ILegsComponent legs)
 		{
 			this.wrapper = wrapper;
 			this.walker = walker;

@@ -6,7 +6,7 @@ namespace SpaxUtils
 	/// Surveyor wheel implementation that simulates foot movement of an entity to dictate more accurate movement animation.
 	/// </summary>
 	/// https://github.com/mickboere/SpaxUtils/blob/master/Animation/Procedural/LegWalkerComponent.cs
-	public class LegWalkerComponent : EntityComponentBase
+	public class SurveyorComponent : EntityComponentBase
 	{
 		public float Effect { get; private set; }
 		public float Stride { get; private set; }
@@ -18,8 +18,6 @@ namespace SpaxUtils
 		[SerializeField] private float minStride = 0.3f;
 		[SerializeField] private float maxStride = 1.3f;
 		[SerializeField] private AnimationCurve strideSpeed = new AnimationCurve(new Keyframe(0f, 0f), new Keyframe(1f, 1f));
-		[SerializeField] private AnimationCurve surfaceTractionStride = new AnimationCurve(new Keyframe(0f, 0f), new Keyframe(1f, 1f));
-		[SerializeField] private AnimationCurve terrainTractionStride = new AnimationCurve(new Keyframe(0f, 0f), new Keyframe(1f, 1f));
 		[SerializeField, MinMaxRange(0f, 1f, true)] private Vector2 groundedRange = new Vector2(0.4f, 0.6f);
 		[SerializeField] private float surveyLength = 1.3f;
 		[SerializeField] private float maxReach = 1.5f;
@@ -33,7 +31,6 @@ namespace SpaxUtils
 		[SerializeField, Tooltip("Grounded amount calculated from raycast exiting the ground.")] private AnimationCurve exitCurve = new AnimationCurve(new Keyframe(0f, 0f), new Keyframe(1f, 1f));
 		[SerializeField, Range(0f, 1f)] private float groundedOvershoot = 0f;
 		[SerializeField] private float checkRadius = 0.1f;
-		[SerializeField] private float groundedAmountSmoothing = 16f;
 
 		[SerializeField, Header("Gizmos")] private bool drawGizmos;
 		[SerializeField, Conditional(nameof(drawGizmos))] private bool drawSpokes;
@@ -76,7 +73,7 @@ namespace SpaxUtils
 			}
 
 			Effect = velocity / defaultSpeed;
-			Stride = Mathf.Clamp(strideLength * Effect, minStride, maxStride);// * Mathf.Min(surfaceTractionStride.Evaluate(grounder.Traction), terrainTractionStride.Evaluate(grounder.Mobility));
+			Stride = Mathf.Clamp(strideLength * Effect, minStride, maxStride);
 			Circumference = Stride * Mathf.PI;
 
 			float travel = velocity / Circumference;
@@ -138,8 +135,11 @@ namespace SpaxUtils
 				Vector3 targetPoint = leg.TargetPoint;
 				RaycastHit groundedHit = leg.GroundedHit;
 				bool validGround = false;
+
+				// Cast to find valid target foot position.
 				if (Physics.SphereCast(origin, checkRadius, direction, out RaycastHit hit, Stride * surveyLength, layerMask))
 				{
+					// Find safe spot if hit normal exceeds max footing angle.
 					if (hit.normal.Dot(rigidbodyWrapper.Up) * 90f > maxFootingAngle && TryFindSafeSpot(hit.point, out RaycastHit safeSpot))
 					{
 						hit = safeSpot;
@@ -152,8 +152,9 @@ namespace SpaxUtils
 						targetPoint = hit.point;
 					}
 
-					float fade = Mathf.Clamp01(Mathf.InverseLerp(Stride * surveyLength, Stride, hit.distance));
-					groundedAmount = progress < 0.5f ? anticipationCurve.Evaluate(fade * 2f) : exitCurve.Evaluate((fade - 0.5f) * 2f);
+					float hitDistance = Vector3.Distance(origin, hit.point) - Stride;
+					float fade = Mathf.Clamp01(hitDistance / (Stride * surveyLength - Stride)).Invert();
+					groundedAmount = progress < 0.5f ? anticipationCurve.Evaluate(fade) : exitCurve.Evaluate(fade);
 				}
 
 				if (targetPoint.Distance(leg.Thigh.position) > leg.Length * maxReach)
@@ -162,7 +163,6 @@ namespace SpaxUtils
 				}
 
 				bool grounded = progress > groundedRange.x && progress < groundedRange.y;
-				groundedAmount = Mathf.Lerp(leg.GroundedAmount, groundedAmount, groundedAmountSmoothing * delta);
 				leg.UpdateFoot(grounded, groundedAmount, validGround, targetPoint, groundedHit);
 			}
 		}
