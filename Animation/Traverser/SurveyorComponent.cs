@@ -25,6 +25,10 @@ namespace SpaxUtils
 		[SerializeField, Range(0f, 1f)] private float surveyOriginCOMInfluence = 0.5f;
 		[SerializeField, Range(0f, 2f)] private float surveyOriginVelocityInfluence = 0.5f;
 		[SerializeField] private float maxFootingAngle = 75f;
+		[Header("Stride Influence")]
+		[SerializeField, Range(0f, 1f)] private float mobilityStrideInfluence = 1f;
+		[SerializeField, Range(0f, 1f)] private float accelerationStrideInfluence = 1f;
+		[SerializeField] private Vector2 accelerationSmoothing = new Vector2(10f, 2f);
 		[Header("Ground check")]
 		[SerializeField] private LayerMask layerMask;
 		[SerializeField, Tooltip("Grounded amount calculated from raycast approaching the ground.")] private AnimationCurve anticipationCurve = new AnimationCurve(new Keyframe(0f, 0f), new Keyframe(1f, 1f));
@@ -41,6 +45,9 @@ namespace SpaxUtils
 		private ILegsComponent legs;
 		private IGrounderComponent grounder;
 		private IAgentBody body;
+
+		private float smoothAccel;
+		private float previousAccel;
 
 		public void InjectDependencies(RigidbodyWrapper wrapper, ILegsComponent legs, IGrounderComponent grounder, IAgentBody body)
 		{
@@ -73,6 +80,16 @@ namespace SpaxUtils
 			}
 
 			Effect = velocity / defaultSpeed;
+
+			// Mobility Influence
+			Effect *= Mathf.Lerp(1f, grounder.Mobility, mobilityStrideInfluence);
+
+			// Acceleration Influence
+			float accel = rigidbodyWrapper.Acceleration.magnitude;
+			smoothAccel = Mathf.Lerp(smoothAccel, 1f - accel, (accel > previousAccel ? accelerationSmoothing.x : accelerationSmoothing.y) * delta);
+			previousAccel = accel;
+			Effect *= Mathf.Lerp(1f, smoothAccel, accelerationStrideInfluence);
+
 			Stride = Mathf.Clamp(strideLength * Effect, minStride, maxStride);
 			Circumference = Stride * Mathf.PI;
 
@@ -140,7 +157,7 @@ namespace SpaxUtils
 				if (Physics.SphereCast(origin, checkRadius, direction, out RaycastHit hit, Stride * surveyLength, layerMask))
 				{
 					// Find safe spot if hit normal exceeds max footing angle.
-					if (hit.normal.Dot(rigidbodyWrapper.Up) * 90f > maxFootingAngle && TryFindSafeSpot(hit.point, out RaycastHit safeSpot))
+					if (hit.normal.Dot(rigidbodyWrapper.Up).InvertClamped() * 90f > maxFootingAngle && TryFindSafeSpot(hit.point, out RaycastHit safeSpot))
 					{
 						hit = safeSpot;
 					}
@@ -174,7 +191,15 @@ namespace SpaxUtils
 				float f = (float)i / iterations;
 				Vector3 t = Vector3.Lerp(end, rigidbodyWrapper.Position, f);
 				Vector3 origin = t + rigidbodyWrapper.Up * body.Scale;
-				if (Physics.SphereCast(origin, checkRadius, -rigidbodyWrapper.Up, out RaycastHit hit, surveyLength * body.Scale, layerMask))
+				//if (Physics.SphereCast(origin, checkRadius, -rigidbodyWrapper.Up, out RaycastHit hit, surveyLength * body.Scale, layerMask))
+				//{
+				//	safeSpot = hit;
+				//	return true;
+				//}
+
+				Debug.DrawRay(origin, -rigidbodyWrapper.Up * surveyLength * body.Scale, Color.red, 1f);
+
+				if (Physics.Raycast(origin, -rigidbodyWrapper.Up, out RaycastHit hit, surveyLength * body.Scale, layerMask))
 				{
 					safeSpot = hit;
 					return true;
@@ -213,11 +238,17 @@ namespace SpaxUtils
 					{
 						Gizmos.color = Color.red;
 						Gizmos.DrawLine(leg.CastOrigin, leg.GroundedHit.point);
+						Gizmos.DrawSphere(leg.CastOrigin, 0.05f);
+						Gizmos.DrawSphere(leg.CastOrigin + leg.GroundedHit.point, 0.05f);
 					}
 					else
 					{
 						Gizmos.color = GetProgress(leg.WalkCycleOffset, false) < 0.5f ? Color.yellow : Color.magenta;
-						Gizmos.DrawRay(leg.CastOrigin + leg.CastDirection.normalized * Stride, leg.CastDirection.normalized * (surveyLength - 1f));
+						Vector3 pos = leg.CastOrigin + leg.CastDirection.normalized * Stride;
+						Vector3 dir = leg.CastDirection.normalized * (surveyLength - 1f);
+						Gizmos.DrawRay(pos, dir);
+						Gizmos.DrawSphere(pos, 0.05f);
+						Gizmos.DrawSphere(pos + dir, 0.05f);
 					}
 				}
 			}
@@ -226,6 +257,8 @@ namespace SpaxUtils
 			{
 				Vector3 dir = GetSurveyorSpoke(GetProgress(offset), out Vector3 pos);
 				Gizmos.DrawRay(pos, dir);
+				Gizmos.DrawSphere(pos, 0.05f);
+				Gizmos.DrawSphere(pos + dir, 0.05f);
 			}
 		}
 	}

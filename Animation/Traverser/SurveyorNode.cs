@@ -6,7 +6,7 @@ using UnityEngine;
 namespace SpaxUtils
 {
 	/// <summary>
-	/// Node in control of the <see cref="SurveyorComponent"/> and the main body poser to match.
+	/// Node in control of the <see cref="SurveyorComponent"/>.
 	/// </summary>
 	public class SurveyorNode : StateMachineNodeBase
 	{
@@ -18,17 +18,17 @@ namespace SpaxUtils
 		private RigidbodyWrapper rigidbodyWrapper;
 		private AnimatorPoser agentPoser;
 		private IAgentMovementHandler agentMovementHandler;
-		private SurveyorComponent legWalkerComponent;
+		private SurveyorComponent surveyorComponent;
 		private CallbackService callbackService;
 
 		public void InjectDependencies(RigidbodyWrapper rigidbodyWrapper, AnimatorPoser agentPoser,
-			IAgentMovementHandler agentMovementHandler, SurveyorComponent legWalkerComponent,
+			IAgentMovementHandler agentMovementHandler, SurveyorComponent surveyorComponent,
 			CallbackService callbackService)
 		{
 			this.rigidbodyWrapper = rigidbodyWrapper;
 			this.agentPoser = agentPoser;
 			this.agentMovementHandler = agentMovementHandler;
-			this.legWalkerComponent = legWalkerComponent;
+			this.surveyorComponent = surveyorComponent;
 			this.callbackService = callbackService;
 		}
 
@@ -42,32 +42,12 @@ namespace SpaxUtils
 		{
 			base.OnStateExit();
 			callbackService.FixedUpdateCallback -= OnFixedUpdateCallback;
-			legWalkerComponent.ResetSurveyor();
-		}
-
-		private void UpdatePose()
-		{
-			Vector3 blendPosition = rigidbodyWrapper.RelativeVelocity / agentMovementHandler.MovementSpeed * rigidbodyWrapper.Grip;
-			(IPoseSequence from, IPoseSequence to, float interpolation) instructions = movementBlendTree.GetInstructions(blendPosition);
-
-			if (instructions.from == null)
-			{
-				return;
-			}
-
-			instructions.from.GlobalData.TryGetFloat(AnimationFloatConstants.CYCLE_OFFSET, 0f, out float fromOffset);
-			instructions.to.GlobalData.TryGetFloat(AnimationFloatConstants.CYCLE_OFFSET, 0f, out float toOffset);
-			float fromProgress = legWalkerComponent.GetProgress(fromOffset * (1f - instructions.interpolation), false);
-			float toProgress = legWalkerComponent.GetProgress(toOffset * instructions.interpolation, false);
-			PoseTransition from = instructions.from.Evaluate(fromProgress * instructions.from.TotalDuration);
-			PoseTransition to = instructions.to.Evaluate(toProgress * instructions.to.TotalDuration);
-			Poser.Pose(from, to, instructions.interpolation);
+			surveyorComponent.ResetSurveyor();
 		}
 
 		private void OnFixedUpdateCallback()
 		{
-			legWalkerComponent.UpdateSurveyor(Time.fixedDeltaTime);
-			UpdatePose();
+			surveyorComponent.UpdateSurveyor(Time.fixedDeltaTime);
 		}
 	}
 }

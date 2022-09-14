@@ -41,9 +41,17 @@ namespace SpaxUtils
 		/// <summary>
 		/// Returns 1 - <paramref name="f"/> clamped between 0 and 1.
 		/// </summary>
-		public static float InvertClamp(this float f)
+		public static float InvertClamped(this float f)
 		{
 			return 1f - Mathf.Clamp01(f);
+		}
+
+		/// <summary>
+		/// Returns <paramref name="f"/> clamped between 0 and 1.
+		/// </summary>
+		public static float Clamp01(this float f)
+		{
+			return Mathf.Clamp01(f);
 		}
 
 		/// <summary>

@@ -109,7 +109,7 @@ namespace SpaxUtils
 		{
 			Vector3 delta = Velocity - lastVelocity;
 			velocityDelta.Push(delta);
-			Acceleration = velocityDelta.GetValue();
+			Acceleration = velocityDelta;
 			lastVelocity = Velocity;
 
 			ApplyImpacts();
