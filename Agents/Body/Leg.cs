@@ -38,7 +38,7 @@ namespace SpaxUtils
 			GroundedHit = groundedHit;
 
 			// Footsteps
-			if (Grounded != grounded)
+			if (grounded != Grounded)
 			{
 				Grounded = grounded;
 				FootstepEvent?.Invoke(this, grounded);

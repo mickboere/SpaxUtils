@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace SpaxUtils
 {
-	[DefaultExecutionOrder(9000)]
+	//[DefaultExecutionOrder(9000)]
 	public class AgentLegIKComponent : EntityComponentBase
 	{
 		[Serializable]
@@ -30,7 +30,7 @@ namespace SpaxUtils
 			private IIKComponent ikComponent;
 			private IGrounderComponent grounder;
 			private ILegsComponent legs;
-			private RigidbodyWrapper wrapper;
+			private RigidbodyWrapper rigidbodyWrapper;
 
 			public void InjectDependencies(
 				IIKComponent ikComponent,
@@ -41,14 +41,14 @@ namespace SpaxUtils
 				this.ikComponent = ikComponent;
 				this.grounder = grounder;
 				this.legs = legs;
-				this.wrapper = wrapper;
+				this.rigidbodyWrapper = wrapper;
 			}
 
 			public void UpdateIK(LayerMask layerMask)
 			{
 				float weight = 0f;
 
-				if (!wrapper.HasControl)
+				if (!rigidbodyWrapper.HasControl || grounder.Sliding)
 				{
 					Vector3 dir = footHelper.position - Leg.Knee.position;
 					float length = dir.magnitude;
@@ -61,8 +61,8 @@ namespace SpaxUtils
 				}
 				else if (grounder.Grounded)
 				{
-					float movement = Mathf.Clamp01(wrapper.Speed * 10f).InOutSine();
-					weight = Leg.GroundedAmount * wrapper.Grip * movement;
+					float movement = Mathf.Clamp01(rigidbodyWrapper.Speed * 10f).InOutSine();
+					weight = Leg.GroundedAmount * rigidbodyWrapper.Grip * movement;
 				}
 
 				//if (debug)

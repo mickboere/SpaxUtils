@@ -8,6 +8,7 @@ namespace SpaxUtils
 	/// <summary>
 	/// Service that gives access to all types of update callbacks, including those of a <see cref="MonoBehaviour"/> like Update, FixedUpdate, LateUpdate, but also has support for callbacks with custom intervals.
 	/// </summary>
+	[DefaultExecutionOrder(-1)]
 	public class CallbackService : MonoBehaviour, IComponentService
 	{
 		public event Action FixedUpdateCallback;

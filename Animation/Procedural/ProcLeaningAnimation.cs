@@ -12,6 +12,7 @@ namespace SpaxUtils
 		[SerializeField] private float speed = 6f;
 		[SerializeField] private float maxAngle = 20f;
 		[SerializeField] private int frameRate;
+		[SerializeField] private bool fixedUpdate;
 
 		private RigidbodyWrapper wrapper;
 		private CallbackService callbackService;
@@ -40,9 +41,17 @@ namespace SpaxUtils
 			}
 		}
 
+		protected void Update()
+		{
+			if (!fixedUpdate && frameRate <= 0)
+			{
+				UpdateRotation();
+			}
+		}
+
 		protected void FixedUpdate()
 		{
-			if (frameRate <= 0)
+			if (fixedUpdate && frameRate <= 0)
 			{
 				UpdateRotation();
 			}

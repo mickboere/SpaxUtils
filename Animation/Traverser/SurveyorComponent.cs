@@ -74,7 +74,7 @@ namespace SpaxUtils
 
 		public void UpdateSurveyor(float delta, float velocity)
 		{
-			if (velocity < 0.01f)
+			if (!grounder.Grounded || grounder.Sliding || velocity < 0.01f)
 			{
 				return;
 			}
@@ -179,7 +179,7 @@ namespace SpaxUtils
 					groundedAmount = 0f;
 				}
 
-				bool grounded = progress > groundedRange.x && progress < groundedRange.y;
+				bool grounded = grounder.Grounded && progress > groundedRange.x && progress < groundedRange.y;
 				leg.UpdateFoot(grounded, groundedAmount, validGround, targetPoint, groundedHit);
 			}
 		}

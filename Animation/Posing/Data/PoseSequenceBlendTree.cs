@@ -14,6 +14,8 @@ namespace SpaxUtils
 			return GetInstructions(new Vector3(position.x, 0f, position.y));
 		}
 
+		// TODO: Create new method for proper directional blending with more than 2 sequences
+		// Then add another method which takes in float progress returns a complete IPoser instructions.
 		public (IPoseSequence from, IPoseSequence to, float interpolation) GetInstructions(Vector3 position)
 		{
 			if (blendTree.Count < 2)

@@ -5,11 +5,24 @@ namespace SpaxUtils
 {
 	public abstract class IKComponentBase : EntityComponentBase, IIKComponent
 	{
+		[SerializeField] private bool fixedUpdate;
+
 		protected Dictionary<string, Dictionary<object, IKInfluencer>> influencers = new Dictionary<string, Dictionary<object, IKInfluencer>>();
 
 		protected void Update()
 		{
-			ApplyInfluencers(influencers);
+			if (!fixedUpdate)
+			{
+				ApplyInfluencers(influencers);
+			}
+		}
+
+		protected void FixedUpdate()
+		{
+			if (fixedUpdate)
+			{
+				ApplyInfluencers(influencers);
+			}
 		}
 
 		public void AddInfluencer(object caller, string ikChain, Transform target, float positionWeight, float rotationWeight)
@@ -40,7 +53,5 @@ namespace SpaxUtils
 		}
 
 		protected abstract void ApplyInfluencers(Dictionary<string, Dictionary<object, IKInfluencer>> influencers);
-
-		//public abstract (Vector3 position, Quaternion rotation) GetRawBoneData(Transform bone);
 	}
 }
