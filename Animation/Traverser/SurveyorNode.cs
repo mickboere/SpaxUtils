@@ -13,21 +13,15 @@ namespace SpaxUtils
 		protected Poser Poser => agentPoser.GetMainPoser(PoserLayerConstants.BODY);
 
 		[SerializeField, Input(backingValue = ShowBackingValue.Never)] protected Connections.StateComponent inConnection;
-		[SerializeField] private PoseSequenceBlendTree movementBlendTree;
 
-		private RigidbodyWrapper rigidbodyWrapper;
 		private AnimatorPoser agentPoser;
-		private IAgentMovementHandler agentMovementHandler;
 		private SurveyorComponent surveyorComponent;
 		private CallbackService callbackService;
 
-		public void InjectDependencies(RigidbodyWrapper rigidbodyWrapper, AnimatorPoser agentPoser,
-			IAgentMovementHandler agentMovementHandler, SurveyorComponent surveyorComponent,
-			CallbackService callbackService)
+		public void InjectDependencies(AnimatorPoser agentPoser,
+			SurveyorComponent surveyorComponent, CallbackService callbackService)
 		{
-			this.rigidbodyWrapper = rigidbodyWrapper;
 			this.agentPoser = agentPoser;
-			this.agentMovementHandler = agentMovementHandler;
 			this.surveyorComponent = surveyorComponent;
 			this.callbackService = callbackService;
 		}

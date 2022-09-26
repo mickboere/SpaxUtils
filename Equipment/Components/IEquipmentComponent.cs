@@ -9,7 +9,7 @@ namespace SpaxUtils
 	public interface IEquipmentComponent
 	{
 		event Action<RuntimeEquipedData> EquipedEvent;
-		event Action<RuntimeEquipedData> UnequipedEvent;
+		event Action<RuntimeEquipedData> UnequipingEvent;
 
 		/// <summary>
 		/// All registered <see cref="IEquipmentSlot"/>s.

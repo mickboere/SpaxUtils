@@ -16,11 +16,14 @@ namespace SpaxUtils
 
 		[SerializeField, Input(backingValue = ShowBackingValue.Never)] protected Connections.StateComponent inConnection;
 		[SerializeField] private float retryActionWindow;
+		[SerializeField] private float armCarryWeight = 0.4f;
 
 		private IActor actor;
 		private AnimatorPoser poser;
 		private IAgentMovementHandler movementHandler;
 		private RigidbodyWrapper rigidbodyWrapper;
+		private IEquipmentComponent equipment;
+		private ArmSlotsComponent armSlots;
 
 		private List<IPerformer> performers = new List<IPerformer>();
 		private Act<bool>? lastAct;
@@ -28,12 +31,16 @@ namespace SpaxUtils
 		private bool wasPerforming;
 		private FloatOperationModifier controlMod;
 
-		public void InjectDependencies(IActor actor, AnimatorPoser poser, IAgentMovementHandler movementHandler, RigidbodyWrapper rigidbodyWrapper)
+		public void InjectDependencies(IActor actor, AnimatorPoser poser,
+			IAgentMovementHandler movementHandler, RigidbodyWrapper rigidbodyWrapper,
+			IEquipmentComponent equipment, ArmSlotsComponent armSlots)
 		{
 			this.actor = actor;
 			this.poser = poser;
 			this.movementHandler = movementHandler;
 			this.rigidbodyWrapper = rigidbodyWrapper;
+			this.equipment = equipment;
+			this.armSlots = armSlots;
 		}
 
 		public override void OnStateEntered()
@@ -69,6 +76,13 @@ namespace SpaxUtils
 			lastAct = null;
 			lastFailedAttempt = null;
 			wasPerforming = false;
+		}
+
+		public override void OnUpdate()
+		{
+			base.OnUpdate();
+
+			armSlots.UpdateArms(armCarryWeight);
 		}
 
 		private void OnAct(Act<bool> act)

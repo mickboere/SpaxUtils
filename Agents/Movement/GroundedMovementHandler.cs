@@ -13,7 +13,7 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public float MovementSpeed => speed;
 
-		protected Rigidbody Rigidbody => wrapper.Rigidbody;
+		protected Rigidbody Rigidbody => rigidbodyWrapper.Rigidbody;
 
 		[SerializeField] private float speed = 2.5f;
 		[SerializeField] private float rotationSmoothingSpeed = 20f;
@@ -21,18 +21,16 @@ namespace SpaxUtils
 		[SerializeField] private float brakeForce = 200f;
 		[SerializeField] private float power = 20f;
 
-		private RigidbodyWrapper wrapper;
+		private RigidbodyWrapper rigidbodyWrapper;
 		private IGrounderComponent grounder;
-		private ILegsComponent legs;
 
 		private Vector3 targetDirection;
 		private Vector3 inputAxis;
 
-		public void InjectDependencies(RigidbodyWrapper wrapper, IGrounderComponent grounder, ILegsComponent legs)
+		public void InjectDependencies(RigidbodyWrapper wrapper, IGrounderComponent grounder)
 		{
-			this.wrapper = wrapper;
+			this.rigidbodyWrapper = wrapper;
 			this.grounder = grounder;
-			this.legs = legs;
 		}
 
 		protected void OnEnable()
@@ -78,7 +76,7 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public void SetTargetVelocity(Vector3 velocity)
 		{
-			wrapper.TargetVelocity = velocity;
+			rigidbodyWrapper.TargetVelocity = velocity;
 		}
 
 		/// <inheritdoc/>
@@ -96,41 +94,41 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public void ForceRotation()
 		{
-			if (wrapper.TargetVelocity == Vector3.zero)
+			if (rigidbodyWrapper.TargetVelocity == Vector3.zero)
 			{
 				return;
 			}
 
-			Entity.GameObject.transform.rotation = Quaternion.LookRotation(wrapper.TargetVelocity);
+			Entity.GameObject.transform.rotation = Quaternion.LookRotation(rigidbodyWrapper.TargetVelocity);
 		}
 
 		private void ApplyMovement()
 		{
-			wrapper.ControlAxis = Vector3.one.FlattenY();
+			rigidbodyWrapper.ControlAxis = Vector3.one.FlattenY();
 
 			if (!grounder.Sliding)
 			{
-				wrapper.ApplyMovement(controlForce, brakeForce, power, false, grounder.Mobility);
+				rigidbodyWrapper.ApplyMovement(controlForce, brakeForce, power, false, grounder.Mobility);
 			}
 
-			SetTargetDirection(Vector3.Lerp(Vector3.Lerp(Transform.forward, wrapper.Velocity, wrapper.Control),
-				wrapper.TargetVelocity, wrapper.Grip));
+			SetTargetDirection(Vector3.Lerp(Vector3.Lerp(Transform.forward, rigidbodyWrapper.Velocity, rigidbodyWrapper.Control),
+				rigidbodyWrapper.TargetVelocity, rigidbodyWrapper.Grip));
 		}
 
 		private void ApplyRotation()
 		{
 			if (targetDirection == Vector3.zero)
 			{
-				if (wrapper.Velocity.FlattenY() != Vector3.zero)
+				if (rigidbodyWrapper.Velocity.FlattenY() != Vector3.zero)
 				{
-					Rigidbody.rotation = Quaternion.Lerp(Rigidbody.rotation, Quaternion.LookRotation(wrapper.Velocity.FlattenY()),
-						rotationSmoothingSpeed * Time.deltaTime * wrapper.Control);
+					Rigidbody.rotation = Quaternion.Lerp(Rigidbody.rotation, Quaternion.LookRotation(rigidbodyWrapper.Velocity.FlattenY()),
+						rotationSmoothingSpeed * Time.deltaTime * rigidbodyWrapper.Control);
 				}
 				return;
 			}
 
 			Rigidbody.rotation = Quaternion.Lerp(Rigidbody.rotation, Quaternion.LookRotation(targetDirection),
-				rotationSmoothingSpeed * Time.deltaTime * wrapper.Control);
+				rotationSmoothingSpeed * Time.deltaTime * rigidbodyWrapper.Control);
 		}
 	}
 }

@@ -9,7 +9,6 @@ namespace SpaxUtils
 	/// </summary>
 	public class ItemInventory : IDisposable
 	{
-		public event Action ClearedInventoryEvent;
 		public event Action<IReadOnlyDictionary<string, RuntimeItemData>> ReloadedInventoryEvent;
 		public event Action<RuntimeItemData> AddedItemEvent;
 		public event Action<RuntimeItemData> RemovedItemEvent;
@@ -18,19 +17,19 @@ namespace SpaxUtils
 		/// <summary>
 		/// The inventory data collection. (<see cref="RuntimeDataCollection.ID"/>, <see cref="RuntimeItemData"/>)
 		/// </summary>
-		public IReadOnlyDictionary<string, RuntimeItemData> Inventory => inventory;
+		public IReadOnlyDictionary<string, RuntimeItemData> Entries => entries;
 
 		private IDependencyManager dependencies;
 		private IItemDatabase itemDatabase;
 		private RuntimeDataCollection inventoryData;
-		private Dictionary<string, RuntimeItemData> inventory;
+		private Dictionary<string, RuntimeItemData> entries;
 
 		public ItemInventory(IDependencyManager dependencies, IItemDatabase itemDatabase, RuntimeDataCollection inventoryData)
 		{
 			this.dependencies = dependencies;
 			this.itemDatabase = itemDatabase;
 
-			inventory = new Dictionary<string, RuntimeItemData>();
+			entries = new Dictionary<string, RuntimeItemData>();
 
 			this.inventoryData = inventoryData;
 			this.inventoryData.DataUpdatedEvent += OnDataEntryUpdatedEvent;
@@ -49,11 +48,11 @@ namespace SpaxUtils
 		/// </summary>
 		public void ClearInventory()
 		{
-			foreach (KeyValuePair<string, RuntimeItemData> entry in inventory)
+			foreach (KeyValuePair<string, RuntimeItemData> entry in entries)
 			{
 				entry.Value.Dispose();
 			}
-			inventory.Clear();
+			entries.Clear();
 		}
 
 		/// <summary>
@@ -69,49 +68,38 @@ namespace SpaxUtils
 				AddItem(runtimeData);
 			}
 
-			ReloadedInventoryEvent?.Invoke(inventory);
+			ReloadedInventoryEvent?.Invoke(entries);
 		}
 
 		#region Adding
 
 		/// <summary>
-		/// Creates a <see cref="RuntimeItemData"/> and adds it to the inventory.
+		/// Adds a new item of type <paramref name="item"/> to the inventory.
 		/// </summary>
-		/// <param name="runtimeData">The runtime data belonging to the item.</param>
-		/// <param name="itemData">The item data asset.</param>
-		public void AddItem(RuntimeDataCollection runtimeData, IItemData itemData)
+		/// <param name="item">The <see cref="IItemData"/> to add to this inventory.</param>
+		public RuntimeItemData AddItem(IItemData item)
 		{
-			RuntimeDataCollection data = new RuntimeDataCollection(runtimeData.UID, new List<RuntimeDataEntry>(), inventoryData).Append(runtimeData, itemData.Data);
+			RuntimeDataCollection runtimeData = RuntimeDataCollection.New();
+			return AddItem(item, runtimeData);
+		}
 
-			if (inventoryData.GetEntry(data.UID) != null)
-			{
-				// Create dependency manager for the item data and bind it.
-				DependencyManager dependencyManager = new DependencyManager(dependencies, $"[ITEM]{itemData.Name}");
-				RuntimeItemData runtimeItemData = new RuntimeItemData(data, itemData, dependencyManager);
-				dependencyManager.Bind(runtimeItemData);
+		/// <summary>
+		/// Adds a new item of type ID <paramref name="itemID"/> to the inventory.
+		/// </summary>
+		/// <param name="itemID">The ID of the type of item to add an instance of.</param>
+		public RuntimeItemData AddItem(string itemID)
+		{
+			RuntimeDataCollection runtimeData = RuntimeDataCollection.New();
+			return AddItem(runtimeData, itemID);
+		}
 
-				RuntimeItemData itemStack = inventory.Values.FirstOrDefault((v) => !v.Unique && v.ItemID == runtimeItemData.ItemID);
-				if (!runtimeItemData.Unique && itemStack != null)
-				{
-					// Non-unique (stacking) item of which we already have an instance, increase the quantity of the existing one.
-					itemStack.RuntimeData.Set(ItemDataIdentifierConstants.QUANTITY, itemStack.Quantity + runtimeItemData.Quantity);
-					data.Dispose();
-					runtimeItemData.Dispose();
-				}
-				else
-				{
-					// New item, add it to the inventory and invoke necessary methods/events.
-					inventoryData.TryAdd(data);
-					inventory.Add(runtimeItemData.RuntimeData.UID, runtimeItemData);
-					runtimeItemData.ExecuteBehaviour();
-					AddedItemEvent?.Invoke(runtimeItemData);
-				}
-			}
-			else
-			{
-				SpaxDebug.Error("Inventory already contains data with same runtime ID; ", data.UID);
-				data.Dispose();
-			}
+		/// <summary>
+		/// Adds a (new) item using the data provided by <paramref name="runtimeItemData"/>.
+		/// </summary>
+		/// <param name="runtimeItemData">The item data to add to the inventory.</param>
+		public RuntimeItemData AddItem(IRuntimeItemData runtimeItemData)
+		{
+			return AddItem(runtimeItemData.ItemData, runtimeItemData.RuntimeData);
 		}
 
 		/// <summary>
@@ -119,31 +107,53 @@ namespace SpaxUtils
 		/// </summary>
 		/// <param name="runtimeData">The runtime data belonging to the item.</param>
 		/// <param name="itemID">The ID of the item type (optional when runtime data contains the ID.)</param>
-		public void AddItem(RuntimeDataCollection runtimeData, string itemID = null)
+		public RuntimeItemData AddItem(RuntimeDataCollection runtimeData, string itemID = null)
 		{
-			// Get IItemData from database.
 			IItemData itemData = itemDatabase.GetItem(itemID ?? runtimeData.Get<string>(ItemDataIdentifierConstants.ITEM_ID));
-			AddItem(runtimeData, itemData);
+			return AddItem(itemData, runtimeData);
 		}
 
 		/// <summary>
-		/// Adds a new item of type ID <paramref name="itemID"/> to the inventory.
+		/// Creates a <see cref="RuntimeItemData"/> and adds it to the inventory.
 		/// </summary>
-		/// <param name="itemID">The ID of the type of item to add an instance of.</param>
-		public void AddNewItem(string itemID)
+		/// <param name="runtimeData">The runtime data belonging to the item.</param>
+		/// <param name="itemData">The item asset data.</param>
+		public RuntimeItemData AddItem(IItemData itemData, RuntimeDataCollection runtimeData)
 		{
-			RuntimeDataCollection runtimeData = RuntimeDataCollection.New();
-			AddItem(runtimeData, itemID);
-		}
+			runtimeData = new RuntimeDataCollection(runtimeData.UID, new List<RuntimeDataEntry>(), inventoryData).Append(runtimeData, itemData.Data);
 
-		/// <summary>
-		/// Adds a new item of type <paramref name="item"/> to the inventory.
-		/// </summary>
-		/// <param name="item">The <see cref="IItemData"/> to add to this inventory.</param>
-		public void AddNewItem(IItemData item)
-		{
-			RuntimeDataCollection runtimeData = RuntimeDataCollection.New();
-			AddItem(runtimeData, item);
+			if (!entries.ContainsKey(runtimeData.UID))
+			{
+				// Create dependency manager for the item data and bind it.
+				DependencyManager dependencyManager = new DependencyManager(dependencies, $"[ITEM]{itemData.Name}");
+				RuntimeItemData runtimeItemData = new RuntimeItemData(runtimeData, itemData, dependencyManager);
+				dependencyManager.Bind(runtimeItemData);
+
+				RuntimeItemData itemStack = entries.Values.FirstOrDefault((v) => !v.Unique && v.ItemID == runtimeItemData.ItemID);
+				if (!runtimeItemData.Unique && itemStack != null)
+				{
+					// Non-unique (stacking) item of which we already have an instance, increase the quantity of the existing one.
+					itemStack.RuntimeData.Set(ItemDataIdentifierConstants.QUANTITY, itemStack.Quantity + runtimeItemData.Quantity);
+					runtimeData.Dispose();
+					runtimeItemData.Dispose();
+					return itemStack;
+				}
+				else
+				{
+					// New item, add it to the inventory and invoke necessary methods/events.
+					inventoryData.TryAdd(runtimeData);
+					entries.Add(runtimeItemData.RuntimeID, runtimeItemData);
+					runtimeItemData.InitializeBehaviour();
+					AddedItemEvent?.Invoke(runtimeItemData);
+					return runtimeItemData;
+				}
+			}
+			else
+			{
+				SpaxDebug.Error("Inventory already contains data with same runtime ID; ", runtimeData.UID);
+				runtimeData.Dispose();
+				return entries[runtimeData.UID];
+			}
 		}
 
 		#endregion
@@ -156,13 +166,21 @@ namespace SpaxUtils
 		/// <param name="runtimeItemID">The ID of the runtime item to remove.</param>
 		public void RemoveItem(string runtimeItemID)
 		{
-			RuntimeItemData data = Get(runtimeItemID);
+			RuntimeItemData runtimeData = Get(runtimeItemID);
+			RemoveItem(runtimeData);
+		}
 
-			if (data != null)
+		/// <summary>
+		/// Removes the <paramref name="runtimeData"/> from the inventory.
+		/// </summary>
+		/// <param name="runtimeData">The item data to remove.</param>
+		public void RemoveItem(RuntimeItemData runtimeData)
+		{
+			if (runtimeData != null)
 			{
-				inventory.Remove(runtimeItemID);
-				RemovedItemEvent?.Invoke(data);
-				data.Dispose();
+				entries.Remove(runtimeData.RuntimeID);
+				RemovedItemEvent?.Invoke(runtimeData);
+				runtimeData.Dispose();
 			}
 		}
 
@@ -177,15 +195,15 @@ namespace SpaxUtils
 		/// <returns>Runtime item with ID <paramref name="runtimeItemID"/>.</returns>
 		public RuntimeItemData Get(string runtimeItemID)
 		{
-			return inventory[runtimeItemID];
+			return entries[runtimeItemID];
 		}
 
 		/// <summary>
-		/// Function that utilizes a <paramref name="predicate"/> <see cref="Func{T, TResult}"/> to filter the items.
+		/// Get method that utilizes a func to filter the items and return a list.
 		/// </summary>
 		public List<RuntimeItemData> Get(Func<RuntimeItemData, bool> predicate)
 		{
-			return inventory.Values.Where((i) => predicate(i)).ToList();
+			return entries.Values.Where((i) => predicate(i)).ToList();
 		}
 
 		#endregion

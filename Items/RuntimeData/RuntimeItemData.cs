@@ -11,20 +11,19 @@ namespace SpaxUtils
 	/// </summary>
 	public class RuntimeItemData : IDisposable
 	{
-		public string RuntimeID => RuntimeData.UID;
+		public IItemData ItemData { get; private set; }
+		public RuntimeDataCollection RuntimeData { get; private set; }
 
-		#region Overridable Item Properties
-		public string ItemID => RuntimeData.Get<string>(ItemDataIdentifierConstants.ITEM_ID) ?? ItemData.UID;
+		public string RuntimeID => RuntimeData.UID;
+		public string ItemID => ItemData.UID;
+
+		public int Quantity => Unique ? 1 : RuntimeData.TryGet(ItemDataIdentifierConstants.QUANTITY, out int quantity) ? quantity : 1;
+
 		public string Name => RuntimeData.Get<string>(ItemDataIdentifierConstants.NAME) ?? ItemData.Name;
 		public string Description => RuntimeData.Get<string>(ItemDataIdentifierConstants.DESCRIPTION) ?? ItemData.Description;
 		public string Category => RuntimeData.Get<string>(ItemDataIdentifierConstants.CATEGORY) ?? ItemData.Category;
 		public bool Unique => RuntimeData.TryGet(ItemDataIdentifierConstants.UNIQUE, out bool unique) ? unique : ItemData.Unique;
-		#endregion
 
-		public int Quantity => Unique ? 1 : RuntimeData.TryGet(ItemDataIdentifierConstants.QUANTITY, out int quantity) ? quantity : 1;
-
-		public RuntimeDataCollection RuntimeData { get; private set; }
-		public IItemData ItemData { get; private set; }
 		public IDependencyManager DependencyManager { get; private set; }
 
 		private List<BehaviourAsset> behaviours;
@@ -35,14 +34,14 @@ namespace SpaxUtils
 			ItemData = itemData;
 			DependencyManager = dependencyManager;
 
-			// We only rely on the item ID being present in the data, everything else can be retrieved from the itemData upon loading.
+			// We only rely on the item ID being present in the data upon instancing.
 			runtimeData.Set(ItemDataIdentifierConstants.ITEM_ID, itemData.UID);
 		}
 
 		/// <summary>
 		/// Starts all behaviours defined in the item data.
 		/// </summary>
-		public void ExecuteBehaviour()
+		public void InitializeBehaviour()
 		{
 			foreach (BehaviourAsset behaviour in ItemData.InventoryBehaviour)
 			{

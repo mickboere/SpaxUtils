@@ -20,12 +20,12 @@ namespace SpaxUtils
 													  //UpperChest // This is the Upper Chest bone.
 													  //Neck // This is the Neck bone.
 		public const string HEAD = "Head"; // This is the Head bone.
-										   //LeftShoulder // This is the Left Shoulder bone.
-										   //RightShoulder // This is the Right Shoulder bone.
-										   //LeftUpperArm // This is the Left Upper Arm bone.
-										   //RightUpperArm // This is the Right Upper Arm bone.
-										   //LeftLowerArm // This is the Left Elbow bone.
-										   //RightLowerArm // This is the Right Elbow bone.
+		public const string LEFT_SHOULDER = "LeftShoulder"; // This is the Left Shoulder bone.
+		public const string RIGHT_SHOULDER = "RightShoulder"; // This is the Right Shoulder bone.
+		public const string LEFT_UPPER_ARM = "LeftUpperArm"; // This is the Left Upper Arm bone.
+		public const string RIGHT_UPPER_ARM = "RightUpperArm"; // This is the Right Upper Arm bone.
+		public const string LEFT_LOWER_ARM = "LeftLowerArm"; // This is the Left Elbow bone.
+		public const string RIGHT_LOWER_ARM = "RightLowerArm"; // This is the Right Elbow bone.
 		public const string LEFT_HAND = "LeftHand"; // This is the Left Wrist bone.
 		public const string RIGHT_HAND = "RightHand"; // This is the Right Wrist bone.
 													  //LeftToes // This is the Left Toes bone.

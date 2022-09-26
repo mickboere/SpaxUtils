@@ -8,11 +8,10 @@ namespace SpaxUtils
 	/// <summary>
 	/// <see cref="IEntityComponent"/> that handles equipment data and visuals.
 	/// </summary>
-	/// https://github.com/mickboere/SpaxUtils/blob/master/Equipment/Components/EquipmentComponent.cs
-	public class EquipmentComponent : EntityComponentBase, IEquipmentComponent
+	public class EquipmentComponent : EntityComponentBase, IEquipmentComponent, IInteractor
 	{
 		public event Action<RuntimeEquipedData> EquipedEvent;
-		public event Action<RuntimeEquipedData> UnequipedEvent;
+		public event Action<RuntimeEquipedData> UnequipingEvent;
 
 		/// <inheritdoc/>
 		public IReadOnlyCollection<IEquipmentSlot> Slots => slots.Values;
@@ -21,18 +20,18 @@ namespace SpaxUtils
 		public IReadOnlyCollection<RuntimeEquipedData> EquipedItems => equipedItems.Values;
 
 		private SharedRigHandler sharedRigHandler;
-
 		private ICommunicationChannel comms;
+		private InventoryComponent inventoryComponent;
 
 		private Dictionary<string, IEquipmentSlot> slots = new Dictionary<string, IEquipmentSlot>();
 		private Dictionary<string, RuntimeEquipedData> equipedItems = new Dictionary<string, RuntimeEquipedData>();
 
-		public void InjectDependencies(
-			SharedRigHandler sharedRigHandler,
-			ICommunicationChannel comms)
+		public void InjectDependencies(SharedRigHandler sharedRigHandler,
+			ICommunicationChannel comms, InventoryComponent inventoryComponent)
 		{
 			this.sharedRigHandler = sharedRigHandler;
 			this.comms = comms;
+			this.inventoryComponent = inventoryComponent;
 		}
 
 		protected void OnEnable()
@@ -45,6 +44,8 @@ namespace SpaxUtils
 		{
 			comms.StopListening(this);
 		}
+
+		#region IEquipmentComponent
 
 		/// <inheritdoc/>
 		public bool TryGetSlot(string id, out IEquipmentSlot slot)
@@ -206,8 +207,8 @@ namespace SpaxUtils
 				// Clear equiped slot.
 				equipedItems.Remove(equipedData.Slot.UID);
 
-				// Invoke unequiped event.
-				UnequipedEvent?.Invoke(equipedData);
+				// Invoke unequiping event.
+				UnequipingEvent?.Invoke(equipedData);
 
 				// Dispose of all data.
 				IDependencyManager dependencyManager = equipedData.DependencyManager;
@@ -221,6 +222,45 @@ namespace SpaxUtils
 		{
 			return EquipedItems.Where((e) => e.Slot.Type == slotType).ToList();
 		}
+
+		#endregion
+
+		#region IInteractor
+
+		/// <inheritdoc/>
+		public bool Able(string interactionType)
+		{
+			return interactionType == BaseInteractionTypes.EQUIP;
+		}
+
+		/// <inheritdoc/>
+		public bool Attempt(string interactionType, IInteractable interactable, object data, out IInteraction interaction)
+		{
+			// Ensure ability and interactability.
+			interaction = null;
+			if (!Able(interactionType) || !interactable.Interactable(this, interactionType))
+			{
+				return false;
+			}
+
+			// Create and execute interaction.
+			interaction = new Interaction(interactionType, this, interactable, null,
+				(IInteraction i, bool success) =>
+				{
+					if (success &&
+						i.Data is IRuntimeItemData itemData &&
+						itemData.ItemData is IEquipmentData equipmentData)
+					{
+						RuntimeItemData runtimeItemData = inventoryComponent.Inventory.AddItem(itemData);
+						TryEquip(runtimeItemData, out _);
+					}
+					i.Dispose();
+				});
+
+			return interactable.Interact(interaction);
+		}
+
+		#endregion
 
 		/// <summary>
 		/// Instantiates the equipment data's prefab deactivated to allow for dependency injection afterwards. Returns null if there is no prefab to instantiate.

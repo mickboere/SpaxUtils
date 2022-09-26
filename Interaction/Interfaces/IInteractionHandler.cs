@@ -1,59 +1,64 @@
 ﻿using System;
 using System.Collections.Generic;
+using UnityEngine;
 
 namespace SpaxUtils
 {
 	/// <summary>
-	/// Interface for objects that can handle any specific type of interaction(s).
+	/// <see cref="IEntityComponent"/> that handles all interactions for an entity, implements both <see cref="IInteractor"/> and <see cref="IInteractable"/>.
 	/// </summary>
-	public interface IInteractionHandler
+	public interface IInteractionHandler : IInteractor, IInteractable
 	{
 		/// <summary>
-		/// Invoked whenever a new <see cref="IInteraction"/> has been entered.
+		/// The interaction point in world-space.
 		/// </summary>
-		event Action<IInteraction> EnteredInteractionEvent;
+		Vector3 InteractionPoint { get; }
 
 		/// <summary>
-		/// All of the interaction types this handler is interactable with.
+		/// The interaction range from the interaction point.
 		/// </summary>
-		List<string> InteractableTypes { get; }
+		float InteractionRange { get; }
 
 		/// <summary>
-		/// All non-concluded <see cref="IInteraction"/>s this class is currently handling.
+		/// Adds an <see cref="IInteractor"/> to this component.
 		/// </summary>
-		List<IInteraction> ActiveInteractions { get; }
+		void AddInteractor(IInteractor interactor);
 
 		/// <summary>
-		/// Ask whether this <see cref="IInteractionHandler"/> is interested in receiving an interaction of type <paramref name="interactionType"/>.
+		/// Removes an <see cref="IInteractor"/> from this component.
 		/// </summary>
-		/// <param name="interactor">The <see cref="IInteractingComponent"/> that wants to interact with this interactable.</param>
-		/// <param name="interactionType">The type of interaction to propose.</param>
-		/// <returns>Whether this <see cref="IInteractionHandler"/> is interested in receiving an interaction of type <paramref name="interactionType"/>.</returns>
-		bool Interactable(IInteractingComponent interactor, string interactionType);
+		void RemoveInteractor(IInteractor interactor);
 
 		/// <summary>
-		/// Try to interact with this object using <paramref name="interaction"/>.
+		/// Adds an <see cref="IInteractable"/> to this component.
 		/// </summary>
-		/// <param name="interaction">The interaction to attempt.</param>
-		/// <returns>TRUE when succeeded, FALSE when failed.</returns>
-		bool Interact(IInteraction interaction);
+		void AddInteractable(IInteractable interactable);
 
 		/// <summary>
-		/// Whether this handler is able to set up a new interaction of type <paramref name="interactionType"/>.
+		/// Removes an <see cref="IInteractable"/> from this component.
 		/// </summary>
-		/// <param name="interactionType"></param>
-		/// <returns></returns>
-		bool Able(string interactionType);
+		void RemoveInteractable(IInteractable interactable);
 
 		/// <summary>
-		/// Will try to set up a new interaction of type <paramref name="interactionType"/>.
+		/// Adds an <see cref="IInteractionBlocker"/> implementation to this component.
+		/// <see cref="IInteractionBlocker"/>s are able to block incoming interaction requests of specific types.
 		/// </summary>
-		/// <param name="interactionType">The type of interaction to try and set up.</param>
-		/// <param name="data">The <see cref="IInteraction.Data"/>.</param>
-		/// <param name="execute">Whether the new interaction should immediately be executed by all involved right after its set up. Warning: if any of the attempts return false, this method will also return false.</param>
-		/// <param name="interaction">The resulting <see cref="IInteraction"/> object.</param>
-		/// <param name="interactables">The <see cref="IInteractingComponent"/>s involved with the interaction besides this one.</param>
-		/// <returns>Whether we were successful in setting up the interaction.</returns>
-		bool Attempt(string interactionType, object data, bool execute, out IInteraction interaction, params IInteractingComponent[] interactables);
+		void AddBlocker(IInteractionBlocker interactionBlocker);
+
+		/// <summary>
+		/// Removes an <see cref="IInteractionBlocker"/> implementation from this component.
+		/// <see cref="IInteractionBlocker"/>s are able to block incoming interaction requests of specific types.
+		/// </summary>
+		void RemoveBlocker(IInteractionBlocker interactionBlocker);
+
+		/// <summary>
+		/// Returns all the <see cref="IInteractionBlocker"/>s that are blocking interactions of type <paramref name="interactionType"/>.
+		/// </summary>
+		IList<IInteractionBlocker> GetBlockers(string interactionType);
+
+		/// <summary>
+		/// Returns whether the <paramref name="interactionType"/> is blocked from being handled.
+		/// </summary>
+		bool IsBlocked(string interactionType);
 	}
 }

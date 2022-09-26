@@ -4,14 +4,15 @@ using System.Collections.Generic;
 namespace SpaxUtils
 {
 	/// <summary>
-	/// Contains data relating to an interaction between <see cref="IInteractingComponent"/>s.
+	/// Contains data relating to an interaction between <see cref="IInteractionHandler"/>s.
 	/// </summary>
-	public interface IInteraction
+	public interface IInteraction : IDisposable
 	{
 		/// <summary>
 		/// Invoked when the interaction has concluded.
+		/// The bool indicates whether the interaction was a success or a failure.
 		/// </summary>
-		event Action InteractionConcludedEvent;
+		event Action<IInteraction, bool> ConcludedEvent;
 
 		/// <summary>
 		/// The type of interaction.
@@ -19,28 +20,33 @@ namespace SpaxUtils
 		string Type { get; }
 
 		/// <summary>
-		/// The <see cref="IInteractingComponent"/> that instigated this interaction.
+		/// The <see cref="IInteractor"/> that initiated this interaction.
 		/// </summary>
-		IInteractingComponent Interactor { get; }
+		IInteractor Interactor { get; }
 
 		/// <summary>
-		/// The <see cref="IInteractingComponent"/>s that are being interacted with.
+		/// The <see cref="IInteractable"/> that is being interacted with.
 		/// </summary>
-		List<IInteractingComponent> Interactables { get; }
+		IInteractable Interactable { get; }
 
 		/// <summary>
 		/// The interaction data object.
 		/// </summary>
-		object Data { get; }
+		object Data { get; set; }
 
 		/// <summary>
-		/// Is the interaction concluded?
+		/// Gets whether the interaction was concluded or is still ongoing.
 		/// </summary>
 		bool Concluded { get; }
 
 		/// <summary>
-		/// Conclude the interaction.
+		/// Gets whether the interaction was concluded a success or a failure.
 		/// </summary>
-		void Conclude();
+		bool Success { get; }
+
+		/// <summary>
+		/// Concludes the interaction either sucessfully or as a failure.
+		/// </summary>
+		void Conclude(bool success);
 	}
 }

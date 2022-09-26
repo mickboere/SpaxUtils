@@ -11,11 +11,11 @@ namespace SpiritAxis
 	/// </summary>
 	public class InteractingService : IService, IDisposable
 	{
-		private EntityComponentFilter<IInteractingComponent> interactables;
+		private EntityComponentFilter<IInteractionHandler> interactables;
 
 		public InteractingService(IEntityCollection entityCollection)
 		{
-			interactables = new EntityComponentFilter<IInteractingComponent>(entityCollection);
+			interactables = new EntityComponentFilter<IInteractionHandler>(entityCollection);
 		}
 
 		public void Dispose()
@@ -24,19 +24,19 @@ namespace SpiritAxis
 		}
 
 		/// <summary>
-		/// Finds all <see cref="IInteractingComponent"/>s in range of <paramref name="interactor"/>.
+		/// Finds all <see cref="IInteractionHandler"/>s in range of <paramref name="interactor"/>.
 		/// </summary>
-		/// <param name="interactor">The <see cref="IInteractingComponent"/> that wishes to interact.</param>
-		/// <param name="results">The resulting <see cref="IInteractingComponent"/>s that are interactable and in range, if any.</param>
+		/// <param name="interactor">The <see cref="IInteractionHandler"/> that wishes to interact.</param>
+		/// <param name="results">The resulting <see cref="IInteractionHandler"/>s that are interactable and in range, if any.</param>
 		/// <param name="interactionType">Only check for interactables that can handle interactions of this type. Leave empty to allow for all interaction types.</param>
 		/// <param name="layerMask">The layermask used when checking if the interaction between the interactor and interactable is obstructed.</param>
 		/// <returns></returns>
-		public bool GetInteractablesInRange(IInteractingComponent interactor, out List<(IInteractingComponent interactable, float distance)> results, string interactionType = "", int layerMask = ~0)
+		public bool GetInteractablesInRange(IInteractionHandler interactor, out List<(IInteractionHandler interactable, float distance)> results, string interactionType = "", int layerMask = ~0)
 		{
-			results = new List<(IInteractingComponent interactable, float distance)>();
+			results = new List<(IInteractionHandler interactable, float distance)>();
 
 			// Collect all consenting interactables within each other's range.
-			foreach (IInteractingComponent component in interactables.Components)
+			foreach (IInteractionHandler component in interactables.Components)
 			{
 				// Skip the interactor ofcourse
 				if (component == interactor)
@@ -90,17 +90,17 @@ namespace SpiritAxis
 		/// <summary>
 		/// Returns the <paramref name="interactable"/> closest to the <paramref name="interactor"/> within <paramref name="distance"/>.
 		/// </summary>
-		/// <param name="interactor">The <see cref="IInteractingComponent"/> that wishes to interact.</param>
-		/// <param name="interactable">The resulting closest <see cref="IInteractingComponent"/> that's interactable, if any.</param>
-		/// <param name="distance">The distance to the closest <see cref="IInteractingComponent"/> that's interactable, if any.</param>
+		/// <param name="interactor">The <see cref="IInteractionHandler"/> that wishes to interact.</param>
+		/// <param name="interactable">The resulting closest <see cref="IInteractionHandler"/> that's interactable, if any.</param>
+		/// <param name="distance">The distance to the closest <see cref="IInteractionHandler"/> that's interactable, if any.</param>
 		/// <param name="interactionType">Only check for interactables that can handle interactions of this type. Leave empty to allow for all interaction types.</param>
 		/// <param name="layerMask">The layermask used when checking if the interaction between the interactor and interactable is obstructed.</param>
-		public bool GetClosestInteractable(IInteractingComponent interactor, out IInteractingComponent interactable, out float distance, string interactionType = "", int layerMask = ~0)
+		public bool GetClosestInteractable(IInteractionHandler interactor, out IInteractionHandler interactable, out float distance, string interactionType = "", int layerMask = ~0)
 		{
 			interactable = null;
 			distance = 0f;
 
-			if (GetInteractablesInRange(interactor, out List<(IInteractingComponent interactable, float distance)> results, interactionType, layerMask))
+			if (GetInteractablesInRange(interactor, out List<(IInteractionHandler interactable, float distance)> results, interactionType, layerMask))
 			{
 				interactable = results[0].interactable;
 				distance = results[0].distance;
