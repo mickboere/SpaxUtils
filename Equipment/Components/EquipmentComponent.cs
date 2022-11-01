@@ -272,19 +272,32 @@ namespace SpaxUtils
 			}
 
 			// Instantiate the equiped prefab in the correct parent.
-			GameObject equipment = DependencyUtils.InstantiateDeactivated(equipmentData.EquipedPrefab);
+			GameObject instance = DependencyUtils.InstantiateDeactivated(equipmentData.EquipedPrefab);
 			Transform parent = slot.Parent == null ? Entity.GameObject.transform : slot.Parent;
-			equipment.transform.SetParent(parent);
+			instance.transform.SetParent(parent);
+
+			// Disable components that may possibly interfere.
+			if (instance.TryGetComponentInChildren(out Rigidbody rigidbody))
+			{
+				rigidbody.isKinematic = true;
+			}
+			if (instance.TryGetComponentsInChildren(out Collider[] colliders))
+			{
+				foreach (Collider collider in colliders)
+				{
+					collider.enabled = false;
+				}
+			}
 
 			// Apply orientation.
 			(Vector3 pos, Quaternion rot) orientation = slot.GetOrientation();
-			equipment.transform.localPosition = orientation.pos;
-			equipment.transform.localRotation = orientation.rot;
+			instance.transform.localPosition = orientation.pos;
+			instance.transform.localRotation = orientation.rot;
 
 			// Apply the agent's rig when possible.
-			sharedRigHandler.Share(equipment);
+			sharedRigHandler.Share(instance);
 
-			return equipment;
+			return instance;
 		}
 
 		private void OnRequestInventoryItemOptionsMsg(RequestOptionsMsg<RuntimeItemData> msg)

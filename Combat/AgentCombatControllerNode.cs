@@ -24,6 +24,7 @@ namespace SpaxUtils
 		private RigidbodyWrapper rigidbodyWrapper;
 		private IEquipmentComponent equipment;
 		private ArmSlotsComponent armSlots;
+		private CallbackService callbackService;
 
 		private List<IPerformer> performers = new List<IPerformer>();
 		private Act<bool>? lastAct;
@@ -33,7 +34,7 @@ namespace SpaxUtils
 
 		public void InjectDependencies(IActor actor, AnimatorPoser poser,
 			IAgentMovementHandler movementHandler, RigidbodyWrapper rigidbodyWrapper,
-			IEquipmentComponent equipment, ArmSlotsComponent armSlots)
+			IEquipmentComponent equipment, ArmSlotsComponent armSlots, CallbackService callbackService)
 		{
 			this.actor = actor;
 			this.poser = poser;
@@ -41,6 +42,7 @@ namespace SpaxUtils
 			this.rigidbodyWrapper = rigidbodyWrapper;
 			this.equipment = equipment;
 			this.armSlots = armSlots;
+			this.callbackService = callbackService;
 		}
 
 		public override void OnStateEntered()
@@ -53,6 +55,8 @@ namespace SpaxUtils
 
 			controlMod = new FloatOperationModifier(ModMethod.Absolute, Operation.Multiply, 1f);
 			rigidbodyWrapper.Control.AddModifier(this, controlMod);
+
+			callbackService.LateUpdateCallback += OnLateUpdate;
 		}
 
 		public override void OnStateExit()
@@ -76,13 +80,13 @@ namespace SpaxUtils
 			lastAct = null;
 			lastFailedAttempt = null;
 			wasPerforming = false;
+
+			callbackService.LateUpdateCallback -= OnLateUpdate;
 		}
 
-		public override void OnUpdate()
+		private void OnLateUpdate()
 		{
-			base.OnUpdate();
-
-			armSlots.UpdateArms(armCarryWeight);
+			//armSlots.UpdateArms(armCarryWeight);
 		}
 
 		private void OnAct(Act<bool> act)
