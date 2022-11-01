@@ -40,6 +40,11 @@ namespace SpaxUtils
 		Sprite Icon { get; }
 
 		/// <summary>
+		/// The prefab to use when spawning this item in the world.
+		/// </summary>
+		GameObject WorldItemPrefab { get; }
+
+		/// <summary>
 		/// The behaviour of this item when it's in an inventory.
 		/// </summary>
 		IReadOnlyList<BehaviourAsset> InventoryBehaviour { get; }

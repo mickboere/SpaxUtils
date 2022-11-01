@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 namespace SpaxUtils
@@ -9,13 +10,12 @@ namespace SpaxUtils
 		protected Transform LeftHand => lookup.Lookup(HumanBoneIdentifiers.LEFT_HAND);
 		protected Transform RightHand => lookup.Lookup(HumanBoneIdentifiers.RIGHT_HAND);
 
-		[SerializeField] private bool left;
+		[SerializeField, HideInInspector] private bool left;
 		[SerializeField, Conditional(nameof(left), drawToggle: true), ConstDropdown(typeof(IEquipmentSlotTypeConstants))] private string leftType;
-		[SerializeField] private bool right;
-		[SerializeField, Conditional(nameof(right)), ConstDropdown(typeof(IEquipmentSlotTypeConstants))] private string rightType;
+		[SerializeField, HideInInspector] private bool right;
+		[SerializeField, Conditional(nameof(right), drawToggle: true), ConstDropdown(typeof(IEquipmentSlotTypeConstants))] private string rightType;
 		[SerializeField] private Vector3 handSlotPointOffset = new Vector3(-0.01f, 0f, 0f);
 		[SerializeField] private bool drawGizmos;
-		[SerializeField, Range(0f, 1f)] private float broadness = 0.5f;
 
 		private TransformLookup lookup;
 		private IEquipmentComponent equipment;
@@ -36,12 +36,16 @@ namespace SpaxUtils
 			if (left)
 			{
 				equipment.AddSlot(new EquipmentSlot(HumanBoneIdentifiers.LEFT_HAND, leftType, LeftHand, () => GetHandSlotPoint(true, true)));
+				SpaxDebug.Log("Added left slot");
 			}
 
 			if (right)
 			{
 				equipment.AddSlot(new EquipmentSlot(HumanBoneIdentifiers.RIGHT_HAND, rightType, RightHand, () => GetHandSlotPoint(false, true)));
+				SpaxDebug.Log("Added right slot");
 			}
+
+			SpaxDebug.Log($"Slots: [{string.Join(", ", equipment.Slots.Select(s => $"({s.UID}, {s.Type})"))}]");
 		}
 
 		protected void OnEnable()
@@ -108,11 +112,11 @@ namespace SpaxUtils
 		{
 			if (data.Slot.UID == HumanBoneIdentifiers.LEFT_HAND)
 			{
-				leftHelper.Dispose();
+				leftHelper?.Dispose();
 			}
 			else if (data.Slot.UID == HumanBoneIdentifiers.RIGHT_HAND)
 			{
-				rightHelper.Dispose();
+				rightHelper?.Dispose();
 			}
 		}
 

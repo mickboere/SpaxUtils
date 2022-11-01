@@ -6,7 +6,7 @@ namespace SpaxUtils
 {
 	/// <summary>
 	/// Database service that (should) contain references to all <see cref="IItemData"/>s.
-	/// Will load all resources of type <see cref="ItemData"/> from the "Items" resources folder.
+	/// Will load all resources of type <see cref="ItemDataAsset"/> from the "Items" resources folder.
 	/// </summary>
 	public class ItemDatabaseService : IService, IItemDatabase, IDisposable
 	{
@@ -25,7 +25,7 @@ namespace SpaxUtils
 			items?.Clear();
 			items = new Dictionary<string, IItemData>();
 			// TODO: Make this service part of SpaxUtils and solve for LoadAll<IItemData>
-			IItemData[] resources = Resources.LoadAll<ItemData>("Items");
+			IItemData[] resources = Resources.LoadAll<ItemDataAsset>("Items");
 			foreach (IItemData resource in resources)
 			{
 				AddItem(resource);

@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using UnityEngine;
 
 namespace SpaxUtils
 {
@@ -8,21 +9,37 @@ namespace SpaxUtils
 	public interface IInteractable : IEntityComponent
 	{
 		/// <summary>
-		/// All of the interaction types this handler is interactable with.
+		/// The interactor's interaction point in world-space.
 		/// </summary>
-		IReadOnlyList<string> InteractableTypes { get; }
+		Vector3 InteractablePoint { get; }
 
 		/// <summary>
-		/// Returns true if this interactable supports <paramref name="interactionType"/>
-		/// and is allowed to be interacted with by <paramref name="interactor"/>.
+		/// The interaction range from the <see cref="InteractablePoint"/>.
 		/// </summary>
-		bool Interactable(IInteractor interactor, string interactionType);
+		float InteractableRange { get; }
+
+		/// <summary>
+		/// Whether this <see cref="IInteractable"/> is currently able to be interacted with.
+		/// </summary>
+		bool Interactable { get; }
+
+		/// <summary>
+		/// Gets all interaction types this interactable supports.
+		/// </summary>
+		string[] InteractableTypes { get; }
+
+		/// <summary>
+		/// Returns whether this interactable supports interactions of type <paramref name="interactionType"/>.
+		/// </summary>
+		/// <param name="interactionType"></param>
+		/// <returns></returns>
+		bool Supports(string interactionType);
 
 		/// <summary>
 		/// Try to interact with this object using <paramref name="interaction"/>.
 		/// </summary>
 		/// <param name="interaction">The interaction to attempt.</param>
 		/// <returns>TRUE when succeeded, FALSE when failed.</returns>
-		bool Interact(IInteraction interaction);
+		bool TryInteract(IInteraction interaction);
 	}
 }

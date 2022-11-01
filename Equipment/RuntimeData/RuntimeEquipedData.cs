@@ -16,6 +16,11 @@ namespace SpaxUtils
 		public RuntimeItemData RuntimeItemData { get; private set; }
 
 		/// <summary>
+		/// Shortcut to <see cref="RuntimeItemData.ItemData"/>.
+		/// </summary>
+		public IItemData ItemData => RuntimeItemData.ItemData;
+
+		/// <summary>
 		/// The <see cref="IEquipmentSlot"/> this equipment is equiped in.
 		/// </summary>
 		public IEquipmentSlot Slot { get; private set; }
@@ -35,7 +40,7 @@ namespace SpaxUtils
 		/// </summary>
 		public IDependencyManager DependencyManager { get; private set; }
 
-		private List<BehaviourAsset> behaviours;
+		private List<BehaviourAsset> behaviours = new List<BehaviourAsset>();
 
 		public RuntimeEquipedData(RuntimeItemData runtimeItemData, IEquipmentSlot slot, IDependencyManager dependencyManager, GameObject equipedVisual = null)
 		{

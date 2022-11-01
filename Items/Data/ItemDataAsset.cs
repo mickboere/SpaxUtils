@@ -3,8 +3,8 @@ using UnityEngine;
 
 namespace SpaxUtils
 {
-	[CreateAssetMenu(fileName = "Item", menuName = "ScriptableObjects/ItemData")]
-	public class ItemData : ScriptableObject, IItemData
+	[CreateAssetMenu(fileName = "Item", menuName = "ScriptableObjects/ItemDataAsset")]
+	public class ItemDataAsset : ScriptableObject, IItemData
 	{
 		/// <inheritdoc/>
 		public string UID => id;
@@ -27,6 +27,8 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public Sprite Icon => icon;
 
+		public GameObject WorldItemPrefab => worldItemPrefab;
+
 		/// <inheritdoc/>
 		public IReadOnlyList<BehaviourAsset> InventoryBehaviour => inventoryBehaviour;
 
@@ -37,6 +39,7 @@ namespace SpaxUtils
 		[SerializeField, ConstDropdown(typeof(IItemCategoryConstants))] private string category;
 		[SerializeField, Tooltip("Unique items cannot be stacked, and will always count as a new data entry when added to the inventory.")] private bool unique;
 		[SerializeField] private Sprite icon;
+		[SerializeField] private GameObject worldItemPrefab;
 		[SerializeField] private List<BehaviourAsset> inventoryBehaviour;
 
 		public override string ToString()

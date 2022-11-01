@@ -9,7 +9,7 @@ namespace SpaxUtils
 	/// <summary>
 	/// Item data object instanced when an item is in an inventory.
 	/// </summary>
-	public class RuntimeItemData : IDisposable
+	public class RuntimeItemData : IRuntimeItemData, IDisposable
 	{
 		public IItemData ItemData { get; private set; }
 		public RuntimeDataCollection RuntimeData { get; private set; }
@@ -26,16 +26,13 @@ namespace SpaxUtils
 
 		public IDependencyManager DependencyManager { get; private set; }
 
-		private List<BehaviourAsset> behaviours;
+		private List<BehaviourAsset> behaviours = new List<BehaviourAsset>();
 
-		public RuntimeItemData(RuntimeDataCollection runtimeData, IItemData itemData, IDependencyManager dependencyManager)
+		public RuntimeItemData(IItemData itemData, RuntimeDataCollection runtimeData, IDependencyManager dependencyManager)
 		{
 			RuntimeData = runtimeData;
 			ItemData = itemData;
 			DependencyManager = dependencyManager;
-
-			// We only rely on the item ID being present in the data upon instancing.
-			runtimeData.Set(ItemDataIdentifierConstants.ITEM_ID, itemData.UID);
 		}
 
 		/// <summary>

@@ -1,4 +1,6 @@
-﻿namespace SpaxUtils
+﻿using UnityEngine;
+
+namespace SpaxUtils
 {
 	/// <summary>
 	/// Interface for objects able to initiate <see cref="IInteraction"/>s with <see cref="IInteractable"/>s.
@@ -6,10 +8,18 @@
 	public interface IInteractor : IEntityComponent
 	{
 		/// <summary>
-		/// Whether this handler is able to set up a new interaction of type <paramref name="interactionType"/>.
+		/// The interactor's interaction point in world-space.
 		/// </summary>
-		/// <param name="interactionType"></param>
-		/// <returns></returns>
+		Vector3 InteractorPoint { get; }
+
+		/// <summary>
+		/// The interaction range from the <see cref="InteractorPoint"/>.
+		/// </summary>
+		float InteractorRange { get; }
+
+		/// <summary>
+		/// Returns whether this handler is able to set up a new interaction of type <paramref name="interactionType"/>.
+		/// </summary>
 		bool Able(string interactionType);
 
 		/// <summary>
@@ -19,7 +29,7 @@
 		/// <param name="interactionType">The type of interaction to try and set up.</param>
 		/// <param name="data">The <see cref="IInteraction.Data"/>.</param>
 		/// <param name="interaction">The resulting <see cref="IInteraction"/> object.</param>
-		/// <returns>Whether we were successful in setting up the interaction.</returns>
-		bool Attempt(string interactionType, IInteractable interactable, object data, out IInteraction interaction);
+		/// <returns>Whether setting up the interaction was a success.</returns>
+		bool AttemptInteraction(string interactionType, IInteractable interactable, object data, out IInteraction interaction);
 	}
 }

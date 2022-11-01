@@ -1,25 +1,22 @@
-using System;
 using System.Collections.Generic;
-using System.Linq;
+using UnityEngine;
 
 namespace SpaxUtils
 {
 	/// <summary>
 	/// Entity component wrapping around an <see cref="ItemInventory"/> in order to handle interactions and manage data loading.
 	/// </summary>
-	public class InventoryComponent : EntityComponentBase, IInteractable, IInteractor
+	public class InventoryComponent : InteractableInteractorBase
 	{
 		public const string INVENTORY_DATA_ID = "Inventory";
 
-		/// <inheritdoc/>
-		public IReadOnlyList<string> InteractableTypes => interactableTypes;
-
 		/// <summary>
-		/// The inventory data object containing all item data.
+		/// The inventory object containing all item data.
 		/// </summary>
 		public ItemInventory Inventory { get; private set; }
 
-		private readonly List<string> interactableTypes = new List<string>() { BaseInteractionTypes.INVENTORY };
+		/// <inheritdoc/>
+		public override string[] InteractableTypes { get; protected set; } = new string[] { BaseInteractionTypes.INVENTORY };
 
 		private IDependencyManager dependencies;
 		private IItemDatabase itemDatabase;
@@ -40,28 +37,20 @@ namespace SpaxUtils
 			Inventory.Dispose();
 		}
 
-		#region IInteractionHandler
-
-		/// <inheritdoc/>
-		public bool Interactable(IInteractor interactor, string interactionType)
+		public override bool Supports(string interactionType)
 		{
 			return interactionType == BaseInteractionTypes.INVENTORY;
 		}
 
 		/// <inheritdoc/>
 		/// <summary>
-		/// Attempts to retrieve <see cref="IRuntimeItemDataComponent"/> from the interaction data and adds it to the inventory.
+		/// Attempts to retrieve <see cref="IRuntimeItemData"/> from the interaction data and adds it to the inventory.
 		/// </summary>
-		public bool Interact(IInteraction interaction)
+		protected override bool OnInteract(IInteraction interaction)
 		{
-			if (!Interactable(interaction.Interactor, interaction.Type))
+			if (interaction.Data is IRuntimeItemData itemData)
 			{
-				return false;
-			}
-
-			if (interaction.Data is IRuntimeItemDataComponent entityItemData)
-			{
-				Inventory.AddItem(entityItemData);
+				Inventory.AddItem(itemData);
 				interaction.Conclude(true);
 				return true;
 			}
@@ -70,35 +59,31 @@ namespace SpaxUtils
 		}
 
 		/// <inheritdoc/>
-		public bool Able(string interactionType)
+		public override bool Able(string interactionType)
 		{
 			return interactionType == BaseInteractionTypes.INVENTORY;
 		}
 
 		/// <inheritdoc/>
-		public bool Attempt(string interactionType, IInteractable interactable, object data, out IInteraction interaction)
+		protected override bool OnAttempt(string interactionType, IInteractable interactable, object data, out IInteraction interaction)
 		{
-			// Ensure ability and interactability.
-			interaction = null;
-			if (!Able(interactionType) || !interactable.Interactable(this, interactionType))
-			{
-				return false;
-			}
+			SpaxDebug.Log($"OnAttempt {interactionType}");
 
 			// Create and execute interaction.
 			interaction = new Interaction(interactionType, this, interactable, null,
 				(IInteraction i, bool success) =>
 				{
+					SpaxDebug.Log($"On interaction concluded {i.Success}");
+
 					if (success && i.Data is IRuntimeItemData runtimeItemData)
 					{
+						SpaxDebug.Log($"AddItem: {runtimeItemData.ItemData.Name}");
 						Inventory.AddItem(runtimeItemData);
 					}
 					i.Dispose();
 				});
 
-			return interactable.Interact(interaction);
+			return interactable.TryInteract(interaction);
 		}
-
-		#endregion
 	}
 }

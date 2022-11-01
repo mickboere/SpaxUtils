@@ -12,7 +12,7 @@ namespace SpaxUtils
 		/// <summary>
 		/// Timescale set when game is paused.
 		/// </summary>
-		public const float PAUSED_TIMESCALE = 0.001f;
+		public const float PAUSED_TIMESCALE = 0.000001f;
 
 		#region Floats
 

@@ -4,8 +4,8 @@ using UnityEngine.Serialization;
 
 namespace SpaxUtils
 {
-	[CreateAssetMenu(fileName = "Equipment", menuName = "ScriptableObjects/EquipmentData")]
-	public class EquipmentData : ItemData, IEquipmentData
+	[CreateAssetMenu(fileName = "Equipment", menuName = "ScriptableObjects/EquipmentDataAsset")]
+	public class EquipmentDataAsset : ItemDataAsset, IEquipmentData
 	{
 		public string SlotType => slotType;
 		public IReadOnlyList<string> CoversLocations => coversLocations;
@@ -13,7 +13,7 @@ namespace SpaxUtils
 		public IReadOnlyList<BehaviourAsset> EquipedBehaviour => equipedBehaviour;
 
 		[Header("Equipment Data")]
-		[SerializeField, ConstDropdown(typeof(IEquipmentSlotTypeConstants)), FormerlySerializedAs("equipSlot")] private string slotType;
+		[SerializeField, ConstDropdown(typeof(IEquipmentSlotTypeConstants))] private string slotType;
 		[SerializeField, ConstDropdown(typeof(IBodyLocationConstants))] private List<string> coversLocations;
 		[SerializeField] private GameObject equipedPrefab;
 		[SerializeField] private List<BehaviourAsset> equipedBehaviour;

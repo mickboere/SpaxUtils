@@ -126,7 +126,7 @@ namespace SpaxUtils
 			{
 				// Create dependency manager for the item data and bind it.
 				DependencyManager dependencyManager = new DependencyManager(dependencies, $"[ITEM]{itemData.Name}");
-				RuntimeItemData runtimeItemData = new RuntimeItemData(runtimeData, itemData, dependencyManager);
+				RuntimeItemData runtimeItemData = new RuntimeItemData(itemData, runtimeData, dependencyManager);
 				dependencyManager.Bind(runtimeItemData);
 
 				RuntimeItemData itemStack = entries.Values.FirstOrDefault((v) => !v.Unique && v.ItemID == runtimeItemData.ItemID);

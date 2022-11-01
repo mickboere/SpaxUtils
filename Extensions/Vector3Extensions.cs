@@ -343,7 +343,7 @@ namespace SpaxUtils
 		/// <summary>
 		/// Returns the average length of the vector components.
 		/// </summary>
-		public static float AverageLength(this Vector3 v3)
+		public static float Average(this Vector3 v3)
 		{
 			return (Mathf.Abs(v3.x) + Mathf.Abs(v3.y) + Mathf.Abs(v3.z)) / 3f;
 		}

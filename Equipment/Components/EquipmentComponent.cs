@@ -8,7 +8,7 @@ namespace SpaxUtils
 	/// <summary>
 	/// <see cref="IEntityComponent"/> that handles equipment data and visuals.
 	/// </summary>
-	public class EquipmentComponent : EntityComponentBase, IEquipmentComponent, IInteractor
+	public class EquipmentComponent : InteractorBase, IEquipmentComponent
 	{
 		public event Action<RuntimeEquipedData> EquipedEvent;
 		public event Action<RuntimeEquipedData> UnequipingEvent;
@@ -24,7 +24,7 @@ namespace SpaxUtils
 		private InventoryComponent inventoryComponent;
 
 		private Dictionary<string, IEquipmentSlot> slots = new Dictionary<string, IEquipmentSlot>();
-		private Dictionary<string, RuntimeEquipedData> equipedItems = new Dictionary<string, RuntimeEquipedData>();
+		private Dictionary<string, RuntimeEquipedData> equipedItems = new Dictionary<string, RuntimeEquipedData>(); // string = slot.UID
 
 		public void InjectDependencies(SharedRigHandler sharedRigHandler,
 			ICommunicationChannel comms, InventoryComponent inventoryComponent)
@@ -184,7 +184,7 @@ namespace SpaxUtils
 				return true;
 			}
 
-			SpaxDebug.Error("Couldn't equip item.", $"Slot=({slot.UID}); Type=({slot.Type}); Item=({runtimeItemData})");
+			SpaxDebug.Error("Couldn't equip item.", $"Item=({runtimeItemData})");
 			equipedData = null;
 			return false;
 		}
@@ -218,9 +218,15 @@ namespace SpaxUtils
 		}
 
 		/// <inheritdoc/>
-		public List<RuntimeEquipedData> GetEquiped(string slotType)
+		public List<RuntimeEquipedData> GetEquipedFromSlotType(string slotType)
 		{
-			return EquipedItems.Where((e) => e.Slot.Type == slotType).ToList();
+			return EquipedItems.Where(e => e.Slot.Type == slotType).ToList();
+		}
+
+		/// <inheritdoc/>
+		public RuntimeEquipedData GetEquipedFromSlotID(string slot)
+		{
+			return EquipedItems.FirstOrDefault(e => e.Slot.UID == slot);
 		}
 
 		#endregion
@@ -228,21 +234,14 @@ namespace SpaxUtils
 		#region IInteractor
 
 		/// <inheritdoc/>
-		public bool Able(string interactionType)
+		public override bool Able(string interactionType)
 		{
 			return interactionType == BaseInteractionTypes.EQUIP;
 		}
 
 		/// <inheritdoc/>
-		public bool Attempt(string interactionType, IInteractable interactable, object data, out IInteraction interaction)
+		protected override bool Attempt(string interactionType, IInteractable interactable, object data, out IInteraction interaction)
 		{
-			// Ensure ability and interactability.
-			interaction = null;
-			if (!Able(interactionType) || !interactable.Interactable(this, interactionType))
-			{
-				return false;
-			}
-
 			// Create and execute interaction.
 			interaction = new Interaction(interactionType, this, interactable, null,
 				(IInteraction i, bool success) =>
@@ -257,7 +256,7 @@ namespace SpaxUtils
 					i.Dispose();
 				});
 
-			return interactable.Interact(interaction);
+			return interactable.TryInteract(interaction);
 		}
 
 		#endregion
@@ -288,36 +287,33 @@ namespace SpaxUtils
 			return equipment;
 		}
 
-		private void OnRequestInventoryItemOptionsMsg(object msg)
+		private void OnRequestInventoryItemOptionsMsg(RequestOptionsMsg<RuntimeItemData> msg)
 		{
-			var cast = (RequestOptionsMsg<RuntimeItemData>)msg;
-			if (cast.Target.ItemData is IEquipmentData equipmentData)
+			if (msg.Target.ItemData is IEquipmentData equipmentData)
 			{
 				Option equipOption = new Option(
 					"Equip",
-					$"Equips this item on an available '{equipmentData.SlotType}' slot.",
+					$"Equips this item on an (available) '{equipmentData.SlotType}' slot.",
 					(option) =>
 					{
-						TryEquip(cast.Target, out _);
+						TryEquip(msg.Target, out _);
 					});
 
-				cast.AddOption(equipOption);
+				msg.AddOption(equipOption);
 			}
 		}
 
-		private void OnRequestEquipedItemOptionsMsg(object msg)
+		private void OnRequestEquipedItemOptionsMsg(RequestOptionsMsg<RuntimeEquipedData> msg)
 		{
-			var cast = (RequestOptionsMsg<RuntimeEquipedData>)msg;
-
 			Option equipOption = new Option(
 				"Unequip",
 				"Unequips this item.",
 				(option) =>
 				{
-					Unequip(cast.Target);
+					Unequip(msg.Target);
 				});
 
-			cast.AddOption(equipOption);
+			msg.AddOption(equipOption);
 		}
 	}
 }

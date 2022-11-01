@@ -10,16 +10,6 @@ namespace SpaxUtils
 	public interface IInteractionHandler : IInteractor, IInteractable
 	{
 		/// <summary>
-		/// The interaction point in world-space.
-		/// </summary>
-		Vector3 InteractionPoint { get; }
-
-		/// <summary>
-		/// The interaction range from the interaction point.
-		/// </summary>
-		float InteractionRange { get; }
-
-		/// <summary>
 		/// Adds an <see cref="IInteractor"/> to this component.
 		/// </summary>
 		void AddInteractor(IInteractor interactor);

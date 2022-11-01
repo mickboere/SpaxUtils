@@ -56,6 +56,13 @@ namespace SpaxUtils
 		/// </summary>
 		/// <param name="slotType">The type of slot to retrieve the equiped items from.</param>
 		/// <returns>All items equiped on a slot of type <paramref name="slotType"/></returns>
-		List<RuntimeEquipedData> GetEquiped(string slotType);
+		List<RuntimeEquipedData> GetEquipedFromSlotType(string slotType);
+
+		/// <summary>
+		/// Returns the <see cref="RuntimeEquipedData"/> stored in <paramref name="slot"/>, if any.
+		/// </summary>
+		/// <param name="slot">The UID of the <see cref="IEquipmentSlot"/> to retrieve the <see cref="RuntimeEquipedData"/> from.</param>
+		/// <returns>The <see cref="RuntimeEquipedData"/> stored in <paramref name="slot"/>, if any.</returns>
+		RuntimeEquipedData GetEquipedFromSlotID(string slot);
 	}
 }

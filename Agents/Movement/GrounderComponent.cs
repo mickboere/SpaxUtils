@@ -153,7 +153,7 @@ namespace SpaxUtils
 			TerrainSlope = Mathf.Clamp01(terrainAngle / 90f);
 
 			// Down-slope
-			Mobility += Mathf.Clamp01(Traction.Invert() * rigidbodyWrapper.Forward.Dot(SurfaceNormal));
+			Mobility += Mathf.Clamp01(SurfaceSlope * rigidbodyWrapper.Forward.Dot(SurfaceNormal));
 		}
 
 		private void ApplyForces()

@@ -14,14 +14,28 @@ namespace SpaxUtils
 		public event Action<IInteraction> EnteredInteractionEvent;
 
 		/// <inheritdoc/>
-		public IReadOnlyList<string> InteractableTypes => interactables.SelectMany(h => h.InteractableTypes).ToList();
+		public virtual Vector3 InteractorPoint => targetable == null ? Entity.GameObject.transform.position : targetable.Center;
 
-		public virtual Vector3 InteractionPoint => targetable != null ? targetable.Center : Entity.GameObject.transform.position;
-		public virtual float InteractionRange => targetable != null ? targetable.Size.Max() * 0.75f : 1.5f;
+		/// <inheritdoc/>
+		public virtual float InteractorRange => targetable == null ? defaultInteractorRange : targetable.Size.Max() * 0.75f;
+
+		/// <inheritdoc/>
+		public virtual Vector3 InteractablePoint => targetable == null ? transform.position : targetable.Center;
+
+		/// <inheritdoc/>
+		public virtual float InteractableRange => targetable == null ? 0f : targetable.Size.Average();
+
+		/// <inheritdoc/>
+		public bool Interactable => interactables.Any((i) => i.Interactable);
+
+		/// <inheritdoc/>
+		public string[] InteractableTypes { get; protected set; } = new string[] { };
 
 		protected IList<IInteractor> interactors;
 		protected IList<IInteractable> interactables;
 		protected IList<IInteractionBlocker> blockers;
+
+		[SerializeField, Tooltip("Picked if there is no targetable attached to the entity.")] private float defaultInteractorRange = 1.5f;
 
 		private ITargetable targetable;
 
@@ -36,30 +50,15 @@ namespace SpaxUtils
 		}
 
 		/// <inheritdoc/>
-		public bool Interactable(IInteractor interactor, string interactionType)
+		public bool Supports(string interactionType)
 		{
-			// Check for blockers.
-			if (GetBlockers(interactionType).Count > 0)
-			{
-				return false;
-			}
-
-			// Ask consent of each handler until one accepts.
-			foreach (IInteractable interactable in interactables)
-			{
-				if (interactable.Interactable(interactor, interactionType))
-				{
-					return true;
-				}
-			}
-
-			return false;
+			return interactables.Any((i) => i.Supports(interactionType));
 		}
 
 		/// <inheritdoc/>
-		public bool Interact(IInteraction interaction)
+		public bool TryInteract(IInteraction interaction)
 		{
-			if (!Interactable(interaction.Interactor, interaction.Type))
+			if (!Interactable)
 			{
 				return false;
 			}
@@ -67,7 +66,7 @@ namespace SpaxUtils
 			// Attempt the interaction with each handler until one succeeds.
 			foreach (IInteractable interactable in interactables)
 			{
-				if (interactable.Interact(interaction))
+				if (interactable.TryInteract(interaction))
 				{
 					return true;
 				}
@@ -98,7 +97,7 @@ namespace SpaxUtils
 		}
 
 		/// <inheritdoc/>
-		public bool Attempt(string interactionType, IInteractable interactable, object data, out IInteraction interaction)
+		public bool AttemptInteraction(string interactionType, IInteractable interactable, object data, out IInteraction interaction)
 		{
 			interaction = null;
 			if (!Able(interactionType))
@@ -109,7 +108,7 @@ namespace SpaxUtils
 			// Ask each handler to set up the interaction until one succeeds.
 			foreach (IInteractor interactor in interactors)
 			{
-				if (interactor.Attempt(interactionType, interactable, data, out interaction))
+				if (interactor.AttemptInteraction(interactionType, interactable, data, out interaction))
 				{
 					return true;
 				}
