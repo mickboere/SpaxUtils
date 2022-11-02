@@ -19,11 +19,6 @@ namespace SpaxUtils
 		string Description { get; }
 
 		/// <summary>
-		/// Pre-defined <see cref="RuntimeDataCollection"/> to be added to the <see cref="RuntimeItemData"/> once instantiated.
-		/// </summary>
-		RuntimeDataCollection Data { get; }
-
-		/// <summary>
 		/// The type/category of item this is.
 		/// </summary>
 		string Category { get; }
@@ -47,6 +42,6 @@ namespace SpaxUtils
 		/// <summary>
 		/// The behaviour of this item when it's in an inventory.
 		/// </summary>
-		IReadOnlyList<BehaviourAsset> InventoryBehaviour { get; }
+		IReadOnlyList<BehaviorAsset> InventoryBehaviour { get; }
 	}
 }

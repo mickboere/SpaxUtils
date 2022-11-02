@@ -304,6 +304,11 @@ namespace SpaxUtils
 			return vector * scale;
 		}
 
+		public static Vector3 Divide(this Vector3 a, Vector3 b)
+		{
+			return new Vector3(a.x / b.x, a.y / b.y, a.z / b.z);
+		}
+
 		public static Vector3 Localize(this Vector3 vector, Transform transform)
 		{
 			return transform.InverseTransformDirection(vector);

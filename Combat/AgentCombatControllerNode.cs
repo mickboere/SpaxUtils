@@ -16,7 +16,6 @@ namespace SpaxUtils
 
 		[SerializeField, Input(backingValue = ShowBackingValue.Never)] protected Connections.StateComponent inConnection;
 		[SerializeField] private float retryActionWindow;
-		[SerializeField] private float armCarryWeight = 0.4f;
 
 		private IActor actor;
 		private AnimatorPoser poser;
@@ -25,12 +24,17 @@ namespace SpaxUtils
 		private IEquipmentComponent equipment;
 		private ArmSlotsComponent armSlots;
 		private CallbackService callbackService;
+		private FloatOperationModifier controlMod;
 
 		private List<IPerformer> performers = new List<IPerformer>();
 		private Act<bool>? lastAct;
 		private (Act<bool> act, Timer timer)? lastFailedAttempt;
 		private bool wasPerforming;
-		private FloatOperationModifier controlMod;
+
+		private RuntimeEquipedData leftEquip;
+		private ArmedEquipmentComponent leftComp;
+		private RuntimeEquipedData rightEquip;
+		private ArmedEquipmentComponent rightComp;
 
 		public void InjectDependencies(IActor actor, AnimatorPoser poser,
 			IAgentMovementHandler movementHandler, RigidbodyWrapper rigidbodyWrapper,
@@ -49,14 +53,16 @@ namespace SpaxUtils
 		{
 			base.OnStateEntered();
 
+			// Subscribe to events.
+			callbackService.LateUpdateCallback += OnLateUpdate;
+			equipment.EquipedEvent += OnEquipedEvent;
+			equipment.UnequipingEvent += OnUnquipingEvent;
 			actor.PerformanceUpdateEvent += OnPerformanceUpdateEvent;
 			actor.Listen<Act<bool>>(this, ActorActs.LIGHT, OnAct);
 			actor.Listen<Act<bool>>(this, ActorActs.HEAVY, OnAct);
 
 			controlMod = new FloatOperationModifier(ModMethod.Absolute, Operation.Multiply, 1f);
 			rigidbodyWrapper.Control.AddModifier(this, controlMod);
-
-			callbackService.LateUpdateCallback += OnLateUpdate;
 		}
 
 		public override void OnStateExit()
@@ -66,7 +72,10 @@ namespace SpaxUtils
 			// Return control to movement handler.
 			rigidbodyWrapper.Control.RemoveModifier(this);
 
-			// Unsubscribe events.
+			// Unsubscribe from events.
+			callbackService.LateUpdateCallback -= OnLateUpdate;
+			equipment.EquipedEvent -= OnEquipedEvent;
+			equipment.UnequipingEvent -= OnUnquipingEvent;
 			actor.PerformanceUpdateEvent -= OnPerformanceUpdateEvent;
 			actor.StopListening(this);
 
@@ -80,13 +89,18 @@ namespace SpaxUtils
 			lastAct = null;
 			lastFailedAttempt = null;
 			wasPerforming = false;
-
-			callbackService.LateUpdateCallback -= OnLateUpdate;
 		}
 
 		private void OnLateUpdate()
 		{
-			//armSlots.UpdateArms(armCarryWeight);
+			if (leftComp != null)
+			{
+				armSlots.UpdateArm(true, rigidbodyWrapper.Control, leftComp.ArmedSettings, Time.deltaTime);
+			}
+			if (rightComp != null)
+			{
+				armSlots.UpdateArm(false, rigidbodyWrapper.Control, rightComp.ArmedSettings, Time.deltaTime);
+			}
 		}
 
 		private void OnAct(Act<bool> act)
@@ -174,6 +188,36 @@ namespace SpaxUtils
 				}
 
 				lastFailedAttempt = null;
+			}
+		}
+
+		private void OnEquipedEvent(RuntimeEquipedData data)
+		{
+			if (data.Slot.UID == HumanBoneIdentifiers.LEFT_HAND)
+			{
+				leftEquip = data;
+				leftComp = leftEquip.EquipedVisual.GetComponent<ArmedEquipmentComponent>();
+			}
+
+			if (data.Slot.UID == HumanBoneIdentifiers.RIGHT_HAND)
+			{
+				rightEquip = data;
+				rightComp = rightEquip.EquipedVisual.GetComponent<ArmedEquipmentComponent>();
+			}
+		}
+
+		private void OnUnquipingEvent(RuntimeEquipedData data)
+		{
+			if (data == leftEquip)
+			{
+				leftEquip = null;
+				leftComp = null;
+			}
+
+			if (data == rightEquip)
+			{
+				rightEquip = null;
+				rightComp = null;
 			}
 		}
 	}

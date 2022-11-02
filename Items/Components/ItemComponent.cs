@@ -19,7 +19,7 @@ namespace SpaxUtils
 			BaseInteractionTypes.EQUIP
 		};
 
-		[SerializeField] private ItemDataAsset itemDataAsset;
+		[SerializeField, Expandable] private ItemDataAsset itemDataAsset;
 
 		private IItemData itemData;
 		private RuntimeDataCollection runtimeData;

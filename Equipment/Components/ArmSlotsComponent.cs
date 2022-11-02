@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace SpaxUtils
 {
@@ -10,14 +11,33 @@ namespace SpaxUtils
 		protected Transform LeftHand => lookup.Lookup(HumanBoneIdentifiers.LEFT_HAND);
 		protected Transform RightHand => lookup.Lookup(HumanBoneIdentifiers.RIGHT_HAND);
 
+		protected TransformLookup SafeLookup
+		{
+			get
+			{
+				if (lookup == null)
+				{
+					lookup = gameObject.GetComponentRelative<TransformLookup>();
+				}
+				if (lookup == null)
+				{
+					lookup = gameObject.AddComponent<TransformLookup>();
+				}
+				return lookup;
+			}
+		}
+
 		[SerializeField, HideInInspector] private bool left;
 		[SerializeField, Conditional(nameof(left), drawToggle: true), ConstDropdown(typeof(IEquipmentSlotTypeConstants))] private string leftType;
 		[SerializeField, HideInInspector] private bool right;
 		[SerializeField, Conditional(nameof(right), drawToggle: true), ConstDropdown(typeof(IEquipmentSlotTypeConstants))] private string rightType;
 		[SerializeField] private Vector3 handSlotPointOffset = new Vector3(-0.01f, 0f, 0f);
 		[SerializeField] private bool drawGizmos;
-		[SerializeField] private float weight = 0.5f;
-		[SerializeField] private ArmTargetingSettings targettingSettings;
+		[SerializeField] private ArmedSettings defaultSettings;
+		[Header("DEBUGGING")]
+		[SerializeField] private GameObject testPrefab;
+		[SerializeField] private bool testLeft;
+		[SerializeField] private bool testRight;
 
 		private TransformLookup lookup;
 		private IEquipmentComponent equipment;
@@ -37,16 +57,44 @@ namespace SpaxUtils
 			this.rigidbodyWrapper = rigidbodyWrapper;
 		}
 
+#if UNITY_EDITOR
+		protected void OnValidate()
+		{
+			if (testLeft)
+			{
+				InstantiateTest(true);
+				testLeft = false;
+			}
+
+			if (testRight)
+			{
+				InstantiateTest(false);
+				testRight = false;
+			}
+		}
+
+		private void InstantiateTest(bool left)
+		{
+			GameObject instance = Instantiate(testPrefab, left ?
+				SafeLookup.Lookup(HumanBoneIdentifiers.LEFT_HAND) :
+				SafeLookup.Lookup(HumanBoneIdentifiers.RIGHT_HAND));
+			instance.transform.localScale = Vector3.one.Divide(instance.transform.lossyScale);
+			(Vector3 pos, Quaternion rot) orientation = GetHandSlotOrientation(left, false);
+			instance.transform.position = orientation.pos;
+			instance.transform.rotation = orientation.rot;
+		}
+#endif
+
 		protected void Awake()
 		{
 			if (left)
 			{
-				equipment.AddSlot(new EquipmentSlot(HumanBoneIdentifiers.LEFT_HAND, leftType, LeftHand, () => GetHandSlotPoint(true, true)));
+				equipment.AddSlot(new EquipmentSlot(HumanBoneIdentifiers.LEFT_HAND, leftType, LeftHand, () => GetHandSlotOrientation(true, true)));
 			}
 
 			if (right)
 			{
-				equipment.AddSlot(new EquipmentSlot(HumanBoneIdentifiers.RIGHT_HAND, rightType, RightHand, () => GetHandSlotPoint(false, true)));
+				equipment.AddSlot(new EquipmentSlot(HumanBoneIdentifiers.RIGHT_HAND, rightType, RightHand, () => GetHandSlotOrientation(false, true)));
 			}
 		}
 
@@ -54,22 +102,22 @@ namespace SpaxUtils
 		{
 			foreach (RuntimeEquipedData equipedData in equipment.EquipedItems)
 			{
-				AddHelper(equipedData);
+				OnEquipedEvent(equipedData);
 			}
 
-			equipment.EquipedEvent += AddHelper;
-			equipment.UnequipingEvent += RemoveHelper;
+			equipment.EquipedEvent += OnEquipedEvent;
+			equipment.UnequipingEvent += OnUnequipingEvent;
 		}
 
 		protected void OnDisable()
 		{
 			foreach (RuntimeEquipedData equipedData in equipment.EquipedItems)
 			{
-				RemoveHelper(equipedData);
+				OnUnequipingEvent(equipedData);
 			}
 
-			equipment.EquipedEvent -= AddHelper;
-			equipment.UnequipingEvent -= RemoveHelper;
+			equipment.EquipedEvent -= OnEquipedEvent;
+			equipment.UnequipingEvent -= OnUnequipingEvent;
 		}
 
 		protected void OnDestroy()
@@ -78,45 +126,25 @@ namespace SpaxUtils
 			equipment.RemoveSlot(HumanBoneIdentifiers.RIGHT_HAND);
 		}
 
-		protected void LateUpdate()
+		public void UpdateArm(bool isLeft, float weight, ArmedSettings settings, float delta)
 		{
-			// FOR DEBUG ONLY:
-			UpdateArms(weight, targettingSettings, Time.deltaTime);
+			if (isLeft)
+			{
+				leftHelper?.Update(weight, settings, delta);
+			}
+			else
+			{
+				rightHelper?.Update(weight, settings, delta);
+			}
 		}
 
-		public void UpdateArms(float weight, ArmTargetingSettings settings, float delta)
+		public void UpdateArms(float weight, ArmedSettings settings, float delta)
 		{
 			leftHelper?.Update(weight, settings, delta);
 			rightHelper?.Update(weight, settings, delta);
 		}
 
-		private void AddHelper(RuntimeEquipedData data)
-		{
-			RemoveHelper(data);
-
-			if (left && data.Slot.UID == HumanBoneIdentifiers.LEFT_HAND)
-			{
-				leftHelper = new ArmSlotHelper(true, ik, lookup, rigidbodyWrapper);
-			}
-			else if (right && data.Slot.UID == HumanBoneIdentifiers.RIGHT_HAND)
-			{
-				rightHelper = new ArmSlotHelper(false, ik, lookup, rigidbodyWrapper);
-			}
-		}
-
-		private void RemoveHelper(RuntimeEquipedData data)
-		{
-			if (data.Slot.UID == HumanBoneIdentifiers.LEFT_HAND)
-			{
-				leftHelper?.Dispose();
-			}
-			else if (data.Slot.UID == HumanBoneIdentifiers.RIGHT_HAND)
-			{
-				rightHelper?.Dispose();
-			}
-		}
-
-		private (Vector3 pos, Quaternion rot) GetHandSlotPoint(bool isLeft, bool local)
+		public (Vector3 pos, Quaternion rot) GetHandSlotOrientation(bool isLeft, bool local)
 		{
 			// Calculate position.
 			Transform hand = isLeft ? LeftHand : RightHand;
@@ -141,6 +169,32 @@ namespace SpaxUtils
 			}
 
 			return (position, rotation);
+		}
+
+		private void OnEquipedEvent(RuntimeEquipedData data)
+		{
+			OnUnequipingEvent(data);
+
+			if (left && data.Slot.UID == HumanBoneIdentifiers.LEFT_HAND)
+			{
+				leftHelper = new ArmSlotHelper(true, this, ik, lookup, rigidbodyWrapper);
+			}
+			else if (right && data.Slot.UID == HumanBoneIdentifiers.RIGHT_HAND)
+			{
+				rightHelper = new ArmSlotHelper(false, this, ik, lookup, rigidbodyWrapper);
+			}
+		}
+
+		private void OnUnequipingEvent(RuntimeEquipedData data)
+		{
+			if (data.Slot.UID == HumanBoneIdentifiers.LEFT_HAND)
+			{
+				leftHelper?.Dispose();
+			}
+			else if (data.Slot.UID == HumanBoneIdentifiers.RIGHT_HAND)
+			{
+				rightHelper?.Dispose();
+			}
 		}
 
 		#region Gizmos
@@ -168,7 +222,7 @@ namespace SpaxUtils
 
 				void Draw(bool isLeft, float size = 0.3f)
 				{
-					(Vector3 pos, Quaternion rot) orientation = GetHandSlotPoint(isLeft, false);
+					(Vector3 pos, Quaternion rot) orientation = GetHandSlotOrientation(isLeft, false);
 					Gizmos.color = Color.yellow;
 					Gizmos.DrawSphere(orientation.pos, 0.02f);
 					Gizmos.color = Color.blue;

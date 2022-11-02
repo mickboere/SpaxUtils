@@ -11,6 +11,6 @@ namespace SpaxUtils
 		string SlotType { get; }
 		IReadOnlyList<string> CoversLocations { get; }
 		GameObject EquipedPrefab { get; }
-		IReadOnlyList<BehaviourAsset> EquipedBehaviour { get; }
+		IReadOnlyList<BehaviorAsset> EquipedBehaviour { get; }
 	}
 }

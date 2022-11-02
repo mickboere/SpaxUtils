@@ -5,7 +5,7 @@ namespace SpaxUtils
 	/// <summary>
 	/// Abstract class for instantiatable <see cref="IBehaviour"/> assets.
 	/// </summary>
-	public abstract class BehaviourAsset : ScriptableObject, IBehaviour
+	public abstract class BehaviorAsset : ScriptableObject, IBehaviour
 	{
 		/// <inheritdoc/>
 		public bool Running { get; private set; }
@@ -25,7 +25,7 @@ namespace SpaxUtils
 		/// <summary>
 		/// Returns a new instance of this behaviour.
 		/// </summary>
-		public virtual BehaviourAsset CreateInstance()
+		public virtual BehaviorAsset CreateInstance()
 		{
 			return Instantiate(this);
 		}

@@ -32,9 +32,9 @@ namespace SpaxUtils
 		/// </summary>
 		public RuntimeDataCollection Parent { get; set; }
 
-		public RuntimeDataEntry(string id, object value, RuntimeDataCollection parent = null)
+		public RuntimeDataEntry(string uid, object value, RuntimeDataCollection parent = null)
 		{
-			UID = id;
+			UID = uid;
 			_value = value;
 			Parent = parent;
 		}

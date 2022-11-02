@@ -10,12 +10,12 @@ namespace SpaxUtils
 		public string SlotType => slotType;
 		public IReadOnlyList<string> CoversLocations => coversLocations;
 		public GameObject EquipedPrefab => equipedPrefab;
-		public IReadOnlyList<BehaviourAsset> EquipedBehaviour => equipedBehaviour;
+		public IReadOnlyList<BehaviorAsset> EquipedBehaviour => equipedBehaviour;
 
 		[Header("Equipment Data")]
 		[SerializeField, ConstDropdown(typeof(IEquipmentSlotTypeConstants))] private string slotType;
 		[SerializeField, ConstDropdown(typeof(IBodyLocationConstants))] private List<string> coversLocations;
 		[SerializeField] private GameObject equipedPrefab;
-		[SerializeField] private List<BehaviourAsset> equipedBehaviour;
+		[SerializeField] private List<BehaviorAsset> equipedBehaviour;
 	}
 }

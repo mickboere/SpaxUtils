@@ -120,7 +120,7 @@ namespace SpaxUtils
 		/// <param name="itemData">The item asset data.</param>
 		public RuntimeItemData AddItem(IItemData itemData, RuntimeDataCollection runtimeData)
 		{
-			runtimeData = new RuntimeDataCollection(runtimeData.UID, new List<RuntimeDataEntry>(), inventoryData).Append(runtimeData, itemData.Data);
+			runtimeData = runtimeData?.Clone() ?? new RuntimeDataCollection(Guid.NewGuid().ToString());
 
 			if (!entries.ContainsKey(runtimeData.UID))
 			{

@@ -7,7 +7,7 @@ namespace SpaxUtils
 	/// <summary>
 	/// Abstract class for instantiatable <see cref="IBehaviour"/> assets that implement <see cref="IStateComponent"/>.
 	/// </summary>
-	public abstract class StateBehaviourComponentAsset : BehaviourAsset, IStateComponent
+	public abstract class StateBehaviourComponentAsset : BehaviorAsset, IStateComponent
 	{
 		/// <inheritdoc/>
 		public virtual int ExecutionOrder => 0;

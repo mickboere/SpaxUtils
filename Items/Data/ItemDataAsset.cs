@@ -16,9 +16,6 @@ namespace SpaxUtils
 		public string Description => itemDescription;
 
 		/// <inheritdoc/>
-		public RuntimeDataCollection Data => new RuntimeDataCollection(UID);
-
-		/// <inheritdoc/>
 		public string Category => category;
 
 		/// <inheritdoc/>
@@ -30,7 +27,7 @@ namespace SpaxUtils
 		public GameObject WorldItemPrefab => worldItemPrefab;
 
 		/// <inheritdoc/>
-		public IReadOnlyList<BehaviourAsset> InventoryBehaviour => inventoryBehaviour;
+		public IReadOnlyList<BehaviorAsset> InventoryBehaviour => inventoryBehaviour;
 
 		[Header("Item Data")]
 		[SerializeField] private string id;
@@ -40,11 +37,11 @@ namespace SpaxUtils
 		[SerializeField, Tooltip("Unique items cannot be stacked, and will always count as a new data entry when added to the inventory.")] private bool unique;
 		[SerializeField] private Sprite icon;
 		[SerializeField] private GameObject worldItemPrefab;
-		[SerializeField] private List<BehaviourAsset> inventoryBehaviour;
+		[SerializeField] private List<BehaviorAsset> inventoryBehaviour;
 
 		public override string ToString()
 		{
-			return $"ItemData\n{{\n\tID={UID};\n\tName={Name};\n\tDescription={Description};\n\tCategory={Category};\n\tData\n{{\n{Data}\n}}}}";
+			return $"ItemData\n{{\n\tID={UID};\n\tName={Name};\n\tDescription={Description};\n\tCategory={Category};\n}}";
 		}
 	}
 }

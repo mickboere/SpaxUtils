@@ -246,6 +246,29 @@ namespace SpaxUtils
 
 		#endregion
 
+		/// <summary>
+		/// Create a deep copy of this <see cref="RuntimeDataCollection"/>.
+		/// </summary>
+		public RuntimeDataCollection Clone()
+		{
+			RuntimeDataCollection collection = new RuntimeDataCollection(UID);
+
+			foreach (KeyValuePair<string, RuntimeDataEntry> entry in data)
+			{
+				// If entry is collection, clone and add.
+				if (entry.Value is RuntimeDataCollection childCollection)
+				{
+					collection.TryAdd(childCollection.Clone(), true);
+				}
+				else // If entry is not a collection, 
+				{
+					collection.TryAdd(new RuntimeDataEntry(entry.Value, collection), true);
+				}
+			}
+
+			return collection;
+		}
+
 		public override string ToString()
 		{
 			// TODO: JSON.
