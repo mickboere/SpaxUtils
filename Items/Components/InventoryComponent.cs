@@ -29,7 +29,7 @@ namespace SpaxUtils
 
 		protected void Awake()
 		{
-			Inventory = new ItemInventory(dependencies, itemDatabase, new RuntimeDataCollection(INVENTORY_DATA_ID)); // TODO: should be loaded data
+			Inventory = new ItemInventory(dependencies, itemDatabase, Entity.RuntimeData.GetEntry(INVENTORY_DATA_ID, new RuntimeDataCollection(INVENTORY_DATA_ID, null, Entity.RuntimeData)));
 		}
 
 		protected void OnDestroy()

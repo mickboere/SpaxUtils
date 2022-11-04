@@ -175,11 +175,11 @@ namespace SpaxUtils
 		{
 			OnUnequipingEvent(data);
 
-			if (left && data.Slot.UID == HumanBoneIdentifiers.LEFT_HAND)
+			if (left && data.Slot.ID == HumanBoneIdentifiers.LEFT_HAND)
 			{
 				leftHelper = new ArmSlotHelper(true, this, ik, lookup, rigidbodyWrapper);
 			}
-			else if (right && data.Slot.UID == HumanBoneIdentifiers.RIGHT_HAND)
+			else if (right && data.Slot.ID == HumanBoneIdentifiers.RIGHT_HAND)
 			{
 				rightHelper = new ArmSlotHelper(false, this, ik, lookup, rigidbodyWrapper);
 			}
@@ -187,11 +187,11 @@ namespace SpaxUtils
 
 		private void OnUnequipingEvent(RuntimeEquipedData data)
 		{
-			if (data.Slot.UID == HumanBoneIdentifiers.LEFT_HAND)
+			if (data.Slot.ID == HumanBoneIdentifiers.LEFT_HAND)
 			{
 				leftHelper?.Dispose();
 			}
-			else if (data.Slot.UID == HumanBoneIdentifiers.RIGHT_HAND)
+			else if (data.Slot.ID == HumanBoneIdentifiers.RIGHT_HAND)
 			{
 				rightHelper?.Dispose();
 			}

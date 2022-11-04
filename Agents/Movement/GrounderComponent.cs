@@ -153,7 +153,7 @@ namespace SpaxUtils
 			TerrainSlope = Mathf.Clamp01(terrainAngle / 90f);
 
 			// Down-slope
-			Mobility += Mathf.Clamp01(SurfaceSlope * rigidbodyWrapper.Forward.Dot(SurfaceNormal));
+			Mobility += Mathf.Clamp01((1f - Traction) * rigidbodyWrapper.Forward.Dot(SurfaceNormal));
 		}
 
 		private void ApplyForces()
@@ -163,7 +163,7 @@ namespace SpaxUtils
 				if (Sliding)
 				{
 					Vector3 slidingForce = (Vector3.down * gravity).ProjectOnPlane(TerrainNormal);
-					rigidbodyWrapper.Rigidbody.AddForce(slidingForce, ForceMode.Acceleration);
+					rigidbodyWrapper.Rigidbody.AddForce(slidingForce * SurfaceSlope, ForceMode.Acceleration);
 				}
 				else
 				{

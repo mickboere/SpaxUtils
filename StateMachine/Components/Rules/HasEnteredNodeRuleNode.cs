@@ -27,7 +27,7 @@ namespace SpiritAxis
 		public override void OnPrepare()
 		{
 			base.OnPrepare();
-			nodeIDs = nodes.Select((node) => node.UID).ToArray();
+			nodeIDs = nodes.Select((node) => node.ID).ToArray();
 		}
 
 		public void InjectDependencies(IHistory history)

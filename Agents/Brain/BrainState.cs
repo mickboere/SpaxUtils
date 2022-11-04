@@ -10,8 +10,8 @@ namespace SpaxUtils
 	/// </summary>
 	public class BrainState : IBrainState, IDisposable
 	{
-		public string Name => UID;
-		public string UID { get; private set; }
+		public string Name => ID;
+		public string ID { get; private set; }
 		public int ExecutionOrder => int.MinValue;
 		public bool InjectStateDependencies => false;
 		public BrainState ParentState { get; private set; }
@@ -22,7 +22,7 @@ namespace SpaxUtils
 
 		public BrainState(string stateIdentifier, BrainState parentState = null, IEnumerable<BrainState> subStates = null, IEnumerable<IStateComponent> components = null)
 		{
-			UID = stateIdentifier;
+			ID = stateIdentifier;
 			ParentState = parentState;
 			if (subStates != null)
 			{

@@ -1,13 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using UnityEngine;
 
 namespace SpaxUtils
 {
 	/// <summary>
 	/// <see cref="RuntimeDataEntry"/> collection, also implements <see cref="RuntimeDataEntry"/> to allow for nested collections.
 	/// </summary>
+	[Serializable]
 	public class RuntimeDataCollection : RuntimeDataEntry, IDisposable
 	{
 		/// <summary>
@@ -32,8 +32,8 @@ namespace SpaxUtils
 				data = new Dictionary<string, RuntimeDataEntry>();
 				foreach (RuntimeDataEntry entry in value)
 				{
+					data[entry.ID] = entry;
 					entry.Parent = this;
-					data[entry.UID] = entry;
 				}
 			}
 		}
@@ -41,16 +41,24 @@ namespace SpaxUtils
 
 		public RuntimeDataCollection(string id, List<RuntimeDataEntry> dataEntries = null, RuntimeDataCollection parent = null) : base(id, null, parent)
 		{
-			if (dataEntries == null)
+			if (dataEntries != null)
 			{
-				dataEntries = new List<RuntimeDataEntry>();
+				Data = dataEntries;
 			}
-			Data = dataEntries;
+			else
+			{
+				data = new Dictionary<string, RuntimeDataEntry>();
+			}
 		}
 
-		public void Dispose() { }
-
-		#region Static Methods
+		public override void Dispose()
+		{
+			foreach (KeyValuePair<string, RuntimeDataEntry> entry in data)
+			{
+				entry.Value.Dispose();
+			}
+			base.Dispose();
+		}
 
 		/// <summary>
 		/// Returns a new <see cref="RuntimeDataCollection"/> instance with a random <see cref="Guid"/> ID.
@@ -63,7 +71,60 @@ namespace SpaxUtils
 			return data;
 		}
 
-		#endregion
+		/// <summary>
+		/// Returns whether the collection contains an entry with ID <paramref name="id"/>.
+		/// </summary>
+		/// <param name="id">The ID to check for.</param>
+		/// <returns>Whether the collection contains an entry with ID <paramref name="id"/>.</returns>
+		public bool ContainsEntry(string id)
+		{
+			return data.ContainsKey(id);
+		}
+
+		/// <summary>
+		/// Will attempt to add the <paramref name="entry"/> to the data collection.
+		/// </summary>
+		/// <param name="entry">The entry to attempt to add.</param>
+		/// <param name="overwriteExisting">Should existing data be overriden if its ID matches the <paramref name="entry"/>'s?</param>
+		/// <returns>TRUE if adding/overwriting was successfull, FALSE if it wasn't.</returns>
+		public bool TryAdd(RuntimeDataEntry entry, bool overwriteExisting = false)
+		{
+			RuntimeDataEntry present = GetEntry(entry.ID);
+			if (present != null && !overwriteExisting)
+			{
+				SpaxDebug.Error($"RuntimeDataEntry could not be added to collection.", $"Entry with same ID already exists and overwriting is disabled.\nID: {entry.ID}\nValue: {entry.Value}\nPresent: {present.Value}");
+				return false;
+			}
+
+			data[entry.ID] = entry;
+			entry.Parent = this;
+			DataUpdatedEvent?.Invoke(entry);
+			return true;
+		}
+
+		/// <summary>
+		/// Removes <see cref="RuntimeDataEntry"/> with <paramref name="id"/>, if any.
+		/// </summary>
+		/// <param name="id">The identifier of the <see cref="RuntimeDataEntry"/> to remove.</param>
+		/// <param name="dispose">Should the <see cref="RuntimeDataEntry"/> be disposed after removal?</param>
+		public bool TryRemove(string id, bool dispose = false)
+		{
+			RuntimeDataEntry present = GetEntry(id);
+
+			if (present == null)
+			{
+				return false;
+			}
+
+			present.Parent = null;
+
+			if (dispose)
+			{
+				present.Dispose();
+			}
+
+			return true;
+		}
 
 		/// <summary>
 		/// Sets the data entry with ID <paramref name="id"/>'s value to <paramref name="value"/>.
@@ -82,75 +143,12 @@ namespace SpaxUtils
 			else if (createIfNull)
 			{
 				entry = new RuntimeDataEntry(id, value, this);
-				data.Add(entry.UID, entry);
+				data.Add(entry.ID, entry);
 				DataUpdatedEvent?.Invoke(entry);
 			}
 		}
 
-		/// <summary>
-		/// Will attempt to add the <paramref name="entry"/> to the data collection.
-		/// </summary>
-		/// <param name="entry">The entry to attempt to add.</param>
-		/// <param name="overwriteExisting">Should existing data be overriden if its ID matches the <paramref name="entry"/>'s?</param>
-		/// <returns>TRUE if adding/overwriting was successfull, FALSE if it wasn't.</returns>
-		public bool TryAdd(RuntimeDataEntry entry, bool overwriteExisting = false)
-		{
-			RuntimeDataEntry present = GetEntry(entry.UID);
-			if (present != null && !overwriteExisting)
-			{
-				return false;
-			}
-
-			data[entry.UID] = entry;
-			DataUpdatedEvent?.Invoke(entry);
-			return true;
-		}
-
-		/// <summary>
-		/// Will copy all <see cref="RuntimeDataEntry"/>s from <paramref name="runtimeDataCollection"/> into this collection.
-		/// </summary>
-		/// <param name="runtimeDataCollection">The collection to copy the entries from.</param>
-		/// <param name="overwriteExisting">If this collection already contains an entry with the same ID, should it be overwritten?</param>
-		public RuntimeDataCollection Append(RuntimeDataCollection runtimeDataCollection, bool overwriteExisting = false)
-		{
-			foreach (KeyValuePair<string, RuntimeDataEntry> entry in runtimeDataCollection.data)
-			{
-				if (data.ContainsKey(entry.Key) && !overwriteExisting)
-				{
-					continue;
-				}
-
-				data[entry.Key] = new RuntimeDataEntry(entry.Value, this);
-			}
-
-			return this;
-		}
-
-		/// <summary>
-		/// Will copy all <see cref="RuntimeDataEntry"/>s from all <paramref name="collections"/> into this collection.
-		/// In case of duplicate ID's, the entry already in this collection will take precedence.
-		/// </summary>
-		/// <param name="collections">The collections to copy the entries from.</param>
-		public RuntimeDataCollection Append(params RuntimeDataCollection[] collections)
-		{
-			foreach (RuntimeDataCollection collection in collections)
-			{
-				Append(collection);
-			}
-			return this;
-		}
-
 		#region Getting Methods
-
-		/// <summary>
-		/// Returns whether the collection contains an entry with ID <paramref name="id"/>.
-		/// </summary>
-		/// <param name="id">The ID to check for.</param>
-		/// <returns>Whether the collection contains an entry with ID <paramref name="id"/>.</returns>
-		public bool HasEntry(string id)
-		{
-			return data.ContainsKey(id);
-		}
 
 		/// <summary>
 		/// Returns entry with ID <paramref name="id"/>.
@@ -171,13 +169,19 @@ namespace SpaxUtils
 		/// </summary>
 		/// <param name="id">The ID of the entry to retrieve.</param>
 		/// <returns>Entry with ID <paramref name="id"/>, NULL if null.</returns>
-		public T GetEntry<T>(string id) where T : RuntimeDataEntry
+		public T GetEntry<T>(string id, T defaultIfNull = null) where T : RuntimeDataEntry
 		{
 			RuntimeDataEntry entry = GetEntry(id);
-			if (entry is T cast)
+			if (entry == null && defaultIfNull != null)
+			{
+				TryAdd(defaultIfNull);
+				return defaultIfNull;
+			}
+			else if (entry is T cast)
 			{
 				return cast;
 			}
+
 			return null;
 		}
 
@@ -246,12 +250,14 @@ namespace SpaxUtils
 
 		#endregion
 
+		#region Cloning and Appending
+
 		/// <summary>
 		/// Create a deep copy of this <see cref="RuntimeDataCollection"/>.
 		/// </summary>
 		public RuntimeDataCollection Clone()
 		{
-			RuntimeDataCollection collection = new RuntimeDataCollection(UID);
+			RuntimeDataCollection collection = new RuntimeDataCollection(ID);
 
 			foreach (KeyValuePair<string, RuntimeDataEntry> entry in data)
 			{
@@ -269,10 +275,46 @@ namespace SpaxUtils
 			return collection;
 		}
 
+		/// <summary>
+		/// Will copy all <see cref="RuntimeDataEntry"/>s from <paramref name="runtimeDataCollection"/> into this collection.
+		/// </summary>
+		/// <param name="runtimeDataCollection">The collection to copy the entries from.</param>
+		/// <param name="overwriteExisting">If this collection already contains an entry with the same ID, should it be overwritten?</param>
+		public RuntimeDataCollection Append(RuntimeDataCollection runtimeDataCollection, bool overwriteExisting = false)
+		{
+			foreach (KeyValuePair<string, RuntimeDataEntry> entry in runtimeDataCollection.data)
+			{
+				if (data.ContainsKey(entry.Key) && !overwriteExisting)
+				{
+					continue;
+				}
+
+				data[entry.Key] = new RuntimeDataEntry(entry.Value, this);
+			}
+
+			return this;
+		}
+
+		/// <summary>
+		/// Will copy all <see cref="RuntimeDataEntry"/>s from all <paramref name="collections"/> into this collection.
+		/// In case of duplicate ID's, the entry already in this collection will take precedence.
+		/// </summary>
+		/// <param name="collections">The collections to copy the entries from.</param>
+		public RuntimeDataCollection Append(params RuntimeDataCollection[] collections)
+		{
+			foreach (RuntimeDataCollection collection in collections)
+			{
+				Append(collection);
+			}
+			return this;
+		}
+
+		#endregion
+
 		public override string ToString()
 		{
 			// TODO: JSON.
-			return $"{{\n\tID={UID};\n\tData\n\t{{\n\t\t{string.Join(";\n\t\t", Data)}\n\t}}\n}}";
+			return $"{{\n\tID={ID};\n\tData\n\t{{\n\t\t{string.Join(";\n\t\t", Data)}\n\t}}\n}}";
 		}
 	}
 }

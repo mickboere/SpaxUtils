@@ -8,6 +8,6 @@
 		/// <summary>
 		/// Unique string used to identify this object only.
 		/// </summary>
-		string UID { get; }
+		string ID { get; }
 	}
 }

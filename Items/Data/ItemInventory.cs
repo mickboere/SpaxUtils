@@ -28,11 +28,11 @@ namespace SpaxUtils
 		{
 			this.dependencies = dependencies;
 			this.itemDatabase = itemDatabase;
+			this.inventoryData = inventoryData;
 
 			entries = new Dictionary<string, RuntimeItemData>();
 
-			this.inventoryData = inventoryData;
-			this.inventoryData.DataUpdatedEvent += OnDataEntryUpdatedEvent;
+			inventoryData.DataUpdatedEvent += OnDataEntryUpdatedEvent;
 
 			ReloadInventory();
 		}
@@ -120,9 +120,9 @@ namespace SpaxUtils
 		/// <param name="itemData">The item asset data.</param>
 		public RuntimeItemData AddItem(IItemData itemData, RuntimeDataCollection runtimeData)
 		{
-			runtimeData = runtimeData?.Clone() ?? new RuntimeDataCollection(Guid.NewGuid().ToString());
+			runtimeData = runtimeData != null ? runtimeData.Clone() : new RuntimeDataCollection(Guid.NewGuid().ToString());
 
-			if (!entries.ContainsKey(runtimeData.UID))
+			if (!entries.ContainsKey(runtimeData.ID))
 			{
 				// Create dependency manager for the item data and bind it.
 				DependencyManager dependencyManager = new DependencyManager(dependencies, $"[ITEM]{itemData.Name}");
@@ -150,9 +150,9 @@ namespace SpaxUtils
 			}
 			else
 			{
-				SpaxDebug.Error("Inventory already contains data with same runtime ID; ", runtimeData.UID);
+				SpaxDebug.Error("Inventory already contains data with same runtime ID; ", runtimeData.ID);
 				runtimeData.Dispose();
-				return entries[runtimeData.UID];
+				return entries[runtimeData.ID];
 			}
 		}
 

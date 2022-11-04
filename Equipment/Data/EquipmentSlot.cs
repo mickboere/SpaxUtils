@@ -10,7 +10,7 @@ namespace SpaxUtils
 	public class EquipmentSlot : IEquipmentSlot
 	{
 		/// <inheritdoc/>
-		public virtual string UID { get; private set; }
+		public virtual string ID { get; private set; }
 
 		/// <inheritdoc/>
 		public virtual string Type { get; private set; }
@@ -23,7 +23,7 @@ namespace SpaxUtils
 		public EquipmentSlot(string uid, string type, Transform parent = null,
 			Func<(Vector3 pos, Quaternion rot)> getOrientationFunc = null)
 		{
-			UID = uid;
+			ID = uid;
 			Type = type;
 			Parent = parent;
 			this.getOrientationFunc = getOrientationFunc;

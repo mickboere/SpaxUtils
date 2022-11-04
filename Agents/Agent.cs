@@ -135,11 +135,11 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public override void SetDataValue(string identifier, object value)
 		{
-			if (!RuntimeData.HasEntry(identifier))
+			if (!RuntimeData.ContainsEntry(identifier))
 			{
 				foreach (IEntity attachment in Attachments)
 				{
-					if (attachment.RuntimeData.HasEntry(identifier))
+					if (attachment.RuntimeData.ContainsEntry(identifier))
 					{
 						attachment.RuntimeData.Set(identifier, value);
 						return;
@@ -153,11 +153,11 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public override object GetDataValue(string identifier)
 		{
-			if (!RuntimeData.HasEntry(identifier))
+			if (!RuntimeData.ContainsEntry(identifier))
 			{
 				foreach (IEntity attachment in Attachments)
 				{
-					if (attachment.RuntimeData.HasEntry(identifier))
+					if (attachment.RuntimeData.ContainsEntry(identifier))
 					{
 						return attachment.RuntimeData.Get(identifier);
 					}
@@ -170,11 +170,11 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public override T GetDataValue<T>(string identifier)
 		{
-			if (!RuntimeData.HasEntry(identifier))
+			if (!RuntimeData.ContainsEntry(identifier))
 			{
 				foreach (IEntity attachment in Attachments)
 				{
-					if (attachment.RuntimeData.HasEntry(identifier))
+					if (attachment.RuntimeData.ContainsEntry(identifier))
 					{
 						return attachment.RuntimeData.Get<T>(identifier);
 					}

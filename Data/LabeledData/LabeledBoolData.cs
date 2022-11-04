@@ -6,7 +6,7 @@ namespace SpaxUtils
 	[Serializable]
 	public class LabeledBoolData : ILabeledData
 	{
-		public string UID => identifier;
+		public string ID => identifier;
 		public object Value { get { return value; } set { this.value = (bool)value; } }
 		public bool BoolValue => value;
 

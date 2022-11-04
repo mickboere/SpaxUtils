@@ -9,20 +9,20 @@ namespace SpaxUtils
 	public class Identification : IIdentification
 	{
 		/// <inheritdoc/>
-		public event Action<IIdentification> LabelsChangedEvent;
+		public event Action<IIdentification> IdentificationUpdatedEvent;
 
 		/// <inheritdoc/>
 		public virtual string ID => id;
 
 		/// <inheritdoc/>
-		public virtual string Name { get { return name; } set { name = value; } }
+		public virtual string Name { get { return name; } set { name = value; IdentificationUpdatedEvent?.Invoke(this); } }
 
 		/// <inheritdoc/>
 		public virtual IList<string> Labels => labels;
 
 		public virtual IEntity Entity { get; private set; }
 
-		[SerializeField, ConstDropdown(typeof(IIdentificationIDs), includeEmpty: true, emptyOption: "<RANDOM>")] private string id;
+		[SerializeField, ConstDropdown(typeof(IIdentificationIDs), includeEmpty: true, emptyOption: "<NULL>")] private string id;
 		[SerializeField] private string name;
 		[SerializeField, ConstDropdown(typeof(IIdentificationLabels))] private List<string> labels;
 
@@ -55,18 +55,18 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public void Add(params string[] labels)
 		{
-			bool tagsChanged = false;
-			foreach (string tag in labels)
+			bool update = false;
+			foreach (string label in labels)
 			{
-				if (!Labels.Contains(tag))
+				if (!Labels.Contains(label))
 				{
-					Labels.Add(tag);
-					tagsChanged = true;
+					Labels.Add(label);
+					update = true;
 				}
 			}
-			if (tagsChanged)
+			if (update)
 			{
-				LabelsChangedEvent?.Invoke(this);
+				IdentificationUpdatedEvent?.Invoke(this);
 			}
 		}
 
@@ -79,12 +79,18 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public void Remove(params string[] labels)
 		{
+			bool update = false;
 			foreach (string label in labels)
 			{
 				if (Labels.Contains(label))
 				{
 					Labels.Remove(label);
+					update = true;
 				}
+			}
+			if (update)
+			{
+				IdentificationUpdatedEvent?.Invoke(this);
 			}
 		}
 

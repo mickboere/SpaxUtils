@@ -14,8 +14,8 @@ namespace SpaxUtils
 		public IItemData ItemData { get; private set; }
 		public RuntimeDataCollection RuntimeData { get; private set; }
 
-		public string RuntimeID => RuntimeData.UID;
-		public string ItemID => ItemData.UID;
+		public string RuntimeID => RuntimeData.ID;
+		public string ItemID => ItemData.ID;
 
 		public int Quantity => Unique ? 1 : RuntimeData.TryGet(ItemDataIdentifierConstants.QUANTITY, out int quantity) ? quantity : 1;
 

@@ -5,17 +5,18 @@ namespace SpaxUtils
 	/// <summary>
 	/// Single entry of <see cref="ILabeledData"/> within a <see cref="RuntimeDataCollection"/>.
 	/// </summary>
-	public class RuntimeDataEntry : ILabeledData
+	[Serializable]
+	public class RuntimeDataEntry : ILabeledData, IDisposable
 	{
 		/// <summary>
-		/// Invoked when the value of this 
+		/// Invoked when the value of this data entry has changed.
 		/// </summary>
 		public event Action<object> ValueChangedEvent;
 
 		/// <summary>
 		/// The identidier/label of this data.
 		/// </summary>
-		public virtual string UID { get; private set; }
+		public virtual string ID { get; private set; }
 
 		/// <summary>
 		/// The value of this data.
@@ -30,25 +31,49 @@ namespace SpaxUtils
 		/// <summary>
 		/// The parent <see cref="RuntimeDataCollection"/> of this data.
 		/// </summary>
-		public RuntimeDataCollection Parent { get; set; }
-
-		public RuntimeDataEntry(string uid, object value, RuntimeDataCollection parent = null)
+		public RuntimeDataCollection Parent
 		{
-			UID = uid;
+			get { return _parent; }
+			set
+			{
+				// Remove from current parent.
+				if (_parent != null)
+				{
+					RuntimeDataCollection parent = _parent;
+					_parent = null; // To prevent circular parenting loop.
+					parent.TryRemove(ID);
+				}
+
+				// Add to new parent if not added already.
+				if (value != null && !value.ContainsEntry(ID))
+				{
+					value.TryAdd(this);
+				}
+
+				_parent = value;
+			}
+		}
+		private RuntimeDataCollection _parent;
+
+		public RuntimeDataEntry(string id, object value, RuntimeDataCollection parent = null)
+		{
+			ID = id;
 			_value = value;
-			Parent = parent;
+			_parent = parent;
 		}
 
 		public RuntimeDataEntry(ILabeledData labeledData, RuntimeDataCollection parent = null)
 		{
-			UID = labeledData.UID;
+			ID = labeledData.ID;
 			Value = labeledData.Value;
-			Parent = parent;
+			_parent = parent;
 		}
+
+		public virtual void Dispose() { }
 
 		public override string ToString()
 		{
-			return $"{{ ID={UID}, Value={Value} }}";
+			return $"{{ ID={ID}, Value={Value} }}";
 		}
 	}
 }

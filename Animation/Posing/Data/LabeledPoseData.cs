@@ -20,7 +20,7 @@ namespace SpaxUtils
 		{
 			result = defaultIfNull;
 
-			ILabeledData data = LabeledData.FirstOrDefault((d) => d.UID == identifier);
+			ILabeledData data = LabeledData.FirstOrDefault((d) => d.ID == identifier);
 			if (data != null)
 			{
 				result = (T)data.Value;
@@ -35,14 +35,14 @@ namespace SpaxUtils
 		{
 			result = defaultIfNull;
 
-			LabeledFloatData fData = floatData.FirstOrDefault((d) => d.UID == identifier);
+			LabeledFloatData fData = floatData.FirstOrDefault((d) => d.ID == identifier);
 			if (fData != null)
 			{
 				result = fData.FloatValue;
 				return true;
 			}
 
-			LabeledCurveData cData = curveData.FirstOrDefault((d) => d.UID == identifier);
+			LabeledCurveData cData = curveData.FirstOrDefault((d) => d.ID == identifier);
 			if (cData != null)
 			{
 				result = cData.Evaluate(defaultIfNull);
@@ -70,7 +70,7 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public bool TryGetBool(string identifier, bool defaultIfNull, out bool result)
 		{
-			LabeledBoolData data = boolData.FirstOrDefault((d) => d.UID == identifier);
+			LabeledBoolData data = boolData.FirstOrDefault((d) => d.ID == identifier);
 			result = data != null ? data.BoolValue : defaultIfNull;
 			return data != null;
 		}

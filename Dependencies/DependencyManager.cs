@@ -427,6 +427,8 @@ namespace SpaxUtils
 					key = identifier;
 				}
 
+				bool optional = DependencyUtils.IsParameterOptional(parameters[i]);
+
 				// If the parameter is an array, collect all binding values of the specified array type.
 				if (!hasBindingIdentifier && type.IsArray)
 				{
@@ -436,14 +438,19 @@ namespace SpaxUtils
 					Array.Copy(objectParams, destinationArray, objectParams.Length);
 					arguments[i] = destinationArray;
 				}
-				// Else try get.
+				// Else if optional, try to get dependency but don't create if null.
+				else if (optional)
+				{
+					arguments[i] = Get(key, type, true, false);
+				}
+				// Else try get or create.
 				else
 				{
 					arguments[i] = Get(key, type, true, true);
 				}
 
 				// Dependency could not be found and not be created.
-				if (arguments[i] == null)
+				if (arguments[i] == null && !optional)
 				{
 					return false;
 				}

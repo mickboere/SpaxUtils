@@ -64,7 +64,7 @@ namespace SpaxUtils
 		{
 			foreach (IEquipmentSlot s in Slots)
 			{
-				if (s.Type == type && !equipedItems.ContainsKey(s.UID))
+				if (s.Type == type && !equipedItems.ContainsKey(s.ID))
 				{
 					slot = s;
 					return true;
@@ -94,19 +94,19 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public bool AddSlot(IEquipmentSlot slot)
 		{
-			if (string.IsNullOrEmpty(slot.UID))
+			if (string.IsNullOrEmpty(slot.ID))
 			{
 				SpaxDebug.Error($"Slot ID cannot be null or empty.");
 				return false;
 			}
 
-			if (slots.ContainsKey(slot.UID))
+			if (slots.ContainsKey(slot.ID))
 			{
-				SpaxDebug.Error($"Slot ID must be unique. '{slot.UID}' already exists.");
+				SpaxDebug.Error($"Slot ID must be unique. '{slot.ID}' already exists.");
 				return false;
 			}
 
-			slots.Add(slot.UID, slot);
+			slots.Add(slot.ID, slot);
 			return true;
 		}
 
@@ -178,7 +178,7 @@ namespace SpaxUtils
 				equipedData.ExecuteBehaviour();
 
 				// Occupy the equipment spot and invoke equiped event.
-				equipedItems[slot.UID] = equipedData;
+				equipedItems[slot.ID] = equipedData;
 				EquipedEvent?.Invoke(equipedData);
 
 				return true;
@@ -192,7 +192,7 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public void Unequip(RuntimeEquipedData equipedData)
 		{
-			if (equipedItems.ContainsKey(equipedData.Slot.UID))
+			if (equipedItems.ContainsKey(equipedData.Slot.ID))
 			{
 				// Stop all running equiped behaviour.
 				equipedData.StopBehaviour();
@@ -205,7 +205,7 @@ namespace SpaxUtils
 				}
 
 				// Clear equiped slot.
-				equipedItems.Remove(equipedData.Slot.UID);
+				equipedItems.Remove(equipedData.Slot.ID);
 
 				// Invoke unequiping event.
 				UnequipingEvent?.Invoke(equipedData);
@@ -226,7 +226,7 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public RuntimeEquipedData GetEquipedFromSlotID(string slot)
 		{
-			return EquipedItems.FirstOrDefault(e => e.Slot.UID == slot);
+			return EquipedItems.FirstOrDefault(e => e.Slot.ID == slot);
 		}
 
 		#endregion

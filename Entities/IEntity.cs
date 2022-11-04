@@ -10,6 +10,12 @@ namespace SpaxUtils
 	/// <seealso cref="IDependency"/>
 	public interface IEntity : IGameObject, IDependency
 	{
+		/// <summary>
+		/// Invoked when the entity is about to be saved.
+		/// Useful for any components that need to save their data to the collection before writing it away.
+		/// </summary>
+		event Action<RuntimeDataCollection> OnSaveEvent;
+
 		#region Properties
 
 		/// <summary>
@@ -40,6 +46,11 @@ namespace SpaxUtils
 		#endregion
 
 		#region Data
+
+		/// <summary>
+		/// Save the entity's <see cref="RuntimeData"/>.
+		/// </summary>
+		void Save();
 
 		/// <summary>
 		/// Sets the value object of <see cref="RuntimeDataEntry"/> with ID <paramref name="identifier"/>.

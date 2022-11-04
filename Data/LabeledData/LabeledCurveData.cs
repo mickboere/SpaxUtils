@@ -6,7 +6,7 @@ namespace SpaxUtils
 	[Serializable]
 	public class LabeledCurveData : ILabeledData
 	{
-		public string UID => identifier;
+		public string ID => identifier;
 		public object Value { get { return curve; } set { curve = (AnimationCurve)value; } }
 		public AnimationCurve CurveValue => curve;
 

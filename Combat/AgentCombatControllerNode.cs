@@ -193,13 +193,13 @@ namespace SpaxUtils
 
 		private void OnEquipedEvent(RuntimeEquipedData data)
 		{
-			if (data.Slot.UID == HumanBoneIdentifiers.LEFT_HAND)
+			if (data.Slot.ID == HumanBoneIdentifiers.LEFT_HAND)
 			{
 				leftEquip = data;
 				leftComp = leftEquip.EquipedVisual.GetComponent<ArmedEquipmentComponent>();
 			}
 
-			if (data.Slot.UID == HumanBoneIdentifiers.RIGHT_HAND)
+			if (data.Slot.ID == HumanBoneIdentifiers.RIGHT_HAND)
 			{
 				rightEquip = data;
 				rightComp = rightEquip.EquipedVisual.GetComponent<ArmedEquipmentComponent>();

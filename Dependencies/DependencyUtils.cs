@@ -8,7 +8,7 @@ namespace SpaxUtils
 {
 	public static class DependencyUtils
 	{
-		#region Dependency Manager Utils
+		#region Attribute Utils
 
 		/// <summary>
 		/// Will try to get a <see cref="BindingIdentifierAttribute"/> from an <see cref="IList{T}"/> of <see cref="CustomAttributeData"/> and returns its defined identifier.
@@ -42,7 +42,17 @@ namespace SpaxUtils
 			return false;
 		}
 
-		#endregion // Dependency Manager Utils
+		/// <summary>
+		/// Will check if the parameter has an <see cref="OptionalAttribute"/> attached to it.
+		/// </summary>
+		/// <param name="parameter">The parameter to check the attributes for.</param>
+		/// <returns>Whether the parameter has an <see cref="OptionalAttribute"/>.</returns>
+		public static bool IsParameterOptional(ParameterInfo parameter)
+		{
+			return CustomAttributeData.GetCustomAttributes(parameter).Any(a => a.AttributeType.Equals(typeof(OptionalAttribute)));
+		}
+
+		#endregion // Attribute Utils
 
 		/// <summary>
 		/// Will get all <see cref="MonoBehaviour"/>s from <see cref="GameObject"/> <paramref name="root"/> and attempt to call InjectDependencies on them.

@@ -19,13 +19,13 @@
 
 		protected override void AddEntity(T entity)
 		{
-			entity.Identification.LabelsChangedEvent += OnEntityTagsChanged;
+			entity.Identification.IdentificationUpdatedEvent += OnEntityTagsChanged;
 			base.AddEntity(entity);
 		}
 
 		protected override void RemoveEntity(T entity)
 		{
-			entity.Identification.LabelsChangedEvent -= OnEntityTagsChanged;
+			entity.Identification.IdentificationUpdatedEvent -= OnEntityTagsChanged;
 			base.RemoveEntity(entity);
 		}
 
@@ -41,7 +41,7 @@
 		{
 			foreach (T entity in Entities)
 			{
-				entity.Identification.LabelsChangedEvent -= OnEntityTagsChanged;
+				entity.Identification.IdentificationUpdatedEvent -= OnEntityTagsChanged;
 			}
 			base.Dispose();
 		}

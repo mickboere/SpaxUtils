@@ -8,9 +8,16 @@ namespace SpaxUtils
 	/// <summary>
 	/// Base implementation for an <see cref="IEntity"/>, wraps around Unity's GameObject.
 	/// </summary>
-	[DefaultExecutionOrder(-20)]
+	[DefaultExecutionOrder(-100)]
 	public class Entity : MonoBehaviour, IEntity
 	{
+		public const string ID_NAME = "Name";
+		public const string ID_POS = "Pos";
+		public const string ID_ROT = "Rot";
+
+		/// <inheritdoc/>
+		public event Action<RuntimeDataCollection> OnSaveEvent;
+
 		/// <inheritdoc/>
 		public GameObject GameObject => gameObject;
 
@@ -43,13 +50,22 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public StatCollection<EntityStat> Stats { get; private set; }
 
+		protected virtual string GameObjectNamePrefix => "[Entity]";
+		protected virtual string GameObjectName =>
+			GameObjectNamePrefix +
+			(string.IsNullOrEmpty(identification.Name) ? " " : $" {identification.Name} ");
+		// + (identification.Labels != null && identification.Labels.Count > 0 ? $"({string.Join(", ", identification.Labels)})" : "");
+
 		[SerializeField] protected Identification identification;
-		[SerializeField, ReadOnly] private string gameObjectName;
 
 		protected IEntityCollection entityCollection;
 		protected StatLibrary statLibrary;
+		private RuntimeDataService runtimeDataService;
 
-		public void InjectDependencies(IDependencyManager dependencyManager, IEntityComponent[] entityComponents, IEntityCollection entityCollection, StatLibrary statLibrary)
+		public void InjectDependencies(
+			IDependencyManager dependencyManager, IEntityComponent[] entityComponents, IEntityCollection entityCollection,
+			RuntimeDataService runtimeDataService, StatLibrary statLibrary,
+			[Optional] RuntimeDataCollection runtimeData)
 		{
 			if (DependencyManager != null)
 			{
@@ -60,9 +76,23 @@ namespace SpaxUtils
 			DependencyManager = dependencyManager;
 			Components = new List<IEntityComponent>(entityComponents);
 			this.entityCollection = entityCollection;
-			// TODO: Load data using entity ID
-			RuntimeData = new RuntimeDataCollection(Identification.ID);
+			this.runtimeDataService = runtimeDataService;
 			this.statLibrary = statLibrary;
+
+			// Load entity data.
+			if (runtimeData != null)
+			{
+				RuntimeData = runtimeData;
+			}
+			else if (runtimeDataService.CurrentProfile.TryGet(Identification.ID, out RuntimeDataCollection entityData))
+			{
+				RuntimeData = entityData;
+			}
+			else
+			{
+				RuntimeData = new RuntimeDataCollection(Identification.ID);
+			}
+
 			Stats = new StatCollection<EntityStat>();
 		}
 
@@ -78,26 +108,48 @@ namespace SpaxUtils
 			}
 		}
 
+		protected void Start()
+		{
+			if (RuntimeData.ContainsEntry(ID_NAME))
+			{
+				Identification.Name = RuntimeData.Get<string>(ID_NAME);
+			}
+			else
+			{
+				RuntimeData.Set(ID_NAME, Identification.Name);
+			}
+
+			gameObject.name = GameObjectName;
+
+			if (RuntimeData.ContainsEntry(ID_POS) && Transform.position == Vector3.zero)
+			{
+				Transform.position = RuntimeData.Get<Vector3>(ID_POS);
+				Transform.eulerAngles = RuntimeData.Get<Vector3>(ID_ROT);
+			}
+		}
+
 		protected virtual void OnEnable()
 		{
-			UpdateGameObjectName();
+			Identification.IdentificationUpdatedEvent += OnIdentificationUpdatedEvent;
 			entityCollection.Add(this);
 		}
 
 		protected virtual void OnDisable()
 		{
+			Identification.IdentificationUpdatedEvent -= OnIdentificationUpdatedEvent;
 			entityCollection.Remove(this);
 		}
 
-		protected virtual void OnValidate()
-		{
-			if (gameObject.scene != null)
-			{
-				UpdateGameObjectName();
-			}
-		}
-
 		#region Data
+
+		/// <inheritdoc/>
+		public void Save()
+		{
+			RuntimeData.Set(ID_POS, Transform.position);
+			RuntimeData.Set(ID_ROT, Transform.eulerAngles);
+			OnSaveEvent?.Invoke(RuntimeData);
+			runtimeDataService.Save(RuntimeData);
+		}
 
 		/// <inheritdoc/>
 		public virtual void SetDataValue(string identifier, object value)
@@ -117,7 +169,8 @@ namespace SpaxUtils
 			return RuntimeData.Get<T>(identifier);
 		}
 
-		private List<string> failedStats = new List<string>();
+		private List<string> failedStats = new List<string>(); // Used to minimize error logs.
+
 		/// <inheritdoc/>
 		public virtual EntityStat GetStat(string identifier, bool createDataIfNull = false)
 		{
@@ -126,7 +179,7 @@ namespace SpaxUtils
 				// Stat already exists.
 				return Stats.GetStat(identifier);
 			}
-			else if (RuntimeData.HasEntry(identifier))
+			else if (RuntimeData.ContainsEntry(identifier))
 			{
 				// Data exists but stat does not, create the stat.
 				RuntimeDataEntry data = RuntimeData.GetEntry(identifier);
@@ -203,23 +256,10 @@ namespace SpaxUtils
 
 		#endregion Entity Component Methods
 
-		#region Private Methods
-
-		protected virtual string GameObjectNamePrefix => "[Entity]";
-		protected virtual string GameObjectName =>
-			GameObjectNamePrefix +
-			(string.IsNullOrEmpty(identification.Name) ? " " : $" {identification.Name} ") +
-			(identification.Labels != null && identification.Labels.Count > 0 ? $"({string.Join(", ", identification.Labels)})" : "");
-
-		private void UpdateGameObjectName()
+		private void OnIdentificationUpdatedEvent(IIdentification identification)
 		{
-			gameObjectName = GameObjectName;
-			if (Application.isPlaying)
-			{
-				gameObject.name = GameObjectName;
-			}
+			RuntimeData.Set(ID_NAME, identification.Name);
+			gameObject.name = GameObjectName;
 		}
-
-		#endregion
 	}
 }

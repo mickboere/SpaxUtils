@@ -7,7 +7,7 @@ namespace SpaxUtils
 	public class ItemDataAsset : ScriptableObject, IItemData
 	{
 		/// <inheritdoc/>
-		public string UID => id;
+		public string ID => id;
 
 		/// <inheritdoc/>
 		public string Name => itemName;
@@ -41,7 +41,7 @@ namespace SpaxUtils
 
 		public override string ToString()
 		{
-			return $"ItemData\n{{\n\tID={UID};\n\tName={Name};\n\tDescription={Description};\n\tCategory={Category};\n}}";
+			return $"ItemData\n{{\n\tID={ID};\n\tName={Name};\n\tDescription={Description};\n\tCategory={Category};\n}}";
 		}
 	}
 }

@@ -96,7 +96,7 @@ namespace SpaxUtils.StateMachine
 
 		private void OnEnteredStateEvent(IState state)
 		{
-			history.Add(state.UID);
+			history.Add(state.ID);
 		}
 	}
 }

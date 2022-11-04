@@ -12,10 +12,10 @@ namespace SpaxUtils.StateMachine
 	public abstract class StateNodeBase : StateMachineNodeBase, IState
 	{
 		/// <inheritdoc/>
-		public virtual string Name => UID;
+		public virtual string Name => ID;
 
 		/// <inheritdoc/>
-		public string UID => id;
+		public string ID => id;
 
 		[SerializeField, HideInInspector] private string id;
 		[SerializeField, Output(backingValue = ShowBackingValue.Never, typeConstraint = TypeConstraint.Inherited)] private Connections.StateComponent components;
@@ -42,7 +42,7 @@ namespace SpaxUtils.StateMachine
 				}
 				else
 				{
-					if (graph.nodes.Any((node) => node is IState state && state != this && state.UID == id))
+					if (graph.nodes.Any((node) => node is IState state && state != this && state.ID == id))
 					{
 						id = Guid.NewGuid().ToString();
 					}

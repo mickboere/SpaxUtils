@@ -34,13 +34,13 @@ namespace SpaxUtils
 
 		public void AddItem(IItemData itemData)
 		{
-			if (items.ContainsKey(itemData.UID))
+			if (items.ContainsKey(itemData.ID))
 			{
-				Debug.LogError($"ItemData with ID '{itemData.UID}' already exists within the database!", itemData is UnityEngine.Object o ? o : null);
+				Debug.LogError($"ItemData with ID '{itemData.ID}' already exists within the database!", itemData is UnityEngine.Object o ? o : null);
 				return;
 			}
 
-			items.Add(itemData.UID, itemData);
+			items.Add(itemData.ID, itemData);
 			items.Add(itemData.Name, itemData);
 		}
 

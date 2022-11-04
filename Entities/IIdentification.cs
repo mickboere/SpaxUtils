@@ -10,9 +10,9 @@ namespace SpaxUtils
 	public interface IIdentification
 	{
 		/// <summary>
-		/// Invoked when the identification labels have changed.
+		/// Invoked when the identification name or labels have changed.
 		/// </summary>
-		event Action<IIdentification> LabelsChangedEvent;
+		event Action<IIdentification> IdentificationUpdatedEvent;
 
 		/// <summary>
 		/// Unique ID used to identify this entity instance.

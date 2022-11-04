@@ -6,7 +6,7 @@ namespace SpaxUtils
 	[Serializable]
 	public class LabeledFloatData : ILabeledData
 	{
-		public string UID => identifier;
+		public string ID => identifier;
 		public object Value { get { return value; } set { this.value = (float)value; } }
 		public float FloatValue => value;
 
