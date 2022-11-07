@@ -99,7 +99,10 @@ namespace SpaxUtils
 			List<Option> conflicts =
 				options.Where(
 					(a) => options.Any(
-						(b) => a != b && a.InputAction == b.InputAction))
+						(b) =>
+							a != b &&
+							!string.IsNullOrEmpty(a.InputAction) &&
+							a.InputAction == b.InputAction))
 				.ToList();
 
 			if (conflicts.Count > 0)

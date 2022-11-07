@@ -82,14 +82,17 @@ namespace SpaxUtils
 			// Load entity data.
 			if (runtimeData != null)
 			{
+				// Data was supplied through dependencies.
 				RuntimeData = runtimeData;
 			}
 			else if (runtimeDataService.CurrentProfile.TryGet(Identification.ID, out RuntimeDataCollection entityData))
 			{
+				// Saved data was found in data service.
 				RuntimeData = entityData;
 			}
 			else
 			{
+				// Create new data.
 				RuntimeData = new RuntimeDataCollection(Identification.ID);
 			}
 

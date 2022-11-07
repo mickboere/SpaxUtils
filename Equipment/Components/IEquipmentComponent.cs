@@ -39,12 +39,12 @@ namespace SpaxUtils
 		/// <param name="overlap">The currently equiped data with which there is location overlap.
 		/// Overlaps do no block equiping and will automatically be unblocked .</param>
 		/// <returns>Whether the given <paramref name="runtimeItemData"/> can be equiped on a free spot.</returns>
-		bool CanEquip(RuntimeItemData runtimeItemData, out IEquipmentSlot slot, out List<RuntimeEquipedData> overlap);
+		bool CanEquip(RuntimeItemData runtimeItemData, out IEquipmentSlot slot, out List<RuntimeEquipedData> overlap, string slotId);
 
 		/// <summary>
 		/// Tries to equip the given <paramref name="runtimeItemData"/>.
 		/// </summary>
-		bool TryEquip(RuntimeItemData runtimeItemData, out RuntimeEquipedData equipedData);
+		bool TryEquip(RuntimeItemData runtimeItemData, out RuntimeEquipedData equipedData, string slotId);
 
 		/// <summary>
 		/// Unequips the given <see cref="RuntimeEquipedData"/>.

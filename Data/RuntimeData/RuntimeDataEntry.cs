@@ -1,4 +1,5 @@
 ﻿using System;
+using Newtonsoft.Json;
 
 namespace SpaxUtils
 {
@@ -16,6 +17,7 @@ namespace SpaxUtils
 		/// <summary>
 		/// The identidier/label of this data.
 		/// </summary>
+		[JsonProperty(Order = -2)]
 		public virtual string ID { get; private set; }
 
 		/// <summary>
@@ -31,6 +33,7 @@ namespace SpaxUtils
 		/// <summary>
 		/// The parent <see cref="RuntimeDataCollection"/> of this data.
 		/// </summary>
+		[JsonIgnore]
 		public RuntimeDataCollection Parent
 		{
 			get { return _parent; }
@@ -54,6 +57,13 @@ namespace SpaxUtils
 			}
 		}
 		private RuntimeDataCollection _parent;
+
+		[JsonConstructor]
+		public RuntimeDataEntry(string id, object value)
+		{
+			ID = id;
+			_value = value;
+		}
 
 		public RuntimeDataEntry(string id, object value, RuntimeDataCollection parent = null)
 		{

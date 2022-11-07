@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using Newtonsoft.Json;
 
 namespace SpaxUtils
 {
@@ -19,25 +20,35 @@ namespace SpaxUtils
 		/// The <see cref="Data"/> as generic value object, required for implementing <see cref="ILabeledData"/>.
 		/// Can be set using any <see cref="IEnumerable{T}"/> where T is <see cref="RuntimeDataEntry"/>.
 		/// </summary>
-		public override object Value { get { return Data; } set { Data = new List<RuntimeDataEntry>((IEnumerable<RuntimeDataEntry>)value); } }
+		[JsonIgnore]
+		public override object Value
+		{
+			get { return Data; }
+			set
+			{
+				//SpaxDebug.Log($"Set {value.GetType().Name}\n{ value.ToString()}");
+				Data = new List<RuntimeDataEntry>((IEnumerable<RuntimeDataEntry>)value);
+			}
+		}
 
 		/// <summary>
 		/// All data entries making up this runtime data.
 		/// </summary>
 		public IReadOnlyList<RuntimeDataEntry> Data
 		{
-			get { return data.Values.ToList(); }
+			get { return _data.Values.ToList(); }
 			set
 			{
-				data = new Dictionary<string, RuntimeDataEntry>();
+				SpaxDebug.Log($"Set {value.GetType().Name}\n{ value.ToString()}");
+				_data = new Dictionary<string, RuntimeDataEntry>();
 				foreach (RuntimeDataEntry entry in value)
 				{
-					data[entry.ID] = entry;
+					_data[entry.ID] = entry;
 					entry.Parent = this;
 				}
 			}
 		}
-		private Dictionary<string, RuntimeDataEntry> data;
+		private Dictionary<string, RuntimeDataEntry> _data;
 
 		public RuntimeDataCollection(string id, List<RuntimeDataEntry> dataEntries = null, RuntimeDataCollection parent = null) : base(id, null, parent)
 		{
@@ -47,13 +58,13 @@ namespace SpaxUtils
 			}
 			else
 			{
-				data = new Dictionary<string, RuntimeDataEntry>();
+				_data = new Dictionary<string, RuntimeDataEntry>();
 			}
 		}
 
 		public override void Dispose()
 		{
-			foreach (KeyValuePair<string, RuntimeDataEntry> entry in data)
+			foreach (KeyValuePair<string, RuntimeDataEntry> entry in _data)
 			{
 				entry.Value.Dispose();
 			}
@@ -67,7 +78,9 @@ namespace SpaxUtils
 		/// <returns>A new <see cref="RuntimeDataCollection"/> instance with a random <see cref="Guid"/> ID.</returns>
 		public static RuntimeDataCollection New(params RuntimeDataEntry[] dataEntries)
 		{
-			RuntimeDataCollection data = new RuntimeDataCollection(Guid.NewGuid().ToString(), new List<RuntimeDataEntry>(dataEntries));
+			RuntimeDataCollection data = new RuntimeDataCollection(
+				Guid.NewGuid().ToString(),
+				dataEntries == null ? null : new List<RuntimeDataEntry>(dataEntries));
 			return data;
 		}
 
@@ -78,7 +91,7 @@ namespace SpaxUtils
 		/// <returns>Whether the collection contains an entry with ID <paramref name="id"/>.</returns>
 		public bool ContainsEntry(string id)
 		{
-			return data.ContainsKey(id);
+			return _data.ContainsKey(id);
 		}
 
 		/// <summary>
@@ -96,7 +109,7 @@ namespace SpaxUtils
 				return false;
 			}
 
-			data[entry.ID] = entry;
+			_data[entry.ID] = entry;
 			entry.Parent = this;
 			DataUpdatedEvent?.Invoke(entry);
 			return true;
@@ -143,7 +156,7 @@ namespace SpaxUtils
 			else if (createIfNull)
 			{
 				entry = new RuntimeDataEntry(id, value, this);
-				data.Add(entry.ID, entry);
+				_data.Add(entry.ID, entry);
 				DataUpdatedEvent?.Invoke(entry);
 			}
 		}
@@ -157,9 +170,9 @@ namespace SpaxUtils
 		/// <returns>Entry with ID <paramref name="id"/>, NULL if null.</returns>
 		public RuntimeDataEntry GetEntry(string id)
 		{
-			if (data.ContainsKey(id))
+			if (_data.ContainsKey(id))
 			{
-				return data[id];
+				return _data[id];
 			}
 			return null;
 		}
@@ -188,7 +201,7 @@ namespace SpaxUtils
 		public List<T> GetEntries<T>() where T : RuntimeDataEntry
 		{
 			List<T> entries = new List<T>();
-			foreach (KeyValuePair<string, RuntimeDataEntry> entry in data)
+			foreach (KeyValuePair<string, RuntimeDataEntry> entry in _data)
 			{
 				if (entry is T cast)
 				{
@@ -259,7 +272,13 @@ namespace SpaxUtils
 		{
 			RuntimeDataCollection collection = new RuntimeDataCollection(ID);
 
-			foreach (KeyValuePair<string, RuntimeDataEntry> entry in data)
+			if (_data == null)
+			{
+				SpaxDebug.Error($"Data is null, this should not be possible.", $"ID={ID}, Parent={(Parent == null ? "null" : Parent.ID)}");
+				return collection;
+			}
+
+			foreach (KeyValuePair<string, RuntimeDataEntry> entry in _data)
 			{
 				// If entry is collection, clone and add.
 				if (entry.Value is RuntimeDataCollection childCollection)
@@ -282,14 +301,14 @@ namespace SpaxUtils
 		/// <param name="overwriteExisting">If this collection already contains an entry with the same ID, should it be overwritten?</param>
 		public RuntimeDataCollection Append(RuntimeDataCollection runtimeDataCollection, bool overwriteExisting = false)
 		{
-			foreach (KeyValuePair<string, RuntimeDataEntry> entry in runtimeDataCollection.data)
+			foreach (KeyValuePair<string, RuntimeDataEntry> entry in runtimeDataCollection._data)
 			{
-				if (data.ContainsKey(entry.Key) && !overwriteExisting)
+				if (_data.ContainsKey(entry.Key) && !overwriteExisting)
 				{
 					continue;
 				}
 
-				data[entry.Key] = new RuntimeDataEntry(entry.Value, this);
+				_data[entry.Key] = new RuntimeDataEntry(entry.Value, this);
 			}
 
 			return this;

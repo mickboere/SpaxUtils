@@ -109,6 +109,7 @@ namespace SpaxUtils
 
 			// Save to disk.
 			RuntimeDataCollection data = Profiles[profileId];
+			SpaxDebug.Log($"Saving data for profile: {profileId}\n{data}");
 			JsonUtils.StreamWrite(data, PROFILES_PATH + data.ID + PROFILE_FILE_TYPE);
 			return true;
 		}

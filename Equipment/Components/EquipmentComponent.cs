@@ -10,6 +10,8 @@ namespace SpaxUtils
 	/// </summary>
 	public class EquipmentComponent : InteractorBase, IEquipmentComponent
 	{
+		public const string EQUIPMENT_DATA_ID = "Equipment";
+
 		public event Action<RuntimeEquipedData> EquipedEvent;
 		public event Action<RuntimeEquipedData> UnequipingEvent;
 
@@ -23,6 +25,7 @@ namespace SpaxUtils
 		private ICommunicationChannel comms;
 		private InventoryComponent inventoryComponent;
 
+		private RuntimeDataCollection equipmentData;
 		private Dictionary<string, IEquipmentSlot> slots = new Dictionary<string, IEquipmentSlot>();
 		private Dictionary<string, RuntimeEquipedData> equipedItems = new Dictionary<string, RuntimeEquipedData>(); // string = slot.UID
 
@@ -32,6 +35,17 @@ namespace SpaxUtils
 			this.sharedRigHandler = sharedRigHandler;
 			this.comms = comms;
 			this.inventoryComponent = inventoryComponent;
+
+			equipmentData = Entity.RuntimeData.GetEntry(EQUIPMENT_DATA_ID, new RuntimeDataCollection(EQUIPMENT_DATA_ID));
+		}
+
+		protected void Start()
+		{
+			// Load equipment
+			foreach (RuntimeDataEntry entry in equipmentData.Data)
+			{
+				TryEquip(inventoryComponent.Inventory.Get((string)entry.Value), out _, entry.ID);
+			}
 		}
 
 		protected void OnEnable()
@@ -127,12 +141,13 @@ namespace SpaxUtils
 		}
 
 		/// <inheritdoc/>
-		public bool CanEquip(RuntimeItemData runtimeItemData, out IEquipmentSlot slot, out List<RuntimeEquipedData> overlap)
+		public bool CanEquip(RuntimeItemData runtimeItemData, out IEquipmentSlot slot, out List<RuntimeEquipedData> overlap, string slotId = null)
 		{
+			slot = null;
+
 			// Make sure item data is equipment to begin with.
 			if (runtimeItemData.ItemData is not IEquipmentData equipmentData)
 			{
-				slot = null;
 				overlap = new List<RuntimeEquipedData>();
 				return false;
 			}
@@ -140,14 +155,28 @@ namespace SpaxUtils
 			// Conflicts occur when two items cover the same location(s), but they won't block equiping.
 			overlap = EquipedItems.Where((e) => e.EquipmentData.CoversLocations.Any((c) => equipmentData.CoversLocations.Contains(c))).ToList();
 
+			// Check if supplied slotID is available.
+			if (slotId != null)
+			{
+				if (slots.ContainsKey(slotId) && !equipedItems.ContainsKey(slotId))
+				{
+					slot = slots[slotId];
+					return true;
+				}
+				else
+				{
+					return false;
+				}
+			}
+
 			return TryGetFreeSlot(equipmentData.SlotType, out slot);
 		}
 
 		/// <inheritdoc/>
-		public bool TryEquip(RuntimeItemData runtimeItemData, out RuntimeEquipedData equipedData)
+		public bool TryEquip(RuntimeItemData runtimeItemData, out RuntimeEquipedData equipedData, string slotId = null)
 		{
 			// First make sure we can equip this item.
-			if (CanEquip(runtimeItemData, out IEquipmentSlot slot, out List<RuntimeEquipedData> conflicts))
+			if (CanEquip(runtimeItemData, out IEquipmentSlot slot, out List<RuntimeEquipedData> conflicts, slotId))
 			{
 				IEquipmentData itemData = runtimeItemData.ItemData as IEquipmentData;
 
@@ -177,8 +206,9 @@ namespace SpaxUtils
 				// Execute equipment behaviour.
 				equipedData.ExecuteBehaviour();
 
-				// Occupy the equipment spot and invoke equiped event.
+				// Occupy the slot, apply data and invoke equiped event.
 				equipedItems[slot.ID] = equipedData;
+				equipmentData.Set(slot.ID, equipedData.RuntimeItemData.RuntimeID);
 				EquipedEvent?.Invoke(equipedData);
 
 				return true;
@@ -204,10 +234,9 @@ namespace SpaxUtils
 					Destroy(equipedData.EquipedVisual);
 				}
 
-				// Clear equiped slot.
+				// Clear equiped slot, apply data and invoke unequiping event.
 				equipedItems.Remove(equipedData.Slot.ID);
-
-				// Invoke unequiping event.
+				equipmentData.TryRemove(equipedData.Slot.ID, true);
 				UnequipingEvent?.Invoke(equipedData);
 
 				// Dispose of all data.
@@ -262,7 +291,8 @@ namespace SpaxUtils
 		#endregion
 
 		/// <summary>
-		/// Instantiates the equipment data's prefab deactivated to allow for dependency injection afterwards. Returns null if there is no prefab to instantiate.
+		/// Instantiates the equipment data's prefab deactivated to allow for dependency injection afterwards.
+		/// Returns null if there is no prefab to instantiate.
 		/// </summary>
 		private GameObject InstantiateEquipmentDeactivated(IEquipmentData equipmentData, IEquipmentSlot slot)
 		{
@@ -300,6 +330,8 @@ namespace SpaxUtils
 			return instance;
 		}
 
+		#region Item options
+
 		private void OnRequestInventoryItemOptionsMsg(RequestOptionsMsg<RuntimeItemData> msg)
 		{
 			if (msg.Target.ItemData is IEquipmentData equipmentData)
@@ -328,5 +360,7 @@ namespace SpaxUtils
 
 			msg.AddOption(equipOption);
 		}
+
+		#endregion
 	}
 }

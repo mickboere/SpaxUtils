@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace SpaxUtils
@@ -21,8 +22,8 @@ namespace SpaxUtils
 
 		[SerializeField, Expandable] private ItemDataAsset itemDataAsset;
 
-		private IItemData itemData;
-		private RuntimeDataCollection runtimeData;
+		[NonSerialized] private IItemData itemData;
+		[NonSerialized] private RuntimeDataCollection runtimeData;
 
 		protected void OnValidate()
 		{
@@ -76,13 +77,16 @@ namespace SpaxUtils
 			if (itemDataAsset != null && Entity != null)
 			{
 				Entity.Identification.Name = itemDataAsset.Name;
-				//Entity.Identification.Add(EntityLabels.ITEM);
+				Entity.Identification.Add(EntityLabels.ITEM);
 			}
 		}
 
 		private void RefreshRuntimeItemData()
 		{
-			RuntimeItemData = new RuntimeItemData(itemData ?? itemDataAsset, runtimeData ?? new RuntimeDataCollection(System.Guid.NewGuid().ToString()), null);
+			RuntimeItemData = new RuntimeItemData(
+				itemData ?? itemDataAsset,
+				runtimeData ?? new RuntimeDataCollection(Guid.NewGuid().ToString()),
+				null);
 		}
 	}
 }

@@ -13,7 +13,7 @@ namespace SpaxUtils
 	/// https://code-maze.com/csharp-write-json-into-a-file/
 	public static class JsonUtils
 	{
-		private static readonly JsonSerializerSettings _options = new() { NullValueHandling = NullValueHandling.Ignore };
+		private static readonly JsonSerializerSettings _options = new() { NullValueHandling = NullValueHandling.Ignore, Formatting = Formatting.Indented };
 
 		public static void StreamWrite(object obj, string path)
 		{

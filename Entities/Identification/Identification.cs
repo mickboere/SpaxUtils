@@ -20,9 +20,10 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public virtual IList<string> Labels => labels;
 
+		/// <inheritdoc/>
 		public virtual IEntity Entity { get; private set; }
 
-		[SerializeField, ConstDropdown(typeof(IIdentificationIDs), includeEmpty: true, emptyOption: "<NULL>")] private string id;
+		[SerializeField, ConstDropdown(typeof(IIdentificationIdentifiers), includeEmpty: true, emptyOption: "<NULL>")] private string id;
 		[SerializeField] private string name;
 		[SerializeField, ConstDropdown(typeof(IIdentificationLabels))] private List<string> labels;
 
