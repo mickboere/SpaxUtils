@@ -73,23 +73,11 @@ namespace SpaxUtils
 					Actor.AddPerformer(performer);
 				}
 			}
-		}
-
-		/// <inheritdoc/>
-		public void Initialize(IIdentification identification, StateMachineGraph brainGraph = null)
-		{
-			this.identification = new Identification(identification, this);
 
 			// Create brain if there isn't one.
 			if (Brain == null)
 			{
 				Brain = new Brain(DependencyManager, callbackService, state);
-			}
-
-			// Mirror graph onto brain if there is one.
-			if (brainGraph != null)
-			{
-				Brain.MirrorGraph(brainGraph);
 			}
 		}
 

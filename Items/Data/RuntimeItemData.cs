@@ -33,6 +33,9 @@ namespace SpaxUtils
 			RuntimeData = runtimeData;
 			ItemData = itemData;
 			DependencyManager = dependencyManager;
+
+			// Mandatory data used when loading item data.
+			runtimeData.Set(ItemDataIdentifierConstants.ITEM_ID, ItemID);
 		}
 
 		/// <summary>

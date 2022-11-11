@@ -6,4 +6,7 @@ using UnityEngine;
 /// </summary>
 /// <seealso cref="BeginReadOnlyGroupAttribute"/>
 /// <seealso cref="EndReadOnlyGroupAttribute"/>
-public class ReadOnlyAttribute : PropertyAttribute { }
+public class ReadOnlyAttribute : PropertyAttribute
+{
+
+}

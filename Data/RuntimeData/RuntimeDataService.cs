@@ -11,18 +11,34 @@ namespace SpaxUtils
 	/// </summary>
 	public class RuntimeDataService : IService, IDisposable
 	{
-		public const string GLOBAL_PROFILE = "GLOBAL";
-		public const string PROFILE_FILE_TYPE = ".save";
-		public static readonly string PROFILES_PATH = $"{Application.persistentDataPath}/Profiles/";
+		private const string GLOBAL_PROFILE = "GLOBAL";
+		private const string PROFILE_FILE_TYPE = ".save";
+		private static readonly string PROFILES_PATH = $"{Application.persistentDataPath}/Profiles/";
+
+		/// <summary>
+		/// Invoked once <see cref="CurrentProfile"/> has changed.
+		/// </summary>
+		public event Action<RuntimeDataCollection> CurrentProfileChangedEvent;
 
 		/// <summary>
 		/// The current profile to which all undirected data is saved.
 		/// </summary>
-		public RuntimeDataCollection CurrentProfile { get; private set; }
+		public RuntimeDataCollection CurrentProfile
+		{
+			get { return _currentProfile; }
+			private set
+			{
+				_currentProfile = value;
+				CurrentProfileChangedEvent?.Invoke(value);
+			}
+		}
+		private RuntimeDataCollection _currentProfile;
 
 		/// <summary>
-		/// All loaded profiles.
+		/// All available profiles.
+		/// Not all profiles are guaranteed to have data as the data is loaded on demand.
 		/// </summary>
+		/// <seealso cref="LoadProfile(string, bool, out RuntimeDataCollection, bool)"/>
 		public Dictionary<string, RuntimeDataCollection> Profiles { get; private set; }
 
 		public RuntimeDataService()
@@ -109,7 +125,7 @@ namespace SpaxUtils
 
 			// Save to disk.
 			RuntimeDataCollection data = Profiles[profileId];
-			SpaxDebug.Log($"Saving data for profile: {profileId}\n{data}");
+			SpaxDebug.Notify($"Saving data for profile: {profileId}\n{data}");
 			JsonUtils.StreamWrite(data, PROFILES_PATH + data.ID + PROFILE_FILE_TYPE);
 			return true;
 		}
@@ -137,6 +153,11 @@ namespace SpaxUtils
 
 			// Load from disk.
 			data = JsonUtils.StreamRead<RuntimeDataCollection>(PROFILES_PATH + profileId + PROFILE_FILE_TYPE);
+
+			if (data != null)
+			{
+				SpaxDebug.Log($"Loaded profile:", JsonUtils.Serialize(data));
+			}
 
 			if (data == null && createIfNull)
 			{

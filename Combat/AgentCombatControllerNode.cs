@@ -63,6 +63,11 @@ namespace SpaxUtils
 
 			controlMod = new FloatOperationModifier(ModMethod.Absolute, Operation.Multiply, 1f);
 			rigidbodyWrapper.Control.AddModifier(this, controlMod);
+
+			foreach (RuntimeEquipedData item in equipment.EquipedItems)
+			{
+				OnEquipedEvent(item);
+			}
 		}
 
 		public override void OnStateExit()
@@ -89,6 +94,10 @@ namespace SpaxUtils
 			lastAct = null;
 			lastFailedAttempt = null;
 			wasPerforming = false;
+			leftEquip = null;
+			leftComp = null;
+			rightEquip = null;
+			rightComp = null;
 		}
 
 		private void OnLateUpdate()

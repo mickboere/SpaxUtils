@@ -4,12 +4,12 @@ using UnityEditor;
 namespace SpaxUtils
 {
 	[CustomPropertyDrawer(typeof(ConditionalAttribute))]
-	public class ConditionalDrawer : PropertyDrawer
+	public class ConditionalAttributeDrawer : PropertyDrawer
 	{
 		public override void OnGUI(Rect position, SerializedProperty property, GUIContent label)
 		{
 			ConditionalAttribute conditionalAttribute = attribute as ConditionalAttribute;
-			SerializedProperty toggleProperty = property.serializedObject.FindProperty(conditionalAttribute.ToggleProperty);
+			SerializedProperty toggleProperty = property.FindNeighbourProperty(conditionalAttribute.ToggleProperty);
 
 			if (conditionalAttribute.Hide && toggleProperty.boolValue == conditionalAttribute.Inverse)
 			{
@@ -42,7 +42,7 @@ namespace SpaxUtils
 		public override float GetPropertyHeight(SerializedProperty property, GUIContent label)
 		{
 			ConditionalAttribute conditionalAttribute = attribute as ConditionalAttribute;
-			SerializedProperty toggleProperty = property.serializedObject.FindProperty(conditionalAttribute.ToggleProperty);
+			SerializedProperty toggleProperty = property.FindNeighbourProperty(conditionalAttribute.ToggleProperty);
 
 			if (conditionalAttribute.Hide && toggleProperty.boolValue == conditionalAttribute.Inverse)
 			{

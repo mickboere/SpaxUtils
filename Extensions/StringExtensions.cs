@@ -23,12 +23,59 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
+		/// Splits string using <paramref name="divide"/> and returns the last element.
+		/// </summary>
+		public static string First(this string s, string divide = "/")
+		{
+			return s.Split(divide).First();
+		}
+
+		/// <summary>
+		/// Splits string using <paramref name="divide"/> and returns the last element.
+		/// </summary>
+		public static string Last(this string s, string divide = "/")
+		{
+			return s.Split(divide).Last();
+		}
+
+		/// <summary>
+		/// Splits string using <paramref name="divide"/> and returns the last element.
+		/// </summary>
+		public static string SecondToLast(this string s, string divide = "/")
+		{
+			string[] split = s.Split(divide);
+			return split[split.Length - 2];
+		}
+
+		/// <summary>
+		/// Converts a string into an integer which remains consistent across sessions.
+		/// </summary>
+		/// https://andrewlock.net/why-is-string-gethashcode-different-each-time-i-run-my-program-in-net-core/
+		public static int GetDeterministicHashCode(this string str)
+		{
+			unchecked
+			{
+				int hash1 = (5381 << 16) + 5381;
+				int hash2 = hash1;
+
+				for (int i = 0; i < str.Length; i += 2)
+				{
+					hash1 = ((hash1 << 5) + hash1) ^ str[i];
+					if (i == str.Length - 1)
+						break;
+					hash2 = ((hash2 << 5) + hash2) ^ str[i + 1];
+				}
+
+				return hash1 + (hash2 * 1566083941);
+			}
+		}
+
+		#region Distance functions
+
+		/// <summary>
 		/// Returns the amount of differing characters between two strings, also called the Hamming Distance.
 		/// https://stackoverflow.com/a/58086233/11012970
 		/// </summary>
-		/// <param name="a"></param>
-		/// <param name="b"></param>
-		/// <returns></returns>
 		public static int Distance(this string a, string b)
 		{
 			if (string.IsNullOrEmpty(a))
@@ -45,17 +92,12 @@ namespace SpaxUtils
 				return a.Length;
 			}
 
-			//if (a.Length != b.Length)
-			//{
-			//	throw new ArgumentException();
-			//}
-
 			return a.Zip(b, (d, c) => d != c).Count(f => f) + Math.Abs(a.Length - b.Length);
 		}
 
 		/// <summary>
 		/// Returns an int signifying the the amount edits one string needs to convert it into the other.
-		/// Or more simply put; this method returns how similar strings are compared to eachother.
+		/// Or more simply put; this is a method of calculating how similar strings are to eachother.
 		/// https://stackoverflow.com/a/6944095/11012970
 		/// </summary>
 		/// <param name="a">string A</param>
@@ -99,9 +141,6 @@ namespace SpaxUtils
 			return d[n, m];
 		}
 
-		public static string Last(this string s, string divide = "/")
-		{
-			return s.Split(divide).Last();
-		}
+		#endregion
 	}
 }

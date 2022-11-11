@@ -52,15 +52,15 @@ namespace SpaxUtils
 
 		protected virtual string GameObjectNamePrefix => "[Entity]";
 		protected virtual string GameObjectName =>
-			GameObjectNamePrefix +
-			(string.IsNullOrEmpty(identification.Name) ? " " : $" {identification.Name} ");
-		// + (identification.Labels != null && identification.Labels.Count > 0 ? $"({string.Join(", ", identification.Labels)})" : "");
+			string.IsNullOrEmpty(identification.Name) ? gameObject.name :
+			$"{GameObjectNamePrefix} {identification.Name}";
 
 		[SerializeField] protected Identification identification;
 
 		protected IEntityCollection entityCollection;
 		protected StatLibrary statLibrary;
 		private RuntimeDataService runtimeDataService;
+		private List<string> failedStats = new List<string>(); // Used to minimize error logs.
 
 		public void InjectDependencies(
 			IDependencyManager dependencyManager, IEntityComponent[] entityComponents, IEntityCollection entityCollection,
@@ -93,6 +93,7 @@ namespace SpaxUtils
 			else
 			{
 				// Create new data.
+				// We don't set the global data as the collection's parent because there's no guarantee this entity needs to be saved.
 				RuntimeData = new RuntimeDataCollection(Identification.ID);
 			}
 
@@ -113,6 +114,7 @@ namespace SpaxUtils
 
 		protected void Start()
 		{
+			// Load or set entity name in data.
 			if (RuntimeData.ContainsEntry(ID_NAME))
 			{
 				Identification.Name = RuntimeData.Get<string>(ID_NAME);
@@ -146,7 +148,7 @@ namespace SpaxUtils
 		#region Data
 
 		/// <inheritdoc/>
-		public void Save()
+		public virtual void Save()
 		{
 			RuntimeData.Set(ID_POS, Transform.position);
 			RuntimeData.Set(ID_ROT, Transform.eulerAngles);
@@ -172,8 +174,6 @@ namespace SpaxUtils
 			return RuntimeData.Get<T>(identifier);
 		}
 
-		private List<string> failedStats = new List<string>(); // Used to minimize error logs.
-
 		/// <inheritdoc/>
 		public virtual EntityStat GetStat(string identifier, bool createDataIfNull = false)
 		{
@@ -185,16 +185,23 @@ namespace SpaxUtils
 			else if (RuntimeData.ContainsEntry(identifier))
 			{
 				// Data exists but stat does not, create the stat.
-				RuntimeDataEntry data = RuntimeData.GetEntry(identifier);
-				if (data.Value is float)
+				RuntimeDataEntry entry = RuntimeData.GetEntry(identifier);
+
+				// Default floating point deserialization is double, convert to float.
+				if (entry.Value is double)
 				{
-					EntityStat stat = new EntityStat(data);
+					entry.Value = Convert.ToSingle(entry.Value);
+				}
+
+				if (entry.Value is float)
+				{
+					EntityStat stat = new EntityStat(entry);
 					Stats.AddStat(identifier, stat);
 					return stat;
 				}
 				else if (!failedStats.Contains(identifier))
 				{
-					SpaxDebug.Error("Failed to create stat.", $"Data with ID '{identifier}' is not a float value.", GameObject);
+					SpaxDebug.Error("Failed to create stat.", $"Data with ID '{identifier}' is of type '{entry.Value.GetType().FullName}'", GameObject);
 					failedStats.Add(identifier);
 				}
 			}

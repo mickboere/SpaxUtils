@@ -23,7 +23,8 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public virtual IEntity Entity { get; private set; }
 
-		[SerializeField, ConstDropdown(typeof(IIdentificationIdentifiers), includeEmpty: true, emptyOption: "<NULL>")] private string id;
+		//[SerializeField, Randomizable, ReadOnly] private int seed;
+		[SerializeField, ConstDropdown(typeof(IIdentificationIdentifiers), includeEmpty: true)] private string id;
 		[SerializeField] private string name;
 		[SerializeField, ConstDropdown(typeof(IIdentificationLabels))] private List<string> labels;
 
@@ -39,7 +40,7 @@ namespace SpaxUtils
 			Entity = entity;
 		}
 
-		public Identification(string id, string name, IEnumerable<string> labels, IEntity entity)
+		public Identification(string id, string name, ICollection<string> labels, IEntity entity)
 		{
 			this.id = id;
 			if (string.IsNullOrWhiteSpace(id))

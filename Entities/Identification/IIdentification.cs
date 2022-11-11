@@ -4,9 +4,9 @@ using System.Collections.Generic;
 namespace SpaxUtils
 {
 	/// <summary>
-	/// Object containing data used to identify an <see cref="IEntity"/>.
-	/// Has a unique string <see cref="ID"/>, a <see cref="Name"/> and a collection of <see cref="Labels"/>.
+	/// Data object which can be used to identify a unique entity or similar entities.
 	/// </summary>
+	/// <seealso cref="IEntity"/>
 	public interface IIdentification
 	{
 		/// <summary>

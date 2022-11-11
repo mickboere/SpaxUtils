@@ -35,6 +35,11 @@ namespace SpaxUtils
 			this.targetableComponent = targetableComponent;
 		}
 
+		protected void Awake()
+		{
+			GetSkeleton();
+		}
+
 		protected void OnValidate()
 		{
 			EnsureAllComponents();

@@ -58,11 +58,6 @@ namespace SpaxUtils
 		#region Methods
 
 		/// <summary>
-		/// (Re)Initialize this agent, giving it a new identification and restarting its brain.
-		/// </summary>
-		void Initialize(IIdentification identification, StateMachineGraph brainGraph = null);
-
-		/// <summary>
 		/// Attaches a new entity to this agent, allowing access to its data and components.
 		/// </summary>
 		void AttachEntity(IEntity entity);

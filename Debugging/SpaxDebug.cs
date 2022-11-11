@@ -51,7 +51,7 @@ namespace SpaxUtils
 						break;
 					case LogType.Warning:
 						//UnityEngine.Debug.LogWarning(log, context);
-						UnityEngine.Debug.Log(log, context);
+						UnityEngine.Debug.LogWarning(log, context);
 						break;
 					case LogType.Error:
 						UnityEngine.Debug.LogError(log, context);

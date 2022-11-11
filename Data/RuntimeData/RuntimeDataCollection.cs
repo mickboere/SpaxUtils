@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace SpaxUtils
 {
@@ -20,26 +21,31 @@ namespace SpaxUtils
 		/// The <see cref="Data"/> as generic value object, required for implementing <see cref="ILabeledData"/>.
 		/// Can be set using any <see cref="IEnumerable{T}"/> where T is <see cref="RuntimeDataEntry"/>.
 		/// </summary>
-		[JsonIgnore]
 		public override object Value
 		{
 			get { return Data; }
 			set
 			{
-				//SpaxDebug.Log($"Set {value.GetType().Name}\n{ value.ToString()}");
-				Data = new List<RuntimeDataEntry>((IEnumerable<RuntimeDataEntry>)value);
+				if (value is JToken token)
+				{
+					Data = token.ToObject<List<RuntimeDataEntry>>();
+				}
+				else
+				{
+					Data = new List<RuntimeDataEntry>((IEnumerable<RuntimeDataEntry>)value);
+				}
 			}
 		}
 
 		/// <summary>
 		/// All data entries making up this runtime data.
 		/// </summary>
+		[JsonIgnore]
 		public IReadOnlyList<RuntimeDataEntry> Data
 		{
 			get { return _data.Values.ToList(); }
 			set
 			{
-				SpaxDebug.Log($"Set {value.GetType().Name}\n{ value.ToString()}");
 				_data = new Dictionary<string, RuntimeDataEntry>();
 				foreach (RuntimeDataEntry entry in value)
 				{
@@ -105,7 +111,7 @@ namespace SpaxUtils
 			RuntimeDataEntry present = GetEntry(entry.ID);
 			if (present != null && !overwriteExisting)
 			{
-				SpaxDebug.Error($"RuntimeDataEntry could not be added to collection.", $"Entry with same ID already exists and overwriting is disabled.\nID: {entry.ID}\nValue: {entry.Value}\nPresent: {present.Value}");
+				// No need to log as it is a TRY add.
 				return false;
 			}
 
@@ -185,30 +191,87 @@ namespace SpaxUtils
 		public T GetEntry<T>(string id, T defaultIfNull = null) where T : RuntimeDataEntry
 		{
 			RuntimeDataEntry entry = GetEntry(id);
-			if (entry == null && defaultIfNull != null)
+
+			if (entry == null)
 			{
-				TryAdd(defaultIfNull);
-				return defaultIfNull;
+				if (defaultIfNull != null)
+				{
+					if (TryAdd(defaultIfNull))
+					{
+						return defaultIfNull;
+					}
+					else
+					{
+						SpaxDebug.Error($"Default entry could not be added.", $"For ID '{id}', default: {defaultIfNull}");
+					}
+				}
 			}
-			else if (entry is T cast)
+			else
 			{
-				return cast;
+				if (entry is T cast)
+				{
+					return cast;
+				}
+				else if (typeof(T).IsAssignableFrom(typeof(RuntimeDataCollection)) && entry.Value is JArray array)
+				{
+					// Entry is supposed to be a collection, convert and replace it.
+					List<RuntimeDataEntry> entries = array.ToObject<List<RuntimeDataEntry>>();
+					if (entries != null)
+					{
+						RuntimeDataCollection collection = new RuntimeDataCollection(id, entries, this);
+						_data[id] = collection;
+						entry.Dispose();
+						DataUpdatedEvent?.Invoke(collection);
+						return collection as T;
+					}
+				}
+
+				SpaxDebug.Error($"Entry cast is not valid.", $"For ID '{id}', cannot cast '{entry.GetType().FullName}' to {typeof(T).FullName}.\n" +
+					$"Entry value: {(entry.Value == null ? "null" : entry.Value.GetType().FullName)}");
 			}
 
 			return null;
 		}
 
+		/// <summary>
+		/// Returns all entries of type <typeparamref name="T"/>.
+		/// </summary>
+		/// <typeparam name="T">The types of entry to return.</typeparam>
+		/// <returns>All entries of type <typeparamref name="T"/>.</returns>
 		public List<T> GetEntries<T>() where T : RuntimeDataEntry
 		{
-			List<T> entries = new List<T>();
-			foreach (KeyValuePair<string, RuntimeDataEntry> entry in _data)
+			List<T> results = new List<T>();
+
+			bool isCollection = typeof(T).IsAssignableFrom(typeof(RuntimeDataCollection));
+			List<RuntimeDataEntry> entries = _data.Values.ToList();
+
+			foreach (RuntimeDataEntry entry in entries)
 			{
 				if (entry is T cast)
 				{
-					entries.Add(cast);
+					results.Add(cast);
+				}
+				else if (isCollection && entry.Value is JArray array)
+				{
+					List<RuntimeDataEntry> childEntries = array.ToObject<List<RuntimeDataEntry>>();
+					if (childEntries != null)
+					{
+						// Entry is supposed to be a collection, convert and replace it.
+						RuntimeDataCollection collection = new RuntimeDataCollection(entry.ID, childEntries, this);
+						_data[entry.ID] = collection;
+						entry.Dispose();
+						DataUpdatedEvent?.Invoke(collection);
+						results.Add(collection as T);
+					}
+					else
+					{
+						SpaxDebug.Error($"Entry cast is not valid.", $"For ID '{entry.ID}', cannot cast '{entry.GetType().FullName}' to {typeof(T).FullName}.\n" +
+							$"Entry value: {(entry.Value == null ? "null" : entry.Value.GetType().FullName)}");
+					}
 				}
 			}
-			return entries;
+
+			return results;
 		}
 
 		/// <summary>
@@ -234,11 +297,28 @@ namespace SpaxUtils
 		/// <returns>Value of entry with ID <paramref name="id"/> as <typeparamref name="T"/>, DEFAULT if entry is null.</returns>
 		public T Get<T>(string id)
 		{
-			object value = Get(id);
-			if (value != null)
+			RuntimeDataEntry entry = GetEntry(id);
+			if (entry != null)
 			{
-				return (T)value;
+				if (entry.Value is T cast)
+				{
+					return cast;
+				}
+				else if (entry.Value is JToken token)
+				{
+					// Object was deserialized as JToken, try to convert it to desired type.
+					T jCast = token.ToObject<T>();
+					if (jCast != null)
+					{
+						// Replace entry value with cast since we now know its correct type.
+						entry.Value = jCast;
+						return jCast;
+					}
+				}
+
+				SpaxDebug.Error($"Value cast is not valid.", $"For ID '{id}', cannot cast '{entry.Value.GetType().FullName}' to {typeof(T).FullName}");
 			}
+
 			return default;
 		}
 

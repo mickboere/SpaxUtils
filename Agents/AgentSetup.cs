@@ -1,5 +1,6 @@
 ﻿using SpaxUtils.StateMachine;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 namespace SpaxUtils
@@ -43,14 +44,21 @@ namespace SpaxUtils
 			Dependencies = new List<object>(dependencies);
 		}
 
-		public AgentSetup(IAgentSetup template)
+		public AgentSetup(
+			IAgentSetup template,
+			IIdentification identification = null,
+			Agent frame = null,
+			StateMachineGraph brain = null,
+			AgentBodyComponent body = null,
+			IList<GameObject> children = null,
+			IList<object> dependencies = null)
 		{
-			Identification = template.Identification;
-			Frame = template.Frame;
-			Brain = template.Brain;
-			Body = template.Body;
-			Children = new List<GameObject>(template.Children);
-			Dependencies = new List<object>(template.Dependencies);
+			Identification = identification ?? template.Identification;
+			Frame = frame ?? template.Frame;
+			Brain = brain ?? template.Brain;
+			Body = body ?? template.Body;
+			Children = children == null ? new List<GameObject>(template.Children) : new List<GameObject>().Concat(template.Children).Concat(children).ToList();
+			Dependencies = dependencies == null ? new List<object>(template.Dependencies) : new List<object>().Concat(template.Dependencies).Concat(dependencies).ToList();
 		}
 	}
 }

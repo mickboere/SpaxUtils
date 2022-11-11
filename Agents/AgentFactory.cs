@@ -7,14 +7,31 @@ namespace SpaxUtils
 {
 	public static class AgentFactory
 	{
+		public static Agent Create(IAgentSetup setup, IDependencyManager dependencyManager)
+		{
+			return Create(setup.Identification, setup.Frame, setup.Brain, setup.Body, dependencyManager, Vector3.zero, Quaternion.identity, setup.Children, setup.Dependencies);
+		}
+
+		public static Agent Create(IAgentSetup setup, IDependencyManager dependencyManager, Vector3 position)
+		{
+			return Create(setup.Identification, setup.Frame, setup.Brain, setup.Body, dependencyManager, position, Quaternion.identity, setup.Children, setup.Dependencies);
+		}
+
 		public static Agent Create(IAgentSetup setup, IDependencyManager dependencyManager, Vector3 position, Quaternion rotation)
 		{
 			return Create(setup.Identification, setup.Frame, setup.Brain, setup.Body, dependencyManager, position, rotation, setup.Children, setup.Dependencies);
 		}
 
-		public static Agent Create(IIdentification identification, Agent frame, StateMachineGraph brain, AgentBodyComponent body,
-			IDependencyManager dependencyManager, Vector3 position, Quaternion rotation,
-			IEnumerable<GameObject> children = null, IEnumerable<object> dependencies = null)
+		public static Agent Create(
+			IIdentification identification,
+			Agent frame,
+			StateMachineGraph brain,
+			AgentBodyComponent body,
+			IDependencyManager dependencyManager,
+			Vector3 position,
+			Quaternion rotation,
+			ICollection<GameObject> children = null,
+			ICollection<object> dependencies = null)
 		{
 			if (!dependencyManager.TryGetBinding(typeof(ICommunicationChannel), typeof(ICommunicationChannel), false, out object comms))
 			{
@@ -54,7 +71,10 @@ namespace SpaxUtils
 
 			// Initialize the agent.
 			Agent agent = rootGo.GetComponent<Agent>();
-			agent.Initialize(identification, brain);
+			if (brain != null)
+			{
+				agent.Brain.MirrorGraph(brain);
+			}
 
 			// Activate Agent and return.
 			rootGo.SetActive(true);
