@@ -65,7 +65,7 @@ namespace SpaxUtils
 		public void InjectDependencies(
 			IDependencyManager dependencyManager, IEntityComponent[] entityComponents, IEntityCollection entityCollection,
 			RuntimeDataService runtimeDataService, StatLibrary statLibrary,
-			[Optional] RuntimeDataCollection runtimeData)
+			[Optional] RuntimeDataCollection runtimeData, [Optional] IIdentification identification)
 		{
 			if (DependencyManager != null)
 			{
@@ -79,6 +79,21 @@ namespace SpaxUtils
 			this.runtimeDataService = runtimeDataService;
 			this.statLibrary = statLibrary;
 
+			// Load identification.
+			if (identification != null)
+			{
+				this.identification = new Identification(identification, this);
+			}
+
+			// Load runtime data.
+			LoadData(runtimeData);
+
+			// Initialize stats.
+			Stats = new StatCollection<EntityStat>();
+		}
+
+		protected virtual void LoadData(RuntimeDataCollection runtimeData)
+		{
 			// Load entity data.
 			if (runtimeData != null)
 			{
@@ -97,7 +112,15 @@ namespace SpaxUtils
 				RuntimeData = new RuntimeDataCollection(Identification.ID);
 			}
 
-			Stats = new StatCollection<EntityStat>();
+			// Load or set entity name in data.
+			if (RuntimeData.ContainsEntry(ID_NAME))
+			{
+				Identification.Name = RuntimeData.Get<string>(ID_NAME);
+			}
+			else
+			{
+				RuntimeData.Set(ID_NAME, Identification.Name);
+			}
 		}
 
 		protected virtual void Awake()
@@ -114,16 +137,6 @@ namespace SpaxUtils
 
 		protected void Start()
 		{
-			// Load or set entity name in data.
-			if (RuntimeData.ContainsEntry(ID_NAME))
-			{
-				Identification.Name = RuntimeData.Get<string>(ID_NAME);
-			}
-			else
-			{
-				RuntimeData.Set(ID_NAME, Identification.Name);
-			}
-
 			gameObject.name = GameObjectName;
 
 			if (RuntimeData.ContainsEntry(ID_POS) && Transform.position == Vector3.zero)

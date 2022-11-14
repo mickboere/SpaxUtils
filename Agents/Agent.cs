@@ -40,8 +40,6 @@ namespace SpaxUtils
 		[SerializeField, ConstDropdown(typeof(IStateIdentifierConstants))] private string state;
 		[SerializeField] private StateMachineGraph brainGraph;
 
-		private CallbackService callbackService;
-
 		/// <inheritdoc/>
 		public Dictionary<object, object> RetrieveDependencies()
 		{
@@ -56,7 +54,6 @@ namespace SpaxUtils
 			Body = body;
 			Targetable = targetableComponent;
 			Targeter = targeterComponent;
-			this.callbackService = callbackService;
 
 			foreach (IEntity entity in entities)
 			{
@@ -68,7 +65,7 @@ namespace SpaxUtils
 
 			foreach (IPerformer performer in performers)
 			{
-				if (performer != Actor)// && performer is IEntityComponent)
+				if (performer != Actor)
 				{
 					Actor.AddPerformer(performer);
 				}
@@ -79,18 +76,6 @@ namespace SpaxUtils
 			{
 				Brain = new Brain(DependencyManager, callbackService, state);
 			}
-		}
-
-		protected override void OnEnable()
-		{
-			base.OnEnable();
-			//StartBrain();
-		}
-
-		protected override void OnDisable()
-		{
-			//StopBrain();
-			base.OnDisable();
 		}
 
 		protected void OnDestroy()

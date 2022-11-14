@@ -41,7 +41,7 @@ namespace SpaxUtils
 
 			// Instantiate the Agent Frame deactivated.
 			GameObject rootGo = DependencyUtils.InstantiateDeactivated(frame.gameObject, position, rotation);
-
+			
 			// Instantiate the Agent's Body and other Children.
 			GameObject bodyGo = DependencyUtils.InstantiateDeactivated(body.gameObject, rootGo.transform);
 			bodyGo.SetActive(true);
@@ -55,6 +55,7 @@ namespace SpaxUtils
 			}
 
 			// Bind all dependencies.
+			dependencyManager.Bind(identification);
 			if (dependencies != null)
 			{
 				foreach (object dependency in dependencies)
@@ -69,7 +70,7 @@ namespace SpaxUtils
 			// Inject all dependencies.
 			DependencyUtils.Inject(rootGo, dependencyManager, includeChildren: true, bindComponents: false);
 
-			// Initialize the agent.
+			// Initialize the brain.
 			Agent agent = rootGo.GetComponent<Agent>();
 			if (brain != null)
 			{

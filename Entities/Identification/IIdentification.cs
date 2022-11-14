@@ -17,7 +17,7 @@ namespace SpaxUtils
 		/// <summary>
 		/// Unique ID used to identify this entity instance.
 		/// </summary>
-		string ID { get; }
+		string ID { get; set; }
 
 		/// <summary>
 		/// The name of this entity.

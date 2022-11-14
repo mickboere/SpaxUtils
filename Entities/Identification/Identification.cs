@@ -12,7 +12,11 @@ namespace SpaxUtils
 		public event Action<IIdentification> IdentificationUpdatedEvent;
 
 		/// <inheritdoc/>
-		public virtual string ID => id;
+		public virtual string ID
+		{
+			get { return id; }
+			set { id = value; IdentificationUpdatedEvent?.Invoke(this); }
+		}
 
 		/// <inheritdoc/>
 		public virtual string Name { get { return name; } set { name = value; IdentificationUpdatedEvent?.Invoke(this); } }
