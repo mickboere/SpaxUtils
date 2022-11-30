@@ -12,13 +12,17 @@ namespace SpaxUtils
 		public class Chain
 		{
 			public string Identifier => identifier;
+			public IKUpdateMode UpdateMode => updateMode;
 			public Transform TipBone => tipBone;
 			public Transform Target => target;
 
 			[SerializeField, ConstDropdown(typeof(IIKChainConstants))] private string identifier;
+			[SerializeField] private IKUpdateMode updateMode;
 			[SerializeField] private Transform tipBone;
 			[SerializeField] private Transform target;
 		}
+
+		protected override Dictionary<string, IKUpdateMode> Settings { get; set; }
 
 		[SerializeField] protected FullBodyBipedIK fullBodyIK;
 		[SerializeField] protected List<Chain> chains;
@@ -29,27 +33,37 @@ namespace SpaxUtils
 			{
 				fullBodyIK = GetComponentInChildren<FullBodyBipedIK>();
 			}
+
+			Settings = new Dictionary<string, IKUpdateMode>();
+			foreach (Chain chain in chains)
+			{
+				Settings[chain.Identifier] = chain.UpdateMode;
+			}
 		}
 
-		protected override void ApplyInfluencers(Dictionary<string, Dictionary<object, IKInfluencer>> influencers)
+		public override void ApplyInfluencer(string ikChain)
 		{
-			foreach (KeyValuePair<string, Dictionary<object, IKInfluencer>> kvp in influencers)
+			if (!chainInfluencers.ContainsKey(ikChain))
 			{
-				IKEffector effector = GetEffectorForChain(kvp.Key);
-				if (effector == null)
-				{
-					continue;
-				}
-				Chain chain = chains.FirstOrDefault((c) => c.Identifier == kvp.Key);
-
-				Vector3 position = Vector3Extensions.AveragePoint(chain.TipBone.position, kvp.Value.Values.Select((i) => i.Position).ToArray(), kvp.Value.Values.Select((i) => i.PositionWeight).ToArray());
-				Quaternion rotation = QuaternionExtensions.Average(kvp.Value.Values.Select((i) => i.Rotation).ToArray(), kvp.Value.Values.Select((i) => i.RotationWeight).ToArray());
-				chain.Target.SetPositionAndRotation(position, rotation);
-
-				float positionWeight = kvp.Value.Max((i) => i.Value.PositionWeight);
-				effector.positionWeight = positionWeight;
-				effector.rotationWeight = kvp.Value.Max((i) => i.Value.RotationWeight);
+				return;
 			}
+
+			IKEffector effector = GetEffectorForChain(ikChain);
+			if (effector == null)
+			{
+				return;
+			}
+
+			Chain chain = chains.FirstOrDefault((c) => c.Identifier == ikChain);
+			Dictionary<object, IKInfluencer> influencers = chainInfluencers[ikChain];
+
+			Vector3 position = Vector3Extensions.AveragePoint(chain.TipBone.position, influencers.Values.Select((i) => i.Position).ToArray(), influencers.Values.Select((i) => i.PositionWeight).ToArray());
+			Quaternion rotation = QuaternionExtensions.Average(influencers.Values.Select((i) => i.Rotation).ToArray(), influencers.Values.Select((i) => i.RotationWeight).ToArray());
+			chain.Target.SetPositionAndRotation(position, rotation);
+
+			float positionWeight = influencers.Max((i) => i.Value.PositionWeight);
+			effector.positionWeight = positionWeight;
+			effector.rotationWeight = influencers.Max((i) => i.Value.RotationWeight);
 		}
 
 		protected virtual IKEffector GetEffectorForChain(string chain)
@@ -67,6 +81,7 @@ namespace SpaxUtils
 				case IKChainConstants.RIGHT_LEG:
 					return fullBodyIK.solver.rightFootEffector;
 				default:
+					SpaxDebug.Error($"No IKEffector defined for {chain}.");
 					return null;
 			}
 		}

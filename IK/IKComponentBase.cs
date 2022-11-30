@@ -5,23 +5,43 @@ namespace SpaxUtils
 {
 	public abstract class IKComponentBase : EntityComponentBase, IIKComponent
 	{
-		[SerializeField] private bool fixedUpdate;
+		/// <summary>
+		/// Dictionary where the Key is string IK chain identifier and Value is <see cref="IKUpdateMode"/> defining the settings for the chain.
+		/// </summary>
+		protected abstract Dictionary<string, IKUpdateMode> Settings { get; set; }
 
-		protected Dictionary<string, Dictionary<object, IKInfluencer>> influencers = new Dictionary<string, Dictionary<object, IKInfluencer>>();
+		protected Dictionary<string, Dictionary<object, IKInfluencer>> chainInfluencers = new Dictionary<string, Dictionary<object, IKInfluencer>>();
 
 		protected void Update()
 		{
-			if (!fixedUpdate)
+			foreach (KeyValuePair<string, IKUpdateMode> setting in Settings)
 			{
-				ApplyInfluencers(influencers);
+				if (setting.Value == IKUpdateMode.Update)
+				{
+					ApplyInfluencer(setting.Key);
+				}
+			}
+		}
+
+		protected void LateUpdate()
+		{
+			foreach (KeyValuePair<string, IKUpdateMode> setting in Settings)
+			{
+				if (setting.Value == IKUpdateMode.LateUpdate)
+				{
+					ApplyInfluencer(setting.Key);
+				}
 			}
 		}
 
 		protected void FixedUpdate()
 		{
-			if (fixedUpdate)
+			foreach (KeyValuePair<string, IKUpdateMode> setting in Settings)
 			{
-				ApplyInfluencers(influencers);
+				if (setting.Value == IKUpdateMode.FixedUpdate)
+				{
+					ApplyInfluencer(setting.Key);
+				}
 			}
 		}
 
@@ -32,26 +52,26 @@ namespace SpaxUtils
 
 		public void AddInfluencer(object caller, string ikChain, Vector3 position, float positionWeight, Quaternion rotation, float rotationWeight)
 		{
-			if (!influencers.ContainsKey(ikChain))
+			if (!chainInfluencers.ContainsKey(ikChain))
 			{
-				influencers.Add(ikChain, new Dictionary<object, IKInfluencer>());
+				chainInfluencers.Add(ikChain, new Dictionary<object, IKInfluencer>());
 			}
 
-			influencers[ikChain][caller] = new IKInfluencer(ikChain, position, positionWeight, rotation, rotationWeight);
+			chainInfluencers[ikChain][caller] = new IKInfluencer(ikChain, position, positionWeight, rotation, rotationWeight);
 		}
 
 		public void RemoveInfluencer(object caller, string ikChain)
 		{
-			if (influencers.ContainsKey(ikChain))
+			if (chainInfluencers.ContainsKey(ikChain))
 			{
-				influencers[ikChain].Remove(caller);
-				if (influencers[ikChain].Count == 0)
+				chainInfluencers[ikChain].Remove(caller);
+				if (chainInfluencers[ikChain].Count == 0)
 				{
-					influencers.Remove(ikChain);
+					chainInfluencers.Remove(ikChain);
 				}
 			}
 		}
 
-		protected abstract void ApplyInfluencers(Dictionary<string, Dictionary<object, IKInfluencer>> influencers);
+		public abstract void ApplyInfluencer(string ikChain);
 	}
 }

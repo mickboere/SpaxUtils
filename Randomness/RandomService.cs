@@ -8,8 +8,8 @@ namespace SpaxUtils
 	/// Plan:
 	/// 1. User creates profile.
 	/// 2. Root seed is generated from profile name.
-	/// 3. World-Entities will need to have their ID's generated from some local seed. I want to say position but that doesn't seem safe.
-	/// 4. Instantiated Entity ID's will be random GUID's -> Need a way to store, identify and load the current player(s)(!).
+	/// 3. World-Entities will need to have their ID's generated from some local seed.
+	/// 4. Instantiated Entity ID's will be random GUID's.
 	public class RandomService : IService, IDisposable
 	{
 		public const string ID_ROOT_SEED = "ROOT_SEED";
