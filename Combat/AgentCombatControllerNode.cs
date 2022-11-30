@@ -155,15 +155,12 @@ namespace SpaxUtils
 			bool performing = performer.PerformanceTime > 0f;
 			weights[performer] = weight;
 
-			// Only give control if it's the newest performance.
+			// Only give control if it's the last performance.
 			if (performer == performers[performers.Count - 1])
 			{
-				float control = 1f - weights.Values.Sum().Clamp01();
-				controlMod.SetValue(controlMod.Value < control ? Mathf.Lerp(controlMod.Value, control, controlWeightSmoothing * Time.deltaTime) : control);
-
-				// Check if first frame of performance after charging.
 				if (!wasPerforming && performing)
 				{
+					// First frame of performance.
 					movementHandler.ForceRotation();
 					rigidbodyWrapper.AddImpact(combatPerformer.Current.Impact);
 				}
@@ -173,6 +170,10 @@ namespace SpaxUtils
 				{
 					RetryLastFailedAttempt();
 				}
+
+				// Set control.
+				float control = 1f - weights.Values.Sum().Clamp01();
+				controlMod.SetValue(controlMod.Value < control ? Mathf.Lerp(controlMod.Value, control, controlWeightSmoothing * Time.deltaTime) : control);
 			}
 
 			// Clean up if the performance has completed, set pose if not.
@@ -181,6 +182,10 @@ namespace SpaxUtils
 				poser.RevokeInstructions(performer);
 				performers.Remove(performer);
 				weights.Remove(performer);
+				if (weights.Count == 0)
+				{
+					controlMod.SetValue(1f);
+				}
 			}
 			else
 			{
