@@ -16,6 +16,7 @@ namespace SpaxUtils
 
 		[SerializeField, Input(backingValue = ShowBackingValue.Never)] protected Connections.StateComponent inConnection;
 		[SerializeField] private float retryActionWindow;
+		[SerializeField] private float controlWeightSmoothing = 6f;
 
 		private IActor actor;
 		private AnimatorPoser poser;
@@ -27,6 +28,7 @@ namespace SpaxUtils
 		private FloatOperationModifier controlMod;
 
 		private List<IPerformer> performers = new List<IPerformer>();
+		private Dictionary<IPerformer, float> weights = new Dictionary<IPerformer, float>();
 		private Act<bool>? lastAct;
 		private (Act<bool> act, Timer timer)? lastFailedAttempt;
 		private bool wasPerforming;
@@ -104,11 +106,11 @@ namespace SpaxUtils
 		{
 			if (leftComp != null)
 			{
-				armSlots.UpdateArm(true, rigidbodyWrapper.Control, leftComp.ArmedSettings, Time.deltaTime);
+				armSlots.UpdateArm(true, controlMod.Value, leftComp.ArmedSettings, Time.deltaTime);
 			}
 			if (rightComp != null)
 			{
-				armSlots.UpdateArm(false, rigidbodyWrapper.Control, rightComp.ArmedSettings, Time.deltaTime);
+				armSlots.UpdateArm(false, controlMod.Value, rightComp.ArmedSettings, Time.deltaTime);
 			}
 		}
 
@@ -144,21 +146,20 @@ namespace SpaxUtils
 
 		private void OnPerformanceUpdateEvent(IPerformer performer, PoserStruct pose, float weight)
 		{
-			//SpaxDebug.Log("OnPerformanceUpdateEvent", $"{performer.PerformanceTime}");
-
 			if (!performers.Contains(performer))
 			{
 				return;
 			}
 
 			ICombatPerformer combatPerformer = performer as ICombatPerformer;
-
 			bool performing = performer.PerformanceTime > 0f;
+			weights[performer] = weight;
 
 			// Only give control if it's the newest performance.
 			if (performer == performers[performers.Count - 1])
 			{
-				controlMod.SetValue(performing ? 1f - weight : 0f);
+				float control = 1f - weights.Values.Sum().Clamp01();
+				controlMod.SetValue(controlMod.Value < control ? Mathf.Lerp(controlMod.Value, control, controlWeightSmoothing * Time.deltaTime) : control);
 
 				// Check if first frame of performance after charging.
 				if (!wasPerforming && performing)
@@ -167,6 +168,11 @@ namespace SpaxUtils
 					rigidbodyWrapper.AddImpact(combatPerformer.Current.Impact);
 				}
 				wasPerforming = performing;
+
+				if (combatPerformer.Finishing)
+				{
+					RetryLastFailedAttempt();
+				}
 			}
 
 			// Clean up if the performance has completed, set pose if not.
@@ -174,7 +180,7 @@ namespace SpaxUtils
 			{
 				poser.RevokeInstructions(performer);
 				performers.Remove(performer);
-				RetryLastFailedAttempt();
+				weights.Remove(performer);
 			}
 			else
 			{
@@ -195,8 +201,6 @@ namespace SpaxUtils
 				{
 					OnAct(new Act<bool>(retry.Title, false));
 				}
-
-				lastFailedAttempt = null;
 			}
 		}
 

@@ -37,7 +37,7 @@ namespace SpaxUtils
 		[SerializeField, Tooltip("Unique items cannot be stacked, and will always count as a new data entry when added to the inventory.")] private bool unique;
 		[SerializeField] private Sprite icon;
 		[SerializeField] private GameObject worldItemPrefab;
-		[SerializeField] private List<BehaviorAsset> inventoryBehaviour;
+		[SerializeField, Expandable] private List<BehaviorAsset> inventoryBehaviour;
 
 		public override string ToString()
 		{

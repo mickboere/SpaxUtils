@@ -60,9 +60,9 @@ namespace SpaxUtils
 		private Vector3[] stepPoints;
 		private Vector3[] stepNormals;
 
-		public void InjectDependencies(RigidbodyWrapper wrapper)
+		public void InjectDependencies(RigidbodyWrapper rigidbodyWrapper)
 		{
-			this.rigidbodyWrapper = wrapper;
+			this.rigidbodyWrapper = rigidbodyWrapper;
 		}
 
 		protected void FixedUpdate()

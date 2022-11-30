@@ -100,6 +100,7 @@ namespace SpaxUtils
 			}
 		}
 
+		/// <inheritdoc/>
 		public bool TryProduce(IAct act, out IPerformer finalPerformer)
 		{
 			finalPerformer = null;
@@ -122,6 +123,7 @@ namespace SpaxUtils
 			return false;
 		}
 
+		/// <inheritdoc/>
 		public bool TryPerform()
 		{
 			if (current == null)

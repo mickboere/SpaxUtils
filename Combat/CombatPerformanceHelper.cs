@@ -71,11 +71,20 @@ namespace SpaxUtils
 				// Cancel current.
 				State = State.UnsetFlag(CombatPerformanceState.Charging);
 				Current = null;
-				return true;
 			}
 
 			// Auto complete current with minimum charge.
-			return false;
+			return true;
+		}
+
+		public void AddCombatMove(string act, ICombatMove move, int prio)
+		{
+			SpaxDebug.Error("Combat performance helper does not support multiple moves.");
+		}
+
+		public void RemoveCombatMove(string act, ICombatMove move)
+		{
+			SpaxDebug.Error("Combat performance helper does not support multiple moves.");
 		}
 
 		private void Update()

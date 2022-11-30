@@ -16,6 +16,6 @@ namespace SpaxUtils
 		[SerializeField, ConstDropdown(typeof(IEquipmentSlotTypeConstants))] private string slotType;
 		[SerializeField, ConstDropdown(typeof(IBodyLocationConstants))] private List<string> coversLocations;
 		[SerializeField] private GameObject equipedPrefab;
-		[SerializeField] private List<BehaviorAsset> equipedBehaviour;
+		[SerializeField, Expandable] private List<BehaviorAsset> equipedBehaviour;
 	}
 }

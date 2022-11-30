@@ -156,6 +156,8 @@ namespace SpaxUtils
 
 			if (data != null)
 			{
+				// TODO: Iterate through data to convert jarrays to collections, doubles to ints, etc.
+
 				SpaxDebug.Log($"Loaded profile:", JsonUtils.Serialize(data));
 			}
 

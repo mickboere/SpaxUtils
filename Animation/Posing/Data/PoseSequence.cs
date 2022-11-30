@@ -4,7 +4,6 @@ using UnityEngine;
 
 namespace SpaxUtils
 {
-
 	[CreateAssetMenu(fileName = "PoseSequence", menuName = "ScriptableObjects/Animation/PoseSequence")]
 	public class PoseSequence : ScriptableObject, IPoseSequence
 	{
@@ -12,6 +11,7 @@ namespace SpaxUtils
 		public float TotalDuration => sequence.Sum((p) => p.Duration);
 		public ILabeledDataProvider GlobalData => globalData;
 
+		// TODO: Add mirrored loop mode so that I don't have to define every pose twice.
 		[SerializeField] private bool loop;
 		[SerializeField] private LabeledPoseData globalData;
 		[SerializeField] private List<Pose> sequence;

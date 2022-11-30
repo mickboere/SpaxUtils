@@ -66,14 +66,17 @@ namespace SpaxUtils
 		string PerformSpeedMultiplier { get; }
 
 		/// <summary>
+		/// The follow-up moves available during the release of this move.
+		/// </summary>
+		List<ActCombatPair> Combos { get; }
+
+		/// <summary>
 		/// Evaluates the combat move at <paramref name="chargeTime"/> seconds of charge and <paramref name="performTime"/> seconds of performance.
 		/// </summary>
-		/// <param name="fromPose">The pose to initiate the move from, used to transition into the charging pose.</param>
 		/// <param name="chargeTime">The amount of seconds of charge.</param>
 		/// <param name="performTime">The amount of seconds of performance.</param>
-		/// <param name="weight">The effective weight of the complete pose blend.</param>
-		/// <param name="additionalFromStanceData"></param>
-		/// <returns></returns>
+		/// <param name="weight">The resulting effective weight of the complete pose blend.</param>
+		/// <returns><see cref="PoseTransition"/> resulting from the evaluation.</returns>
 		PoseTransition Evaluate(float chargeTime, float performTime, out float weight);
 	}
 }

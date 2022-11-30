@@ -8,7 +8,7 @@ namespace SpaxUtils
 	/// 
 	/// This class will get all of the <see cref="MonoBehaviour"/>s on the current object and tries to inject their dependencies.
 	/// </summary>
-	[DefaultExecutionOrder(-10)]
+	[DefaultExecutionOrder(-1000)]
 	public class GlobalDependencyInjectorComponent : MonoBehaviour
 	{
 		[SerializeField] private bool includeChildren = true;

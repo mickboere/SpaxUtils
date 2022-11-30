@@ -138,7 +138,7 @@ namespace SpaxUtils
 
 		public void AddImpact(Impact impact)
 		{
-			impacts.Add(impact.New());
+			impacts.Add(impact.NewCopy());
 		}
 
 		public void ClearImpacts()

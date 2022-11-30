@@ -8,7 +8,7 @@ namespace SpaxUtils
 	/// <summary>
 	/// Base implementation for an <see cref="IEntity"/>, wraps around Unity's GameObject.
 	/// </summary>
-	[DefaultExecutionOrder(-100)]
+	[DefaultExecutionOrder(-1000)]
 	public class Entity : MonoBehaviour, IEntity
 	{
 		public const string ID_NAME = "Name";

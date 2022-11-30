@@ -3,6 +3,9 @@ using UnityEngine;
 
 namespace SpaxUtils
 {
+	/// <summary>
+	/// Struct used for keeping track of a physics impact.
+	/// </summary>
 	[Serializable]
 	public struct Impact
 	{
@@ -26,14 +29,22 @@ namespace SpaxUtils
 		[SerializeField] private float force;
 		[SerializeField] private bool ignoreMass;
 		[SerializeField] private bool relative;
+		[SerializeField] private float delay;
+		[SerializeField] private bool realtime;
 
-		public Impact(Vector3 momentum, float force, bool ignoreMass = false, bool relative = false)
+		private Timer delayTimer;
+
+		public Impact(Vector3 momentum, float force, bool ignoreMass = false, bool relative = false, float delay = 0f, bool realtime = false)
 		{
 			this.momentum = momentum;
 			this.force = force;
 			CurrentForce = force;
 			this.ignoreMass = ignoreMass;
 			this.relative = relative;
+
+			this.delay = delay;
+			this.realtime = realtime;
+			delayTimer = new Timer(delay, realtime);
 		}
 
 		/// <summary>
@@ -44,6 +55,13 @@ namespace SpaxUtils
 		/// <returns>Whether the impact has been fully absorbed.</returns>
 		public Impact Absorb(Rigidbody rigidbody, float scale, out bool fullyAbsorbed)
 		{
+			if (delayTimer)
+			{
+				// Delay hasn't expired yet.
+				fullyAbsorbed = false;
+				return this;
+			}
+
 			Vector3 force = rigidbody.velocity.CalculateForce(Relative ? rigidbody.transform.TransformDirection(Momentum) : Momentum, 1f);
 			rigidbody.AddForce(force * Effect * scale, IgnoreMass ? ForceMode.Acceleration : ForceMode.Force);
 			CurrentForce -= force.magnitude * Time.fixedDeltaTime;
@@ -51,9 +69,12 @@ namespace SpaxUtils
 			return this;
 		}
 
-		public Impact New()
+		/// <summary>
+		/// Returns a copy of the impact for modification use.
+		/// </summary>
+		public Impact NewCopy()
 		{
-			return new Impact(momentum, force, ignoreMass, relative);
+			return new Impact(momentum, force, ignoreMass, relative, delay, realtime);
 		}
 
 		private float CalculateEffect(float x)

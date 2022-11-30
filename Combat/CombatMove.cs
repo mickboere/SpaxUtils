@@ -42,6 +42,9 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public string PerformSpeedMultiplier => performSpeedMultiplier;
 
+		/// <inheritdoc/>
+		public List<ActCombatPair> Combos => combos;
+
 		#region Tooltips
 
 		private const string TT_MIN_CHARGE = "Minimum required charge in seconds before performing.";
@@ -59,8 +62,8 @@ namespace SpaxUtils
 		[SerializeField] private PoseSequence sequence;
 
 		[SerializeField, Header("Charging"), Tooltip(TT_MIN_CHARGE)] private float minCharge = 0.3f;
+		[SerializeField, Tooltip(TT_MAX_CHARGE)] private float maxCharge = 3f;
 		[SerializeField, Tooltip(TT_REQUIRE_MIN_CHARGE)] private bool requireMinCharge;
-		[SerializeField, Tooltip(TT_MAX_CHARGE)] private float maxCharge = 6f;
 
 		[SerializeField, Header("Performing"), Tooltip(TT_MIN_DURATION)] private float minDuration = 0.4f;
 		[SerializeField, Range(0f, 1f), Tooltip(TT_CHARGE_FADEOUT)] private float chargeFadeout = 0.3f;
@@ -70,14 +73,16 @@ namespace SpaxUtils
 		[SerializeField, Header("Stats"), ConstDropdown(typeof(ILabeledDataIdentifierConstants))] private string chargeSpeedMultiplier;
 		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifierConstants))] private string performSpeedMultiplier;
 
+		[SerializeField, Header("Combo's")] private List<ActCombatPair> combos;
+
 		/// <inheritdoc/>
 		public PoseTransition Evaluate(float chargeTime, float performTime, out float weight)
 		{
-			// Calculate charging progress.
+			// Charging.
 			IPose chargePose = sequence.Get(0);
 			float chargeWeight = chargePose.EvaluateTransition(Mathf.Clamp01(chargeTime / maxCharge));
 
-			// Calculate performance progress.
+			// Performing.
 			float performanceWeight = Mathf.Clamp01(performTime / (MinDuration * chargeFadeout)).InOutSine();
 			weight = Mathf.Lerp(chargeWeight, 1f - Mathf.Clamp01((performTime - MinDuration) / Release), performanceWeight);
 
