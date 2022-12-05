@@ -1,6 +1,6 @@
 ﻿namespace SpaxUtils
 {
-	public class HitData
+	public struct HitData
 	{
 		public IEntity Hitter { get; private set; }
 		public ImpactData Impact { get; private set; }

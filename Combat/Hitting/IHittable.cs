@@ -3,7 +3,7 @@
 namespace SpaxUtils
 {
 	/// <summary>
-	/// Base interface for all objects that should be able to get "hit", as in a combat sense.
+	/// Component interface for entities that should be able to get "hit" in a combat sense.
 	/// </summary>
 	public interface IHittable : IEntityComponent
 	{

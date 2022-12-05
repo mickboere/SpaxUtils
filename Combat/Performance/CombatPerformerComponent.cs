@@ -14,6 +14,8 @@ namespace SpaxUtils
 		public event IPerformer.PerformanceUpdateDelegate PerformanceUpdateEvent;
 		public event Action<IPerformer> PerformanceCompletedEvent;
 
+		#region Properties
+
 		/// <inheritdoc/>
 		public int Priority => 0;
 
@@ -35,6 +37,8 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public float Charge => performance.Charge;
 
+		#endregion
+
 		#region State getters
 
 		/// <inheritdoc/>
@@ -54,20 +58,24 @@ namespace SpaxUtils
 
 		#endregion
 
-		[SerializeField] private CombatMove unarmedLight;
+		[SerializeField, Header("Default Moves")] private CombatMove unarmedLight;
 		[SerializeField] private CombatMove unarmedHeavy;
 		[SerializeField] private CombatMove unarmedBlock;
+		[SerializeField, Header("Hit Detection")] private LayerMask hitDetectionMask;
+		[SerializeField] private float hitPause = 0.15f;
 
 		private CombatPerformanceHelper performance;
 		private IAgent agent;
 		private CallbackService callbackService;
+		private TransformLookup transformLookup;
 
 		private Dictionary<string, Dictionary<ICombatMove, int>> moves = new Dictionary<string, Dictionary<ICombatMove, int>>();
 
-		public void InjectDependencies(IAgent agent, CallbackService callbackService)
+		public void InjectDependencies(IAgent agent, CallbackService callbackService, TransformLookup transformLookup)
 		{
 			this.agent = agent;
 			this.callbackService = callbackService;
+			this.transformLookup = transformLookup;
 		}
 
 		protected void Start()
@@ -96,7 +104,7 @@ namespace SpaxUtils
 
 			if (Completed || Finishing)
 			{
-				performance = new CombatPerformanceHelper(combatMove, agent, callbackService);
+				performance = new CombatPerformanceHelper(combatMove, agent, callbackService, transformLookup, OnNewHitDetected, hitDetectionMask);
 				performance.PerformanceUpdateEvent += OnPerformanceUpdateEvent;
 				performance.PerformanceCompletedEvent += OnPerformanceCompletedEvent;
 				finalPerformer = performance;
@@ -184,6 +192,12 @@ namespace SpaxUtils
 			performer.PerformanceUpdateEvent -= OnPerformanceUpdateEvent;
 			performer.PerformanceCompletedEvent -= OnPerformanceCompletedEvent;
 			PerformanceCompletedEvent?.Invoke(performer);
+		}
+
+		private float OnNewHitDetected(List<HitScanHitData> newHits)
+		{
+
+			return hitPause;
 		}
 	}
 }

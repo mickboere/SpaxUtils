@@ -25,12 +25,29 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
+		/// Recursively checks whether any of <paramref name="transform"/>'s parents is <paramref name="parent"/>.
+		/// </summary>
+		public static bool HasParent(this Transform transform, Transform parent)
+		{
+			if (transform.parent == parent)
+			{
+				return true;
+			}
+			else if (transform.parent != null)
+			{
+				return transform.parent.HasParent(parent);
+			}
+
+			return false;
+		}
+
+		/// <summary>
 		/// Will recursively look for a child in <paramref name="current"/> named <paramref name="name"/>.
 		/// </summary>
 		/// <param name="current">The transform to recursively look into.</param>
 		/// <param name="name">The name of the child we're looking for.</param>
 		/// <returns>If found, a child of name <paramref name="name"/>.</returns>
-		public static Transform FindRecursive(this Transform current, string name)
+		public static Transform FindChildRecursive(this Transform current, string name)
 		{
 			for (int i = 0; i < current.childCount; i++)
 			{
@@ -42,7 +59,7 @@ namespace SpaxUtils
 				}
 
 				// Recurse
-				Transform find = FindRecursive(child, name);
+				Transform find = FindChildRecursive(child, name);
 				if (find != null)
 				{
 					return find;

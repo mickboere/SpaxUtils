@@ -12,6 +12,8 @@ namespace SpaxUtils
 		public event IPerformer.PerformanceUpdateDelegate PerformanceUpdateEvent;
 		public event Action<IPerformer> PerformanceCompletedEvent;
 
+		#region Properties
+
 		public int Priority { get; }
 		public List<string> SupportsActs { get; } = new List<string> { ActorActs.LIGHT, ActorActs.HEAVY };
 		public float PerformanceTime { get; private set; }
@@ -20,6 +22,8 @@ namespace SpaxUtils
 		public ICombatMove Current { get; private set; }
 		public CombatPerformanceState State { get; private set; }
 		public float Charge { get; private set; }
+
+		#endregion // Properties
 
 		#region State getters
 		public bool Charging => Current != null && State.HasFlag(CombatPerformanceState.Charging);
@@ -31,22 +35,37 @@ namespace SpaxUtils
 
 		private IAgent agent;
 		private CallbackService callbackService;
+		private TransformLookup transformLookup;
+		private Func<List<HitScanHitData>, float> onNewHitDetected;
+		private LayerMask layerMask;
 
-		public CombatPerformanceHelper(ICombatMove move, IAgent agent, CallbackService callbackService, int prio = 0)
+		private HitDetectionHelper hitDetectionHelper;
+		private Timer hitPauseTimer;
+
+		public CombatPerformanceHelper(
+			ICombatMove move,
+			IAgent agent, CallbackService callbackService, TransformLookup transformLookup,
+			Func<List<HitScanHitData>, float> onNewHitDetected, LayerMask layerMask, int prio = 0)
 		{
 			Priority = prio;
+
 			Current = move;
 			State = CombatPerformanceState.Charging;
 			Charge = 0f;
 			PerformanceTime = 0f;
+
 			this.agent = agent;
 			this.callbackService = callbackService;
+			this.transformLookup = transformLookup;
+			this.onNewHitDetected = onNewHitDetected;
+			this.layerMask = layerMask;
 
 			callbackService.UpdateCallback += Update;
 		}
 
 		public void Dispose()
 		{
+			hitDetectionHelper?.Dispose();
 			callbackService.UpdateCallback -= Update;
 		}
 
@@ -89,30 +108,54 @@ namespace SpaxUtils
 
 		private void Update()
 		{
-			EntityStat speedMult = Charging ? agent.GetStat(Current.ChargeSpeedMultiplier) : agent.GetStat(Current.PerformSpeedMultiplier);
+			EntityStat speedMult = Charging ? agent.GetStat(Current.ChargeSpeedMultiplierStat) : agent.GetStat(Current.PerformSpeedMultiplierStat);
+			float delta = Time.deltaTime * (speedMult ?? 1f);
 
 			if (Charging)
 			{
-				Charge += Time.deltaTime * (speedMult ?? 1f);
+				// Charging
+				Charge += delta;
 
 				if (Released && Charge > Current.MinCharge)
 				{
 					// Finished charging.
 					State = State.UnsetFlag(CombatPerformanceState.Charging);
+					hitDetectionHelper = new HitDetectionHelper(agent, transformLookup, Current, layerMask);
 				}
 			}
 
-			if (!Charging)
+			if (Attacking)
 			{
-				PerformanceTime += Time.deltaTime * (speedMult ?? 1f);
+				// Attacking
+
+				if (!Finishing && !hitPauseTimer && hitDetectionHelper.Update(out List<HitScanHitData> newHits))
+				{
+					float pause = onNewHitDetected(newHits);
+					hitPauseTimer = new Timer(pause);
+
+					// TODO: Pause time for all entities involved in a hit.
+					// With this I mean that the entity's entire local timescale should be set to 0, not Time.timeScale
+				}
+
+				if (!hitPauseTimer)
+				{
+					// Only advance performance when not hit-paused.
+					PerformanceTime += delta;
+				}
+
+				// TODO: Clamp performance to MinDuration / Peak until agent is standing still.
+				// This won't be necessary until the charge mechanic increases attack force.
 			}
 
-			if (PerformanceTime > Current.MinDuration)
+			if (!Finishing && PerformanceTime > Current.MinDuration)
 			{
+				// Finishing
 				State = State.SetFlag(CombatPerformanceState.Finishing);
 			}
-			if (PerformanceTime > Current.TotalDuration)
+
+			if (!Completed && PerformanceTime > Current.TotalDuration)
 			{
+				// Completed
 				State = State.SetFlag(CombatPerformanceState.Completed);
 			}
 

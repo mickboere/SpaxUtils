@@ -37,6 +37,7 @@ namespace SpaxUtils
 
 		/// <summary>
 		/// The minimum performing duration of this move.
+		/// Typically set to the performance-peak of the move's pose sequence.
 		/// </summary>
 		float MinDuration { get; }
 
@@ -46,7 +47,8 @@ namespace SpaxUtils
 		float Release { get; }
 
 		/// <summary>
-		/// The total performing duration of this move. Typically <see cref="MinDuration"/> + <see cref="Release"/>.
+		/// The total performing duration of this move.
+		/// Typically <see cref="MinDuration"/> + <see cref="Release"/>.
 		/// </summary>
 		float TotalDuration { get; }
 
@@ -56,14 +58,19 @@ namespace SpaxUtils
 		Impact Impact { get; }
 
 		/// <summary>
+		/// Collection of hit-box bone identifiers for this move's performance.
+		/// </summary>
+		List<string> HitBoxes { get; }
+
+		/// <summary>
 		/// Stat identifier for the charge speed multiplier.
 		/// </summary>
-		string ChargeSpeedMultiplier { get; }
+		string ChargeSpeedMultiplierStat { get; }
 
 		/// <summary>
 		/// Stat identifier for the perform speed multiplier.
 		/// </summary>
-		string PerformSpeedMultiplier { get; }
+		string PerformSpeedMultiplierStat { get; }
 
 		/// <summary>
 		/// The follow-up moves available during the release of this move.

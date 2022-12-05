@@ -37,7 +37,7 @@ namespace SpaxUtils
 			Transform result = null;
 
 			// Check by child transform name.
-			result = transform.FindRecursive(identifier);
+			result = transform.FindChildRecursive(identifier);
 
 			// Check for human mappable bones.
 			if (result == null)

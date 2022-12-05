@@ -9,6 +9,8 @@ namespace SpaxUtils
 	[CreateAssetMenu(fileName = "CombatMove", menuName = "ScriptableObjects/CombatMove")]
 	public class CombatMove : ScriptableObject, ICombatMove
 	{
+		#region Properties
+
 		/// <inheritdoc/>
 		public string Name => string.IsNullOrWhiteSpace(name) ? base.name : name;
 
@@ -37,23 +39,28 @@ namespace SpaxUtils
 		public Impact Impact => impact;
 
 		/// <inheritdoc/>
-		public string ChargeSpeedMultiplier => chargeSpeedMultiplier;
+		public List<string> HitBoxes => hitBoxes;
 
 		/// <inheritdoc/>
-		public string PerformSpeedMultiplier => performSpeedMultiplier;
+		public string ChargeSpeedMultiplierStat => chargeSpeedMultiplier;
+
+		/// <inheritdoc/>
+		public string PerformSpeedMultiplierStat => performSpeedMultiplier;
 
 		/// <inheritdoc/>
 		public List<ActCombatPair> Combos => combos;
 
+		#endregion // Properties
+
 		#region Tooltips
 
 		private const string TT_MIN_CHARGE = "Minimum required charge in seconds before performing.";
-		private const string TT_REQUIRE_MIN_CHARGE = "TRUE: Releasing input before completing charge will cancel. FALSE: Releasing input before completing charge will continue and automatically perform.";
+		private const string TT_REQUIRE_MIN_CHARGE = "TRUE: Releasing input before completing charge will cancel.\nFALSE: Releasing input before completing charge will continue and automatically perform.";
 		private const string TT_MAX_CHARGE = "Maximum charging extent in seconds.";
 		private const string TT_MIN_DURATION = "Minimum performing duration of this move.";
 		private const string TT_CHARGE_FADEOUT = "Duration of transition from charge pose to performing pose, relative to MinDuration.";
 		private const string TT_RELEASE = "Interuptable sustain / fadeout time after the minimum duration.";
-		private const string TT_IMPACT = "Impact applied to user upon performing.";
+		private const string TT_IMPACT = "Impact applied to user upon performing the move.";
 
 		#endregion
 
@@ -62,13 +69,14 @@ namespace SpaxUtils
 		[SerializeField] private PoseSequence sequence;
 
 		[SerializeField, Header("Charging"), Tooltip(TT_MIN_CHARGE)] private float minCharge = 0.3f;
-		[SerializeField, Tooltip(TT_MAX_CHARGE)] private float maxCharge = 3f;
+		[SerializeField, Tooltip(TT_MAX_CHARGE)] private float maxCharge = 1f;
 		[SerializeField, Tooltip(TT_REQUIRE_MIN_CHARGE)] private bool requireMinCharge;
 
 		[SerializeField, Header("Performing"), Tooltip(TT_MIN_DURATION)] private float minDuration = 0.4f;
 		[SerializeField, Range(0f, 1f), Tooltip(TT_CHARGE_FADEOUT)] private float chargeFadeout = 0.3f;
 		[SerializeField, Tooltip(TT_RELEASE)] private float release = 0.5f;
 		[SerializeField, Tooltip(TT_IMPACT)] private Impact impact;
+		[SerializeField, ConstDropdown(typeof(ITransformLookupIdentifiers), showAdress: true)] private List<string> hitBoxes;
 
 		[SerializeField, Header("Stats"), ConstDropdown(typeof(ILabeledDataIdentifierConstants))] private string chargeSpeedMultiplier;
 		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifierConstants))] private string performSpeedMultiplier;
