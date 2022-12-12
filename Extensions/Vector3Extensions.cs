@@ -450,7 +450,7 @@ namespace SpaxUtils
 		/// <param name="target">Target velocity.</param>
 		/// <param name="power">The amount of power we are allowed to use to reach the target velocity, a higher power will feel more immediate but has the possibility to overshoot.</param>
 		/// <returns>The force required to go from <paramref name="current"/>(this) to <paramref name="target"/> velocity.</returns>
-		public static Vector3 CalculateForce(this Vector3 current, Vector3 target, float power)
+		public static Vector3 CalculateForce(this Vector3 current, Vector3 target, float power = 1f)
 		{
 			return ((target - current) / Time.fixedDeltaTime * power);
 		}

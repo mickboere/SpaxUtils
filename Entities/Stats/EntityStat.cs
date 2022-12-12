@@ -1,7 +1,5 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
-using UnityEngine;
 
 namespace SpaxUtils
 {
@@ -10,6 +8,11 @@ namespace SpaxUtils
 	/// </summary>
 	public class EntityStat : CompositeFloatBase, IDisposable
 	{
+		/// <summary>
+		/// Links to the identifier of the attached <see cref="RuntimeDataEntry"/>.
+		/// </summary>
+		public string Identifier => data.ID;
+
 		public override float BaseValue
 		{
 			get

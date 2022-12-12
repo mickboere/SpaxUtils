@@ -34,6 +34,7 @@ namespace SpaxUtils
 		#endregion
 
 		private IAgent agent;
+		private EntityStat entityTimeScale;
 		private CallbackService callbackService;
 		private TransformLookup transformLookup;
 		private Func<List<HitScanHitData>, float> onNewHitDetected;
@@ -43,8 +44,8 @@ namespace SpaxUtils
 		private Timer hitPauseTimer;
 
 		public CombatPerformanceHelper(
-			ICombatMove move,
-			IAgent agent, CallbackService callbackService, TransformLookup transformLookup,
+			ICombatMove move, IAgent agent, EntityStat entityTimeScale,
+			CallbackService callbackService, TransformLookup transformLookup,
 			Func<List<HitScanHitData>, float> onNewHitDetected, LayerMask layerMask, int prio = 0)
 		{
 			Priority = prio;
@@ -55,6 +56,7 @@ namespace SpaxUtils
 			PerformanceTime = 0f;
 
 			this.agent = agent;
+			this.entityTimeScale = entityTimeScale;
 			this.callbackService = callbackService;
 			this.transformLookup = transformLookup;
 			this.onNewHitDetected = onNewHitDetected;
@@ -109,7 +111,7 @@ namespace SpaxUtils
 		private void Update()
 		{
 			EntityStat speedMult = Charging ? agent.GetStat(Current.ChargeSpeedMultiplierStat) : agent.GetStat(Current.PerformSpeedMultiplierStat);
-			float delta = Time.deltaTime * (speedMult ?? 1f);
+			float delta = Time.deltaTime * (speedMult ?? 1f) * entityTimeScale;
 
 			if (Charging)
 			{

@@ -78,8 +78,8 @@ namespace SpaxUtils
 		[SerializeField, Tooltip(TT_IMPACT)] private Impact impact;
 		[SerializeField, ConstDropdown(typeof(ITransformLookupIdentifiers), showAdress: true)] private List<string> hitBoxes;
 
-		[SerializeField, Header("Stats"), ConstDropdown(typeof(ILabeledDataIdentifierConstants))] private string chargeSpeedMultiplier;
-		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifierConstants))] private string performSpeedMultiplier;
+		[SerializeField, Header("Stats"), ConstDropdown(typeof(IStatIdentifierConstants))] private string chargeSpeedMultiplier;
+		[SerializeField, ConstDropdown(typeof(IStatIdentifierConstants))] private string performSpeedMultiplier;
 
 		[SerializeField, Header("Combo's")] private List<ActCombatPair> combos;
 

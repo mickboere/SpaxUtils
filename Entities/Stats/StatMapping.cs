@@ -14,8 +14,8 @@ namespace SpaxUtils
 		public ModMethod ModMethod => modMethod;
 		public Operation Operation => operation;
 
-		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifierConstants))] private string fromStat;
-		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifierConstants))] private string toStat;
+		[SerializeField, ConstDropdown(typeof(IStatIdentifierConstants))] private string fromStat;
+		[SerializeField, ConstDropdown(typeof(IStatIdentifierConstants))] private string toStat;
 		[SerializeField] private bool useCurve;
 		[SerializeField] private AnimationCurve curve;
 		[SerializeField] private float outputMultiplier = 1f;

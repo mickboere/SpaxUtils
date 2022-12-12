@@ -68,8 +68,8 @@ namespace SpaxUtils
 
 		public void UpdateSurveyor(float delta)
 		{
-			UpdateSurveyor(delta, rigidbodyWrapper.HorizontalSpeed);
-			UpdateLegs(delta);
+			UpdateSurveyor(delta * EntityTimeScale, rigidbodyWrapper.HorizontalSpeed);
+			UpdateLegs(delta * EntityTimeScale);
 		}
 
 		public void UpdateSurveyor(float delta, float velocity)
@@ -125,7 +125,7 @@ namespace SpaxUtils
 
 		private void UpdateLegs(float delta)
 		{
-			if (!rigidbodyWrapper.HasControl)
+			if (rigidbodyWrapper.Control < 0.5f)
 			{
 				return;
 			}

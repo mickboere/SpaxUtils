@@ -23,11 +23,14 @@ namespace SpaxUtils
 			}
 		}
 
+		protected EntityStat EntityTimeScale { get; private set; }
+
 		private IEntity entity;
 
 		public void InjectDependencies(IEntity entity)
 		{
 			this.entity = entity;
+			EntityTimeScale = entity.GetStat(StatIdentifierConstants.TIMESCALE, true);
 		}
 	}
 }

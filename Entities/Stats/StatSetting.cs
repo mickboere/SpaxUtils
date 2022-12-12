@@ -19,7 +19,7 @@ namespace SpaxUtils
 		public Color Color => color;
 		public Sprite Icon => icon;
 
-		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifierConstants))] private string identifier;
+		[SerializeField, ConstDropdown(typeof(IStatIdentifierConstants))] private string identifier;
 		[SerializeField] private string name;
 		[SerializeField] private float defaultValue;
 		[SerializeField] private Color color;

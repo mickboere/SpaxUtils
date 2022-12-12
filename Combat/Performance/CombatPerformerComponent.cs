@@ -104,14 +104,14 @@ namespace SpaxUtils
 
 			if (Completed || Finishing)
 			{
-				performance = new CombatPerformanceHelper(combatMove, agent, callbackService, transformLookup, OnNewHitDetected, hitDetectionMask);
+				performance = new CombatPerformanceHelper(combatMove, agent, EntityTimeScale, callbackService, transformLookup, OnNewHitDetected, hitDetectionMask);
 				performance.PerformanceUpdateEvent += OnPerformanceUpdateEvent;
 				performance.PerformanceCompletedEvent += OnPerformanceCompletedEvent;
 				finalPerformer = performance;
 				return true;
 			}
 
-			// Move is already being performed, report a negative to allow for input buffering.
+			// A move is already being performed, report a negative to allow for input buffering.
 			return false;
 		}
 

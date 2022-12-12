@@ -48,7 +48,7 @@ namespace SpaxUtils
 			{
 				float weight = 0f;
 
-				if (!rigidbodyWrapper.HasControl || grounder.Sliding)
+				if (rigidbodyWrapper.Control < 0.5f || grounder.Sliding)
 				{
 					Vector3 dir = footHelper.position - Leg.Knee.position;
 					float length = dir.magnitude;

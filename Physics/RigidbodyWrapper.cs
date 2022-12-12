@@ -24,10 +24,9 @@ namespace SpaxUtils
 		public Vector3 Back => Rotation * Vector3.back;
 		#endregion
 
-		/// <summary>
-		/// Current velocity of the <see cref="UnityEngine.Rigidbody"/>.
-		/// </summary>
+		public float Mass { get => Rigidbody.mass; set { Rigidbody.mass = value; } }
 		public Vector3 Velocity { get => Rigidbody.velocity; set => Rigidbody.velocity = value; }
+		public Vector3 AngularVelocity { get => Rigidbody.angularVelocity; set => Rigidbody.angularVelocity = value; }
 
 		/// <summary>
 		/// The current change in velocity.
@@ -55,30 +54,30 @@ namespace SpaxUtils
 		public float HorizontalSpeed => RelativeVelocity.FlattenY().magnitude;
 
 		public Vector3 TargetVelocity { get; set; }
-		public CompositeFloat Control { get; set; } = new CompositeFloat(1f);
-		public Vector3 ControlAxis { get; set; } = Vector3.one;
 
 		/// <summary>
-		/// Returns true if <see cref="Control"/> is greater than 0.5.
+		/// Modifiable float value indicating the total amount of movement control.
+		/// Modding it to '0' will remove all movement control.
 		/// </summary>
-		public bool HasControl => Control > 0.5f;
+		public CompositeFloat Control { get; set; } = new CompositeFloat(1f);
+
+		/// <summary>
+		/// Indicates which relative axis the rigidbody has movement control over.
+		/// An axis value of '1' is 100% control, '0' is 0% control, '-1' is inverted control.
+		/// </summary>
+		public Vector3 ControlAxis { get; set; } = Vector3.one;
 
 		public float Grip { get; private set; }
 
 		public IReadOnlyList<Impact> Impacts => impacts;
 		public int ImpactCount => impacts.Count;
-		public float ImpactsEffect => ImpactCount == 0 ? 0f : impacts.Max(i => i.Effect);
 
-		public float Scale { get => scale; set { scale = value; } }
-		public float Mass { get => mass; set { mass = value; } }
 		public bool Automata { get => automata; set { automata = value; } }
 		public float AutoControlForce { get => autoControlForce; set { autoControlForce = value; } }
 		public float AutoBrakeForce { get => autoBrakeForce; set { autoBrakeForce = value; } }
 		public float AutoPower { get => autoPower; set { autoPower = value; } }
 
 		[SerializeField] new private Rigidbody rigidbody;
-		[SerializeField] private float scale = 1f;
-		[SerializeField] private float mass = 1f;
 		[SerializeField] private int accelerationSmoothing = 3;
 		[SerializeField] private bool automata = false;
 		[SerializeField, Conditional(nameof(automata), hide: true)] private float autoControlForce = 2000f;
@@ -86,9 +85,19 @@ namespace SpaxUtils
 		[SerializeField, Conditional(nameof(automata), hide: true)] private float autoPower = 20f;
 		[SerializeField, Conditional(nameof(automata), hide: true)] private Vector3 autoControlAxis = Vector3.one;
 
+		private EntityStat timeScale;
+
 		private Vector3 lastVelocity;
 		private SmoothVector3 velocityDelta;
 		private List<Impact> impacts = new List<Impact>();
+
+		public void InjectDependencies([Optional] IEntity entity)
+		{
+			if (entity != null)
+			{
+				timeScale = entity.GetStat(StatIdentifierConstants.TIMESCALE, true);
+			}
+		}
 
 		protected void Reset()
 		{
@@ -119,14 +128,17 @@ namespace SpaxUtils
 			{
 				ApplyAutomataMovement();
 			}
+
+			// Apply local entity timescale.
+			if (timeScale != null)
+			{
+				Position = (Position - Velocity * Time.fixedDeltaTime) + Velocity * timeScale * Time.fixedDeltaTime;
+			}
 		}
 
 		protected void Initialize()
 		{
-			if (EnsureRigidbody())
-			{
-				rigidbody.mass = Mass;
-			}
+			EnsureRigidbody();
 
 			if (Application.isPlaying)
 			{
@@ -150,7 +162,7 @@ namespace SpaxUtils
 		{
 			for (int i = 0; i < impacts.Count; i++)
 			{
-				impacts[i] = impacts[i].Absorb(rigidbody, Scale, out bool absorbed);
+				impacts[i] = impacts[i].Absorb(rigidbody, out bool absorbed);
 				if (absorbed)
 				{
 					impacts.RemoveAt(i);
@@ -179,8 +191,12 @@ namespace SpaxUtils
 		public void ApplyMovement(float controlForce = 2000f, float brakeForce = 200f, float power = 20f, bool ignoreControl = false, float scale = 1f)
 		{
 			float control = ignoreControl ? 1f : Control;
-			float maxForce = Mathf.Lerp(brakeForce, controlForce, control * (1f - ImpactsEffect));
-			Vector3 force = Velocity.CalculateForce(TargetVelocity * control * scale, power * scale, maxForce * scale).Localize(transform).Multiply(ControlAxis).Globalize(transform);
+			float maxForce = Mathf.Lerp(brakeForce, controlForce, control);
+			Vector3 force = Velocity.CalculateForce(
+				TargetVelocity * control * scale,
+				power * scale * (timeScale ?? 1f),
+				maxForce * scale * (timeScale ?? 1f))
+				.Localize(transform).Multiply(ControlAxis).Globalize(transform);
 			Rigidbody.AddForce(force);
 		}
 

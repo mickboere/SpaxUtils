@@ -6,7 +6,7 @@ namespace SpaxUtils
 {
 	public class ProcLeaningAnimation : EntityComponentBase
 	{
-		private float Delta => frameRate > 0 ? customDelta : Time.fixedDeltaTime;
+		private float Delta => (frameRate > 0 ? customDelta : Time.fixedDeltaTime) * EntityTimeScale;
 
 		[SerializeField] private float sensitivity = 30f;
 		[SerializeField] private float speed = 6f;

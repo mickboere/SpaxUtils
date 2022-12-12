@@ -10,7 +10,11 @@ namespace SpaxUtils
 	[Serializable]
 	public class StatCollection<T> where T : CompositeFloatBase
 	{
-		public IReadOnlyDictionary<string, T> Collection => stats;
+		public event Action<T> AddedStatEvent;
+
+		public IReadOnlyDictionary<string, T> Dictionary => stats;
+		public IEnumerable<T> Stats => stats.Values;
+
 		public int Count => stats.Count;
 
 		[SerializeField] private Dictionary<string, T> stats;
@@ -41,6 +45,7 @@ namespace SpaxUtils
 			}
 
 			stats.Add(stat, value);
+			AddedStatEvent?.Invoke(value);
 		}
 
 		public bool HasStat(string stat)

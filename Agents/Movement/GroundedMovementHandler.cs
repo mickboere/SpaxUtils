@@ -122,13 +122,13 @@ namespace SpaxUtils
 				if (rigidbodyWrapper.Velocity.FlattenY() != Vector3.zero)
 				{
 					Rigidbody.rotation = Quaternion.Lerp(Rigidbody.rotation, Quaternion.LookRotation(rigidbodyWrapper.Velocity.FlattenY()),
-						rotationSmoothingSpeed * Time.deltaTime * rigidbodyWrapper.Control);
+						rotationSmoothingSpeed * Time.deltaTime * EntityTimeScale * rigidbodyWrapper.Control);
 				}
 				return;
 			}
 
 			Rigidbody.rotation = Quaternion.Lerp(Rigidbody.rotation, Quaternion.LookRotation(targetDirection),
-				rotationSmoothingSpeed * Time.deltaTime * rigidbodyWrapper.Control);
+				rotationSmoothingSpeed * Time.deltaTime * EntityTimeScale * rigidbodyWrapper.Control);
 		}
 	}
 }

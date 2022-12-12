@@ -11,7 +11,7 @@ namespace SpaxUtils
 	/// </summary>
 	public static class CombatUtils
 	{
-		public static bool DEBUG = true;
+		public static bool DEBUG = false;
 		public static float DEBUG_DURATION = 6f;
 
 		#region Hit Scans
