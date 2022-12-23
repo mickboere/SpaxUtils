@@ -63,13 +63,15 @@ namespace SpaxUtils
 		[SerializeField] private CombatMove unarmedBlock;
 		[SerializeField, Header("Hit Detection")] private LayerMask hitDetectionMask;
 		[SerializeField] private float hitPause = 0.15f;
+		[SerializeField] private AnimationCurve hitPauseCurve;
 
-		private CombatPerformanceHelper performance;
 		private IAgent agent;
 		private CallbackService callbackService;
 		private TransformLookup transformLookup;
 
 		private Dictionary<string, Dictionary<ICombatMove, int>> moves = new Dictionary<string, Dictionary<ICombatMove, int>>();
+		private CombatPerformanceHelper performance;
+		private TimedCurveModifier timeMod;
 
 		public void InjectDependencies(IAgent agent, CallbackService callbackService, TransformLookup transformLookup)
 		{
@@ -194,10 +196,40 @@ namespace SpaxUtils
 			PerformanceCompletedEvent?.Invoke(performer);
 		}
 
-		private float OnNewHitDetected(List<HitScanHitData> newHits)
+		private void OnNewHitDetected(List<HitScanHitData> newHits)
 		{
+			SpaxDebug.Log($"OnNewHitDetected ({newHits.Count})", $"({string.Join("), (", newHits.Select(n => n.GameObject.name))})");
 
-			return hitPause;
+			if (timeMod != null)
+			{
+				EntityTimeScale.RemoveModifier(this);
+			}
+
+			// TODO: Have hit pause duration depend on factors like weapon attack power, sharpness and hit surface hardness.
+			timeMod = new TimedCurveModifier(ModMethod.Absolute, hitPauseCurve, new Timer(hitPause), callbackService);
+			EntityTimeScale.AddModifier(this, timeMod);
+
+			foreach (HitScanHitData hit in newHits)
+			{
+				if (hit.GameObject.TryGetComponentRelative(out IHittable hittable))
+				{
+					Vector3 momentum = Current.Impact.Momentum.Look((hittable.Entity.Transform.position - Entity.Transform.position).FlattenY());
+					float force = 300f; // TODO: Load attack strength from stats.
+					HitData hitData = new HitData()
+					{
+						Hitter = Entity,
+						Impact = new ImpactData(hit.Point, momentum, force)
+					};
+					hittable.Hit(hitData);
+
+					// Apply hit pause to enemy.
+					EntityStat hitTimeScale = hittable.Entity.GetStat(StatIdentifierConstants.TIMESCALE);
+					if (hitTimeScale != null)
+					{
+						hitTimeScale.AddModifier(this, timeMod);
+					}
+				}
+			}
 		}
 	}
 }

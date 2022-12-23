@@ -46,6 +46,7 @@ namespace SpaxUtils
 			rigidbody.AddForce(force, IgnoreMass ? ForceMode.Acceleration : ForceMode.Force);
 			RemainingForce -= force.magnitude;
 			fullyAbsorbed = RemainingForce < Mathf.Epsilon;
+			SpaxDebug.Log($"Absorb Impact: {rigidbody.gameObject.name}:", $"M={Momentum}, inF={InitialForce}, F={force}, r={RemainingForce}");
 			return this;
 		}
 

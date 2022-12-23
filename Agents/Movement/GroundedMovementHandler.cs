@@ -41,10 +41,6 @@ namespace SpaxUtils
 		protected void FixedUpdate()
 		{
 			ApplyMovement();
-		}
-
-		protected void Update()
-		{
 			ApplyRotation();
 		}
 
@@ -88,7 +84,7 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public void SetTargetDirection(Vector3 direction)
 		{
-			targetDirection = direction.FlattenY().normalized;
+			targetDirection = direction == Vector3.zero ? rigidbodyWrapper.Forward : direction.FlattenY().normalized;
 		}
 
 		/// <inheritdoc/>
@@ -111,8 +107,13 @@ namespace SpaxUtils
 				rigidbodyWrapper.ApplyMovement(controlForce, brakeForce, power, false, grounder.Mobility);
 			}
 
-			SetTargetDirection(Vector3.Lerp(Vector3.Lerp(Transform.forward, rigidbodyWrapper.Velocity, rigidbodyWrapper.Control),
-				rigidbodyWrapper.TargetVelocity, rigidbodyWrapper.Grip));
+			SetTargetDirection(
+				Vector3.Lerp(
+					Vector3.Lerp(Transform.forward, rigidbodyWrapper.Velocity, rigidbodyWrapper.Control),
+					rigidbodyWrapper.TargetVelocity,
+					rigidbodyWrapper.Grip));
+
+			//SetTargetDirection(rigidbodyWrapper.TargetVelocity);
 		}
 
 		private void ApplyRotation()
@@ -122,13 +123,13 @@ namespace SpaxUtils
 				if (rigidbodyWrapper.Velocity.FlattenY() != Vector3.zero)
 				{
 					Rigidbody.rotation = Quaternion.Lerp(Rigidbody.rotation, Quaternion.LookRotation(rigidbodyWrapper.Velocity.FlattenY()),
-						rotationSmoothingSpeed * Time.deltaTime * EntityTimeScale * rigidbodyWrapper.Control);
+						rotationSmoothingSpeed * Time.fixedDeltaTime * EntityTimeScale * rigidbodyWrapper.Control);
 				}
 				return;
 			}
 
 			Rigidbody.rotation = Quaternion.Lerp(Rigidbody.rotation, Quaternion.LookRotation(targetDirection),
-				rotationSmoothingSpeed * Time.deltaTime * EntityTimeScale * rigidbodyWrapper.Control);
+				rotationSmoothingSpeed * Time.fixedDeltaTime * EntityTimeScale * rigidbodyWrapper.Control);
 		}
 	}
 }

@@ -29,7 +29,7 @@ namespace SpaxUtils
 		/// </summary>
 		public static bool HasParent(this Transform transform, Transform parent)
 		{
-			if (transform.parent == parent)
+			if (transform == parent || transform.parent == parent)
 			{
 				return true;
 			}

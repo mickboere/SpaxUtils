@@ -108,7 +108,7 @@ namespace SpaxUtils
 
 					Gizmos.color = Color.white;
 					Gizmos.matrix = eye.Transform.localToWorldMatrix;
-					Gizmos.DrawFrustum(Vector3.zero, eye.Fov, eye.Range, 0f, 1f);
+					Gizmos.DrawFrustum(Vector3.zero, eye.Fov, eye.Range * 2f / eye.Transform.lossyScale.magnitude, 0f, 1f);
 				}
 			}
 		}

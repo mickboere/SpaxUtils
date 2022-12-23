@@ -76,7 +76,7 @@ namespace SpaxUtils
 			if (recalculate)
 			{
 				// Remove all modifiers that have been disposed of.
-				//RemoveAllNullMods();
+				RemoveAllNullMods();
 
 				// Apply modifiers (ordering is handled by util method)
 				lastCalculatedValue = ModUtil.Modify(BaseValue, modifiers.Values);

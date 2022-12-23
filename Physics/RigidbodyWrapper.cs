@@ -90,6 +90,7 @@ namespace SpaxUtils
 		private Vector3 lastVelocity;
 		private SmoothVector3 velocityDelta;
 		private List<Impact> impacts = new List<Impact>();
+		private FloatFuncModifier impactControlMod;
 
 		public void InjectDependencies([Optional] IEntity entity)
 		{
@@ -144,6 +145,10 @@ namespace SpaxUtils
 			{
 				velocityDelta = new SmoothVector3(accelerationSmoothing);
 			}
+
+			impactControlMod?.Dispose();
+			impactControlMod = new FloatFuncModifier(ModMethod.Absolute, (float input) => ImpactCount > 0 ? 0f : 1f);
+			Control.AddModifier(this, impactControlMod);
 		}
 
 		#region Impacts
@@ -151,11 +156,13 @@ namespace SpaxUtils
 		public void AddImpact(Impact impact)
 		{
 			impacts.Add(impact.NewCopy());
+			impactControlMod.FuncChanged();
 		}
 
 		public void ClearImpacts()
 		{
 			impacts.Clear();
+			impactControlMod.FuncChanged();
 		}
 
 		private void ApplyImpacts()
@@ -167,6 +174,7 @@ namespace SpaxUtils
 				{
 					impacts.RemoveAt(i);
 					i--;
+					impactControlMod.FuncChanged();
 				}
 			}
 		}

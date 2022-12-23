@@ -37,16 +37,15 @@ namespace SpaxUtils
 		private EntityStat entityTimeScale;
 		private CallbackService callbackService;
 		private TransformLookup transformLookup;
-		private Func<List<HitScanHitData>, float> onNewHitDetected;
+		private Action<List<HitScanHitData>> onNewHitDetected;
 		private LayerMask layerMask;
 
 		private HitDetectionHelper hitDetectionHelper;
-		private Timer hitPauseTimer;
 
 		public CombatPerformanceHelper(
 			ICombatMove move, IAgent agent, EntityStat entityTimeScale,
 			CallbackService callbackService, TransformLookup transformLookup,
-			Func<List<HitScanHitData>, float> onNewHitDetected, LayerMask layerMask, int prio = 0)
+			Action<List<HitScanHitData>> onNewHitDetected, LayerMask layerMask, int prio = 0)
 		{
 			Priority = prio;
 
@@ -129,20 +128,11 @@ namespace SpaxUtils
 			if (Attacking)
 			{
 				// Attacking
+				PerformanceTime += delta;
 
-				if (!Finishing && !hitPauseTimer && hitDetectionHelper.Update(out List<HitScanHitData> newHits))
+				if (!Finishing && hitDetectionHelper.Update(out List<HitScanHitData> newHits))
 				{
-					float pause = onNewHitDetected(newHits);
-					hitPauseTimer = new Timer(pause);
-
-					// TODO: Pause time for all entities involved in a hit.
-					// With this I mean that the entity's entire local timescale should be set to 0, not Time.timeScale
-				}
-
-				if (!hitPauseTimer)
-				{
-					// Only advance performance when not hit-paused.
-					PerformanceTime += delta;
+					onNewHitDetected(newHits);
 				}
 
 				// TODO: Clamp performance to MinDuration / Peak until agent is standing still.

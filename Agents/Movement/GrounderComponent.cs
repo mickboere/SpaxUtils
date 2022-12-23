@@ -4,6 +4,9 @@ using UnityEngine;
 
 namespace SpaxUtils
 {
+	/// <summary>
+	/// Component responsible for grounding an entity, allowing it to traverse slopes and stairs.
+	/// </summary>
 	[DefaultExecutionOrder(-200)]
 	public class GrounderComponent : EntityComponentBase, IGrounderComponent
 	{
