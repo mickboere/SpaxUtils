@@ -264,7 +264,7 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
-		/// Returns dot product remapped from -1,1 to 0,1, putting 0 at 0.5.
+		/// Returns normalized dot product, remapping from (-1,1) to (0,1), where -1=0, 0=0.5, 1=1.
 		/// </summary>
 		public static float NormalizedDot(this Vector3 a, Vector3 b)
 		{
@@ -272,11 +272,19 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
-		/// Returns dot product clamped from -1,1 to 0,1, leaving 0 at 0.
+		/// Returns clamped dot product, remapping from (-1,1) to (0,1) where -1=0, 0=0, 1=1.
 		/// </summary>
 		public static float ClampedDot(this Vector3 a, Vector3 b)
 		{
 			return Mathf.Clamp01(Vector3.Dot(a, b));
+		}
+
+		/// <summary>
+		/// Returns absolute dot product, remapping from (-1,1) to (0,1) where -1=1, 0=0, 1=1.
+		/// </summary>
+		public static float AbsoluteDot(this Vector3 a, Vector3 b)
+		{
+			return Mathf.Abs(Vector3.Dot(a, b));
 		}
 
 		public static Vector3 Cross(this Vector3 a, Vector3 b)
@@ -309,11 +317,22 @@ namespace SpaxUtils
 			return new Vector3(a.x / b.x, a.y / b.y, a.z / b.z);
 		}
 
+		#region Transformation
+
+		/// <summary>
+		/// Converts global vector to local vector (InverseTransformDirection).
+		/// </summary>
 		public static Vector3 Localize(this Vector3 vector, Transform transform)
 		{
 			return transform.InverseTransformDirection(vector);
 		}
 
+		/// <summary>
+		/// Converts local vector to global vector (by multiplying the vector by the transform's rotation).
+		/// </summary>
+		/// <param name="vector"></param>
+		/// <param name="transform"></param>
+		/// <returns></returns>
 		public static Vector3 Globalize(this Vector3 vector, Transform transform)
 		{
 			return transform.rotation * vector;
@@ -342,6 +361,8 @@ namespace SpaxUtils
 		{
 			return centre + new Vector3(Mathf.Sin(t * Mathf.PI * 2f), Mathf.Cos(t * Mathf.PI * 2f), 0f).Multiply(scale).Look(forward, up);
 		}
+
+		#endregion
 
 		#region Averaging
 
@@ -467,6 +488,14 @@ namespace SpaxUtils
 		public static Vector3 CalculateForce(this Vector3 current, Vector3 target, float power, float maxForce)
 		{
 			return current.CalculateForce(target, power).ClampMagnitude(maxForce);
+		}
+
+		/// <summary>
+		/// Calculates kinetic energy of a body.
+		/// </summary>
+		public static Vector3 KineticEnergy(this Vector3 velocity, float mass)
+		{
+			return velocity * velocity.magnitude * mass * 0.5f;
 		}
 
 		#endregion // Physics

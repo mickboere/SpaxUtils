@@ -53,14 +53,19 @@ namespace SpaxUtils
 		float TotalDuration { get; }
 
 		/// <summary>
-		/// Impact applied to user upon performing.
-		/// </summary>
-		Impact Impact { get; }
-
-		/// <summary>
 		/// Collection of hit-box bone identifiers for this move's performance.
 		/// </summary>
 		List<string> HitBoxes { get; }
+
+		/// <summary>
+		/// The relative momentum of this combat move to apply to the user.
+		/// </summary>
+		public Vector3 Momentum { get; }
+
+		/// <summary>
+		/// The delay in applied momentum force into the performance.
+		/// </summary>
+		public float ForceDelay { get; }
 
 		/// <summary>
 		/// Stat identifier for the charge speed multiplier.

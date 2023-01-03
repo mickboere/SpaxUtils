@@ -68,7 +68,7 @@ namespace SpaxUtils
 
 		public void UpdateSurveyor(float delta)
 		{
-			UpdateSurveyor(delta * EntityTimeScale, rigidbodyWrapper.HorizontalSpeed);
+			UpdateSurveyor(delta * EntityTimeScale, rigidbodyWrapper.Velocity.FlattenY().magnitude);
 			UpdateLegs(delta * EntityTimeScale);
 		}
 

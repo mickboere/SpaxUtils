@@ -13,7 +13,6 @@ namespace SpaxUtils
 		protected const float POSE_SNAPPING_TRESHOLD = 0.01f;
 
 		protected Poser Poser => agentPoser.GetMainPoser(PoserLayerConstants.BODY);
-		protected Rigidbody Rigidbody => rigidbodyWrapper.Rigidbody;
 
 		[SerializeField, Input(backingValue = ShowBackingValue.Never)] protected Connections.StateComponent inConnection;
 		[SerializeField] private PoseSequenceBlendTree movementBlendTree;

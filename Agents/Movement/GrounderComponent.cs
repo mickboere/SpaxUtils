@@ -166,19 +166,19 @@ namespace SpaxUtils
 				if (Sliding)
 				{
 					Vector3 slidingForce = (Vector3.down * gravity).ProjectOnPlane(TerrainNormal);
-					rigidbodyWrapper.Rigidbody.AddForce(slidingForce * SurfaceSlope, ForceMode.Acceleration);
+					rigidbodyWrapper.AddForce(slidingForce * SurfaceSlope, ForceMode.Acceleration);
 				}
 				else
 				{
 					Vector3 movementDispersion = rigidbodyWrapper.Velocity.DisperseOnPlane(TerrainNormal) * Mobility;
-					rigidbodyWrapper.Rigidbody.AddForce(movementDispersion, ForceMode.VelocityChange);
+					rigidbodyWrapper.AddForce(movementDispersion, ForceMode.VelocityChange);
 				}
 
 				rigidbodyWrapper.Position = rigidbodyWrapper.Position.SetY(StepPoint.y);
 			}
 			else
 			{
-				rigidbodyWrapper.Rigidbody.AddForce(Vector3.down * gravity, ForceMode.Acceleration);
+				rigidbodyWrapper.AddForce(Vector3.down * gravity, ForceMode.Acceleration);
 			}
 		}
 	}

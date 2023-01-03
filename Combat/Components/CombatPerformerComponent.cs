@@ -198,7 +198,7 @@ namespace SpaxUtils
 
 		private void OnNewHitDetected(List<HitScanHitData> newHits)
 		{
-			SpaxDebug.Log($"OnNewHitDetected ({newHits.Count})", $"({string.Join("), (", newHits.Select(n => n.GameObject.name))})");
+			//SpaxDebug.Log($"OnNewHitDetected ({newHits.Count})", $"({string.Join("), (", newHits.Select(n => n.GameObject.name))})");
 
 			if (timeMod != null)
 			{
@@ -213,13 +213,16 @@ namespace SpaxUtils
 			{
 				if (hit.GameObject.TryGetComponentRelative(out IHittable hittable))
 				{
-					Vector3 momentum = Current.Impact.Momentum.Look((hittable.Entity.Transform.position - Entity.Transform.position).FlattenY());
-					float force = 300f; // TODO: Load attack strength from stats.
+					Vector3 momentum = Current.Momentum.Look((hittable.Entity.Transform.position - Entity.Transform.position).FlattenY());
+					float impactMass = 200f; // TODO: Load from weapon & stats.
+
 					HitData hitData = new HitData()
 					{
 						Hitter = Entity,
-						Impact = new ImpactData(hit.Point, momentum, force)
+						Momentum = momentum,
+						Mass = impactMass
 					};
+
 					hittable.Hit(hitData);
 
 					// Apply hit pause to enemy.

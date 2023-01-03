@@ -11,7 +11,10 @@ namespace SpaxUtils
 	[DefaultExecutionOrder(-100)]
 	public class RigidbodyWrapper : MonoBehaviour, IDependency
 	{
-		public Rigidbody Rigidbody => rigidbody;
+		/// <summary>
+		/// Protected property because all modifications to the rigidbody should be done through the wrapper.
+		/// </summary>
+		protected Rigidbody Rigidbody => rigidbody;
 
 		#region Orientation
 		public Vector3 Position { get => Rigidbody.position; set => Rigidbody.position = value; }
@@ -24,35 +27,63 @@ namespace SpaxUtils
 		public Vector3 Back => Rotation * Vector3.back;
 		#endregion
 
+		#region Property Wrappers
+
+		/// <summary>
+		/// Mass of the rigidbody in Kilograms.
+		/// </summary>
 		public float Mass { get => Rigidbody.mass; set { Rigidbody.mass = value; } }
+
+		/// <summary>
+		/// Center of mass of the rigidbody in world space
+		/// </summary>
+		public Vector3 CenterOfMass { get => Rigidbody.worldCenterOfMass; set => Rigidbody.centerOfMass = value.Localize(Rigidbody.transform); }
+
+		/// <summary>
+		/// Center of mass of the rigidbody in local space.
+		/// </summary>
+		public Vector3 CenterOfMassRelative { get => Rigidbody.centerOfMass; set => Rigidbody.centerOfMass = value; }
+
+		/// <summary>
+		/// Velocity of the rigidbody in world space.
+		/// </summary>
 		public Vector3 Velocity { get => Rigidbody.velocity; set => Rigidbody.velocity = value; }
-		public Vector3 AngularVelocity { get => Rigidbody.angularVelocity; set => Rigidbody.angularVelocity = value; }
 
 		/// <summary>
-		/// The current change in velocity.
+		/// Velocity of the rigidbody in local space.
 		/// </summary>
-		public Vector3 Acceleration { get; private set; }
+		public Vector3 RelativeVelocity { get => Velocity.Localize(Rigidbody.transform); set => Velocity = value.Globalize(Rigidbody.transform); }
 
 		/// <summary>
-		/// Current relative velocity of the <see cref="UnityEngine.Rigidbody"/>.
-		/// </summary>
-		public Vector3 RelativeVelocity => transform.InverseTransformDirection(Velocity);
-
-		/// <summary>
-		/// The current relative change in velocity.
-		/// </summary>
-		public Vector3 RelativeAcceleration => transform.InverseTransformDirection(Acceleration);
-
-		/// <summary>
-		/// Current velocity.magnitude.
+		/// Magnitude of the rigidbody's velocity.
 		/// </summary>
 		public float Speed => Velocity.magnitude;
 
 		/// <summary>
-		/// Current velocity.magnitude, not factoring in local Y velocity.
+		/// Angular velocity of the rigidbody in world space.
 		/// </summary>
-		public float HorizontalSpeed => RelativeVelocity.FlattenY().magnitude;
+		public Vector3 AngularVelocity { get => Rigidbody.angularVelocity; set => Rigidbody.angularVelocity = value; }
 
+		#endregion // Property Wrappers.
+
+		/// <summary>
+		/// Average change in velocity of the rigidbody in world space (readonly).
+		/// </summary>
+		public Vector3 Acceleration { get; private set; }
+
+		/// <summary>
+		/// Average change in velocity of the rigidbody in local space (readonly).
+		/// </summary>
+		public Vector3 RelativeAcceleration => Acceleration.Localize(Rigidbody.transform);
+
+		/// <summary>
+		/// The kinetic energy of this rigidbody.
+		/// </summary>
+		public Vector3 KineticEnergy => Velocity.KineticEnergy(Mass);
+
+		/// <summary>
+		/// Target velocity of the rigidbody in world space, used for movement mechanics.
+		/// </summary>
 		public Vector3 TargetVelocity { get; set; }
 
 		/// <summary>
@@ -67,30 +98,18 @@ namespace SpaxUtils
 		/// </summary>
 		public Vector3 ControlAxis { get; set; } = Vector3.one;
 
+		/// <summary>
+		/// Difference between velocity and target velocity.
+		/// </summary>
 		public float Grip { get; private set; }
-
-		public IReadOnlyList<Impact> Impacts => impacts;
-		public int ImpactCount => impacts.Count;
-
-		public bool Automata { get => automata; set { automata = value; } }
-		public float AutoControlForce { get => autoControlForce; set { autoControlForce = value; } }
-		public float AutoBrakeForce { get => autoBrakeForce; set { autoBrakeForce = value; } }
-		public float AutoPower { get => autoPower; set { autoPower = value; } }
 
 		[SerializeField] new private Rigidbody rigidbody;
 		[SerializeField] private int accelerationSmoothing = 3;
-		[SerializeField] private bool automata = false;
-		[SerializeField, Conditional(nameof(automata), hide: true)] private float autoControlForce = 2000f;
-		[SerializeField, Conditional(nameof(automata), hide: true)] private float autoBrakeForce = 200f;
-		[SerializeField, Conditional(nameof(automata), hide: true)] private float autoPower = 20f;
-		[SerializeField, Conditional(nameof(automata), hide: true)] private Vector3 autoControlAxis = Vector3.one;
 
 		private EntityStat timeScale;
 
 		private Vector3 lastVelocity;
 		private SmoothVector3 velocityDelta;
-		private List<Impact> impacts = new List<Impact>();
-		private FloatFuncModifier impactControlMod;
 
 		public void InjectDependencies([Optional] IEntity entity)
 		{
@@ -122,13 +141,8 @@ namespace SpaxUtils
 			Acceleration = velocityDelta;
 			lastVelocity = Velocity;
 
-			ApplyImpacts();
+			//ApplyImpacts();
 			Grip = CalculateGrip();
-
-			if (Automata)
-			{
-				ApplyAutomataMovement();
-			}
 
 			// Apply local entity timescale.
 			if (timeScale != null)
@@ -145,49 +159,43 @@ namespace SpaxUtils
 			{
 				velocityDelta = new SmoothVector3(accelerationSmoothing);
 			}
-
-			impactControlMod?.Dispose();
-			impactControlMod = new FloatFuncModifier(ModMethod.Absolute, (float input) => ImpactCount > 0 ? 0f : 1f);
-			Control.AddModifier(this, impactControlMod);
 		}
 
-		#region Impacts
+		#region Forces
 
-		public void AddImpact(Impact impact)
+		public void AddForce(Vector3 force, ForceMode forceMode)
 		{
-			impacts.Add(impact.NewCopy());
-			impactControlMod.FuncChanged();
+			Rigidbody.AddForce(force, forceMode);
 		}
 
-		public void ClearImpacts()
+		public void AddForceRelative(Vector3 force, ForceMode forceMode)
 		{
-			impacts.Clear();
-			impactControlMod.FuncChanged();
-		}
-
-		private void ApplyImpacts()
-		{
-			for (int i = 0; i < impacts.Count; i++)
-			{
-				impacts[i] = impacts[i].Absorb(rigidbody, out bool absorbed);
-				if (absorbed)
-				{
-					impacts.RemoveAt(i);
-					i--;
-					impactControlMod.FuncChanged();
-				}
-			}
+			Rigidbody.AddForce(force.Globalize(Rigidbody.transform), forceMode);
 		}
 
 		#endregion
 
-		public void ApplyAutomataMovement()
+		#region Impacts
+
+		public void AddImpact(Vector3 momentum, float mass = -1f)
 		{
-			Vector3 previousControl = ControlAxis;
-			ControlAxis = autoControlAxis;
-			ApplyMovement(AutoControlForce, AutoBrakeForce, AutoPower);
-			ControlAxis = previousControl;
+			if (mass < 0)
+			{
+				mass = Mass;
+			}
+
+			Vector3 kE = momentum.KineticEnergy(mass);
+			Vector3 impactForce = (kE - KineticEnergy) / momentum.magnitude * Time.fixedDeltaTime;
+
+			Velocity += impactForce;
 		}
+
+		public void AddImpactRelative(Vector3 momentum, float mass = -1f)
+		{
+			AddImpact(momentum.Globalize(Rigidbody.transform), mass);
+		}
+
+		#endregion
 
 		/// <summary>
 		/// Apply a force to reach the <see cref="TargetVelocity"/>

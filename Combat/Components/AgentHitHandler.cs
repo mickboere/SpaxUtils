@@ -9,8 +9,9 @@ namespace SpaxUtils
 
 		private IHittable hittable;
 		private RigidbodyWrapper rigidbodyWrapper;
+		private AnimatorPoser animatorPoser;
 
-		public void InjectDependencies(IHittable hittable, RigidbodyWrapper rigidbodyWrapper)
+		public void InjectDependencies(IHittable hittable, RigidbodyWrapper rigidbodyWrapper, AnimatorPoser animatorPoser)
 		{
 			this.hittable = hittable;
 			this.rigidbodyWrapper = rigidbodyWrapper;
@@ -28,9 +29,9 @@ namespace SpaxUtils
 
 		private void OnHitEvent(HitData hitData)
 		{
-			float dispersionTime = hitData.Impact.Force / rigidbodyWrapper.Mass;
-			Vector3 momentum = hitData.Impact.Momentum * (dispersionTime / maxHitDispersionTime);
-			rigidbodyWrapper.AddImpact(new Impact(momentum, hitData.Impact.Force));
+			//float dispersionTime = hitData.Mass / rigidbodyWrapper.Mass;
+			//Vector3 momentum = hitData.Momentum * (dispersionTime / maxHitDispersionTime);
+			rigidbodyWrapper.AddImpact(hitData.Momentum, hitData.Mass);
 		}
 	}
 }

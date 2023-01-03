@@ -40,7 +40,7 @@ namespace SpaxUtils
 		}
 
 		/// <inheritdoc/>
-		public Vector3 Center => Application.isPlaying && rigidbodyWrapper != null ? rigidbodyWrapper.Rigidbody.worldCenterOfMass : Bounds.center;
+		public Vector3 Center => Application.isPlaying && rigidbodyWrapper != null ? rigidbodyWrapper.CenterOfMass : Bounds.center;
 
 		/// <inheritdoc/>
 		public Vector3 Size => Application.isPlaying && useSizeAtStart ? startingSize : Bounds.size;

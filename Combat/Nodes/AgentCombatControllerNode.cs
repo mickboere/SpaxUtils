@@ -32,6 +32,8 @@ namespace SpaxUtils
 		private Act<bool>? lastAct;
 		private (Act<bool> act, Timer timer)? lastFailedAttempt;
 		private bool wasPerforming;
+		private Timer momentumTimer;
+		private bool appliedMomentum;
 
 		private RuntimeEquipedData leftEquip;
 		private ArmedEquipmentComponent leftComp;
@@ -162,9 +164,16 @@ namespace SpaxUtils
 				{
 					// First frame of performance.
 					movementHandler.ForceRotation();
-					rigidbodyWrapper.AddImpact(combatPerformer.Current.Impact);
+					momentumTimer = new Timer(combatPerformer.Current.ForceDelay);
+					appliedMomentum = false;
 				}
 				wasPerforming = performing;
+
+				if (performing && !appliedMomentum && !momentumTimer)
+				{
+					rigidbodyWrapper.AddImpactRelative(combatPerformer.Current.Momentum);
+					appliedMomentum = true;
+				}
 
 				if (combatPerformer.Finishing)
 				{

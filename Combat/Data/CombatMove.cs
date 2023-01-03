@@ -36,10 +36,13 @@ namespace SpaxUtils
 		public float TotalDuration => MinDuration + Release;
 
 		/// <inheritdoc/>
-		public Impact Impact => impact;
+		public List<string> HitBoxes => hitBoxes;
 
 		/// <inheritdoc/>
-		public List<string> HitBoxes => hitBoxes;
+		public Vector3 Momentum => momentum;
+
+		/// <inheritdoc/>
+		public float ForceDelay => forceDelay;
 
 		/// <inheritdoc/>
 		public string ChargeSpeedMultiplierStat => chargeSpeedMultiplier;
@@ -60,7 +63,6 @@ namespace SpaxUtils
 		private const string TT_MIN_DURATION = "Minimum performing duration of this move.";
 		private const string TT_CHARGE_FADEOUT = "Duration of transition from charge pose to performing pose, relative to MinDuration.";
 		private const string TT_RELEASE = "Interuptable sustain / fadeout time after the minimum duration.";
-		private const string TT_IMPACT = "Impact applied to user upon performing the move.";
 
 		#endregion
 
@@ -75,8 +77,10 @@ namespace SpaxUtils
 		[SerializeField, Header("Performing"), Tooltip(TT_MIN_DURATION)] private float minDuration = 0.4f;
 		[SerializeField, Range(0f, 1f), Tooltip(TT_CHARGE_FADEOUT)] private float chargeFadeout = 0.3f;
 		[SerializeField, Tooltip(TT_RELEASE)] private float release = 0.5f;
-		[SerializeField, Tooltip(TT_IMPACT)] private Impact impact;
 		[SerializeField, ConstDropdown(typeof(ITransformLookupIdentifiers), showAdress: true)] private List<string> hitBoxes;
+
+		[SerializeField, Header("Forces")] private Vector3 momentum;
+		[SerializeField] private float forceDelay;
 
 		[SerializeField, Header("Stats"), ConstDropdown(typeof(IStatIdentifierConstants))] private string chargeSpeedMultiplier;
 		[SerializeField, ConstDropdown(typeof(IStatIdentifierConstants))] private string performSpeedMultiplier;

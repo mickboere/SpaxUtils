@@ -8,7 +8,7 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public float Scale => scale;
 
-		public bool HasRigidbody => RigidbodyWrapper != null && RigidbodyWrapper.Rigidbody != null;
+		public bool HasRigidbody => RigidbodyWrapper != null;
 		public bool HasAnimator => AnimatorWrapper != null && AnimatorWrapper.Animator != null;
 
 		public RigidbodyWrapper RigidbodyWrapper => Pray(ref rigidbodyWrapper);

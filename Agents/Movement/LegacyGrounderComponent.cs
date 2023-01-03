@@ -25,7 +25,7 @@ namespace SpaxUtils
 		public float GroundSlopeAngle => Grounded ? Vector3.Angle(Transform.up, GroundNormal) : 0f;
 		public bool ExceedingMaxSlope => GroundSlopeAngle > maxSlopeAngle;
 		public float Traction => ExceedingMaxSlope ? 0f : CalculateTraction(GroundSlopeAngle);
-		public bool Slipping => Grounded && Traction <= slippingTractionTreshold && rigidbodyWrapper.Rigidbody.velocity.y < -slippingSpeedTreshold;
+		public bool Slipping => Grounded && Traction <= slippingTractionTreshold && rigidbodyWrapper.Velocity.y < -slippingSpeedTreshold;
 
 		public Vector3 CurrentStepPoint { get; private set; }
 		public float CurrentStepHeight => CurrentStepPoint.y - Transform.position.y;

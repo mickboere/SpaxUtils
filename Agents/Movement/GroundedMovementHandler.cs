@@ -13,8 +13,6 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public float MovementSpeed => speed;
 
-		protected Rigidbody Rigidbody => rigidbodyWrapper.Rigidbody;
-
 		[SerializeField] private float speed = 2.5f;
 		[SerializeField] private float rotationSmoothingSpeed = 20f;
 		[SerializeField] private float controlForce = 2000f;
@@ -27,9 +25,9 @@ namespace SpaxUtils
 		private Vector3 targetDirection;
 		private Vector3 inputAxis;
 
-		public void InjectDependencies(RigidbodyWrapper wrapper, IGrounderComponent grounder)
+		public void InjectDependencies(RigidbodyWrapper rigidbodyWrapper, IGrounderComponent grounder)
 		{
-			this.rigidbodyWrapper = wrapper;
+			this.rigidbodyWrapper = rigidbodyWrapper;
 			this.grounder = grounder;
 		}
 
@@ -122,13 +120,13 @@ namespace SpaxUtils
 			{
 				if (rigidbodyWrapper.Velocity.FlattenY() != Vector3.zero)
 				{
-					Rigidbody.rotation = Quaternion.Lerp(Rigidbody.rotation, Quaternion.LookRotation(rigidbodyWrapper.Velocity.FlattenY()),
+					rigidbodyWrapper.Rotation = Quaternion.Lerp(rigidbodyWrapper.Rotation, Quaternion.LookRotation(rigidbodyWrapper.Velocity.FlattenY()),
 						rotationSmoothingSpeed * Time.fixedDeltaTime * EntityTimeScale * rigidbodyWrapper.Control);
 				}
 				return;
 			}
 
-			Rigidbody.rotation = Quaternion.Lerp(Rigidbody.rotation, Quaternion.LookRotation(targetDirection),
+			rigidbodyWrapper.Rotation = Quaternion.Lerp(rigidbodyWrapper.Rotation, Quaternion.LookRotation(targetDirection),
 				rotationSmoothingSpeed * Time.fixedDeltaTime * EntityTimeScale * rigidbodyWrapper.Control);
 		}
 	}
