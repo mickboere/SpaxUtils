@@ -60,7 +60,7 @@ namespace SpaxUtils
 		/// <param name="hits">The resulting hits from the cast.</param>
 		/// <param name="sort">Sorts the resulting hits by distance.</param>
 		/// <returns>True if there were any hits, false if there were not.</returns>
-		public static bool TubeCast(Vector3 origin, Vector3 scale, Vector3 direction, Vector3 up, float maxLength, int layermask,
+		public static bool TubeCast(Vector3 origin, Vector2 scale, Vector3 direction, Vector3 up, float maxLength, int layermask,
 			int rays, out List<RaycastHit> hits, bool sort = false)
 		{
 			hits = new List<RaycastHit>();

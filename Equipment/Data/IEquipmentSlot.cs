@@ -1,6 +1,4 @@
-﻿using UnityEngine;
-
-namespace SpaxUtils
+﻿namespace SpaxUtils
 {
 	/// <summary>
 	/// Interface for equipment slots, defining the type of slot and a unique ID used to reference this specific slot.
@@ -13,15 +11,14 @@ namespace SpaxUtils
 		string Type { get; }
 
 		/// <summary>
-		/// An optional parent override in case this slot is for a unique location.
-		/// Leave null to spawn equipment on agent root level.
+		/// Takes care of optional reparenting and positioning of the equipment as well as any other slot-specific functionality.
 		/// </summary>
-		Transform Parent { get; }
+		/// <param name="equipedData">The data to equip in this slot.</param>
+		void Equip(RuntimeEquipedData equipedData);
 
 		/// <summary>
-		/// Returns the desired local orientation for equipment in this slot.
+		/// Unequips the currently equiped data, used for cleanup.
 		/// </summary>
-		/// <returns>The desired local orientation for equipment in this slot.</returns>
-		(Vector3 pos, Quaternion rot) GetOrientation();
+		void Unequip(RuntimeEquipedData equipedData);
 	}
 }

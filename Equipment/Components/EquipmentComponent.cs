@@ -63,7 +63,7 @@ namespace SpaxUtils
 		#region IEquipmentComponent
 
 		/// <inheritdoc/>
-		public bool TryGetSlot(string id, out IEquipmentSlot slot)
+		public bool TryGetSlotFromID(string id, out IEquipmentSlot slot)
 		{
 			slot = null;
 			if (slots.ContainsKey(id))
@@ -75,11 +75,11 @@ namespace SpaxUtils
 		}
 
 		/// <inheritdoc/>
-		public bool TryGetFreeSlot(string type, out IEquipmentSlot slot)
+		public bool TryGetSlotFromType(string type, out IEquipmentSlot slot, Func<IEquipmentSlot, bool> predicate = null)
 		{
 			foreach (IEquipmentSlot s in Slots)
 			{
-				if (s.Type == type && !equipedItems.ContainsKey(s.ID))
+				if (s.Type == type && (predicate == null || predicate(s)))
 				{
 					slot = s;
 					return true;
@@ -97,7 +97,7 @@ namespace SpaxUtils
 			{
 				id = Guid.NewGuid().ToString();
 			}
-			else if (TryGetSlot(id, out IEquipmentSlot slot))
+			else if (TryGetSlotFromID(id, out IEquipmentSlot slot))
 			{
 				return slot;
 			}
@@ -128,7 +128,7 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public bool RemoveSlot(string id)
 		{
-			if (TryGetSlot(id, out IEquipmentSlot slot))
+			if (TryGetSlotFromID(id, out IEquipmentSlot slot))
 			{
 				if (equipedItems.ContainsKey(id))
 				{
@@ -142,7 +142,9 @@ namespace SpaxUtils
 		}
 
 		/// <inheritdoc/>
-		public bool CanEquip(RuntimeItemData runtimeItemData, out IEquipmentSlot slot, out List<RuntimeEquipedData> overlap, string slotId = null)
+		public bool CanEquip(RuntimeItemData runtimeItemData,
+			out IEquipmentSlot slot, out List<RuntimeEquipedData> overlap,
+			string slotId = null, bool overwrite = false)
 		{
 			slot = null;
 
@@ -159,10 +161,10 @@ namespace SpaxUtils
 			// Check if supplied slotID is available.
 			if (slotId != null)
 			{
-				if (slots.ContainsKey(slotId) && !equipedItems.ContainsKey(slotId))
+				if (slots.ContainsKey(slotId))
 				{
 					slot = slots[slotId];
-					return true;
+					return !equipedItems.ContainsKey(slotId) || overwrite;
 				}
 				else
 				{
@@ -170,19 +172,25 @@ namespace SpaxUtils
 				}
 			}
 
-			return TryGetFreeSlot(equipmentData.SlotType, out slot);
+			return TryGetSlotFromType(equipmentData.SlotType, out slot, overwrite ? null : (s) => !equipedItems.ContainsKey(s.ID));
 		}
 
 		/// <inheritdoc/>
 		public bool TryEquip(RuntimeItemData runtimeItemData, out RuntimeEquipedData equipedData, string slotId = null)
 		{
 			// First make sure we can equip this item.
-			if (CanEquip(runtimeItemData, out IEquipmentSlot slot, out List<RuntimeEquipedData> conflicts, slotId))
+			if (CanEquip(runtimeItemData, out IEquipmentSlot slot, out List<RuntimeEquipedData> overlap, slotId, true))
 			{
 				IEquipmentData itemData = runtimeItemData.ItemData as IEquipmentData;
 
-				// Unequip conflicts.
-				foreach (RuntimeEquipedData conflict in conflicts)
+				// If slot is occupied, unequip it first.
+				if (equipedItems.ContainsKey(slot.ID))
+				{
+					Unequip(equipedItems[slot.ID]);
+				}
+
+				// Unequip equipment with overlapping locations.
+				foreach (RuntimeEquipedData conflict in overlap)
 				{
 					Unequip(conflict);
 				}
@@ -210,6 +218,7 @@ namespace SpaxUtils
 				// Occupy the slot, apply data and invoke equiped event.
 				equipedItems[slot.ID] = equipedData;
 				equipmentData.Set(slot.ID, equipedData.RuntimeItemData.RuntimeID);
+				slot.Equip(equipedData);
 				EquipedEvent?.Invoke(equipedData);
 
 				return true;
@@ -238,6 +247,7 @@ namespace SpaxUtils
 				// Clear equiped slot, apply data and invoke unequiping event.
 				equipedItems.Remove(equipedData.Slot.ID);
 				equipmentData.TryRemove(equipedData.Slot.ID, true);
+				equipedData.Slot.Unequip(equipedData);
 				UnequipingEvent?.Invoke(equipedData);
 
 				// Dispose of all data.
@@ -303,9 +313,7 @@ namespace SpaxUtils
 			}
 
 			// Instantiate the equiped prefab in the correct parent.
-			GameObject instance = DependencyUtils.InstantiateDeactivated(equipmentData.EquipedPrefab);
-			Transform parent = slot.Parent == null ? Entity.GameObject.transform : slot.Parent;
-			instance.transform.SetParent(parent);
+			GameObject instance = DependencyUtils.InstantiateDeactivated(equipmentData.EquipedPrefab, Entity.GameObject.transform);
 
 			// Disable components that may possibly interfere.
 			if (instance.TryGetComponentInChildren(out Rigidbody rigidbody))
@@ -319,11 +327,6 @@ namespace SpaxUtils
 					collider.enabled = false;
 				}
 			}
-
-			// Apply orientation.
-			(Vector3 pos, Quaternion rot) orientation = slot.GetOrientation();
-			instance.transform.localPosition = orientation.pos;
-			instance.transform.localRotation = orientation.rot;
 
 			// Apply the agent's rig when possible.
 			sharedRigHandler.Share(instance);

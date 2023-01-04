@@ -43,14 +43,16 @@ namespace SpaxUtils
 
 		public override void ApplyInfluencer(string ikChain)
 		{
-			if (!chainInfluencers.ContainsKey(ikChain))
+			IKEffector effector = GetEffectorForChain(ikChain);
+			if (effector == null)
 			{
 				return;
 			}
 
-			IKEffector effector = GetEffectorForChain(ikChain);
-			if (effector == null)
+			if (!chainInfluencers.ContainsKey(ikChain))
 			{
+				effector.positionWeight = 0f;
+				effector.rotationWeight = 0f;
 				return;
 			}
 

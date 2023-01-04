@@ -173,26 +173,41 @@ namespace SpaxUtils
 			Rigidbody.AddForce(force.Globalize(Rigidbody.transform), forceMode);
 		}
 
-		#endregion
-
-		#region Impacts
-
-		public void AddImpact(Vector3 momentum, float mass = -1f)
+		/// <summary>
+		/// Adds an impact force to the rigidbody.
+		/// As opposed to <see cref="AddForce(Vector3, ForceMode)"/>, an impact will only have
+		/// effect on the rigidbody if it is greater than or in opposition to the body's velocity.
+		/// </summary>
+		/// <param name="velocity">Velocity of the incoming impact.</param>
+		/// <param name="mass">Mass of the incoming impact. Leave negative to match rigidbody mass.</param>
+		public void AddImpact(Vector3 velocity, float mass = -1f)
 		{
+			if (velocity == Vector3.zero)
+			{
+				return;
+			}
+
 			if (mass < 0)
 			{
 				mass = Mass;
 			}
 
-			Vector3 kE = momentum.KineticEnergy(mass);
-			Vector3 impactForce = (kE - KineticEnergy) / momentum.magnitude * Time.fixedDeltaTime;
+			Vector3 kE = velocity.KineticEnergy(mass);
+			Vector3 impactForce = (kE - KineticEnergy) / velocity.magnitude * Time.fixedDeltaTime;
 
 			Velocity += impactForce;
 		}
 
-		public void AddImpactRelative(Vector3 momentum, float mass = -1f)
+		/// <summary>
+		/// Adds an impact force relative to the rigidbody.
+		/// As opposed to <see cref="AddForceRelative(Vector3, ForceMode)"/>, an impact will only have
+		/// effect on the rigidbody if it is greater than or in opposition to the body's velocity.
+		/// </summary>
+		/// <param name="velocity">Localized velocity of the incoming impact.</param>
+		/// <param name="mass">Mass of the incoming impact. Leave negative to match rigidbody mass.</param>
+		public void AddImpactRelative(Vector3 velocity, float mass = -1f)
 		{
-			AddImpact(momentum.Globalize(Rigidbody.transform), mass);
+			AddImpact(velocity.Globalize(Rigidbody.transform), mass);
 		}
 
 		#endregion

@@ -103,15 +103,14 @@ namespace SpaxUtils
 			if (!grounder.Sliding)
 			{
 				rigidbodyWrapper.ApplyMovement(controlForce, brakeForce, power, false, grounder.Mobility);
+				// TODO: Allow for sliding control & overhaul sliding altogether.
 			}
 
 			SetTargetDirection(
 				Vector3.Lerp(
-					Vector3.Lerp(Transform.forward, rigidbodyWrapper.Velocity, rigidbodyWrapper.Control),
+					Vector3.Lerp(Transform.forward, rigidbodyWrapper.Velocity, MovementInput.magnitude.Clamp01()),
 					rigidbodyWrapper.TargetVelocity,
 					rigidbodyWrapper.Grip));
-
-			//SetTargetDirection(rigidbodyWrapper.TargetVelocity);
 		}
 
 		private void ApplyRotation()

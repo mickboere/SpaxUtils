@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
-using UnityEngine.Serialization;
 
 namespace SpaxUtils
 {
@@ -33,7 +32,6 @@ namespace SpaxUtils
 		[SerializeField, Conditional(nameof(right), drawToggle: true), ConstDropdown(typeof(IEquipmentSlotTypeConstants))] private string rightType;
 		[SerializeField] private Vector3 handSlotPointOffset = new Vector3(-0.01f, 0f, 0f);
 		[SerializeField] private bool drawGizmos;
-		[SerializeField] private ArmedSettings defaultSettings;
 		[Header("DEBUGGING")]
 		[SerializeField] private GameObject testPrefab;
 		[SerializeField] private bool testLeft;
@@ -57,6 +55,7 @@ namespace SpaxUtils
 			this.rigidbodyWrapper = rigidbodyWrapper;
 		}
 
+		#region Editor
 #if UNITY_EDITOR
 		protected void OnValidate()
 		{
@@ -84,40 +83,21 @@ namespace SpaxUtils
 			instance.transform.rotation = orientation.rot;
 		}
 #endif
+		#endregion
 
 		protected void Awake()
 		{
-			if (left)
+			if (left) { CreateSlot(true); }
+			if (right) { CreateSlot(false); }
+
+			void CreateSlot(bool isLeft)
 			{
-				equipment.AddSlot(new EquipmentSlot(HumanBoneIdentifiers.LEFT_HAND, leftType, LeftHand, () => GetHandSlotOrientation(true, true)));
+				equipment.AddSlot(new EquipmentSlot(
+					isLeft ? HumanBoneIdentifiers.LEFT_HAND : HumanBoneIdentifiers.RIGHT_HAND,
+					isLeft ? leftType : rightType,
+					(data) => OnEquip(isLeft, data),
+					(data) => OnUnequip(isLeft, data)));
 			}
-
-			if (right)
-			{
-				equipment.AddSlot(new EquipmentSlot(HumanBoneIdentifiers.RIGHT_HAND, rightType, RightHand, () => GetHandSlotOrientation(false, true)));
-			}
-		}
-
-		protected void OnEnable()
-		{
-			foreach (RuntimeEquipedData equipedData in equipment.EquipedItems)
-			{
-				OnEquipedEvent(equipedData);
-			}
-
-			equipment.EquipedEvent += OnEquipedEvent;
-			equipment.UnequipingEvent += OnUnequipingEvent;
-		}
-
-		protected void OnDisable()
-		{
-			foreach (RuntimeEquipedData equipedData in equipment.EquipedItems)
-			{
-				OnUnequipingEvent(equipedData);
-			}
-
-			equipment.EquipedEvent -= OnEquipedEvent;
-			equipment.UnequipingEvent -= OnUnequipingEvent;
 		}
 
 		protected void OnDestroy()
@@ -126,25 +106,53 @@ namespace SpaxUtils
 			equipment.RemoveSlot(HumanBoneIdentifiers.RIGHT_HAND);
 		}
 
+		/// <summary>
+		/// Updates one of the arms to animate with the defined parameters.
+		/// </summary>
+		/// <param name="isLeft">Whether to update the left arm or the right.</param>
+		/// <param name="weight">Effective weight of the arm's IK.</param>
+		/// <param name="settings">Armed settings defining how an arm should be carried.</param>
+		/// <param name="delta">Delta time used for interpolation and smoothing.</param>
 		public void UpdateArm(bool isLeft, float weight, ArmedSettings settings, float delta)
 		{
-			if (isLeft)
-			{
-				leftHelper?.Update(weight, settings, delta);
-			}
-			else
-			{
-				rightHelper?.Update(weight, settings, delta);
-			}
+			if (isLeft) { leftHelper?.Update(weight, settings, delta); }
+			else { rightHelper?.Update(weight, settings, delta); }
 		}
 
-		public void UpdateArms(float weight, ArmedSettings settings, float delta)
+		/// <summary>
+		/// Resets the arm helpers to disable IK.
+		/// </summary>
+		public void ResetArms()
 		{
-			leftHelper?.Update(weight, settings, delta);
-			rightHelper?.Update(weight, settings, delta);
+			leftHelper?.Reset();
+			rightHelper?.Reset();
 		}
 
-		public (Vector3 pos, Quaternion rot) GetHandSlotOrientation(bool isLeft, bool local)
+		private void OnEquip(bool isLeft, RuntimeEquipedData data)
+		{
+			// Parent and position.
+			if (data.EquipedVisual != null)
+			{
+				Transform parent = isLeft ? LeftHand : RightHand;
+				(Vector3 pos, Quaternion rot) orientation = GetHandSlotOrientation(isLeft, true);
+				data.EquipedVisual.transform.SetParent(parent);
+				data.EquipedVisual.transform.localPosition = orientation.pos;
+				data.EquipedVisual.transform.localRotation = orientation.rot;
+			}
+
+			// Create helper.
+			if (isLeft) { leftHelper = new ArmSlotHelper(true, GetHandSlotOrientation, ik, lookup, rigidbodyWrapper); }
+			else { rightHelper = new ArmSlotHelper(false, GetHandSlotOrientation, ik, lookup, rigidbodyWrapper); }
+		}
+
+		private void OnUnequip(bool isLeft, RuntimeEquipedData data)
+		{
+			// Dispose helper.
+			if (isLeft) { leftHelper?.Dispose(); }
+			else { rightHelper?.Dispose(); }
+		}
+
+		private (Vector3 pos, Quaternion rot) GetHandSlotOrientation(bool isLeft, bool local)
 		{
 			// Calculate position.
 			Transform hand = isLeft ? LeftHand : RightHand;
@@ -169,32 +177,6 @@ namespace SpaxUtils
 			}
 
 			return (position, rotation);
-		}
-
-		private void OnEquipedEvent(RuntimeEquipedData data)
-		{
-			OnUnequipingEvent(data);
-
-			if (left && data.Slot.ID == HumanBoneIdentifiers.LEFT_HAND)
-			{
-				leftHelper = new ArmSlotHelper(true, this, ik, lookup, rigidbodyWrapper);
-			}
-			else if (right && data.Slot.ID == HumanBoneIdentifiers.RIGHT_HAND)
-			{
-				rightHelper = new ArmSlotHelper(false, this, ik, lookup, rigidbodyWrapper);
-			}
-		}
-
-		private void OnUnequipingEvent(RuntimeEquipedData data)
-		{
-			if (data.Slot.ID == HumanBoneIdentifiers.LEFT_HAND)
-			{
-				leftHelper?.Dispose();
-			}
-			else if (data.Slot.ID == HumanBoneIdentifiers.RIGHT_HAND)
-			{
-				rightHelper?.Dispose();
-			}
 		}
 
 		#region Gizmos

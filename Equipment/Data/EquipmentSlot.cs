@@ -1,12 +1,10 @@
 ﻿using System;
-using UnityEngine;
 
 namespace SpaxUtils
 {
 	/// <summary>
 	/// Basic <see cref="IEquipmentSlot"/> implementation with no unique inherent qualities.
 	/// </summary>
-	[Serializable]
 	public class EquipmentSlot : IEquipmentSlot
 	{
 		/// <inheritdoc/>
@@ -15,29 +13,28 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public virtual string Type { get; private set; }
 
-		/// <inheritdoc/>
-		public virtual Transform Parent { get; private set; }
+		private Action<RuntimeEquipedData> onEquip;
+		private Action<RuntimeEquipedData> onUnequip;
 
-		private Func<(Vector3 pos, Quaternion rot)> getOrientationFunc;
-
-		public EquipmentSlot(string uid, string type, Transform parent = null,
-			Func<(Vector3 pos, Quaternion rot)> getOrientationFunc = null)
+		public EquipmentSlot(string uid, string type,
+			Action<RuntimeEquipedData> onEquip = null, Action<RuntimeEquipedData> onUnequip = null)
 		{
 			ID = uid;
 			Type = type;
-			Parent = parent;
-			this.getOrientationFunc = getOrientationFunc;
+			this.onEquip = onEquip;
+			this.onUnequip = onUnequip;
 		}
 
 		/// <inheritdoc/>
-		public virtual (Vector3 pos, Quaternion rot) GetOrientation()
+		public virtual void Equip(RuntimeEquipedData equipedData)
 		{
-			if (getOrientationFunc != null)
-			{
-				return getOrientationFunc();
-			}
+			onEquip?.Invoke(equipedData);
+		}
 
-			return (Vector3.zero, Quaternion.identity);
+		/// <inheritdoc/>
+		public virtual void Unequip(RuntimeEquipedData equipedData)
+		{
+			onUnequip?.Invoke(equipedData);
 		}
 	}
 }

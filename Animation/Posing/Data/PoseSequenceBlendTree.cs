@@ -9,14 +9,21 @@ namespace SpaxUtils
 	{
 		[SerializeField] private List<PoseBlendTreeSequence> blendTree;
 
-		public (IPoseSequence from, IPoseSequence to, float interpolation) GetInstructions(Vector2 position)
+		public PoserStruct GetInstructions(Vector3 position, float time)
 		{
-			return GetInstructions(new Vector3(position.x, 0f, position.y));
+			var instructions = GetPoseBlend(position);
+			PoseTransition a = instructions.from.Evaluate(time);
+			PoseTransition b = instructions.to.Evaluate(time);
+			return new PoserStruct(a, b, instructions.interpolation);
 		}
 
-		// TODO: Create new method for proper directional blending with more than 2 sequences
-		// Then add another method which takes in float progress returns a complete IPoser instructions.
-		public (IPoseSequence from, IPoseSequence to, float interpolation) GetInstructions(Vector3 position)
+		public (IPoseSequence from, IPoseSequence to, float interpolation) GetPoseBlend(Vector2 position)
+		{
+			return GetPoseBlend(new Vector3(position.x, 0f, position.y));
+		}
+
+		// TODO: Create new method for proper directional blending with more than 2 sequences.
+		public (IPoseSequence from, IPoseSequence to, float interpolation) GetPoseBlend(Vector3 position)
 		{
 			if (blendTree.Count < 2)
 			{

@@ -68,16 +68,19 @@ namespace SpaxUtils
 		private IAgent agent;
 		private CallbackService callbackService;
 		private TransformLookup transformLookup;
+		private RigidbodyWrapper rigidbodyWrapper;
 
 		private Dictionary<string, Dictionary<ICombatMove, int>> moves = new Dictionary<string, Dictionary<ICombatMove, int>>();
 		private CombatPerformanceHelper performance;
 		private TimedCurveModifier timeMod;
 
-		public void InjectDependencies(IAgent agent, CallbackService callbackService, TransformLookup transformLookup)
+		public void InjectDependencies(IAgent agent, CallbackService callbackService,
+			TransformLookup transformLookup, RigidbodyWrapper rigidbodyWrapper)
 		{
 			this.agent = agent;
 			this.callbackService = callbackService;
 			this.transformLookup = transformLookup;
+			this.rigidbodyWrapper = rigidbodyWrapper;
 		}
 
 		protected void Start()
@@ -214,15 +217,21 @@ namespace SpaxUtils
 				if (hit.GameObject.TryGetComponentRelative(out IHittable hittable))
 				{
 					Vector3 momentum = Current.Momentum.Look((hittable.Entity.Transform.position - Entity.Transform.position).FlattenY());
-					float impactMass = 200f; // TODO: Load from weapon & stats.
 
+					float weaponWeight = 5f;
+					float impactMass = rigidbodyWrapper.Mass + weaponWeight; // TODO: Load from weapon & stats.
+
+					// TODO: Apply appropriate knockback to attacker.
+					//rigidbodyWrapper.Velocity = Vector3.zero;
+
+					// Generate hit-data for hittable.
 					HitData hitData = new HitData()
 					{
 						Hitter = Entity,
-						Momentum = momentum,
-						Mass = impactMass
+						Velocity = momentum,
+						Mass = impactMass,
+						Direction = hit.Direction
 					};
-
 					hittable.Hit(hitData);
 
 					// Apply hit pause to enemy.

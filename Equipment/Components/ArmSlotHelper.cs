@@ -7,8 +7,8 @@ namespace SpaxUtils
 	{
 		public bool IsLeft { get; }
 
-		private ArmSlotsComponent armSlotsComponent;
 		private IIKComponent ik;
+		private Func<bool, bool, (Vector3, Quaternion)> orientationFunc;
 		private TransformLookup lookup;
 		private RigidbodyWrapper rigidbodyWrapper;
 
@@ -20,10 +20,11 @@ namespace SpaxUtils
 		private Vector3 forward;
 		private Vector3 dirVelocity;
 
-		public ArmSlotHelper(bool isLeft, ArmSlotsComponent armSlotsComponent, IIKComponent ik, TransformLookup lookup, RigidbodyWrapper rigidbodyWrapper)
+		public ArmSlotHelper(bool isLeft, Func<bool, bool, (Vector3, Quaternion)> orientationFunc,
+			IIKComponent ik, TransformLookup lookup, RigidbodyWrapper rigidbodyWrapper)
 		{
-			this.armSlotsComponent = armSlotsComponent;
 			this.ik = ik;
+			this.orientationFunc = orientationFunc;
 			this.lookup = lookup;
 			this.rigidbodyWrapper = rigidbodyWrapper;
 
@@ -32,14 +33,23 @@ namespace SpaxUtils
 
 		public void Dispose()
 		{
-			ik.RemoveInfluencer(this, IKChainConstants.LEFT_ARM);
-			ik.RemoveInfluencer(this, IKChainConstants.RIGHT_ARM);
+			if (IsLeft) { ik.RemoveInfluencer(this, IKChainConstants.LEFT_ARM); }
+			else { ik.RemoveInfluencer(this, IKChainConstants.RIGHT_ARM); }
+		}
+
+		public void Reset()
+		{
+			targetPos = Vector3.zero;
+			posVelocity = Vector3.zero;
+
+			if (IsLeft) { ik.RemoveInfluencer(this, IKChainConstants.LEFT_ARM); }
+			else { ik.RemoveInfluencer(this, IKChainConstants.RIGHT_ARM); }
 		}
 
 		public void Update(float weight, ArmedSettings settings, float delta)
 		{
 			// Collect data.
-			(Vector3 pos, Quaternion rot) orientation = armSlotsComponent.GetHandSlotOrientation(IsLeft, false);
+			(Vector3 pos, Quaternion rot) orientation = orientationFunc(IsLeft, false);
 			hips = lookup.Lookup(HumanBoneIdentifiers.HIPS).position;
 			hand = lookup.Lookup(IsLeft ? HumanBoneIdentifiers.LEFT_HAND : HumanBoneIdentifiers.RIGHT_HAND);
 			Vector3 positionOffset = hand.position - orientation.pos;

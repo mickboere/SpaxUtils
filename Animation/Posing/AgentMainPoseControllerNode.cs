@@ -36,7 +36,7 @@ namespace SpaxUtils
 			base.OnUpdate();
 
 			Vector3 blendPosition = rigidbodyWrapper.RelativeVelocity / agentMovementHandler.MovementSpeed * rigidbodyWrapper.Grip;
-			(IPoseSequence from, IPoseSequence to, float interpolation) instructions = movementBlendTree.GetInstructions(blendPosition);
+			(IPoseSequence from, IPoseSequence to, float interpolation) instructions = movementBlendTree.GetPoseBlend(blendPosition);
 
 			if (instructions.from == null)
 			{

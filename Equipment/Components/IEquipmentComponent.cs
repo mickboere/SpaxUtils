@@ -21,9 +21,9 @@ namespace SpaxUtils
 		/// </summary>
 		IReadOnlyCollection<RuntimeEquipedData> EquipedItems { get; }
 
-		bool TryGetSlot(string id, out IEquipmentSlot slot);
+		bool TryGetSlotFromID(string id, out IEquipmentSlot slot);
 
-		bool TryGetFreeSlot(string type, out IEquipmentSlot slot);
+		bool TryGetSlotFromType(string type, out IEquipmentSlot slot, Func<IEquipmentSlot, bool> predicate = null);
 
 		IEquipmentSlot AddNewSlot(string type, string id = null);
 
@@ -38,13 +38,18 @@ namespace SpaxUtils
 		/// <param name="slot">The free equipment slot in which the equipment can be equiped.</param>
 		/// <param name="overlap">The currently equiped data with which there is location overlap.
 		/// Overlaps do no block equiping and will automatically be unblocked .</param>
+		/// <param name="slotId">Optional specific slot ID, leave null to check all slots.</param>
+		/// <param name="overwrite">Will allow one to equip on occupied slots.</param>
 		/// <returns>Whether the given <paramref name="runtimeItemData"/> can be equiped on a free spot.</returns>
-		bool CanEquip(RuntimeItemData runtimeItemData, out IEquipmentSlot slot, out List<RuntimeEquipedData> overlap, string slotId);
+		bool CanEquip(
+			RuntimeItemData runtimeItemData,
+			out IEquipmentSlot slot, out List<RuntimeEquipedData> overlap,
+			string slotId = null, bool overwrite = false);
 
 		/// <summary>
 		/// Tries to equip the given <paramref name="runtimeItemData"/>.
 		/// </summary>
-		bool TryEquip(RuntimeItemData runtimeItemData, out RuntimeEquipedData equipedData, string slotId);
+		bool TryEquip(RuntimeItemData runtimeItemData, out RuntimeEquipedData equipedData, string slotId = null);
 
 		/// <summary>
 		/// Unequips the given <see cref="RuntimeEquipedData"/>.

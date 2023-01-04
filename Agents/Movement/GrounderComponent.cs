@@ -40,7 +40,7 @@ namespace SpaxUtils
 		[SerializeField] private float groundRadius = 0.2f;
 		[Header("Stepping")]
 		[SerializeField] private float stepHeight = 1f;
-		[SerializeField] private Vector2 stepRadius = new Vector2(0.35f, 0.35f);
+		[SerializeField] private Vector2 stepRadius = new Vector2(0.25f, 0.25f);
 		[SerializeField, Range(0f, 20f)] private float stepSmooth = 20f;
 		[SerializeField] private int rayCount = 8;
 		[Header("Traction")]
@@ -98,19 +98,29 @@ namespace SpaxUtils
 				return;
 			}
 
+			if (StepPoint == Vector3.zero)
+			{
+				StepPoint = rigidbodyWrapper.Position;
+			}
+
+			// Map ground surface.
 			Vector3 origin = rigidbodyWrapper.Position + rigidbodyWrapper.Up * stepHeight;
-			if (!PhysicsUtils.TubeCast(origin, stepRadius, -rigidbodyWrapper.Up, rigidbodyWrapper.Forward, stepHeight * 2f, layerMask, rayCount, out List<RaycastHit> hits, true))
+			Vector2 radius = new Vector2(
+				Mathf.Max(stepRadius.x, rigidbodyWrapper.RelativeVelocity.x * stepRadius.x * 0.5f),
+				Mathf.Max(stepRadius.y, rigidbodyWrapper.RelativeVelocity.z * stepRadius.y * 0.5f));
+
+			if (!PhysicsUtils.TubeCast(origin, radius, -rigidbodyWrapper.Up, rigidbodyWrapper.Forward, stepHeight * 2f, layerMask, rayCount, out List<RaycastHit> hits, true))
 			{
 				SurfaceNormal = Vector3.Lerp(SurfaceNormal, groundedHit.normal, normalSmoothing * Time.fixedDeltaTime);
 				TerrainNormal = Vector3.Lerp(TerrainNormal, rigidbodyWrapper.Up, normalSmoothing * Time.fixedDeltaTime);
 				return;
 			}
 
-			// Calculate surface
+			// Calculate surface (traction)
 			stepNormals = hits.Select(h => h.normal).ToArray();
 			SurfaceNormal = Vector3.Lerp(SurfaceNormal, stepNormals.AverageDirection(), normalSmoothing * Time.fixedDeltaTime);
 
-			// Calculate terrain
+			// Calculate terrain (mobility)
 			stepPoints = hits.Select(h => h.point).ToArray();
 			TerrainNormal = Vector3.Lerp(TerrainNormal, stepPoints.ApproxNormalFromPoints(rigidbodyWrapper.Up, out Vector3 center, debug, debugSize), normalSmoothing * Time.fixedDeltaTime);
 

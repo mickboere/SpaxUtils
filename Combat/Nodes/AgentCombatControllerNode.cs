@@ -102,6 +102,8 @@ namespace SpaxUtils
 			leftComp = null;
 			rightEquip = null;
 			rightComp = null;
+
+			armSlots.ResetArms();
 		}
 
 		private void OnLateUpdate()
