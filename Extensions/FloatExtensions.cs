@@ -65,6 +65,22 @@ namespace SpaxUtils
 		#region Easing functions
 
 		/// <summary>
+		/// https://easings.net/#easeInQuad
+		/// </summary>
+		public static float InQuad(this float x)
+		{
+			return x * x;
+		}
+
+		/// <summary>
+		/// https://easings.net/#easeInCubic
+		/// </summary>
+		public static float InCubic(this float x)
+		{
+			return x * x * x;
+		}
+
+		/// <summary>
 		/// https://easings.net/#easeInOutCubic
 		/// </summary>
 		public static float InOutCubic(this float x)
@@ -94,6 +110,22 @@ namespace SpaxUtils
 		public static float ReverseInOutSine(this float x)
 		{
 			return InOutSine(1f - x);
+		}
+
+		/// <summary>
+		/// https://easings.net/#easeInExpo
+		/// </summary>
+		public static float InExpo(this float x)
+		{
+			return x == 0f ? 0f : Mathf.Pow(2f, 10f * x - 10f);
+		}
+
+		/// <summary>
+		/// https://easings.net/#easeOutExpo
+		/// </summary>
+		public static float OutExpo(this float x)
+		{
+			return x == 1f ? 1f : 1f - Mathf.Pow(2f, -10f * x);
 		}
 
 		#endregion

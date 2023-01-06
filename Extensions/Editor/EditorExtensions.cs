@@ -10,7 +10,7 @@ namespace SpaxUtils
 
 			if (found == null)
 			{
-				string path = property.propertyPath.SecondToLast(".") + "." + name;
+				string path = property.propertyPath.SecondToLastDivision(".") + "." + name;
 				found = property.serializedObject.FindProperty(path);
 
 				if (found == null)

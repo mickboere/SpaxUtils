@@ -35,8 +35,7 @@ namespace SpaxUtils
 				return;
 			}
 
-			if (SurfaceComponent.TryGetSurfaceValues(leg.GroundedHit, out Dictionary<string, float> surfaces)
-				&& surfaces != null && surfaces.Count > 0)
+			if (SurfaceComponent.TryGetSurfaceValues(leg.GroundedHit, out Dictionary<string, float> surfaces) && surfaces.Count > 0)
 			{
 				foreach (KeyValuePair<string, float> surface in surfaces)
 				{
@@ -44,7 +43,7 @@ namespace SpaxUtils
 					if (config != null)
 					{
 						feetAudioSource.pitch = config.Audio.Light.RandomPitch;
-						feetAudioSource.PlayOneShot(config.Audio.Light.RandomClip, config.Audio.Light.RandomVolume);
+						feetAudioSource.PlayOneShot(config.Audio.Light.RandomClip, config.Audio.Light.RandomVolume * surface.Value);
 					}
 				}
 			}

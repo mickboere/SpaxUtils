@@ -90,7 +90,26 @@ namespace SpaxUtils
 				case ColorChannel.Alpha:
 					return color.a;
 				default:
+					SpaxDebug.Error("Color channel does not exist:", channel.ToString());
 					return 0f;
+			}
+		}
+
+		public static Color GetChannelAsColor(ColorChannel channel)
+		{
+			switch (channel)
+			{
+				case ColorChannel.Red:
+					return new Color(1f, 0f, 0f, 0f);
+				case ColorChannel.Green:
+					return new Color(0f, 1f, 0f, 0f);
+				case ColorChannel.Blue:
+					return new Color(0f, 0f, 1f, 0f);
+				case ColorChannel.Alpha:
+					return new Color(0f, 0f, 0f, 1f);
+				default:
+					SpaxDebug.Error("Color channel does not exist:", channel.ToString());
+					return new Color(0f, 0f, 0f, 0f);
 			}
 		}
 
@@ -132,27 +151,22 @@ namespace SpaxUtils
 			Dictionary<string, float> surfaceValues = new Dictionary<string, float>();
 			if (surfaces.Count > 0)
 			{
-				// For each surface, add it's color value to the surface values.
+				// Collect vertex color at point and create channel ordered blend of it.
 				Color color = GetVertexColorAtPoint(transform, mesh, triangleIndex, point);
+				Color blend = new Color(color.r, 0f, 0f, 0f)
+					.Lerp(new Color(0f, 1f, 0f, 0f), color.g)
+					.Lerp(new Color(0f, 0f, 1f, 0f), color.b)
+					.Lerp(new Color(0f, 0f, 0f, 1f), color.a);
+
+				// For each surface, add it's color channel value to the surface values.
 				foreach (SurfaceData surface in surfaces)
 				{
-					SafeAddSurfaceValue(surfaceValues, surface.surfaceType, GetColorValue(color, surface.vertexColor));
+					surfaceValues[surface.surfaceType] = GetColorValue(blend, surface.vertexColor);
 				}
 
-				// The default surface type is black, so if our color does not add up to 1 we fill up the rest with the default surface.
-				float totalValue = surfaceValues.Values.Sum();
-				if (totalValue < 1f)
-				{
-					float left = 1f - totalValue;
-					SafeAddSurfaceValue(surfaceValues, defaultSurfaceType, left);
-					totalValue += left;
-				}
-
-				// To prevent multiple surfaces having a value of more than 1, we normalize the result.
-				foreach (string surface in surfaceValues.Keys.ToList())
-				{
-					surfaceValues[surface] /= totalValue;
-				}
+				// Add default surface to fill out default audio.
+				if (!surfaceValues.ContainsKey(defaultSurfaceType)) { surfaceValues.Add(defaultSurfaceType, 0f); }
+				surfaceValues[defaultSurfaceType] += blend.Sum().Invert();
 			}
 			else
 			{
@@ -162,7 +176,7 @@ namespace SpaxUtils
 			return surfaceValues;
 		}
 
-		private void SafeAddSurfaceValue(Dictionary<string, float> surfaceValues, string surface, float value)
+		private void AddSurfaceValueToDictionary(Dictionary<string, float> surfaceValues, string surface, float value)
 		{
 			if (!surfaceValues.ContainsKey(surface))
 			{

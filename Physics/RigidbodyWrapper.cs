@@ -234,17 +234,11 @@ namespace SpaxUtils
 		/// <summary>
 		/// Calculate the current grip using the target velocity and current velocity.
 		/// </summary>
-		/// <param name="controlled">TRUE will multiply grip by control.</param>
 		/// <returns>The current grip calculated using the target velocity and current velocity.</returns>
-		public float CalculateGrip(bool controlled = true)
+		public float CalculateGrip()
 		{
 			float grip = TargetVelocity == Vector3.zero || Speed.Approx(0f) ? 1f :
 				Mathf.Clamp01(Rigidbody.velocity.normalized.NormalizedDot(TargetVelocity.normalized) * (Speed / TargetVelocity.magnitude));
-
-			if (controlled)
-			{
-				grip *= Control;
-			}
 
 			if (grip > 1f)
 			{

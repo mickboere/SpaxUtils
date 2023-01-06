@@ -41,7 +41,7 @@ namespace SpaxUtils
 		/// <summary>
 		/// Splits string using <paramref name="divide"/> and returns the last element.
 		/// </summary>
-		public static string SecondToLast(this string s, string divide = "/")
+		public static string SecondToLastDivision(this string s, string divide = "/")
 		{
 			string[] split = s.Split(divide);
 			return split[split.Length - 2];
