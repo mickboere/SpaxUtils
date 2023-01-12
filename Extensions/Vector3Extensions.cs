@@ -258,6 +258,11 @@ namespace SpaxUtils
 			return new Vector3(u, v, w);
 		}
 
+		public static Vector3 Lerp(this Vector3 a, Vector3 b, float t)
+		{
+			return Vector3.Lerp(a, b, t);
+		}
+
 		public static float Dot(this Vector3 a, Vector3 b)
 		{
 			return Vector3.Dot(a, b);

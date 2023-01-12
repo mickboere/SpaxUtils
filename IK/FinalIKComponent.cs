@@ -22,6 +22,9 @@ namespace SpaxUtils
 			[SerializeField] private Transform target;
 		}
 
+		public float LeftElbowHintWeight { get { return fullBodyIK.solver.leftArmChain.bendConstraint.weight; } set { fullBodyIK.solver.leftArmChain.bendConstraint.weight = value; } }
+		public float RightElbowHintWeight { get { return fullBodyIK.solver.rightArmChain.bendConstraint.weight; } set { fullBodyIK.solver.rightArmChain.bendConstraint.weight = value; } }
+
 		protected override Dictionary<string, IKUpdateMode> Settings { get; set; }
 
 		[SerializeField] protected FullBodyBipedIK fullBodyIK;
@@ -59,13 +62,24 @@ namespace SpaxUtils
 			Chain chain = chains.FirstOrDefault((c) => c.Identifier == ikChain);
 			Dictionary<object, IKInfluencer> influencers = chainInfluencers[ikChain];
 
-			Vector3 position = Vector3Extensions.AveragePoint(chain.TipBone.position, influencers.Values.Select((i) => i.Position).ToArray(), influencers.Values.Select((i) => i.PositionWeight).ToArray());
-			Quaternion rotation = QuaternionExtensions.Average(influencers.Values.Select((i) => i.Rotation).ToArray(), influencers.Values.Select((i) => i.RotationWeight).ToArray());
+			Dictionary<IKInfluencer, float> positionWeights = WeightedUtils.GetPrioritizedNormalizedWeights(influencers.Values, i => i.Priority, i => i.PositionWeight);
+			Vector3 position = chain.TipBone.position;
+			foreach (KeyValuePair<IKInfluencer, float> influencer in positionWeights)
+			{
+				position = position.Lerp(influencer.Key.Position, influencer.Value);
+			}
+
+			Dictionary<IKInfluencer, float> rotationWeights = WeightedUtils.GetPrioritizedNormalizedWeights(influencers.Values, i => i.Priority, i => i.RotationWeight);
+			Quaternion rotation = chain.TipBone.rotation;
+			foreach (KeyValuePair<IKInfluencer, float> influencer in rotationWeights)
+			{
+				rotation = rotation.Lerp(influencer.Key.Rotation, influencer.Value);
+			}
+
 			chain.Target.SetPositionAndRotation(position, rotation);
 
-			float positionWeight = influencers.Max((i) => i.Value.PositionWeight);
-			effector.positionWeight = positionWeight;
-			effector.rotationWeight = influencers.Max((i) => i.Value.RotationWeight);
+			effector.positionWeight = positionWeights.Values.Sum();
+			effector.rotationWeight = rotationWeights.Values.Sum();
 		}
 
 		protected virtual IKEffector GetEffectorForChain(string chain)

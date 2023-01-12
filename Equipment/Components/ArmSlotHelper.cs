@@ -7,10 +7,19 @@ namespace SpaxUtils
 	{
 		public bool IsLeft { get; }
 
+		private string IKChain => IsLeft ? IKChainConstants.LEFT_ARM : IKChainConstants.RIGHT_ARM;
+		private float ElbowHintWeight
+		{
+			get { return IsLeft ? finalIKComponent.LeftElbowHintWeight : finalIKComponent.RightElbowHintWeight; }
+			set { if (IsLeft) { finalIKComponent.LeftElbowHintWeight = value; } else { finalIKComponent.RightElbowHintWeight = value; } }
+		}
+
+		private int prio;
+		private AgentArmsComponent component;
 		private IIKComponent ik;
-		private Func<bool, bool, (Vector3, Quaternion)> orientationFunc;
 		private TransformLookup lookup;
 		private RigidbodyWrapper rigidbodyWrapper;
+		private FinalIKComponent finalIKComponent;
 
 		private Vector3 hips;
 		private Transform hand;
@@ -20,21 +29,23 @@ namespace SpaxUtils
 		private Vector3 forward;
 		private Vector3 dirVelocity;
 
-		public ArmSlotHelper(bool isLeft, Func<bool, bool, (Vector3, Quaternion)> orientationFunc,
-			IIKComponent ik, TransformLookup lookup, RigidbodyWrapper rigidbodyWrapper)
+		public ArmSlotHelper(bool isLeft, int prio, AgentArmsComponent component,
+			IIKComponent ik, TransformLookup lookup, RigidbodyWrapper rigidbodyWrapper, FinalIKComponent finalIKComponent)
 		{
+			this.prio = prio;
 			this.ik = ik;
-			this.orientationFunc = orientationFunc;
+			this.component = component;
 			this.lookup = lookup;
 			this.rigidbodyWrapper = rigidbodyWrapper;
+			this.finalIKComponent = finalIKComponent;
 
 			IsLeft = isLeft;
 		}
 
 		public void Dispose()
 		{
-			if (IsLeft) { ik.RemoveInfluencer(this, IKChainConstants.LEFT_ARM); }
-			else { ik.RemoveInfluencer(this, IKChainConstants.RIGHT_ARM); }
+			ik.RemoveInfluencer(this, IKChain);
+			ElbowHintWeight = 0f;
 		}
 
 		public void Reset()
@@ -42,26 +53,26 @@ namespace SpaxUtils
 			targetPos = Vector3.zero;
 			posVelocity = Vector3.zero;
 
-			if (IsLeft) { ik.RemoveInfluencer(this, IKChainConstants.LEFT_ARM); }
-			else { ik.RemoveInfluencer(this, IKChainConstants.RIGHT_ARM); }
+			ik.RemoveInfluencer(this, IKChain);
+			ElbowHintWeight = 0f;
 		}
 
 		public void Update(float weight, ArmedSettings settings, float delta)
 		{
 			// Collect data.
-			(Vector3 pos, Quaternion rot) orientation = orientationFunc(IsLeft, false);
+			(Vector3 pos, Quaternion rot) orientation = component.GetHandSlotOrientation(IsLeft, false);
 			hips = lookup.Lookup(HumanBoneIdentifiers.HIPS).position;
 			hand = lookup.Lookup(IsLeft ? HumanBoneIdentifiers.LEFT_HAND : HumanBoneIdentifiers.RIGHT_HAND);
 			Vector3 positionOffset = hand.position - orientation.pos;
 			Quaternion rotationOffset = Quaternion.Inverse(orientation.rot) * hand.rotation;
 
 			// Calculate target position.
-			Vector3 target = hips + (ik.Entity.Transform.right * (IsLeft ? -1f : 1f)) * settings.broadness;
+			Vector3 target = hips + (ik.Entity.Transform.right * (IsLeft ? -1f : 1f)) * settings.width;
 			target += ik.Entity.Transform.up * settings.height;
 			target += ik.Entity.Transform.forward * settings.forward;
 			target += (hand.position - target) * settings.handInfluence;
-			target += rigidbodyWrapper.Velocity * settings.velocityInfluence;
-			target += rigidbodyWrapper.Acceleration * settings.accelerationInfluence;
+			target += (rigidbodyWrapper.Velocity * settings.velocityInfluence).ClampMagnitude(settings.maxVelocityInfluence);
+			target += (rigidbodyWrapper.Acceleration * settings.accelerationInfluence).ClampMagnitude(settings.maxAccelerationInfluence);
 			if (targetPos == Vector3.zero)
 			{
 				targetPos = target;
@@ -70,12 +81,17 @@ namespace SpaxUtils
 
 			// Calculate target rotation.
 			Vector3 targetForward = orientation.rot * Vector3.forward;
-			targetForward += rigidbodyWrapper.Velocity * settings.rotationVelocityInfluence;
+			targetForward += (rigidbodyWrapper.Velocity * settings.rotationVelocityInfluence).ClampMagnitude(settings.maxRotationVelocityInfluence);
+			targetForward += (IsLeft ? rigidbodyWrapper.Left : rigidbodyWrapper.Right) * settings.rotationInOut;
+			targetForward += rigidbodyWrapper.Up * settings.rotationUpDown;
 			forward = Vector3.SmoothDamp(forward, targetForward.normalized, ref dirVelocity, settings.rotationSmoothTime, float.MaxValue, delta).normalized;
 			Quaternion targetRotation = Quaternion.LookRotation(forward, orientation.rot * Vector3.up);
 
+			// Bend goal weight
+			ElbowHintWeight = settings.elbowHintWeight * weight;
+
 			ik.AddInfluencer(this,
-				IsLeft ? IKChainConstants.LEFT_ARM : IKChainConstants.RIGHT_ARM,
+				IsLeft ? IKChainConstants.LEFT_ARM : IKChainConstants.RIGHT_ARM, prio,
 				targetPos + targetRotation * positionOffset, weight,
 				targetRotation * rotationOffset, weight);
 		}

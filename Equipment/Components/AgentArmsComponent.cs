@@ -5,10 +5,22 @@ using UnityEngine;
 
 namespace SpaxUtils
 {
-	public class ArmSlotsComponent : EntityComponentBase
+	/// <summary>
+	/// Agent component which supplies equipment slots for a left and right arm,
+	/// and takes care of parenting and positioning of arms equipment.
+	/// </summary>
+	public class AgentArmsComponent : EntityComponentBase
 	{
-		protected Transform LeftHand => lookup.Lookup(HumanBoneIdentifiers.LEFT_HAND);
-		protected Transform RightHand => lookup.Lookup(HumanBoneIdentifiers.RIGHT_HAND);
+		public Transform LeftHand => lookup.Lookup(HumanBoneIdentifiers.LEFT_HAND);
+		public Transform RightHand => lookup.Lookup(HumanBoneIdentifiers.RIGHT_HAND);
+		public Transform LeftSheathe => lookup.Lookup(TransformLookupIdentifiers.LEFT_SHEATHE);
+		public Transform RightSheathe => lookup.Lookup(TransformLookupIdentifiers.RIGHT_SHEATHE);
+
+		public bool Sheathed { get; private set; }
+		public RuntimeEquipedData LeftEquip => leftEquip;
+		public RuntimeEquipedData RightEquip => rightEquip;
+		public GameObject LeftVisual => LeftEquip == null ? null : LeftEquip.EquipedVisual;
+		public GameObject RightVisual => RightEquip == null ? null : RightEquip.EquipedVisual;
 
 		protected TransformLookup SafeLookup
 		{
@@ -41,18 +53,22 @@ namespace SpaxUtils
 		private IEquipmentComponent equipment;
 		private IIKComponent ik;
 		private RigidbodyWrapper rigidbodyWrapper;
+		private FinalIKComponent finalIKComponent;
 
+		private RuntimeEquipedData leftEquip;
+		private RuntimeEquipedData rightEquip;
 		private ArmSlotHelper leftHelper;
 		private ArmSlotHelper rightHelper;
 
 		public void InjectDependencies(TransformLookup lookup,
 			IEquipmentComponent equipment, IIKComponent ik,
-			RigidbodyWrapper rigidbodyWrapper)
+			RigidbodyWrapper rigidbodyWrapper, FinalIKComponent finalIKComponent)
 		{
 			this.lookup = lookup;
 			this.equipment = equipment;
 			this.ik = ik;
 			this.rigidbodyWrapper = rigidbodyWrapper;
+			this.finalIKComponent = finalIKComponent;
 		}
 
 		#region Editor
@@ -128,45 +144,74 @@ namespace SpaxUtils
 			rightHelper?.Reset();
 		}
 
-		private void OnEquip(bool isLeft, RuntimeEquipedData data)
+		/// <summary>
+		/// Sheathes or unsheathes the equiped arms.
+		/// </summary>
+		/// <param name="sheathe">TRUE will sheathe the arms, FALSE will unsheathe the arms.</param>
+		public void SheatheArms(bool sheathe)
 		{
-			// Parent and position.
-			if (data.EquipedVisual != null)
+			if (leftEquip != null && leftEquip.EquipedVisual != null)
 			{
-				Transform parent = isLeft ? LeftHand : RightHand;
-				(Vector3 pos, Quaternion rot) orientation = GetHandSlotOrientation(isLeft, true);
-				data.EquipedVisual.transform.SetParent(parent);
-				data.EquipedVisual.transform.localPosition = orientation.pos;
-				data.EquipedVisual.transform.localRotation = orientation.rot;
+				SetParentAndOrientation(leftEquip.EquipedVisual.transform, true, sheathe);
+			}
+			if (rightEquip != null && rightEquip.EquipedVisual != null)
+			{
+				SetParentAndOrientation(rightEquip.EquipedVisual.transform, false, sheathe);
 			}
 
-			// Create helper.
-			if (isLeft) { leftHelper = new ArmSlotHelper(true, GetHandSlotOrientation, ik, lookup, rigidbodyWrapper); }
-			else { rightHelper = new ArmSlotHelper(false, GetHandSlotOrientation, ik, lookup, rigidbodyWrapper); }
+			Sheathed = sheathe;
 		}
 
-		private void OnUnequip(bool isLeft, RuntimeEquipedData data)
+		/// <summary>
+		/// Set the parent and orientation of <paramref name="transform"/> as if it were a piece of arms.
+		/// </summary>
+		/// <param name="transform">The transform to set.</param>
+		/// <param name="left">Whether to treat it as left arms (true) or right arms (false).</param>
+		/// <param name="sheathe">Whether to sheath the transform or unsheathe it (in hand).</param>
+		public void SetParentAndOrientation(Transform transform, bool left, bool sheathe)
 		{
-			// Dispose helper.
-			if (isLeft) { leftHelper?.Dispose(); }
-			else { rightHelper?.Dispose(); }
+			if (sheathe)
+			{
+				// Place in sheathe.
+				Transform parent = left ? LeftSheathe : RightSheathe;
+				transform.SetParent(parent);
+				transform.localPosition = Vector3.zero;
+				transform.localRotation = Quaternion.identity;
+			}
+			else
+			{
+				// Place in hand.
+				Transform parent = left ? LeftHand : RightHand;
+				(Vector3 pos, Quaternion rot) orientation = GetHandSlotOrientation(left, true);
+				transform.SetParent(parent);
+				transform.localPosition = orientation.pos;
+				transform.localRotation = orientation.rot;
+			}
 		}
 
-		private (Vector3 pos, Quaternion rot) GetHandSlotOrientation(bool isLeft, bool local)
+		/// <summary>
+		/// Retrieve the position and rotation of a hand slot.
+		/// </summary>
+		/// <param name="left">Whether to retrieve for the left (true) or right hand (false).</param>
+		/// <param name="local">Whether to retrieve the orientation in local space relative to the hand (true) or global space (false).</param>
+		/// <returns>An orientation tuple (position, rotation) of the <paramref name="left"/> hand's slot in <paramref name="local"/> space.</returns>
+		public (Vector3 pos, Quaternion rot) GetHandSlotOrientation(bool left, bool local)
 		{
+			// TODO: Could possibly be cached in local space and then simply converted for global.
+
 			// Calculate position.
-			Transform hand = isLeft ? LeftHand : RightHand;
+			Transform hand = left ? LeftHand : RightHand;
 			Vector3 handPos = hand.position;
-			Vector3 middleFPos = lookup.Lookup(isLeft ? HumanBoneIdentifiers.LEFT_MIDDLE_PROXIMAL : HumanBoneIdentifiers.RIGHT_MIDDLE_PROXIMAL).position;
+			Vector3 middleFPos = lookup.Lookup(left ? HumanBoneIdentifiers.LEFT_MIDDLE_PROXIMAL : HumanBoneIdentifiers.RIGHT_MIDDLE_PROXIMAL).position;
 			Vector3 position = Vector3.Lerp(handPos, middleFPos, 0.8f);
 
 			// Calculate rotation.
-			Vector3 thumb = lookup.Lookup(isLeft ? HumanBoneIdentifiers.LEFT_THUMB_PROXIMAL : HumanBoneIdentifiers.RIGHT_THUMB_PROXIMAL).position;
+			Vector3 thumb = lookup.Lookup(left ? HumanBoneIdentifiers.LEFT_THUMB_PROXIMAL : HumanBoneIdentifiers.RIGHT_THUMB_PROXIMAL).position;
 			Vector3 handToMiddleF = Vector3.Normalize(middleFPos - handPos);
 			Vector3 handToThumb = Vector3.Normalize(thumb - handPos);
 			Quaternion rotation = Quaternion.LookRotation(handToThumb, -handToMiddleF);
 
-			Vector3 offset = isLeft ? handSlotPointOffset.MirrorX() : handSlotPointOffset;
+			Vector3 offset = left ? handSlotPointOffset.MirrorX() : handSlotPointOffset;
 			position += rotation * offset;
 
 			if (local)
@@ -177,6 +222,42 @@ namespace SpaxUtils
 			}
 
 			return (position, rotation);
+		}
+
+		private void OnEquip(bool isLeft, RuntimeEquipedData data)
+		{
+			// Parent and position.
+			if (data.EquipedVisual != null)
+			{
+				SetParentAndOrientation(data.EquipedVisual.transform, isLeft, Sheathed);
+			}
+
+			// Create helper.
+			if (isLeft)
+			{
+				leftEquip = data;
+				leftHelper = new ArmSlotHelper(true, 0, this, ik, lookup, rigidbodyWrapper, finalIKComponent);
+			}
+			else
+			{
+				rightEquip = data;
+				rightHelper = new ArmSlotHelper(false, 0, this, ik, lookup, rigidbodyWrapper, finalIKComponent);
+			}
+		}
+
+		private void OnUnequip(bool isLeft, RuntimeEquipedData data)
+		{
+			// Dispose helper.
+			if (isLeft)
+			{
+				leftEquip = null;
+				leftHelper?.Dispose();
+			}
+			else
+			{
+				rightEquip = null;
+				rightHelper?.Dispose();
+			}
 		}
 
 		#region Gizmos

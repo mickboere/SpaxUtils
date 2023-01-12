@@ -45,19 +45,19 @@ namespace SpaxUtils
 			}
 		}
 
-		public void AddInfluencer(object caller, string ikChain, Transform target, float positionWeight, float rotationWeight)
+		public void AddInfluencer(object caller, string ikChain, int priority, Transform target, float positionWeight, float rotationWeight)
 		{
-			AddInfluencer(caller, ikChain, target.position, positionWeight, target.rotation, rotationWeight);
+			AddInfluencer(caller, ikChain, priority, target.position, positionWeight, target.rotation, rotationWeight);
 		}
 
-		public void AddInfluencer(object caller, string ikChain, Vector3 position, float positionWeight, Quaternion rotation, float rotationWeight)
+		public void AddInfluencer(object caller, string ikChain, int priority, Vector3 position, float positionWeight, Quaternion rotation, float rotationWeight)
 		{
 			if (!chainInfluencers.ContainsKey(ikChain))
 			{
 				chainInfluencers.Add(ikChain, new Dictionary<object, IKInfluencer>());
 			}
 
-			chainInfluencers[ikChain][caller] = new IKInfluencer(ikChain, position, positionWeight, rotation, rotationWeight);
+			chainInfluencers[ikChain][caller] = new IKInfluencer(ikChain, priority, position, positionWeight, rotation, rotationWeight);
 		}
 
 		public void RemoveInfluencer(object caller, string ikChain)

@@ -4,6 +4,16 @@ namespace SpaxUtils
 {
 	public static class QuaternionExtensions
 	{
+		public static Quaternion Lerp(this Quaternion a, Quaternion b, float t)
+		{
+			return Quaternion.Lerp(a, b, t);
+		}
+
+		public static Quaternion Inverse(this Quaternion a)
+		{
+			return Quaternion.Inverse(a);
+		}
+
 		/// <summary>
 		/// Clamps <paramref name="quaternion"/>'s <paramref name="direction"/> within <paramref name="maxAngle"/> from <paramref name="axis"/>.
 		/// </summary>

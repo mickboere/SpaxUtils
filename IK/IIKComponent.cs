@@ -7,9 +7,9 @@ namespace SpaxUtils
 	/// </summary>
 	public interface IIKComponent : IEntityComponent
 	{
-		void AddInfluencer(object caller, string chain, Transform target, float positionWeight, float rotationWeight);
+		void AddInfluencer(object caller, string chain, int priority, Transform target, float positionWeight, float rotationWeight);
 
-		void AddInfluencer(object caller, string chain, Vector3 position, float positionWeight, Quaternion rotation, float rotationWeight);
+		void AddInfluencer(object caller, string chain, int priority, Vector3 position, float positionWeight, Quaternion rotation, float rotationWeight);
 
 		void RemoveInfluencer(object caller, string chain);
 

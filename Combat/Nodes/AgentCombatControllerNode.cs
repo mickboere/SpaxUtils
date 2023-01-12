@@ -23,7 +23,7 @@ namespace SpaxUtils
 		private IAgentMovementHandler movementHandler;
 		private RigidbodyWrapper rigidbodyWrapper;
 		private IEquipmentComponent equipment;
-		private ArmSlotsComponent armSlots;
+		private AgentArmsComponent armSlots;
 		private CallbackService callbackService;
 		private FloatOperationModifier controlMod;
 
@@ -42,7 +42,7 @@ namespace SpaxUtils
 
 		public void InjectDependencies(IActor actor, AnimatorPoser poser,
 			IAgentMovementHandler movementHandler, RigidbodyWrapper rigidbodyWrapper,
-			IEquipmentComponent equipment, ArmSlotsComponent armSlots, CallbackService callbackService)
+			IEquipmentComponent equipment, AgentArmsComponent armSlots, CallbackService callbackService)
 		{
 			this.actor = actor;
 			this.poser = poser;
