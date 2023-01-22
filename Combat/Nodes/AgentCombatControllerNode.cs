@@ -17,7 +17,10 @@ namespace SpaxUtils
 		[SerializeField, Input(backingValue = ShowBackingValue.Never)] protected Connections.StateComponent inConnection;
 		[SerializeField] private float retryActionWindow;
 		[SerializeField] private float controlWeightSmoothing = 6f;
+		[SerializeField, ConstDropdown(typeof(IIdentificationLabels))] private string[] targetLabels;
+		[SerializeField] private float autoAimRange = 2f;
 
+		private IEntity entity;
 		private IActor actor;
 		private AnimatorPoser poser;
 		private IAgentMovementHandler movementHandler;
@@ -25,8 +28,11 @@ namespace SpaxUtils
 		private IEquipmentComponent equipment;
 		private AgentArmsComponent armSlots;
 		private CallbackService callbackService;
-		private FloatOperationModifier controlMod;
+		private IEntityCollection entityCollection;
+		private AgentNavigationHandler navigationHandler;
+		private ITargeter targeter;
 
+		private FloatOperationModifier controlMod;
 		private List<IPerformer> performers = new List<IPerformer>();
 		private Dictionary<IPerformer, float> weights = new Dictionary<IPerformer, float>();
 		private Act<bool>? lastAct;
@@ -34,16 +40,19 @@ namespace SpaxUtils
 		private bool wasPerforming;
 		private Timer momentumTimer;
 		private bool appliedMomentum;
+		private EntityComponentFilter<ITargetable> targetables;
 
 		private RuntimeEquipedData leftEquip;
 		private ArmedEquipmentComponent leftComp;
 		private RuntimeEquipedData rightEquip;
 		private ArmedEquipmentComponent rightComp;
 
-		public void InjectDependencies(IActor actor, AnimatorPoser poser,
+		public void InjectDependencies(IEntity entity, IActor actor, AnimatorPoser poser,
 			IAgentMovementHandler movementHandler, RigidbodyWrapper rigidbodyWrapper,
-			IEquipmentComponent equipment, AgentArmsComponent armSlots, CallbackService callbackService)
+			IEquipmentComponent equipment, AgentArmsComponent armSlots, CallbackService callbackService,
+			IEntityCollection entityCollection, AgentNavigationHandler navigationHandler, ITargeter targeter)
 		{
+			this.entity = entity;
 			this.actor = actor;
 			this.poser = poser;
 			this.movementHandler = movementHandler;
@@ -51,6 +60,9 @@ namespace SpaxUtils
 			this.equipment = equipment;
 			this.armSlots = armSlots;
 			this.callbackService = callbackService;
+			this.entityCollection = entityCollection;
+			this.navigationHandler = navigationHandler;
+			this.targeter = targeter;
 		}
 
 		public override void OnStateEntered()
@@ -67,6 +79,8 @@ namespace SpaxUtils
 
 			controlMod = new FloatOperationModifier(ModMethod.Absolute, Operation.Multiply, 1f);
 			rigidbodyWrapper.Control.AddModifier(this, controlMod);
+
+			targetables = new EntityComponentFilter<ITargetable>(entityCollection, (entity) => entity.Identification.HasAll(targetLabels), (c) => true, entity);
 
 			foreach (RuntimeEquipedData item in equipment.EquipedItems)
 			{
@@ -89,6 +103,7 @@ namespace SpaxUtils
 			actor.StopListening(this);
 
 			// Clear data.
+			targetables.Dispose();
 			foreach (IPerformer performer in performers)
 			{
 				poser.RevokeInstructions(performer);
@@ -162,9 +177,23 @@ namespace SpaxUtils
 			// Only give control if it's the last performance.
 			if (performer == performers[performers.Count - 1])
 			{
+				// Check if in first frame of performance.
 				if (!wasPerforming && performing)
 				{
-					// First frame of performance.
+					if (rigidbodyWrapper.TargetVelocity == Vector3.zero)
+					{
+						if (targeter.Target != null)
+						{
+							// Auto aim to target.
+							movementHandler.SetTargetVelocity((targeter.Target.Point - rigidbodyWrapper.Position).normalized);
+						}
+						else if (navigationHandler.TryGetClosestTargetable(targetables.Components, false, out ITargetable closest, out float distance) && distance < autoAimRange)
+						{
+							// Auto aim to closest targetable in range.
+							movementHandler.SetTargetVelocity((closest.Point - rigidbodyWrapper.Position).normalized);
+						}
+					}
+
 					movementHandler.ForceRotation();
 					momentumTimer = new Timer(combatPerformer.Current.ForceDelay);
 					appliedMomentum = false;

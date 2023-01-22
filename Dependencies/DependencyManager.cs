@@ -412,19 +412,19 @@ namespace SpaxUtils
 				Type type = parameters[i].ParameterType;
 				object key = type;
 
-				// Prevent circular dependencies.
-				if (currentlyResolving.Contains(key))
-				{
-					SpaxDebug.Error(IdentifierPrefix + "Circular Dependency detected!", $"Method={method.Name}, Dependency={key.GetType()}");
-					return false;
-				}
-
 				// If there is a BindingIdentifierAttribute attached to the parameter, use that as our key instead.
 				bool hasBindingIdentifier = false;
 				if (DependencyUtils.TryGetBindingIdentifier(CustomAttributeData.GetCustomAttributes(parameters[i]), out string identifier))
 				{
 					hasBindingIdentifier = true;
 					key = identifier;
+				}
+
+				// Prevent circular dependencies.
+				if (currentlyResolving.Contains(key))
+				{
+					SpaxDebug.Error(IdentifierPrefix + "Circular Dependency detected!", $"Method={method.Name}, Dependency={key.GetType()}");
+					return false;
 				}
 
 				bool optional = DependencyUtils.IsParameterOptional(parameters[i]);

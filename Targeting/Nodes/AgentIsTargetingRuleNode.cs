@@ -10,7 +10,7 @@ namespace SpaxUtils
 	[NodeWidth(200)]
 	public class AgentIsTargetingRuleNode : RuleNodeBase
 	{
-		public override bool Valid => targeter.CurrentTarget != null != invert;
+		public override bool Valid => targeter.Target != null != invert;
 
 		[SerializeField, Input(backingValue = ShowBackingValue.Never)] protected Connections.Rule inConnection;
 		[SerializeField] private bool invert;

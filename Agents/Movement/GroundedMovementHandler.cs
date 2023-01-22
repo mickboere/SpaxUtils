@@ -93,7 +93,7 @@ namespace SpaxUtils
 				return;
 			}
 
-			Entity.GameObject.transform.rotation = Quaternion.LookRotation(rigidbodyWrapper.TargetVelocity);
+			Entity.GameObject.transform.rotation = Quaternion.LookRotation(rigidbodyWrapper.TargetVelocity.FlattenY());
 		}
 
 		private void ApplyMovement()

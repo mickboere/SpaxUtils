@@ -11,7 +11,7 @@ namespace SpaxUtils
 	public class TargeterComponent : EntityComponentBase, ITargeter
 	{
 		/// <inheritdoc/>
-		public event Action<ITargetable> CurrentTargetChangedEvent;
+		public event Action<ITargetable> TargetChangedEvent;
 
 		#region Properties
 
@@ -19,7 +19,7 @@ namespace SpaxUtils
 		public IList<ITargetable> Targets { get; private set; } = new List<ITargetable>();
 
 		/// <inheritdoc/>
-		public ITargetable CurrentTarget { get; private set; }
+		public ITargetable Target { get; private set; }
 
 		#endregion Properties
 
@@ -39,9 +39,9 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public void RemoveTarget(ITargetable targetable)
 		{
-			if (CurrentTarget == targetable)
+			if (Target == targetable)
 			{
-				StopTargetting();
+				SetTarget(null);
 			}
 
 			if (Targets.Contains(targetable))
@@ -51,27 +51,32 @@ namespace SpaxUtils
 		}
 
 		/// <inheritdoc/>
-		public void SetCurrentTarget(ITargetable targetable)
+		public void SetTargets(IEnumerable<ITargetable> targetables)
 		{
-			if (!targetable.IsTargetable)
+			Targets = new List<ITargetable>(targetables);
+
+			if (Target != null && !Targets.Contains(Target))
+			{
+				Targets.Add(Target);
+			}
+		}
+
+		/// <inheritdoc/>
+		public void SetTarget(ITargetable targetable)
+		{
+			if (targetable != null && !targetable.IsTargetable)
 			{
 				SpaxDebug.Error("Can't set target", "Target isn't targetable.");
 				targetable = null;
 			}
 
-			ITargetable previous = CurrentTarget;
+			ITargetable previous = Target;
 			AddTarget(targetable);
-			CurrentTarget = targetable;
-			if (CurrentTarget != previous)
+			Target = targetable;
+			if (Target != previous)
 			{
-				CurrentTargetChangedEvent?.Invoke(CurrentTarget);
+				TargetChangedEvent?.Invoke(Target);
 			}
-		}
-
-		/// <inheritdoc/>
-		public void StopTargetting()
-		{
-			CurrentTarget = null;
 		}
 
 		#endregion Methods

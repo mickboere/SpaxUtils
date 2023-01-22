@@ -22,12 +22,16 @@ namespace SpaxUtils
 			[SerializeField] private Transform target;
 		}
 
+		public FullBodyBipedIK FullBodyIK => fullBodyIK;
+		public LookAtIK LookAtIK => lookAtIk;
+
 		public float LeftElbowHintWeight { get { return fullBodyIK.solver.leftArmChain.bendConstraint.weight; } set { fullBodyIK.solver.leftArmChain.bendConstraint.weight = value; } }
 		public float RightElbowHintWeight { get { return fullBodyIK.solver.rightArmChain.bendConstraint.weight; } set { fullBodyIK.solver.rightArmChain.bendConstraint.weight = value; } }
 
 		protected override Dictionary<string, IKUpdateMode> Settings { get; set; }
 
 		[SerializeField] protected FullBodyBipedIK fullBodyIK;
+		[SerializeField] protected LookAtIK lookAtIk;
 		[SerializeField] protected List<Chain> chains;
 
 		protected void Awake()
@@ -35,6 +39,11 @@ namespace SpaxUtils
 			if (fullBodyIK == null)
 			{
 				fullBodyIK = GetComponentInChildren<FullBodyBipedIK>();
+			}
+
+			if (lookAtIk == null)
+			{
+				lookAtIk = GetComponentInChildren<LookAtIK>();
 			}
 
 			Settings = new Dictionary<string, IKUpdateMode>();

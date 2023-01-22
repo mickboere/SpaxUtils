@@ -20,7 +20,7 @@ namespace SpaxUtils
 		{
 			base.OnStateEntered();
 
-			targeter.StopTargetting();
+			targeter.SetTarget(null);
 		}
 	}
 }
