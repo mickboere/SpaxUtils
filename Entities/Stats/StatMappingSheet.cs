@@ -7,7 +7,7 @@ namespace SpaxUtils
 	/// <summary>
 	/// A sheet that allows one stat to map to another.
 	/// </summary>
-	[CreateAssetMenu(fileName = "StatMappingSheet", menuName = "ScriptableObjects/Stat Mapping Sheet")]
+	[CreateAssetMenu(fileName = "StatMappingSheet", menuName = "ScriptableObjects/Stats/Mapping Sheet")]
 	public class StatMappingSheet : ScriptableObject
 	{
 		public IReadOnlyList<StatMapping> Mappings => mappings;

@@ -58,9 +58,9 @@ namespace SpaxUtils
 		List<string> HitBoxes { get; }
 
 		/// <summary>
-		/// The relative momentum of this combat move to apply to the user.
+		/// The relative inertia of this combat move to apply to the user.
 		/// </summary>
-		public Vector3 Momentum { get; }
+		public Vector3 Inertia { get; }
 
 		/// <summary>
 		/// The delay in applied momentum force into the performance.

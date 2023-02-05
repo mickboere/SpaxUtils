@@ -80,7 +80,7 @@ namespace SpaxUtils
 		/// <param name="identifier">The identifier of the runtime data for which to return a modifiable <see cref="EntityStat"/>.</param>
 		/// <param name="createDataIfNull">If there is no existing data for <paramref name="identifier"/>, should it be created?</param>
 		/// <returns>An <see cref="EntityStat"/> that wraps around the data with ID <paramref name="identifier"/>.</returns>
-		EntityStat GetStat(string identifier, bool createDataIfNull = false);
+		EntityStat GetStat(string identifier, bool createDataIfNull = false, float defaultIfNull = 0f);
 
 		#endregion
 

@@ -201,46 +201,49 @@ namespace SpaxUtils
 
 		private void OnNewHitDetected(List<HitScanHitData> newHits)
 		{
-			//SpaxDebug.Log($"OnNewHitDetected ({newHits.Count})", $"({string.Join("), (", newHits.Select(n => n.GameObject.name))})");
-
-			if (timeMod != null)
-			{
-				EntityTimeScale.RemoveModifier(this);
-			}
-
 			// TODO: Have hit pause duration depend on factors like weapon attack power, sharpness and hit surface hardness.
 			timeMod = new TimedCurveModifier(ModMethod.Absolute, hitPauseCurve, new Timer(hitPause), callbackService);
-			EntityTimeScale.AddModifier(this, timeMod);
 
+			bool successfulHit = false;
 			foreach (HitScanHitData hit in newHits)
 			{
 				if (hit.GameObject.TryGetComponentRelative(out IHittable hittable))
 				{
-					Vector3 momentum = Current.Momentum.Look((hittable.Entity.Transform.position - Entity.Transform.position).FlattenY());
+					Vector3 inertia = Current.Inertia.Look((hittable.Entity.Transform.position - Entity.Transform.position).FlattenY());
 
 					float weaponWeight = 5f;
-					float impactMass = rigidbodyWrapper.Mass + weaponWeight; // TODO: Load from weapon & stats.
+					float force = rigidbodyWrapper.Mass + weaponWeight; // TODO: Load from stats and calculate accordingly.
 
-					// TODO: Apply appropriate knockback to attacker.
-					//rigidbodyWrapper.Velocity = Vector3.zero;
+					// TODO: Apply appropriate knockback / counter force to attacker.
 
 					// Generate hit-data for hittable.
 					HitData hitData = new HitData()
 					{
 						Hitter = Entity,
-						Velocity = momentum,
-						Mass = impactMass,
+						Inertia = inertia,
+						Force = force,
 						Direction = hit.Direction
 					};
-					hittable.Hit(hitData);
 
-					// Apply hit pause to enemy.
-					EntityStat hitTimeScale = hittable.Entity.GetStat(StatIdentifierConstants.TIMESCALE);
-					if (hitTimeScale != null)
+					if (hittable.Hit(hitData))
 					{
-						hitTimeScale.AddModifier(this, timeMod);
+						successfulHit = true;
+
+						// Apply hit pause to enemy.
+						// TODO: Must be applied on enemy's end.
+						EntityStat hitTimeScale = hittable.Entity.GetStat(StatIdentifierConstants.TIMESCALE);
+						if (hitTimeScale != null)
+						{
+							hitTimeScale.AddModifier(this, timeMod);
+						}
 					}
 				}
+			}
+
+			if (successfulHit)
+			{
+				EntityTimeScale.RemoveModifier(this);
+				EntityTimeScale.AddModifier(this, timeMod);
 			}
 		}
 	}

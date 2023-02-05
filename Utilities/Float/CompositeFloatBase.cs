@@ -116,10 +116,6 @@ namespace SpaxUtils
 				modifier.ModChangedEvent -= OnModChangedEvent;
 				ValueChanged();
 			}
-			else
-			{
-				SpaxDebug.Warning("CompositeFloat.RemoveModifier: ", $"No modifier using id [{moddIdentifier}] was found.");
-			}
 		}
 
 		public void ClearModifiers()

@@ -47,7 +47,9 @@ namespace SpaxUtils
 		/// </summary>
 		public readonly string EmptyOption;
 
-		public ConstDropdownAttribute(bool includeEmpty, bool showAdress, bool storeAdress, bool forceOption, string emptyOption, params Type[] collections)
+		public readonly string Filter;
+
+		public ConstDropdownAttribute(bool includeEmpty, bool showAdress, bool storeAdress, bool forceOption, string emptyOption, string filter, params Type[] collections)
 		{
 			Collections = collections;
 			IncludeEmpty = includeEmpty;
@@ -55,9 +57,17 @@ namespace SpaxUtils
 			StoreAdress = storeAdress;
 			ForceOption = forceOption;
 			EmptyOption = emptyOption;
+			Filter = filter;
 		}
 
-		public ConstDropdownAttribute(Type collection, bool includeEmpty = false, bool showAdress = false, bool storeAdress = false, bool forceOption = false, string emptyOption = "<EMPTY>")
+		public ConstDropdownAttribute(
+			Type collection,
+			bool includeEmpty = false,
+			bool showAdress = false,
+			bool storeAdress = false,
+			bool forceOption = false,
+			string emptyOption = "<EMPTY>",
+			string filter = null)
 		{
 			Collections = new Type[] { collection };
 			IncludeEmpty = includeEmpty;
@@ -65,6 +75,7 @@ namespace SpaxUtils
 			StoreAdress = storeAdress;
 			ForceOption = forceOption;
 			EmptyOption = emptyOption;
+			Filter = filter;
 		}
 	}
 }

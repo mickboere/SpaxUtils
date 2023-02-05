@@ -2,7 +2,7 @@
 
 namespace SpaxUtils
 {
-	public interface IStatSetting
+	public interface IStatConfiguration
 	{
 		string Identifier { get; }
 		string Name { get; }

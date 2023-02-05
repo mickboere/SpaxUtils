@@ -1,4 +1,5 @@
 ﻿using System;
+using System.IO;
 using System.Linq;
 
 namespace SpaxUtils
@@ -25,7 +26,7 @@ namespace SpaxUtils
 		/// <summary>
 		/// Splits string using <paramref name="divide"/> and returns the last element.
 		/// </summary>
-		public static string First(this string s, string divide = "/")
+		public static string FirstDivision(this string s, string divide = "/")
 		{
 			return s.Split(divide).First();
 		}
@@ -33,7 +34,7 @@ namespace SpaxUtils
 		/// <summary>
 		/// Splits string using <paramref name="divide"/> and returns the last element.
 		/// </summary>
-		public static string Last(this string s, string divide = "/")
+		public static string LastDivision(this string s, string divide = "/")
 		{
 			return s.Split(divide).Last();
 		}
@@ -45,6 +46,22 @@ namespace SpaxUtils
 		{
 			string[] split = s.Split(divide);
 			return split[split.Length - 2];
+		}
+
+		/// <summary>
+		/// Splits string using <paramref name="divide"/> and returns all but the last element.
+		/// </summary>
+		public static string GetPath(this string s, char divide = '/')
+		{
+			for (int i = s.Length - 1; i > 0; i--)
+			{
+				if (s[i] == divide)
+				{
+					return s.Substring(0, i);
+				}
+			}
+
+			return "";
 		}
 
 		/// <summary>

@@ -89,6 +89,22 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
+		/// Returns the first non-abstract implementation of type <paramref name="type"/> matching <paramref name="predicate"/>.
+		/// </summary>
+		public static Type GetImplementation(this Type type, Func<Type, bool> predicate)
+		{
+			return type.GetAllAssignableTypes((t) => !t.IsAbstract && !t.IsInterface).FirstOrDefault(predicate);
+		}
+
+		/// <summary>
+		/// Returns all non-abstract implementations of type <paramref name="type"/>.
+		/// </summary>
+		public static List<Type> GetAllImplementations(this Type type)
+		{
+			return type.GetAllAssignableTypes((t) => !t.IsAbstract && !t.IsInterface);
+		}
+
+		/// <summary>
 		/// Returns a new default instance of type <paramref name="type"/>.
 		/// </summary>
 		/// <param name="type">The <see cref="Type"/> of object to create.</param>

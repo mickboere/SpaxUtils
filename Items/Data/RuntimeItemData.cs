@@ -38,6 +38,31 @@ namespace SpaxUtils
 			runtimeData.Set(ItemDataIdentifierConstants.ITEM_ID, ItemID);
 		}
 
+		/// <inheritdoc/>
+		public bool TryGetStat(string identifier, out float value, float defaultIfNull = 0f)
+		{
+			if (RuntimeData.ContainsEntry(identifier))
+			{
+				value = RuntimeData.Get<float>(identifier);
+				return true;
+			}
+			else if (ItemData.Stats.Any(s => s.ID == identifier))
+			{
+				value = ItemData.Stats.First(s => s.ID == identifier).FloatValue;
+				return true;
+			}
+
+			value = defaultIfNull;
+			return false;
+		}
+
+		/// <inheritdoc/>
+		public float GetStat(string identifier, float defaultIfNull = 0f)
+		{
+			TryGetStat(identifier, out float value, defaultIfNull);
+			return value;
+		}
+
 		/// <summary>
 		/// Starts all behaviours defined in the item data.
 		/// </summary>

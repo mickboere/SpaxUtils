@@ -7,6 +7,7 @@ namespace SpaxUtils
 		[SerializeField] private PoseSequenceBlendTree hitBlendTree;
 		[SerializeField] private float maxStunTime = 3f;
 
+		private IAgent agent;
 		private IHittable hittable;
 		private RigidbodyWrapper rigidbodyWrapper;
 		private AnimatorPoser animatorPoser;
@@ -15,11 +16,16 @@ namespace SpaxUtils
 		private Timer stunTimer;
 		private FloatOperationModifier stunControlMod;
 
-		public void InjectDependencies(IHittable hittable, RigidbodyWrapper rigidbodyWrapper, AnimatorPoser animatorPoser)
+		private EntityStat health;
+
+		public void InjectDependencies(IAgent agent, IHittable hittable, RigidbodyWrapper rigidbodyWrapper, AnimatorPoser animatorPoser)
 		{
+			this.agent = agent;
 			this.hittable = hittable;
 			this.rigidbodyWrapper = rigidbodyWrapper;
 			this.animatorPoser = animatorPoser;
+
+			//health = agent.GetStat()
 		}
 
 		protected void OnEnable()
@@ -49,12 +55,12 @@ namespace SpaxUtils
 		private void OnHitEvent(HitData hitData)
 		{
 			lastHit = hitData;
-			rigidbodyWrapper.AddImpact(hitData.Velocity, hitData.Mass);
+			rigidbodyWrapper.AddImpact(hitData.Inertia, hitData.Force);
 
-			float stunTime = hitData.Mass / rigidbodyWrapper.Mass;
+			float stunTime = hitData.Force / rigidbodyWrapper.Mass;
 			stunTimer = new Timer(Mathf.Min(stunTime, maxStunTime));
 
-			SpaxDebug.Log($"OnHitEvent", $"v={hitData.Velocity}, m={hitData.Mass}, stun={stunTime}s");
+			SpaxDebug.Log($"OnHitEvent", $"i={hitData.Inertia}, f={hitData.Force}, stun={stunTime}s");
 		}
 	}
 }

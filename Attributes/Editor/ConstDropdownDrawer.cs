@@ -27,8 +27,8 @@ namespace SpaxUtils
 			string currentOption = property.stringValue;
 
 			// Get all of the available consts we can find.
-			List<string> fullAdressConsts = GetConstValues(constDropdownAttribute.Collections, true);
-			List<string> noAdressConsts = GetConstValues(constDropdownAttribute.Collections, false);
+			List<string> fullAdressConsts = GetConstValues(constDropdownAttribute.Collections, true, constDropdownAttribute.Filter);
+			List<string> noAdressConsts = GetConstValues(constDropdownAttribute.Collections, false, constDropdownAttribute.Filter);
 			List<string> storedOptions = constDropdownAttribute.StoreAdress ? fullAdressConsts : noAdressConsts;
 
 			bool includeEmpty = constDropdownAttribute.IncludeEmpty;
@@ -158,7 +158,7 @@ namespace SpaxUtils
 			return -1;
 		}
 
-		private List<string> GetConstValues(IEnumerable<Type> fromTypes, bool includeAdress)
+		private List<string> GetConstValues(IEnumerable<Type> fromTypes, bool includeAdress, string filter)
 		{
 			List<string> values = new List<string>();
 			foreach (Type type in fromTypes)
@@ -167,11 +167,24 @@ namespace SpaxUtils
 				{
 					// Collection is an interface, get all its implementations and add their values.
 					List<Type> implementations = type.GetAllAssignableTypes((t) => !t.IsInterface);
-					values.AddRange(GetConstValues(implementations, includeAdress));
+					values.AddRange(GetConstValues(implementations, includeAdress, filter));
 				}
 				else
 				{
 					values.AddRange(type.GetAllPublicConstStrings(includeAdress, ConstDropdownAttribute.ADRESS_SEPARATOR));
+				}
+			}
+
+			// Filter
+			if (!string.IsNullOrWhiteSpace(filter))
+			{
+				for (int i = 0; i < values.Count; i++)
+				{
+					if (!values[i].Contains(filter))
+					{
+						values.RemoveAt(i);
+						i--;
+					}
 				}
 			}
 			return values;

@@ -16,8 +16,8 @@ namespace SpaxUtils
 
 		[SerializeField, ConstDropdown(typeof(IStatIdentifierConstants))] private string fromStat;
 		[SerializeField, ConstDropdown(typeof(IStatIdentifierConstants))] private string toStat;
-		[SerializeField] private bool useCurve;
-		[SerializeField] private AnimationCurve curve;
+		[SerializeField, HideInInspector] private bool useCurve;
+		[SerializeField, Conditional(nameof(useCurve), drawToggle: true)] private AnimationCurve curve;
 		[SerializeField] private float outputMultiplier = 1f;
 		[SerializeField] private ModMethod modMethod = ModMethod.Base;
 		[SerializeField] private Operation operation = Operation.Set;

@@ -11,16 +11,6 @@ namespace SpaxUtils
 	/// </summary>
 	public interface IAgent : IEntity
 	{
-		/// <summary>
-		/// Invoked when a new entity is attached to this agent.
-		/// </summary>
-		event Action<IEntity> AttachedEntityEvent;
-
-		/// <summary>
-		/// Invoked when an entity is detached from this agent.
-		/// </summary>
-		event Action<IEntity> DetachedEntityEvent;
-
 		#region Properties
 
 		/// <summary>
@@ -47,25 +37,6 @@ namespace SpaxUtils
 		/// The <see cref="ITargeter"/> to use when requesting the objective of this agent.
 		/// </summary>
 		ITargeter Targeter { get; }
-
-		/// <summary>
-		/// All entities attached to this agent.
-		/// </summary>
-		List<IEntity> Attachments { get; }
-
-		#endregion
-
-		#region Methods
-
-		/// <summary>
-		/// Attaches a new entity to this agent, allowing access to its data and components.
-		/// </summary>
-		void AttachEntity(IEntity entity);
-
-		/// <summary>
-		/// Detaches an entity from this agent, removing access to its data and components.
-		/// </summary>
-		void DetachEntity(IEntity entity);
 
 		#endregion
 	}

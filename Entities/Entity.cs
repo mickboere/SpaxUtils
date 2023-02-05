@@ -58,13 +58,13 @@ namespace SpaxUtils
 		[SerializeField] protected Identification identification;
 
 		protected IEntityCollection entityCollection;
-		protected StatLibrary statLibrary;
+		protected IStatLibrary statLibrary;
 		private RuntimeDataService runtimeDataService;
 		private List<string> failedStats = new List<string>(); // Used to minimize error logs.
 
 		public void InjectDependencies(
 			IDependencyManager dependencyManager, IEntityComponent[] entityComponents, IEntityCollection entityCollection,
-			RuntimeDataService runtimeDataService, StatLibrary statLibrary,
+			RuntimeDataService runtimeDataService, IStatLibrary statLibrary,
 			[Optional] RuntimeDataCollection runtimeData, [Optional] IIdentification identification)
 		{
 			if (DependencyManager != null)
@@ -188,7 +188,7 @@ namespace SpaxUtils
 		}
 
 		/// <inheritdoc/>
-		public virtual EntityStat GetStat(string identifier, bool createDataIfNull = false)
+		public virtual EntityStat GetStat(string identifier, bool createDataIfNull = false, float defaultIfNull = 0f)
 		{
 			if (Stats.HasStat(identifier))
 			{
@@ -221,20 +221,12 @@ namespace SpaxUtils
 			else if (createDataIfNull)
 			{
 				// Data does not exist, create it along with the stat.
-				IStatSetting setting = statLibrary.Get(identifier);
-				if (setting != null)
-				{
-					RuntimeDataEntry data = new RuntimeDataEntry(identifier, setting.DefaultValue);
-					RuntimeData.TryAdd(data);
-					EntityStat stat = new EntityStat(data);
-					Stats.AddStat(setting.Identifier, stat);
-					return stat;
-				}
-				else if (!failedStats.Contains(identifier))
-				{
-					SpaxDebug.Error("Failed to create data.", $"Stat settings could not be retrieved for: {identifier}", GameObject);
-					failedStats.Add(identifier);
-				}
+				IStatConfiguration setting = statLibrary.Get(identifier);
+				RuntimeDataEntry data = new RuntimeDataEntry(identifier, setting == null ? defaultIfNull : setting.DefaultValue);
+				RuntimeData.TryAdd(data);
+				EntityStat stat = new EntityStat(data);
+				Stats.AddStat(identifier, stat);
+				return stat;
 			}
 
 			return null;

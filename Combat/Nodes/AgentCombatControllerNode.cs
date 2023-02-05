@@ -180,18 +180,17 @@ namespace SpaxUtils
 				// Check if in first frame of performance.
 				if (!wasPerforming && performing)
 				{
-					if (rigidbodyWrapper.TargetVelocity == Vector3.zero)
+					if (targeter.Target != null)
 					{
-						if (targeter.Target != null)
-						{
-							// Auto aim to target.
-							movementHandler.SetTargetVelocity((targeter.Target.Point - rigidbodyWrapper.Position).normalized);
-						}
-						else if (navigationHandler.TryGetClosestTargetable(targetables.Components, false, out ITargetable closest, out float distance) && distance < autoAimRange)
-						{
-							// Auto aim to closest targetable in range.
-							movementHandler.SetTargetVelocity((closest.Point - rigidbodyWrapper.Position).normalized);
-						}
+						// Auto aim to target.
+						movementHandler.SetTargetVelocity((targeter.Target.Point - rigidbodyWrapper.Position).normalized);
+					}
+					else if (rigidbodyWrapper.TargetVelocity.magnitude <= 1f &&
+						navigationHandler.TryGetClosestTargetable(targetables.Components, false, out ITargetable closest, out float distance) &&
+						distance < autoAimRange)
+					{
+						// Auto aim to closest targetable in range.
+						movementHandler.SetTargetVelocity((closest.Point - rigidbodyWrapper.Position).normalized);
 					}
 
 					movementHandler.ForceRotation();
@@ -200,12 +199,15 @@ namespace SpaxUtils
 				}
 				wasPerforming = performing;
 
+				// Apply momentum to user after delay.
 				if (performing && !appliedMomentum && !momentumTimer)
 				{
-					rigidbodyWrapper.AddImpactRelative(combatPerformer.Current.Momentum);
+					rigidbodyWrapper.AddImpactRelative(combatPerformer.Current.Inertia);
 					appliedMomentum = true;
 				}
 
+				// Retry last failed input.
+				// TODO: Create generic implementation for this within the Actor which retries last failed input for x amount of time.
 				if (combatPerformer.Finishing)
 				{
 					RetryLastFailedAttempt();

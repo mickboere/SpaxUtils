@@ -1,11 +1,12 @@
-﻿using System.Collections.Generic;
-
-namespace SpaxUtils
+﻿namespace SpaxUtils
 {
+	/// <summary>
+	/// Interface for a library containing references to <see cref="IStatConfiguration"/>s through <see cref="string"/> identifiers.
+	/// </summary>
 	public interface IStatLibrary
 	{
-		IReadOnlyList<IStatSetting> Settings { get; }
+		bool TryGet(string identifier, out IStatConfiguration configuration);
 
-		IStatSetting Get(string identifier);
+		IStatConfiguration Get(string identifier);
 	}
 }

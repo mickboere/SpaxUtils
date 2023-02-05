@@ -328,6 +328,8 @@ namespace SpaxUtils
 
 		protected virtual bool TryCreateInstanceOfType(Type type, out object instance)
 		{
+			instance = null;
+
 			// Check if there is a Factory for this type, if so use that to create the instance.
 			if (type.TryFindFactory(out Type factoryType))
 			{
@@ -339,17 +341,20 @@ namespace SpaxUtils
 			// Abstract types and interfaces can only be resolved if they have a non-abstract implementation.
 			if (type.IsAbstract || type.IsInterface)
 			{
-				Type implementation = type.GetImplementation();
-				if (implementation == null)
+				List<Type> implementations = type.GetAllImplementations();
+				if (implementations == null || implementations.Count == 0)
 				{
 					SpaxDebug.Error(IdentifierPrefix + "Requested type to instantiate is abstract and either has no assignable implementation requires a Factory. ", $"Regarding (context:{context} < type:{type})");
-					instance = null;
 					return false;
 				}
-				// Found an implementation, try and instantiate it.
-				if (TryInstantiateDependency(implementation, out instance))
+
+				// Found implementations, try and instantiate any of them.
+				foreach (Type implementation in implementations)
 				{
-					return true;
+					if (TryInstantiateDependency(implementation, out instance))
+					{
+						return true;
+					}
 				}
 
 				SpaxDebug.Error("Unable to instantiate class");

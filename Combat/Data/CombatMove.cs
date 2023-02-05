@@ -39,7 +39,7 @@ namespace SpaxUtils
 		public List<string> HitBoxes => hitBoxes;
 
 		/// <inheritdoc/>
-		public Vector3 Momentum => momentum;
+		public Vector3 Inertia => momentum;
 
 		/// <inheritdoc/>
 		public float ForceDelay => forceDelay;

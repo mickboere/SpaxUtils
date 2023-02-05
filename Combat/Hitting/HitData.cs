@@ -2,7 +2,11 @@
 
 namespace SpaxUtils
 {
-	public struct HitData
+	/// <summary>
+	/// Class created for each hit during an attack.
+	/// Hit entities can edit data for the hitter to read back.
+	/// </summary>
+	public class HitData
 	{
 		/// <summary>
 		/// The entity responsible for this hit.
@@ -10,14 +14,14 @@ namespace SpaxUtils
 		public IEntity Hitter { get; set; }
 
 		/// <summary>
-		/// The velocity with which this hit was performed.
+		/// The inertia of the hitter.
 		/// </summary>
-		public Vector3 Velocity { get; set; }
+		public Vector3 Inertia { get; set; }
 
 		/// <summary>
-		/// The mass behind the hit.
+		/// The total force behind the hit.
 		/// </summary>
-		public float Mass { get; set; }
+		public float Force { get; set; }
 
 		/// <summary>
 		/// The (swing) direction of the hit.

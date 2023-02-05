@@ -8,9 +8,25 @@ namespace SpaxUtils
 	/// </summary>
 	public interface IEquipmentData : IItemData
 	{
-		string SlotType { get; }
-		IReadOnlyList<string> CoversLocations { get; }
+		/// <summary>
+		/// The prefab to instantiate when this equipment is equiped.
+		/// </summary>
 		GameObject EquipedPrefab { get; }
+
+
+		/// <summary>
+		/// The type of slot this equipment is able to be equiped in.
+		/// </summary>
+		string SlotType { get; }
+
+		/// <summary>
+		/// All locations that get covered when this equipment is equiped.
+		/// </summary>
+		IReadOnlyList<string> CoversLocations { get; }
+
+		/// <summary>
+		/// The behaviors to execute when this equipment is equiped.
+		/// </summary>
 		IReadOnlyList<BehaviorAsset> EquipedBehaviour { get; }
 	}
 }

@@ -1,4 +1,5 @@
 using System;
+using UnityEngine;
 
 namespace SpaxUtils
 {
@@ -11,9 +12,19 @@ namespace SpaxUtils
 		public event Action<HitData> OnHitEvent;
 
 		/// <inheritdoc/>
-		public void Hit(HitData hitData)
+		public bool Hittable => hittable;
+
+		[SerializeField] private bool hittable = true;
+
+		/// <inheritdoc/>
+		public bool Hit(HitData hitData)
 		{
-			OnHitEvent?.Invoke(hitData);
+			if (Hittable)
+			{
+				OnHitEvent?.Invoke(hitData);
+			}
+
+			return Hittable;
 		}
 	}
 }

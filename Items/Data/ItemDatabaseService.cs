@@ -10,6 +10,7 @@ namespace SpaxUtils
 	/// </summary>
 	public class ItemDatabaseService : IService, IItemDatabase, IDisposable
 	{
+		public const string PATH = "Items";
 		public const string UID_INCREMENTAL = "Incremental";
 		public const string UID_GUID = "GUID";
 
@@ -24,8 +25,8 @@ namespace SpaxUtils
 		{
 			items?.Clear();
 			items = new Dictionary<string, IItemData>();
-			// TODO: Make this service part of SpaxUtils and solve for LoadAll<IItemData>
-			IItemData[] resources = Resources.LoadAll<ItemDataAsset>("Items");
+
+			IItemData[] resources = Resources.LoadAll<ItemDataAsset>(PATH);
 			foreach (IItemData resource in resources)
 			{
 				AddItem(resource);

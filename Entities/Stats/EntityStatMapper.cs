@@ -9,47 +9,47 @@ namespace SpiritAxis
 	/// </summary>
 	public class EntityStatMapper : EntityComponentBase
 	{
-		[SerializeField, Tooltip("Optional. Use to override the injected mappings.")] private StatMappingSheet statMappingSheet;
+		[SerializeField] private StatMappingSheet[] mappingSheets;
 
-		public void InjectDependencies(StatMappingSheet statMappingSheet)
+		public override void InjectDependencies(IEntity entity)
 		{
-			if (this.statMappingSheet == null)
-			{
-				this.statMappingSheet = statMappingSheet;
-			}
+			base.InjectDependencies(entity);
 
 			AddStatMappings();
 		}
 
 		private void AddStatMappings()
 		{
-			if (statMappingSheet == null)
+			if (mappingSheets.Length == 0)
 			{
 				return;
 			}
 
-			// Configure the defined stat-to-stat mappings.
-			foreach (StatMapping mapping in statMappingSheet.Mappings)
+			foreach (StatMappingSheet statMappingSheet in mappingSheets)
 			{
-				// Get the target stat to add the mapping to.
-				EntityStat toStat = Entity.GetStat(mapping.ToStat, true);
-
-				// Only add the modifier if this stat does not have a mapping from the mapping stat yet.
-				// Easily checkable since we use the input stat's identifier as mod identifier.
-				if (!toStat.HasModifier(mapping.FromStat))
+				// Configure the defined stat-to-stat mappings.
+				foreach (StatMapping mapping in statMappingSheet.Mappings)
 				{
-					// Get the stat we're going to use as input value for the mapping.
-					EntityStat fromStat = Entity.GetStat(mapping.FromStat, true);
+					// Get the target stat to add the mapping to.
+					EntityStat toStat = Entity.GetStat(mapping.ToStat, true);
 
-					// Create the mapping modifier.
-					StatMappingModifier mod = new StatMappingModifier(mapping, fromStat);
+					// Only add the modifier if this stat does not have a mapping from the mapping stat yet.
+					// Easily checkable since we use the input stat's identifier as mod identifier.
+					if (!toStat.HasModifier(mapping.FromStat))
+					{
+						// Get the stat we're going to use as input value for the mapping.
+						EntityStat fromStat = Entity.GetStat(mapping.FromStat, true);
 
-					// Add the mapping modifier.
-					toStat.AddModifier(mapping.FromStat, mod);
-				}
-				else
-				{
-					SpaxDebug.Error($"Stat '{mapping.ToStat}' already contains a mapping from '{mapping.FromStat}'.", "Mapping was not added.");
+						// Create the mapping modifier.
+						StatMappingModifier mod = new StatMappingModifier(mapping, fromStat);
+
+						// Add the mapping modifier.
+						toStat.AddModifier(mapping.FromStat, mod);
+					}
+					else
+					{
+						SpaxDebug.Error($"Stat '{mapping.ToStat}' already contains a mapping from '{mapping.FromStat}'.", "Mapping was not added.");
+					}
 				}
 			}
 		}

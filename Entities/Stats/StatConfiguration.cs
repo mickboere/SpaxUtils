@@ -1,16 +1,14 @@
 ﻿using System;
 using UnityEngine;
-using SpaxUtils;
-using UnityEngine.Serialization;
 
 namespace SpaxUtils
 {
 	/// <summary>
-	/// A single stat setting.
+	/// Configuration for an entity stat.
 	/// </summary>
-	/// <seealso cref="StatLibrary"/>
+	/// <seealso cref="StatLibraryService"/>
 	[Serializable]
-	public class StatSetting : IStatSetting
+	public class StatConfiguration : IStatConfiguration
 	{
 		public string Identifier => identifier;
 		public string Name => name;
@@ -26,7 +24,7 @@ namespace SpaxUtils
 		[SerializeField] private Sprite icon;
 		[SerializeField, TextArea] private string description;
 
-		public StatSetting(string identifier, string name, string description, float startingValue, Color color, Sprite icon)
+		public StatConfiguration(string identifier, string name, string description, float startingValue, Color color, Sprite icon)
 		{
 			this.identifier = identifier;
 			this.name = name;

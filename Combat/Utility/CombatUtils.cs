@@ -36,6 +36,7 @@ namespace SpaxUtils
 
 				Vector3 toNext = next.Center - current.Center;
 				RaycastHit[] scanHits = scanFunc(current, next, toNext);
+
 #if UNITY_EDITOR
 				if (DEBUG)
 				{
@@ -43,6 +44,7 @@ namespace SpaxUtils
 					Debug.DrawLine(current.Center, next.Center, color, DEBUG_DURATION * Time.timeScale);
 				}
 #endif
+
 				if (scanHits != null)
 				{
 					foreach (RaycastHit hit in scanHits)
