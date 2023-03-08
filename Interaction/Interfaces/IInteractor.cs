@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using System.Linq;
+using UnityEngine;
 
 namespace SpaxUtils
 {
@@ -31,5 +32,12 @@ namespace SpaxUtils
 		/// <param name="interaction">The resulting <see cref="IInteraction"/> object.</param>
 		/// <returns>Whether setting up the interaction was a success.</returns>
 		bool AttemptInteraction(string interactionType, IInteractable interactable, object data, out IInteraction interaction);
+
+		/// <summary>
+		/// Returns all possible interactions between this <see cref="IInteractor"/> and the <paramref name="interactable"/>.
+		/// </summary>
+		/// <param name="interactable">The <see cref="IInteractable"/> to get all possible interactions for.</param>
+		/// <returns>All possible interactions between this <see cref="IInteractor"/> and the <paramref name="interactable"/>.</returns>
+		string[] GetPossibleInteractions(IInteractable interactable) => interactable.InteractableTypes.Where(i => Able(i)).ToArray();
 	}
 }

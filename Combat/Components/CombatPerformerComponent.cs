@@ -222,7 +222,8 @@ namespace SpaxUtils
 						Hitter = Entity,
 						Inertia = inertia,
 						Force = force,
-						Direction = hit.Direction
+						Direction = hit.Direction,
+						Damages = new Dictionary<string, float>()
 					};
 
 					if (hittable.Hit(hitData))

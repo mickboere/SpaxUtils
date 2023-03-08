@@ -21,8 +21,11 @@ namespace SpaxUtils
 			}
 			set
 			{
-				data.Value = value;
-				// No need to call ValueChanged() here as that will happen automatically after the data's ValueChangedEvent.
+				if (!data.Value.Equals(value))
+				{
+					data.Value = value;
+					// No need to call ValueChanged() here as that will happen automatically after the data's ValueChangedEvent.
+				}
 			}
 		}
 

@@ -16,16 +16,12 @@ namespace SpaxUtils
 		private Timer stunTimer;
 		private FloatOperationModifier stunControlMod;
 
-		private EntityStat health;
-
 		public void InjectDependencies(IAgent agent, IHittable hittable, RigidbodyWrapper rigidbodyWrapper, AnimatorPoser animatorPoser)
 		{
 			this.agent = agent;
 			this.hittable = hittable;
 			this.rigidbodyWrapper = rigidbodyWrapper;
 			this.animatorPoser = animatorPoser;
-
-			//health = agent.GetStat()
 		}
 
 		protected void OnEnable()
@@ -59,6 +55,15 @@ namespace SpaxUtils
 
 			float stunTime = hitData.Force / rigidbodyWrapper.Mass;
 			stunTimer = new Timer(Mathf.Min(stunTime, maxStunTime));
+
+			foreach (var item in hitData.Damages)
+			{
+				EntityStat stat = Entity.GetStat(item.Key);
+				if (stat != null)
+				{
+					stat.BaseValue -= item.Value;
+				}
+			}
 
 			SpaxDebug.Log($"OnHitEvent", $"i={hitData.Inertia}, f={hitData.Force}, stun={stunTime}s");
 		}

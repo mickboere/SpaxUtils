@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using System.Collections.Generic;
+using UnityEngine;
 
 namespace SpaxUtils
 {
@@ -27,5 +28,10 @@ namespace SpaxUtils
 		/// The (swing) direction of the hit.
 		/// </summary>
 		public Vector3 Direction { get; set; }
+
+		/// <summary>
+		/// All damage values to be processed.
+		/// </summary>
+		public Dictionary<string, float> Damages { get; set; }
 	}
 }

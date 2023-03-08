@@ -144,7 +144,7 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public bool CanEquip(RuntimeItemData runtimeItemData,
 			out IEquipmentSlot slot, out List<RuntimeEquipedData> overlap,
-			string slotId = null, bool overwrite = false)
+			string slotId = null, bool overwriting = false)
 		{
 			slot = null;
 
@@ -155,7 +155,7 @@ namespace SpaxUtils
 				return false;
 			}
 
-			// Conflicts occur when two items cover the same location(s), but they won't block equiping.
+			// Overlap occurs when two items cover the same location(s), but they won't block equiping.
 			overlap = EquipedItems.Where((e) => e.EquipmentData.CoversLocations.Any((c) => equipmentData.CoversLocations.Contains(c))).ToList();
 
 			// Check if supplied slotID is available.
@@ -164,7 +164,7 @@ namespace SpaxUtils
 				if (slots.ContainsKey(slotId))
 				{
 					slot = slots[slotId];
-					return !equipedItems.ContainsKey(slotId) || overwrite;
+					return !equipedItems.ContainsKey(slotId) || overwriting;
 				}
 				else
 				{
@@ -172,7 +172,7 @@ namespace SpaxUtils
 				}
 			}
 
-			return TryGetSlotFromType(equipmentData.SlotType, out slot, overwrite ? null : (s) => !equipedItems.ContainsKey(s.ID));
+			return TryGetSlotFromType(equipmentData.SlotType, out slot, overwriting ? null : (s) => !equipedItems.ContainsKey(s.ID));
 		}
 
 		/// <inheritdoc/>
