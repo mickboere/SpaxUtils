@@ -28,6 +28,9 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public float Mobility { get; private set; }
 
+		/// <inheritdoc/>
+		public float Elevation { get; set; }
+
 		public Vector3 SurfaceNormal { get; private set; }
 		public Vector3 TerrainNormal { get; private set; }
 		public Vector3 StepPoint { get; private set; }
@@ -184,7 +187,7 @@ namespace SpaxUtils
 					rigidbodyWrapper.AddForce(movementDispersion, ForceMode.VelocityChange);
 				}
 
-				rigidbodyWrapper.Position = rigidbodyWrapper.Position.SetY(StepPoint.y);
+				rigidbodyWrapper.Position = rigidbodyWrapper.Position.SetY(StepPoint.y + Elevation);
 			}
 			else
 			{

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using RootMotion.FinalIK;
 
 namespace SpaxUtils
 {
@@ -17,7 +18,7 @@ namespace SpaxUtils
 			public Quaternion TargetRotation => Leg.GroundedHit.normal == Vector3.zero ? Quaternion.identity :
 				Quaternion.LookRotation(Vector3.Cross(footHelper.right, Leg.GroundedHit.normal), Leg.GroundedHit.normal);
 
-			public Vector3 TargetPosition => Leg.TargetPoint + TargetRotation * FootPositionOffset;
+			public Vector3 TargetPosition => Leg.TargetPoint + TargetRotation * FootPositionOffset + Leg.GroundedHit.normal * Leg.Elevation;
 			public Vector3 HintPosition => Leg.Knee.position + footHelper.forward;
 
 			[SerializeField, ConstDropdown(typeof(IIKChainConstants))] private string ikChain;
@@ -103,12 +104,21 @@ namespace SpaxUtils
 		[SerializeField] private LayerMask layerMask;
 		[SerializeField] private List<LegIK> legs;
 
-		public void InjectDependencies(IDependencyManager dependencyManager)
+		private IGrounderComponent grounderComponent;
+		private GrounderFBBIK grounderFBBIK;
+
+		public void InjectDependencies(IDependencyManager dependencyManager, IGrounderComponent grounderComponent)
 		{
+			this.grounderComponent = grounderComponent;
 			foreach (LegIK leg in legs)
 			{
 				dependencyManager.Inject(leg);
 			}
+		}
+
+		protected void Awake()
+		{
+			grounderFBBIK = gameObject.GetComponentRelative<GrounderFBBIK>();
 		}
 
 		protected void LateUpdate()
@@ -121,6 +131,11 @@ namespace SpaxUtils
 			foreach (LegIK leg in legs)
 			{
 				leg.UpdateIK(layerMask);
+			}
+
+			if (grounderFBBIK != null)
+			{
+				grounderFBBIK.solver.heightOffset = grounderComponent.Elevation;
 			}
 		}
 

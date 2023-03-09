@@ -36,5 +36,10 @@ namespace SpaxUtils
 		/// Running down-hill may increase mobility, up-hill decrease. Stuff like walking in water may also decrease it.
 		/// </summary>
 		float Mobility { get; }
+
+		/// <summary>
+		/// The added elevation to the grounded position.
+		/// </summary>
+		public float Elevation { get; set; }
 	}
 }
