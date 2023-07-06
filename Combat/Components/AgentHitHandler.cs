@@ -2,12 +2,14 @@
 
 namespace SpaxUtils
 {
+	/// <summary>
+	/// Entity component responsible for handling hits coming through in the <see cref="IHittable"/> component.
+	/// </summary>
 	public class AgentHitHandler : EntityComponentBase
 	{
 		[SerializeField] private PoseSequenceBlendTree hitBlendTree;
 		[SerializeField] private float maxStunTime = 3f;
 
-		private IAgent agent;
 		private IHittable hittable;
 		private RigidbodyWrapper rigidbodyWrapper;
 		private AnimatorPoser animatorPoser;
@@ -16,9 +18,8 @@ namespace SpaxUtils
 		private Timer stunTimer;
 		private FloatOperationModifier stunControlMod;
 
-		public void InjectDependencies(IAgent agent, IHittable hittable, RigidbodyWrapper rigidbodyWrapper, AnimatorPoser animatorPoser)
+		public void InjectDependencies(IHittable hittable, RigidbodyWrapper rigidbodyWrapper, AnimatorPoser animatorPoser)
 		{
-			this.agent = agent;
 			this.hittable = hittable;
 			this.rigidbodyWrapper = rigidbodyWrapper;
 			this.animatorPoser = animatorPoser;
@@ -56,12 +57,12 @@ namespace SpaxUtils
 			float stunTime = hitData.Force / rigidbodyWrapper.Mass;
 			stunTimer = new Timer(Mathf.Min(stunTime, maxStunTime));
 
-			foreach (var item in hitData.Damages)
+			foreach (var damage in hitData.Damages)
 			{
-				EntityStat stat = Entity.GetStat(item.Key);
+				EntityStat stat = Entity.GetStat(damage.Key);
 				if (stat != null)
 				{
-					stat.BaseValue -= item.Value;
+					stat.BaseValue -= damage.Value;
 				}
 			}
 

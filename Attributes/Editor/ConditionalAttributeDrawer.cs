@@ -11,6 +11,34 @@ namespace SpaxUtils
 			ConditionalAttribute conditionalAttribute = attribute as ConditionalAttribute;
 			SerializedProperty toggleProperty = property.FindNeighbourProperty(conditionalAttribute.ToggleProperty);
 
+			if (conditionalAttribute.EnumValue > -1)
+			{
+				// Enum
+				PropertyIsEnum(position, property, label, conditionalAttribute, toggleProperty);
+			}
+			else
+			{
+				// Bool
+				PropertyIsBool(position, property, label, conditionalAttribute, toggleProperty);
+			}
+		}
+
+		private void PropertyIsEnum(Rect position, SerializedProperty property, GUIContent label,
+			ConditionalAttribute conditionalAttribute, SerializedProperty toggleProperty)
+		{
+			if (toggleProperty.enumValueIndex == conditionalAttribute.EnumValue == conditionalAttribute.Inverse)
+			{
+				return;
+			}
+
+			EditorGUI.BeginProperty(position, label, property);
+			EditorGUI.PropertyField(position, property, label, true);
+			EditorGUI.EndProperty();
+		}
+
+		private void PropertyIsBool(Rect position, SerializedProperty property, GUIContent label,
+			ConditionalAttribute conditionalAttribute, SerializedProperty toggleProperty)
+		{
 			if (conditionalAttribute.Hide && toggleProperty.boolValue == conditionalAttribute.Inverse)
 			{
 				return;
@@ -44,7 +72,8 @@ namespace SpaxUtils
 			ConditionalAttribute conditionalAttribute = attribute as ConditionalAttribute;
 			SerializedProperty toggleProperty = property.FindNeighbourProperty(conditionalAttribute.ToggleProperty);
 
-			if (conditionalAttribute.Hide && toggleProperty.boolValue == conditionalAttribute.Inverse)
+			if ((conditionalAttribute.EnumValue > -1 && toggleProperty.enumValueIndex == conditionalAttribute.EnumValue == conditionalAttribute.Inverse) ||
+				(conditionalAttribute.Hide && toggleProperty.boolValue == conditionalAttribute.Inverse))
 			{
 				return 0f;
 			}

@@ -1,7 +1,14 @@
-﻿namespace SpaxUtils
+﻿using System;
+
+namespace SpaxUtils
 {
 	public interface ICombatPerformer : IPerformer
 	{
+		/// <summary>
+		/// Event invoked when hitting something, before the <see cref="HitData"/> is sent to the hit object.
+		/// </summary>
+		event Action<HitData> HitEvent;
+
 		/// <summary>
 		/// The <see cref="ICombatMove"/> currently being performed.
 		/// </summary>

@@ -51,7 +51,7 @@ namespace SpaxUtils
 		/// <summary>
 		/// Splits string using <paramref name="divide"/> and returns all but the last element.
 		/// </summary>
-		public static string GetPath(this string s, char divide = '/')
+		public static string GetDirectoryPath(this string s, char divide = '/')
 		{
 			for (int i = s.Length - 1; i > 0; i--)
 			{
@@ -62,6 +62,21 @@ namespace SpaxUtils
 			}
 
 			return "";
+		}
+
+		public static string Wrap(this string s, string prefix, string suffix)
+		{
+			return prefix + s + suffix;
+		}
+
+		public static string Tag(this string s, string tag)
+		{
+			return $"<{tag}>" + s + $"</{tag}>";
+		}
+
+		public static string Tag(this string s, string tag, string value)
+		{
+			return $"<{tag}={value}>" + s + $"</{tag}>";
 		}
 
 		/// <summary>

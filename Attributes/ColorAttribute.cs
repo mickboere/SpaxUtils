@@ -6,6 +6,7 @@ namespace SpaxUtils
 {
 	public class ColorAttribute : PropertyAttribute
 	{
+		public string colorProperty;
 		public float r;
 		public float g;
 		public float b;
@@ -13,11 +14,19 @@ namespace SpaxUtils
 
 		public ColorAttribute()
 		{
+			colorProperty = "";
+			r = g = b = a = 1f;
+		}
+
+		public ColorAttribute(string colorProperty)
+		{
+			this.colorProperty = colorProperty;
 			r = g = b = a = 1f;
 		}
 
 		public ColorAttribute(float r, float g, float b, float a)
 		{
+			colorProperty = "";
 			this.r = r;
 			this.g = g;
 			this.b = b;

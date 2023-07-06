@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace SpaxUtils
 {
-	public interface IAgentBody : IEntityComponent
+	public interface IAgentBody : IEntityComponent, IHeadProvider
 	{
 		/// <summary>
 		/// Value that scales all operations which are relative to the body.

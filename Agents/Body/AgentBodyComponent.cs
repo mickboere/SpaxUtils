@@ -15,6 +15,7 @@ namespace SpaxUtils
 		public AnimatorWrapper AnimatorWrapper => Pray(ref animatorWrapper);
 		public SkinnedMeshRenderer ReferenceMesh => Pray(ref referenceSkin);
 		public Transform SkeletonRootBone => skeletonRootBone;
+		public Transform Head => head;
 		public IReadOnlyList<Transform> Skeleton => GetSkeleton();
 		public Vector3 Center => Skeleton.GetCenter(t => t.TryGetComponent(out SkeletonBoneOptions options) ? options.Weight : 1f);
 
@@ -22,6 +23,7 @@ namespace SpaxUtils
 		[SerializeField] private RigidbodyWrapper rigidbodyWrapper;
 		[SerializeField] private AnimatorWrapper animatorWrapper;
 		[SerializeField] private Transform skeletonRootBone;
+		[SerializeField] private Transform head;
 		[SerializeField] private SkinnedMeshRenderer referenceSkin;
 		[SerializeField] private bool debug;
 

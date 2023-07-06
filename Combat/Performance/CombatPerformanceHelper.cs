@@ -9,6 +9,7 @@ namespace SpaxUtils
 	/// </summary>
 	public class CombatPerformanceHelper : ICombatPerformer, IDisposable
 	{
+		public event Action<HitData> HitEvent;
 		public event IPerformer.PerformanceUpdateDelegate PerformanceUpdateEvent;
 		public event Action<IPerformer> PerformanceCompletedEvent;
 

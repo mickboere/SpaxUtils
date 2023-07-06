@@ -11,7 +11,12 @@ namespace SpaxUtils
 	public class CombatPerformerComponent : EntityComponentBase, ICombatPerformer
 	{
 		/// <inheritdoc/>
+		public event Action<HitData> HitEvent;
+
+		/// <inheritdoc/>
 		public event IPerformer.PerformanceUpdateDelegate PerformanceUpdateEvent;
+
+		/// <inheritdoc/>
 		public event Action<IPerformer> PerformanceCompletedEvent;
 
 		#region Properties
@@ -217,14 +222,17 @@ namespace SpaxUtils
 					// TODO: Apply appropriate knockback / counter force to attacker.
 
 					// Generate hit-data for hittable.
-					HitData hitData = new HitData()
-					{
-						Hitter = Entity,
-						Inertia = inertia,
-						Force = force,
-						Direction = hit.Direction,
-						Damages = new Dictionary<string, float>()
-					};
+					HitData hitData = new HitData(
+						Entity,
+						hittable,
+						inertia,
+						force,
+						hit.Direction,
+						new Dictionary<string, float>()
+					);
+
+					// Invoke hit event to allow adding of damage.
+					HitEvent?.Invoke(hitData);
 
 					if (hittable.Hit(hitData))
 					{

@@ -46,7 +46,7 @@ namespace SpaxUtils
 		public Vector3 Size => Application.isPlaying && useSizeAtStart ? startingSize : Bounds.size;
 
 		/// <inheritdoc/>
-		public Vector3 Point => Center;
+		public Vector3 Point => headProvider != null ? headProvider.Head.position : Center;
 
 		/// <inheritdoc/>
 		public bool IsTargetable { get; private set; } = true;
@@ -55,12 +55,14 @@ namespace SpaxUtils
 		[SerializeField] private bool useSizeAtStart;
 
 		protected RigidbodyWrapper rigidbodyWrapper;
+		protected IHeadProvider headProvider;
 		protected Vector3 startingSize;
 		protected Renderer[] renderersAtStart;
 
-		public void InjectDependencies(RigidbodyWrapper rigidbodyWrapper)
+		public void InjectDependencies(RigidbodyWrapper rigidbodyWrapper, [Optional] IHeadProvider headProvider)
 		{
 			this.rigidbodyWrapper = rigidbodyWrapper;
+			this.headProvider = headProvider;
 		}
 
 		protected virtual void Start()
