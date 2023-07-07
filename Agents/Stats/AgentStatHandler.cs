@@ -22,5 +22,13 @@ namespace SpaxUtils
 				pair.Initialize(agent);
 			}
 		}
+
+		protected void Update()
+		{
+			foreach (MultiStat pair in multiStats)
+			{
+				pair.Update(Time.deltaTime);
+			}
+		}
 	}
 }

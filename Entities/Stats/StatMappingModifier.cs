@@ -5,14 +5,14 @@
 	/// </summary>
 	public class StatMappingModifier : FloatModifierBase
 	{
-		public override ModMethod Method => mapping.ModMethod;
+		public override ModMethod Method => Mapping.ModMethod;
+		public StatMapping Mapping { get; private set; }
 
-		private StatMapping mapping;
 		private CompositeFloatBase inputStat;
 
 		public StatMappingModifier(StatMapping mapping, CompositeFloatBase inputStat)
 		{
-			this.mapping = mapping;
+			this.Mapping = mapping;
 			this.inputStat = inputStat;
 
 			inputStat.CompositeChangedEvent += OnInputStatChanged;
@@ -30,7 +30,7 @@
 
 		public override float Modify(float input)
 		{
-			return FloatOperationModifier.Operate(input, mapping.Operation, mapping.GetMappedValue(inputStat.Value));
+			return FloatOperationModifier.Operate(input, Mapping.Operation, Mapping.GetMappedValue(inputStat.Value));
 		}
 
 		private void OnInputStatChanged(CompositeFloatBase composite)

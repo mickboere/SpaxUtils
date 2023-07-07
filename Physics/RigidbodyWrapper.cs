@@ -115,7 +115,7 @@ namespace SpaxUtils
 		{
 			if (entity != null)
 			{
-				timeScale = entity.GetStat(StatIdentifierConstants.TIMESCALE, true, 1f);
+				timeScale = entity.GetStat(EntityStatIdentifier.TIMESCALE, true, 1f);
 			}
 		}
 

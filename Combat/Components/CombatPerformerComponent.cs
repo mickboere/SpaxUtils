@@ -240,7 +240,7 @@ namespace SpaxUtils
 
 						// Apply hit pause to enemy.
 						// TODO: Must be applied on enemy's end.
-						EntityStat hitTimeScale = hittable.Entity.GetStat(StatIdentifierConstants.TIMESCALE);
+						EntityStat hitTimeScale = hittable.Entity.GetStat(EntityStatIdentifier.TIMESCALE);
 						if (hitTimeScale != null)
 						{
 							hitTimeScale.AddModifier(this, timeMod);

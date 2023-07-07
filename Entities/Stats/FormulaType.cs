@@ -5,7 +5,7 @@
 	/// </summary>
 	public enum FormulaType
 	{
-		None = 0,
+		Linear = 0,
 		Exp = 1,
 		InvExp = 2,
 		Log = 3,

@@ -1,6 +1,6 @@
 ﻿namespace SpaxUtils
 {
-	public class StatIdentifierConstants : IStatIdentifierConstants
+	public class EntityStatIdentifier : IStatIdentifierConstants
 	{
 		public const string TIMESCALE = IStatIdentifierConstants.STATS + "Time Scale";
 	}

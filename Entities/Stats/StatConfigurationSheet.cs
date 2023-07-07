@@ -17,6 +17,11 @@ namespace SpaxUtils
 				dictionary = new Dictionary<string, StatConfiguration>();
 				foreach (StatConfiguration c in configurations)
 				{
+					if (dictionary.ContainsKey(c.Identifier))
+					{
+						SpaxDebug.Error("Duplicate Stat Configuration Entry: ", c.Identifier);
+						continue;
+					}
 					dictionary[c.Identifier] = c;
 				}
 			}
