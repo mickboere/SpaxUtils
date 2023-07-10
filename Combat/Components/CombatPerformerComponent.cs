@@ -79,6 +79,8 @@ namespace SpaxUtils
 		private CombatPerformanceHelper performance;
 		private TimedCurveModifier timeMod;
 
+		private EntityStat offence;
+
 		public void InjectDependencies(IAgent agent, CallbackService callbackService,
 			TransformLookup transformLookup, RigidbodyWrapper rigidbodyWrapper)
 		{
@@ -94,6 +96,8 @@ namespace SpaxUtils
 			AddCombatMove(ActorActs.LIGHT, unarmedLight, -1);
 			AddCombatMove(ActorActs.HEAVY, unarmedHeavy, -1);
 			AddCombatMove(ActorActs.BLOCK, unarmedBlock, -1);
+
+			offence = agent.GetStat(AgentStatIdentifiers.OFFENCE, true);
 		}
 
 		protected void OnDisable()
@@ -231,7 +235,13 @@ namespace SpaxUtils
 						new Dictionary<string, float>()
 					);
 
-					// Invoke hit event to allow adding of damage.
+					// Add damages.
+					EntityStat defence = hittable.Entity.GetStat(AgentStatIdentifiers.DEFENCE);
+					float damage = SpaxFormulas.GetDamage(offence, defence ?? 1f);
+					hitData.Damages.Add(AgentStatIdentifiers.HEALTH, damage);
+					hitData.Damages.Add(AgentStatIdentifiers.HEALTH_RECOVERABLE, damage * 0.05f);
+
+					// Invoke hit event to allow adding of additional damage.
 					HitEvent?.Invoke(hitData);
 
 					if (hittable.Hit(hitData))

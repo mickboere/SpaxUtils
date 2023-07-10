@@ -62,7 +62,7 @@ namespace SpaxUtils
 				EntityStat stat = Entity.GetStat(damage.Key);
 				if (stat != null)
 				{
-					stat.BaseValue -= damage.Value;
+					stat.BaseValue = Mathf.Max(0f, stat.BaseValue - damage.Value);
 				}
 			}
 

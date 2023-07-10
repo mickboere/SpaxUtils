@@ -232,6 +232,13 @@ namespace SpaxUtils
 			return null;
 		}
 
+		/// <inheritdoc/>
+		public virtual bool TryGetStat(string identifier, out EntityStat stat)
+		{
+			stat = GetStat(identifier);
+			return stat != null;
+		}
+
 		#endregion
 
 		#region Entity Components

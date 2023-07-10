@@ -82,6 +82,15 @@ namespace SpaxUtils
 		/// <returns>An <see cref="EntityStat"/> that wraps around the data with ID <paramref name="identifier"/>.</returns>
 		EntityStat GetStat(string identifier, bool createDataIfNull = false, float defaultIfNull = 0f);
 
+		/// <summary>
+		/// Checks whether an <see cref="EntityStat"/> wrapping around data with ID <paramref name="identifier"/> exists.
+		/// <see cref="EntityStat"/> implements <see cref="CompositeFloatBase"/> which allows any amount of modifications to be done to the base data value without changing the data itself.
+		/// </summary>
+		/// <param name="identifier">The identifier of the runtime data for which to seek the modifiable <see cref="EntityStat"/>.</param>
+		/// <param name="stat">The resulting <see cref="EntityStat"/>, if any.</param>
+		/// <returns>Whether an <see cref="EntityStat"/> exists with ID <paramref name="identifier"/>.</returns>
+		bool TryGetStat(string identifier, out EntityStat stat);
+
 		#endregion
 
 		#region Components

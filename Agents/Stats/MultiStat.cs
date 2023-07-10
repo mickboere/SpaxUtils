@@ -44,7 +44,15 @@ namespace SpaxUtils
 
 		public void Update(float delta)
 		{
-			current.BaseValue = Mathf.Min(recoverable, current.BaseValue + recovery * delta);
+			if (hasRecovery)
+			{
+				current.BaseValue = Mathf.Min(recoverable, current.BaseValue + recovery * delta);
+			}
+		}
+
+		public void Recover()
+		{
+			current.BaseValue = max;
 		}
 
 		private void OnCurrentChangedEvent()

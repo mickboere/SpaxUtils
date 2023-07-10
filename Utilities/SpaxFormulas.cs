@@ -107,28 +107,13 @@ namespace SpaxUtils
 			return round ? Mathf.Round(LD()) : LD();
 		}
 
-		/// <summary>
-		/// Calculate damage using strength, offense and defense.
-		/// </summary>
-		/// <param name="strength">The strength of the "attack". In melee combat this would be STR * (Attack Move Strength + Weapon Strength)
-		/// <para>When the strength value does not apply it can be the same as the offense value.</para></param>
-		/// <param name="offense">The offense stat of the attacker.</param>
-		/// <param name="defense">The defense stat of the defender.</param>
-		/// <returns>The dealt damage.</returns>
-		public static float GetDamage(float strength, float offense, float defense)
-		{
-			return (offense * strength) / (defense + 100f);
-		}
-
-		/// <summary>
-		/// Calculate damage using offense and defense.
-		/// </summary>
-		/// <param name="offense">The offense stat of the attacker.</param>
-		/// <param name="defense">The defense stat of the defender.</param>
-		/// <returns>The dealt damage.</returns>
 		public static float GetDamage(float offense, float defense)
 		{
-			return GetDamage(offense, offense, defense);
+			return Mathf.Round(
+				Mathf.Lerp(
+					Mathf.Max(0f, offense - defense),
+					offense * offense / defense,
+					0.2f)); // Exponentiality is scaled down.
 		}
 	}
 }
