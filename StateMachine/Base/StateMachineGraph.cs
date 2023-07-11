@@ -13,7 +13,16 @@ namespace SpaxUtils.StateMachine
 	{
 		public List<FlowStateNode> GetStartStates()
 		{
-			List<FlowStateNode> startNodes = nodes.Where((n) => n is FlowStateNode flowState && flowState.StartState).Cast<FlowStateNode>().ToList();
+			// Collect all FlowStateNodes and remove nodes that aren't starting states.
+			List<FlowStateNode> startNodes = GetNodesOfType<FlowStateNode>();
+			for (int i = 0; i < startNodes.Count; i++)
+			{
+				if (!startNodes[i].StartState)
+				{
+					startNodes.RemoveAt(i);
+					i--;
+				}
+			}
 
 			if (startNodes.Count() == 0)
 			{
@@ -22,6 +31,19 @@ namespace SpaxUtils.StateMachine
 			}
 
 			return startNodes;
+		}
+
+		public List<T> GetNodesOfType<T>() where T : Node
+		{
+			List<T> ofType = new List<T>();
+			foreach (Node node in nodes)
+			{
+				if (node is T)
+				{
+					ofType.Add((T)node);
+				}
+			}
+			return ofType;
 		}
 	}
 }

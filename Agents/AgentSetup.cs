@@ -17,10 +17,10 @@ namespace SpaxUtils
 		public Agent Frame { get; set; }
 
 		/// <inheritdoc/>
-		public StateMachineGraph Brain { get; set; }
+		public AgentBodyComponent Body { get; set; }
 
 		/// <inheritdoc/>
-		public AgentBodyComponent Body { get; set; }
+		public IList<StateMachineGraph> BrainGraphs { get; set; }
 
 		/// <inheritdoc/>
 		public IList<GameObject> Children { get; set; }
@@ -31,14 +31,14 @@ namespace SpaxUtils
 		public AgentSetup(
 			IIdentification identification,
 			Agent frame,
-			StateMachineGraph brain,
 			AgentBodyComponent body,
+			IList<StateMachineGraph> brainGraphs,
 			IList<GameObject> children,
 			IList<object> dependencies)
 		{
 			Identification = identification;
 			Frame = frame;
-			Brain = brain;
+			BrainGraphs = brainGraphs;
 			Body = body;
 			Children = new List<GameObject>(children);
 			Dependencies = new List<object>(dependencies);
@@ -48,15 +48,15 @@ namespace SpaxUtils
 			IAgentSetup template,
 			IIdentification identification = null,
 			Agent frame = null,
-			StateMachineGraph brain = null,
 			AgentBodyComponent body = null,
+			IList<StateMachineGraph> brainGraphs = null,
 			IList<GameObject> children = null,
 			IList<object> dependencies = null)
 		{
 			Identification = identification ?? template.Identification;
 			Frame = frame ?? template.Frame;
-			Brain = brain ?? template.Brain;
 			Body = body ?? template.Body;
+			BrainGraphs = brainGraphs == null ? new List<StateMachineGraph>(template.BrainGraphs) : new List<StateMachineGraph>().Concat(template.BrainGraphs).Concat(brainGraphs).ToList();
 			Children = children == null ? new List<GameObject>(template.Children) : new List<GameObject>().Concat(template.Children).Concat(children).ToList();
 			Dependencies = dependencies == null ? new List<object>(template.Dependencies) : new List<object>().Concat(template.Dependencies).Concat(dependencies).ToList();
 		}

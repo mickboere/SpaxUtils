@@ -28,5 +28,22 @@ namespace SpaxUtils
 		{
 			return GetOutputNodes<IBrainState>(nameof(subStates));
 		}
+
+		/// <inheritdoc/>
+		public List<string> GetStateHierarchy()
+		{
+			IBrainState parent = GetParentState();
+
+			// If there is no parent return a new list containing only this state.
+			if (parent == null)
+			{
+				return new List<string>() { Name };
+			}
+
+			// Retrieve the parent's hierarchy and append this state.
+			List<string> hierarchy = parent.GetStateHierarchy();
+			hierarchy.Add(Name);
+			return hierarchy;
+		}
 	}
 }

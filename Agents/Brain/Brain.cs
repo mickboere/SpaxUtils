@@ -20,16 +20,23 @@ namespace SpaxUtils
 
 		private Dictionary<string, BrainState> states;
 		private StateMachineLayer stateMachine;
+		private Dictionary<StateMachineGraph, StateMachineGraph> graphInstances;
 
-		private StateMachineGraph graphInstance;
-
-		public Brain(IDependencyManager dependencyManager, CallbackService callbackService, string startingState, StateMachineGraph graph = null)
+		public Brain(
+			IDependencyManager dependencyManager,
+			CallbackService callbackService,
+			string startingState,
+			StateMachineGraph[] graphs = null)
 		{
 			states = new Dictionary<string, BrainState>();
+			graphInstances = new Dictionary<StateMachineGraph, StateMachineGraph>();
 
-			if (graph != null)
+			if (graphs != null && graphs.Length > 0)
 			{
-				MirrorGraph(graph);
+				foreach (StateMachineGraph graph in graphs)
+				{
+					AddGraph(graph);
+				}
 			}
 
 			DependencyManager brainDependencies = new DependencyManager(dependencyManager, "Brain");
@@ -45,9 +52,10 @@ namespace SpaxUtils
 			{
 				state.Dispose();
 			}
-			if (graphInstance != null)
+			foreach (KeyValuePair<StateMachineGraph, StateMachineGraph> item in graphInstances)
 			{
-				UnityEngine.Object.Destroy(graphInstance);
+				// Destroy all graph instances.
+				UnityEngine.Object.Destroy(item.Value);
 			}
 		}
 
@@ -94,41 +102,63 @@ namespace SpaxUtils
 			}
 		}
 
+		#endregion Components
+
+		#region Graphs
+
 		/// <inheritdoc/>
-		public void MirrorGraph(StateMachineGraph graph)
+		public void AddGraph(StateMachineGraph graph)
 		{
-			if (graphInstance != null)
+			if (graphInstances.ContainsKey(graph))
 			{
-				// Clear all existing mirrored graph data.
-				List<BrainStateNode> nodes = graphInstance.nodes.Where((node) => node is BrainStateNode).Cast<BrainStateNode>().ToList();
-				foreach (BrainStateNode brainStateNode in nodes)
-				{
-					List<IStateComponent> oldComponents = brainStateNode.GetAllComponents();
-					BrainState state = EnsureState(brainStateNode.Name);
-					foreach (IStateComponent c in oldComponents)
-					{
-						state.TryRemoveComponent(c);
-					}
-				}
-
-				UnityEngine.Object.Destroy(graphInstance);
-				graphInstance = null;
-			}
-
-			// Return if there is no graph to mirror.
-			if (graph == null)
-			{
+				SpaxDebug.Error("Graph is already added to brain.", graph.name);
 				return;
 			}
 
-			// Create instance of graph and append data to brain.
-			graphInstance = (StateMachineGraph)graph.Copy();
-			List<BrainStateNode> brainStateNodes = graphInstance.nodes.Where((node) => node is BrainStateNode).Cast<BrainStateNode>().ToList();
+			// Create instance of graph and add to appendices.
+			graphInstances.Add(graph, (StateMachineGraph)graph.Copy());
+
+			// Go through all BrainStateNodes and add their components to the corresponding BrainStates.
+			List<BrainStateNode> brainStateNodes = graphInstances[graph].GetNodesOfType<BrainStateNode>();
 			foreach (BrainStateNode brainStateNode in brainStateNodes)
 			{
 				BrainState state = EnsureState(brainStateNode.Name, brainStateNode);
 				state.TryAddComponents(brainStateNode.GetAllComponents());
 			}
+
+			CheckGraphRefresh(brainStateNodes);
+		}
+
+		/// <inheritdoc/>
+		public void RemoveGraph(StateMachineGraph graph)
+		{
+			if (!graphInstances.ContainsKey(graph))
+			{
+				SpaxDebug.Error("Graph isn't present in brain.", graph.name);
+				return;
+			}
+
+			// Go through all BrainStateNodes in the graph and remove their components from the corresponding BrainStates.
+			List<BrainStateNode> brainStateNodes = graphInstances[graph].GetNodesOfType<BrainStateNode>();
+			foreach (BrainStateNode brainStateNode in brainStateNodes)
+			{
+				List<IStateComponent> components = brainStateNode.GetAllComponents();
+				BrainState brainState = EnsureState(brainStateNode.Name);
+				foreach (IStateComponent component in components)
+				{
+					brainState.TryRemoveComponent(component);
+				}
+			}
+
+			// Destroy graph instance and remove from appendices.
+			UnityEngine.Object.Destroy(graphInstances[graph]);
+			graphInstances.Remove(graph);
+
+			CheckGraphRefresh(brainStateNodes);
+		}
+
+		private void CheckGraphRefresh(IEnumerable<BrainStateNode> brainStateNodes)
+		{
 			if (brainStateNodes.Any((n) => IsInState(n.Name)))
 			{
 				// Active state components have been modified, refresh the statemachine.
@@ -136,7 +166,7 @@ namespace SpaxUtils
 			}
 		}
 
-		#endregion
+		#endregion Graphs
 
 		#region States
 
@@ -169,21 +199,26 @@ namespace SpaxUtils
 					CopyHierarchy(state, copyHierarchy);
 				}
 			}
+			else if (copyHierarchy != null && copyHierarchy.GetStateHierarchy().Count > states[state].GetStateHierarchy().Count)
+			{
+				// New hierarchy is taller, override the original.
+				CopyHierarchy(state, copyHierarchy);
+			}
 
 			return states[state];
 		}
 
 		/// <summary>
-		/// Copies the hierarchy from <paramref name="copyHierarchy"/> over to the state named <paramref name="state"/>.
+		/// Copies the hierarchy from <paramref name="fromState"/> over to the state named <paramref name="state"/>.
 		/// </summary>
 		/// <param name="state">The name of the state to copy the hierarchy over to.</param>
-		/// <param name="copyHierarchy">The <see cref="BrainStateNode"/> of which to copy the hierarchy.</param>
-		private void CopyHierarchy(string state, IBrainState copyHierarchy)
+		/// <param name="fromState">The <see cref="BrainStateNode"/> of which to copy the hierarchy.</param>
+		private void CopyHierarchy(string state, IBrainState fromState)
 		{
 			BrainState brainState = EnsureState(state);
 
 			// Ensure parent state, if any.
-			IBrainState parentNode = copyHierarchy.GetParentState();
+			IBrainState parentNode = fromState.GetParentState();
 			if (parentNode != null)
 			{
 				BrainState parentState = EnsureState(parentNode.Name, parentNode);
@@ -191,7 +226,7 @@ namespace SpaxUtils
 			}
 
 			// Ensure sub states, if any.
-			List<IBrainState> subNodes = copyHierarchy.GetSubStates();
+			List<IBrainState> subNodes = fromState.GetSubStates();
 			if (subNodes != null && subNodes.Count > 0)
 			{
 				foreach (BrainStateNode sub in subNodes)
@@ -201,6 +236,6 @@ namespace SpaxUtils
 			}
 		}
 
-		#endregion
+		#endregion States
 	}
 }

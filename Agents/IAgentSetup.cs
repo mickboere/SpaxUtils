@@ -20,14 +20,16 @@ namespace SpaxUtils
 		Agent Frame { get; }
 
 		/// <summary>
-		/// The agent's brain state machine graph.
-		/// </summary>
-		StateMachineGraph Brain { get; }
-
-		/// <summary>
 		/// The main rig object containing the <see cref="Animator"/>, if any.
 		/// </summary>
 		AgentBodyComponent Body { get; }
+
+		/// <summary>
+		/// The <see cref="StateMachineGraph"/>s to append to the brain.
+		/// The Brain decides an Agent's behavior.
+		/// By linking states and adding specific components to them, a refined behavioral tree can be created.
+		/// </summary>
+		IList<StateMachineGraph> BrainGraphs { get; }
 
 		/// <summary>
 		/// All objects that should be instantiated as a child of the agent.

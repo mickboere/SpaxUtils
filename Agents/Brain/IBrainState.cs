@@ -9,12 +9,18 @@ namespace SpaxUtils
 		/// Returns the connected parent-state node, if any.
 		/// </summary>
 		/// <returns>The connected parent-state node, if any.</returns>
-		public IBrainState GetParentState();
+		IBrainState GetParentState();
 
 		/// <summary>
 		/// Returns the connected sub-state nodes, if any.
 		/// </summary>
 		/// <returns>The connected sub-state nodes, if any.</returns>
-		public List<IBrainState> GetSubStates();
+		List<IBrainState> GetSubStates();
+
+		/// <summary>
+		/// Returns the parental state hierarchy including this state.
+		/// </summary>
+		/// <returns>The parental state hierarchy including this state.</returns>
+		List<string> GetStateHierarchy();
 	}
 }

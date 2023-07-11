@@ -29,7 +29,7 @@ namespace SpaxUtils
 		protected override string GameObjectNamePrefix => "[Agent]";
 
 		[SerializeField, ConstDropdown(typeof(IStateIdentifierConstants))] private string state;
-		[SerializeField] private StateMachineGraph brainGraph;
+		[SerializeField] private StateMachineGraph[] brainGraphs;
 
 		/// <inheritdoc/>
 		public Dictionary<object, object> RetrieveDependencies()
@@ -40,7 +40,7 @@ namespace SpaxUtils
 		}
 
 		public void InjectDependencies(IAgentBody body, ITargetable targetableComponent, ITargeter targeterComponent,
-			IEntity[] entities, IPerformer[] performers, CallbackService callbackService)
+			IPerformer[] performers, CallbackService callbackService)
 		{
 			Body = body;
 			Targetable = targetableComponent;
@@ -57,7 +57,7 @@ namespace SpaxUtils
 			// Create brain if there isn't one.
 			if (Brain == null)
 			{
-				Brain = new Brain(DependencyManager, callbackService, state);
+				Brain = new Brain(DependencyManager, callbackService, state, brainGraphs);
 			}
 		}
 

@@ -18,16 +18,16 @@ namespace SpaxUtils
 				frame;
 
 		/// <inheritdoc/>
-		public StateMachineGraph Brain =>
-			brain == null && template != null ?
-				template.Brain :
-				brain;
-
-		/// <inheritdoc/>
 		public AgentBodyComponent Body =>
 			body == null && template != null ?
 				template.Body :
 				body;
+
+		/// <inheritdoc/>
+		public IList<StateMachineGraph> BrainGraphs =>
+			template != null && template.BrainGraphs != null ?
+				new List<StateMachineGraph>().Concat(template.BrainGraphs).Concat(brainGraphs).ToList() :
+				brainGraphs;
 
 		/// <inheritdoc/>
 		public IList<GameObject> Children =>
@@ -44,8 +44,8 @@ namespace SpaxUtils
 		[SerializeField] private AgentSetupAsset template;
 		[SerializeField] private Identification identification;
 		[SerializeField] private Agent frame;
-		[SerializeField] private StateMachineGraph brain;
 		[SerializeField] private AgentBodyComponent body;
+		[SerializeField] private List<StateMachineGraph> brainGraphs;
 		[SerializeField] private List<GameObject> children;
 		[SerializeField] private List<AgentDependencyAssetBase> dependencies;
 	}

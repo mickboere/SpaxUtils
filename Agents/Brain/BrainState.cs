@@ -67,6 +67,7 @@ namespace SpaxUtils
 			return ParentState;
 		}
 
+		/// <inheritdoc/>
 		public List<string> GetStateHierarchy()
 		{
 			// If there is no parent return a new list containing only this state.

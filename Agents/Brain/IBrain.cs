@@ -47,10 +47,15 @@ namespace SpaxUtils
 		void RemoveComponent(string state, IStateComponent component);
 
 		/// <summary>
-		/// Will mirror the <paramref name="graph"/>'s <see cref="BrainStateNode"/>s to the brain state data.
-		/// Only one graph can be mirrored at a time.
+		/// Will append the <paramref name="graph"/> data to this brain, copying its components and adding them to the appropriate <see cref="BrainState"/>s.
 		/// </summary>
-		/// <param name="graph">The graph to mirror and append the data of onto the brain.</param>
-		void MirrorGraph(StateMachineGraph graph);
+		/// <param name="graph">The <see cref="StateMachineGraph"/> to append the data of.</param>
+		void AddGraph(StateMachineGraph graph);
+
+		/// <summary>
+		/// Will remove the appended data of <paramref name="graph"/> from this brain.
+		/// </summary>
+		/// <param name="graph">The <see cref="StateMachineGraph"/> to remove the data of.</param>
+		void RemoveGraph(StateMachineGraph graph);
 	}
 }
