@@ -87,10 +87,46 @@ namespace SpaxUtils
 						return SphereScan(orbitPoint, sphereCollider.radius * scale.magnitude, a, b, scans, layerMask);
 					}
 				default:
-					SpaxDebug.Error($"Collider not supported: '{collider.GetType().Name}'.", "Please add support or change the collider type.");
+					SpaxDebug.Error($"Collider not supported:", $"'{collider.GetType().Name}' Please add support or change the collider type.");
 					return null;
 			}
 		}
+
+		#region Box
+
+		public static List<HitScanHitData> BoxScan(
+			Vector3 orbitPoint, Vector3 boxSize,
+			(Vector3 pos, Quaternion rot) a, (Vector3 pos, Quaternion rot) b,
+			int scans, LayerMask layerMask)
+		{
+			List<HitScanPoint> scanPoints = GetHitScanPoints(orbitPoint, a, b, scans);
+			return BoxScan(scanPoints, boxSize, layerMask);
+		}
+
+		public static List<HitScanHitData> BoxScan(List<HitScanPoint> boxScanPoints, Vector3 boxSize, LayerMask layerMask)
+		{
+			return HitScan(boxScanPoints,
+				(HitScanPoint current, HitScanPoint next, Vector3 toNext) =>
+				{
+					if (toNext == Vector3.zero)
+					{
+						return new RaycastHit[0];
+					}
+
+					RaycastHit[] hits = Physics.BoxCastAll(current.Center, boxSize * 0.5f, toNext.normalized, current.Rotation, toNext.magnitude, layerMask);
+#if UNITY_EDITOR
+					if (DEBUG)
+					{
+						DbgDraw.WireCube(current.Center, current.Rotation, boxSize, Color.green, DEBUG_DURATION, false);
+					}
+#endif
+					return hits;
+				}
+			);
+		}
+		#endregion Box
+
+		#region Sphere
 
 		public static List<HitScanHitData> SphereScan(
 			Vector3 orbitPoint, float radius,
@@ -123,39 +159,9 @@ namespace SpaxUtils
 				}
 			);
 		}
+		#endregion Sphere
 
-		public static List<HitScanHitData> BoxScan(
-			Vector3 orbitPoint, Vector3 boxSize,
-			(Vector3 pos, Quaternion rot) a, (Vector3 pos, Quaternion rot) b,
-			int scans, LayerMask layerMask)
-		{
-			List<HitScanPoint> scanPoints = GetHitScanPoints(orbitPoint, a, b, scans);
-			return BoxScan(scanPoints, boxSize, layerMask);
-		}
-
-		public static List<HitScanHitData> BoxScan(List<HitScanPoint> boxScanPoints, Vector3 boxSize, LayerMask layerMask)
-		{
-			return HitScan(boxScanPoints,
-				(HitScanPoint current, HitScanPoint next, Vector3 toNext) =>
-				{
-					if (toNext == Vector3.zero)
-					{
-						return new RaycastHit[0];
-					}
-
-					RaycastHit[] hits = Physics.BoxCastAll(current.Center, boxSize * 0.5f, toNext.normalized, current.Rotation, toNext.magnitude, layerMask);
-#if UNITY_EDITOR
-					if (DEBUG)
-					{
-						DbgDraw.WireCube(current.Center, current.Rotation, boxSize, Color.green, DEBUG_DURATION, false);
-					}
-#endif
-					return hits;
-				}
-			);
-		}
-
-		#endregion // Hit Scans
+		#endregion Hit Scans
 
 		#region Scan Points
 

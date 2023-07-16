@@ -183,14 +183,14 @@ namespace SpaxUtils
 					if (targeter.Target != null)
 					{
 						// Auto aim to target.
-						movementHandler.SetTargetVelocity((targeter.Target.Point - rigidbodyWrapper.Position).normalized);
+						movementHandler.SetTargetVelocity((targeter.Target.Center - rigidbodyWrapper.Position).normalized);
 					}
 					else if (rigidbodyWrapper.TargetVelocity.magnitude <= 1f &&
 						navigationHandler.TryGetClosestTargetable(targetables.Components, false, out ITargetable closest, out float distance) &&
 						distance < autoAimRange)
 					{
 						// Auto aim to closest targetable in range.
-						movementHandler.SetTargetVelocity((closest.Point - rigidbodyWrapper.Position).normalized);
+						movementHandler.SetTargetVelocity((closest.Center - rigidbodyWrapper.Position).normalized);
 					}
 
 					movementHandler.ForceRotation();

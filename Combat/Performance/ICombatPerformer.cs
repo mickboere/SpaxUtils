@@ -2,6 +2,9 @@
 
 namespace SpaxUtils
 {
+	/// <summary>
+	/// <see cref="IPerformer"/> implementation used for performing combat upon acting.
+	/// </summary>
 	public interface ICombatPerformer : IPerformer
 	{
 		/// <summary>
