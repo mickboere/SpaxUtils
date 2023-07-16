@@ -5,7 +5,7 @@ using UnityEngine;
 namespace SpaxUtils
 {
 	/// <summary>
-	/// Component handling all drainable stats like health and stamina using <see cref="MultiStat"/>s.
+	/// Component handling all drainable stats like health and energy using <see cref="MultiStat"/>s.
 	/// </summary>
 	public class AgentStatHandler : EntityComponentBase
 	{
@@ -20,6 +20,7 @@ namespace SpaxUtils
 
 		protected void Awake()
 		{
+			// Initialize stat pairs.
 			foreach (MultiStat pair in multiStats)
 			{
 				pair.Initialize(agent);
@@ -34,6 +35,7 @@ namespace SpaxUtils
 
 		protected void Update()
 		{
+			// Update state pairs to initiate recovery.
 			foreach (MultiStat pair in multiStats)
 			{
 				pair.Update(Time.deltaTime * EntityTimeScale);

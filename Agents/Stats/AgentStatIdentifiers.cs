@@ -74,6 +74,7 @@
 		public const string ENDURANCE = BODY_STAT + "Endurance";
 		public const string ENDURANCE_MAX = BODY_STAT + "Endurance_Max";
 		public const string ENDURANCE_RECOVERABLE = BODY_STAT + "Endurance_Recoverable";
+		public const string ENDURANCE_FRAILTY = BODY_STAT + "Endurance_Frailty";
 		public const string ENDURANCE_RECOVERY = BODY_STAT + "Endurance_Recovery";
 
 		// Hostility
@@ -83,29 +84,33 @@
 		public const string ENERGY = BODY_STAT + "Energy";
 		public const string ENERGY_MAX = BODY_STAT + "Energy_Max";
 		public const string ENERGY_RECOVERABLE = BODY_STAT + "Energy_Recoverable";
+		public const string ENERGY_FRAILTY = BODY_STAT + "Energy_Frailty";
 		public const string ENERGY_RECOVERY = BODY_STAT + "Energy_Recovery";
 
 		// Dexterity
-		public const string ATTACK_CHARGE_SPEED = BODY_STAT + "Attack Charge Speed";
-		public const string ATTACK_PERFORM_SPEED = BODY_STAT + "Attack Perform Speed";
+		public const string ATTACK_CHARGE_SPEED = BODY_STAT + "Attack_Charge_Speed";
+		public const string ATTACK_PERFORM_SPEED = BODY_STAT + "Attack_Perform_Speed";
 		//public const string CONDUCTIVITY = BODY_STAT + "Conductivity"; // Magic charge speed.
 
 		// Agility
-		public const string MOVEMENT_SPEED = BODY_STAT + "Movement Speed";
+		public const string MOVEMENT_SPEED = BODY_STAT + "Movement_Speed";
 
 		// Immunity
 		public const string DEFENCE = BODY_STAT + "Defence";
+		public const string FRAILTY = BODY_STAT + "Frailty";
 
 		// Capacity
 		public const string MANA = BODY_STAT + "Mana";
 		public const string MANA_MAX = BODY_STAT + "Mana_Max";
 		public const string MANA_RECOVERABLE = BODY_STAT + "Mana_Recoverable";
+		public const string MANA_FRAILTY = BODY_STAT + "Mana_Frailty";
 		public const string MANA_RECOVERY = BODY_STAT + "Mana_Recovery";
 
 		// Vitality
 		public const string HEALTH = BODY_STAT + "Health";
 		public const string HEALTH_MAX = BODY_STAT + "Health_Max";
 		public const string HEALTH_RECOVERABLE = BODY_STAT + "Health_Recoverable";
+		public const string HEALTH_FRAILTY = BODY_STAT + "Health_Frailty";
 		public const string HEALTH_RECOVERY = BODY_STAT + "Health_Recovery";
 		#endregion Body Stats
 

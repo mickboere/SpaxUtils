@@ -6,9 +6,8 @@ namespace SpaxUtils
 {
 	/// <summary>
 	/// Calculates a final value by applying a collection of modifiers to a base value.
-	/// Calculations happen on-demand to prevent a recalculation for every change.
+	/// Calculations happen on-demand to prevent recalculation for every change.
 	/// </summary>
-	/// https://github.com/mickboere/SpaxUtils/blob/master/Utilities/Float/CompositeFloatBase.cs
 	public abstract class CompositeFloatBase
 	{
 		/// <summary>
@@ -27,7 +26,7 @@ namespace SpaxUtils
 		public float Value { get { return GetValue(); } }
 
 		/// <summary>
-		/// The base value without any modifiers applied.
+		/// Returns the base value without modifications.
 		/// </summary>
 		public abstract float BaseValue { get; set; }
 
@@ -37,7 +36,7 @@ namespace SpaxUtils
 		public bool HasModifiers { get { return modifiers.Count > 0; } }
 
 		/// <summary>
-		/// Returns the difference between the value and the base value.
+		/// Returns the difference between the modified value and the base value.
 		/// </summary>
 		public float Difference => Value - BaseValue;
 
@@ -71,7 +70,7 @@ namespace SpaxUtils
 		/// <summary>
 		/// Calculates and returns the composite value.
 		/// </summary>
-		public float GetValue()
+		public virtual float GetValue()
 		{
 			if (recalculate)
 			{

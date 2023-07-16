@@ -208,7 +208,11 @@ namespace SpaxUtils
 
 				if (entry.Value is float)
 				{
-					EntityStat stat = new EntityStat(entry);
+					IStatConfiguration setting = statLibrary.Get(identifier);
+					EntityStat stat = new EntityStat(entry, null,
+						setting != null ? setting.HasMinValue ? setting.MinValue : null : null,
+						setting != null ? setting.HasMaxValue ? setting.MaxValue : null : null);
+
 					Stats.AddStat(identifier, stat);
 					return stat;
 				}

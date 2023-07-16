@@ -11,7 +11,6 @@ namespace SpaxUtils
 		{
 			get
 			{
-				// return ModUtil.Modify(baseValue, modifiers.Values.Where(m => m.Method == ModMethod.Base).ToList());
 				return baseValue;
 			}
 			set

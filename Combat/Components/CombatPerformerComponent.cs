@@ -69,6 +69,8 @@ namespace SpaxUtils
 		[SerializeField, Header("Hit Detection")] private LayerMask hitDetectionMask;
 		[SerializeField] private float hitPause = 0.15f;
 		[SerializeField] private AnimationCurve hitPauseCurve;
+		[SerializeField, Header("Stats"), ConstDropdown(typeof(IStatIdentifierConstants))] private string energyStat;
+		[SerializeField, ConstDropdown(typeof(IStatIdentifierConstants))] private string offenceStat;
 
 		private IAgent agent;
 		private CallbackService callbackService;
@@ -79,6 +81,7 @@ namespace SpaxUtils
 		private CombatPerformanceHelper performance;
 		private TimedCurveModifier timeMod;
 
+		private EntityStat energy;
 		private EntityStat offence;
 
 		public void InjectDependencies(IAgent agent, CallbackService callbackService,
@@ -97,7 +100,8 @@ namespace SpaxUtils
 			AddCombatMove(ActorActs.HEAVY, unarmedHeavy, -1);
 			AddCombatMove(ActorActs.BLOCK, unarmedBlock, -1);
 
-			offence = agent.GetStat(AgentStatIdentifiers.OFFENCE, true);
+			energy = agent.GetStat(energyStat, true);
+			offence = agent.GetStat(offenceStat, true);
 		}
 
 		protected void OnDisable()
@@ -239,7 +243,6 @@ namespace SpaxUtils
 					EntityStat defence = hittable.Entity.GetStat(AgentStatIdentifiers.DEFENCE);
 					float damage = SpaxFormulas.GetDamage(offence, defence ?? 1f);
 					hitData.Damages.Add(AgentStatIdentifiers.HEALTH, damage);
-					hitData.Damages.Add(AgentStatIdentifiers.HEALTH_RECOVERABLE, damage * 0.05f);
 
 					// Invoke hit event to allow adding of additional damage.
 					HitEvent?.Invoke(hitData);

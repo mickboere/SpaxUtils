@@ -15,6 +15,8 @@ namespace SpaxUtils
 		public ModMethod ModMethod => modMethod;
 		public Operation Operation => operation;
 
+		private bool Round => scale > 99f;
+
 		[SerializeField, ConstDropdown(typeof(IStatIdentifierConstants))] private string fromStat;
 		[SerializeField, ConstDropdown(typeof(IStatIdentifierConstants))] private string toStat;
 
@@ -48,11 +50,11 @@ namespace SpaxUtils
 			switch (formula)
 			{
 				case FormulaType.Exp:
-					return shift + SpaxFormulas.Exp(input, expConstant, expPower, true);
+					return shift + SpaxFormulas.Exp(input, expConstant, expPower, Round);
 				case FormulaType.InvExp:
-					return shift + SpaxFormulas.InvExp(input, invExpConstant, invExpPower, true);
+					return shift + SpaxFormulas.InvExp(input, invExpConstant, invExpPower, Round);
 				case FormulaType.Log:
-					return shift + SpaxFormulas.Log(input, logConstant, logPower, scale, logShift, true);
+					return shift + SpaxFormulas.Log(input, logConstant, logPower, scale, logShift, Round);
 				case FormulaType.Curve:
 					return shift + curve.Evaluate(input) * scale;
 				default:

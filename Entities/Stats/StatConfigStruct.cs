@@ -8,8 +8,17 @@ namespace SpaxUtils
 	public struct StatConfigStruct : IStatConfiguration
 	{
 		public string Identifier => config.Identifier;
-		public string Name => config.Name;
 		public float DefaultValue => config.DefaultValue;
+
+		public bool HasMinValue => config.HasMinValue;
+
+		public float MinValue => config.MinValue;
+
+		public bool HasMaxValue => config.HasMaxValue;
+
+		public float MaxValue => config.MaxValue;
+
+		public string Name => config.Name;
 		public string Description => config.Description;
 
 		public bool CopyParent => config.CopyParent;
