@@ -11,47 +11,23 @@ namespace SpaxUtils
 	{
 		#region Properties
 
-		/// <inheritdoc/>
 		public string Name => string.IsNullOrWhiteSpace(name) ? base.name : name;
-
-		/// <inheritdoc/>
 		public string Description => description;
-
-		/// <inheritdoc/>
 		public bool RequireMinCharge => requireMinCharge;
-
-		/// <inheritdoc/>
 		public float MinCharge => minCharge;
-
-		/// <inheritdoc/>
 		public float MaxCharge => maxCharge;
-
-		/// <inheritdoc/>
 		public float MinDuration => minDuration;
-
-		/// <inheritdoc/>
 		public float Release => release;
-
-		/// <inheritdoc/>
 		public float TotalDuration => MinDuration + Release;
-
-		/// <inheritdoc/>
 		public List<string> HitBoxes => hitBoxes;
-
-		/// <inheritdoc/>
 		public Vector3 Inertia => momentum;
-
-		/// <inheritdoc/>
 		public float ForceDelay => forceDelay;
-
-		/// <inheritdoc/>
 		public string ChargeSpeedMultiplierStat => chargeSpeedMultiplier;
-
-		/// <inheritdoc/>
 		public string PerformSpeedMultiplierStat => performSpeedMultiplier;
-
-		/// <inheritdoc/>
-		public List<ActCombatPair> Combos => combos;
+		public bool Offensive => offensive;
+		public string OffenceStat => offenceStat;
+		public IList<StatCost> PerformCost => performCost;
+		public List<ActCombatPair> FollowUps => followUps;
 
 		#endregion // Properties
 
@@ -74,7 +50,7 @@ namespace SpaxUtils
 		[SerializeField, Tooltip(TT_MAX_CHARGE)] private float maxCharge = 1f;
 		[SerializeField, Tooltip(TT_REQUIRE_MIN_CHARGE)] private bool requireMinCharge;
 
-		[SerializeField, Header("Performing"), Tooltip(TT_MIN_DURATION)] private float minDuration = 0.4f;
+		[SerializeField, Header("Performance"), Tooltip(TT_MIN_DURATION)] private float minDuration = 0.4f;
 		[SerializeField, Range(0f, 1f), Tooltip(TT_CHARGE_FADEOUT)] private float chargeFadeout = 0.3f;
 		[SerializeField, Tooltip(TT_RELEASE)] private float release = 0.5f;
 		[SerializeField, ConstDropdown(typeof(ITransformLookupIdentifiers), showAdress: true)] private List<string> hitBoxes;
@@ -82,10 +58,13 @@ namespace SpaxUtils
 		[SerializeField, Header("Forces")] private Vector3 momentum;
 		[SerializeField] private float forceDelay;
 
-		[SerializeField, Header("Stats"), ConstDropdown(typeof(IStatIdentifierConstants))] private string chargeSpeedMultiplier;
-		[SerializeField, ConstDropdown(typeof(IStatIdentifierConstants))] private string performSpeedMultiplier;
+		[SerializeField, Header("Stats"), ConstDropdown(typeof(IStatIdentifierConstants))] private string chargeSpeedMultiplier = AgentStatIdentifiers.ATTACK_CHARGE_SPEED;
+		[SerializeField, ConstDropdown(typeof(IStatIdentifierConstants))] private string performSpeedMultiplier = AgentStatIdentifiers.ATTACK_PERFORM_SPEED;
+		[SerializeField, HideInInspector] private bool offensive;
+		[SerializeField, Conditional(nameof(offensive), drawToggle: true), ConstDropdown(typeof(IStatIdentifierConstants))] private string offenceStat = AgentStatIdentifiers.OFFENCE;
+		[SerializeField] private List<StatCost> performCost;
 
-		[SerializeField, Header("Combo's")] private List<ActCombatPair> combos;
+		[SerializeField, Header("Follow-Ups")] private List<ActCombatPair> followUps;
 
 		/// <inheritdoc/>
 		public PoseTransition Evaluate(float chargeTime, float performTime, out float weight)

@@ -15,8 +15,6 @@ namespace SpaxUtils
 		public ModMethod ModMethod => modMethod;
 		public Operation Operation => operation;
 
-		private bool Round => scale > 99f;
-
 		[SerializeField, ConstDropdown(typeof(IStatIdentifierConstants))] private string fromStat;
 		[SerializeField, ConstDropdown(typeof(IStatIdentifierConstants))] private string toStat;
 
@@ -41,6 +39,8 @@ namespace SpaxUtils
 
 		[SerializeField] private ModMethod modMethod = ModMethod.Base;
 		[SerializeField] private Operation operation = Operation.Set;
+
+		private bool Round => scale > 1f;
 
 		/// <summary>
 		/// Calculates the mapped value.

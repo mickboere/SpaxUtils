@@ -11,9 +11,9 @@ namespace SpaxUtils
 		public bool HasRigidbody => RigidbodyWrapper != null;
 		public bool HasAnimator => AnimatorWrapper != null && AnimatorWrapper.Animator != null;
 
-		public RigidbodyWrapper RigidbodyWrapper => Pray(ref rigidbodyWrapper);
-		public AnimatorWrapper AnimatorWrapper => Pray(ref animatorWrapper);
-		public SkinnedMeshRenderer ReferenceMesh => Pray(ref referenceSkin);
+		public RigidbodyWrapper RigidbodyWrapper => RefComponentRelative(ref rigidbodyWrapper);
+		public AnimatorWrapper AnimatorWrapper => RefComponentRelative(ref animatorWrapper);
+		public SkinnedMeshRenderer ReferenceMesh => RefComponentRelative(ref referenceSkin);
 		public Transform SkeletonRootBone => skeletonRootBone;
 		public Transform Head => head;
 		public IReadOnlyList<Transform> Skeleton => GetSkeleton();
@@ -63,13 +63,13 @@ namespace SpaxUtils
 
 		private void EnsureAllComponents()
 		{
-			Pray(ref rigidbodyWrapper);
-			Pray(ref animatorWrapper);
-			Pray(ref targetableComponent);
-			Pray(ref referenceSkin);
+			RefComponentRelative(ref rigidbodyWrapper);
+			RefComponentRelative(ref animatorWrapper);
+			RefComponentRelative(ref targetableComponent);
+			RefComponentRelative(ref referenceSkin);
 		}
 
-		private T Pray<T>(ref T component)
+		private T RefComponentRelative<T>(ref T component)
 		{
 			component = gameObject.GetComponentRelative<T>();
 			return component;

@@ -193,6 +193,19 @@ namespace SpaxUtils
 						movementHandler.SetTargetVelocity((closest.Center - rigidbodyWrapper.Position).normalized);
 					}
 
+					// Reduce performance cost(s) from stats.
+					if (combatPerformer.Current.PerformCost.Count > 0)
+					{
+						foreach (StatCost statCost in combatPerformer.Current.PerformCost)
+						{
+							EntityStat stat = entity.GetStat(statCost.Stat);
+							if (stat != null)
+							{
+								stat.BaseValue -= statCost.Cost;
+							}
+						}
+					}
+
 					movementHandler.ForceRotation();
 					momentumTimer = new Timer(combatPerformer.Current.ForceDelay);
 					appliedMomentum = false;

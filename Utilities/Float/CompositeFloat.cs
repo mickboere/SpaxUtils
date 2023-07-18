@@ -4,6 +4,9 @@ using UnityEngine;
 
 namespace SpaxUtils
 {
+	/// <summary>
+	/// Default implementation for <see cref="CompositeFloatBase"/>, taking any float as base modifyable value.
+	/// </summary>
 	[Serializable]
 	public class CompositeFloat : CompositeFloatBase
 	{

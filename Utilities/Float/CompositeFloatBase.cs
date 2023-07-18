@@ -31,6 +31,11 @@ namespace SpaxUtils
 		public abstract float BaseValue { get; set; }
 
 		/// <summary>
+		/// Returns the <see cref="BaseValue"/> but with all "Base" modifiers applied.
+		/// </summary>
+		public float ModdedBaseValue => ModUtil.Modify(BaseValue, modifiers.Values.Where(m => m.Method == ModMethod.Base).ToList());
+
+		/// <summary>
 		/// Returns true if there are any modifiers.
 		/// </summary>
 		public bool HasModifiers { get { return modifiers.Count > 0; } }
@@ -107,11 +112,11 @@ namespace SpaxUtils
 			ValueChanged();
 		}
 
-		public void RemoveModifier(object moddIdentifier)
+		public void RemoveModifier(object modIdentifier)
 		{
-			if (TryGetModifier(moddIdentifier, out IModifier<float> modifier))
+			if (TryGetModifier(modIdentifier, out IModifier<float> modifier))
 			{
-				modifiers.Remove(moddIdentifier);
+				modifiers.Remove(modIdentifier);
 				modifier.ModChangedEvent -= OnModChangedEvent;
 				ValueChanged();
 			}
@@ -149,7 +154,7 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
-		/// Called whenever a change in mods has been detected.
+		/// Called whenever a new modification to either the base value or any of the modifiers has been detected.
 		/// </summary>
 		protected void ValueChanged()
 		{

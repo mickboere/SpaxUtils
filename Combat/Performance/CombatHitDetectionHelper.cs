@@ -5,7 +5,10 @@ using UnityEngine;
 
 namespace SpaxUtils
 {
-	public class HitDetectionHelper : IDisposable
+	/// <summary>
+	/// Helper class for <see cref="CombatPerformanceHelper"/> which tracks a series of colliders to check for hits.
+	/// </summary>
+	public class CombatHitDetectionHelper : IDisposable
 	{
 		public const int DEFAULT_SCANS = 4;
 
@@ -17,7 +20,7 @@ namespace SpaxUtils
 		private List<Collider> colliders = new List<Collider>();
 		private Dictionary<Collider, (Vector3 pos, Quaternion rot)> orientations = new Dictionary<Collider, (Vector3 pos, Quaternion rot)>();
 
-		public HitDetectionHelper(IAgent agent, TransformLookup lookup, ICombatMove move, LayerMask layerMask)
+		public CombatHitDetectionHelper(IAgent agent, TransformLookup lookup, ICombatMove move, LayerMask layerMask)
 		{
 			this.agent = agent;
 			this.layerMask = layerMask;

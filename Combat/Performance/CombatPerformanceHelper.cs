@@ -5,7 +5,8 @@ using UnityEngine;
 namespace SpaxUtils
 {
 	/// <summary>
-	/// <see cref="CombatPerformerComponent"/> performance helper class that supports playing out a single combat move performance.
+	/// Helper class for <see cref="CombatPerformerComponent"/> which performs a single <see cref="ICombatMove"/>.
+	/// Implements <see cref="ICombatPerformer"/>.
 	/// </summary>
 	public class CombatPerformanceHelper : ICombatPerformer, IDisposable
 	{
@@ -41,7 +42,7 @@ namespace SpaxUtils
 		private Action<List<HitScanHitData>> onNewHitDetected;
 		private LayerMask layerMask;
 
-		private HitDetectionHelper hitDetectionHelper;
+		private CombatHitDetectionHelper hitDetectionHelper;
 
 		public CombatPerformanceHelper(
 			ICombatMove move, IAgent agent, EntityStat entityTimeScale,
@@ -122,7 +123,7 @@ namespace SpaxUtils
 				{
 					// Finished charging.
 					State = State.UnsetFlag(CombatPerformanceState.Charging);
-					hitDetectionHelper = new HitDetectionHelper(agent, transformLookup, Current, layerMask);
+					hitDetectionHelper = new CombatHitDetectionHelper(agent, transformLookup, Current, layerMask);
 				}
 			}
 

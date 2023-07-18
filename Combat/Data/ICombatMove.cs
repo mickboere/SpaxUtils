@@ -78,9 +78,24 @@ namespace SpaxUtils
 		string PerformSpeedMultiplierStat { get; }
 
 		/// <summary>
+		/// Whether this move is offensive and can damage other entities.
+		/// </summary>
+		bool Offensive { get; }
+
+		/// <summary>
+		/// Stat identifier for the damage calculation.
+		/// </summary>
+		string OffenceStat { get; }
+
+		/// <summary>
+		/// The cost to entity stat(s) for performing this move.
+		/// </summary>
+		IList<StatCost> PerformCost { get; }
+
+		/// <summary>
 		/// The follow-up moves available during the release of this move.
 		/// </summary>
-		List<ActCombatPair> Combos { get; }
+		List<ActCombatPair> FollowUps { get; }
 
 		/// <summary>
 		/// Evaluates the combat move at <paramref name="chargeTime"/> seconds of charge and <paramref name="performTime"/> seconds of performance.

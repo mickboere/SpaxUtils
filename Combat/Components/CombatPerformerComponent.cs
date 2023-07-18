@@ -69,8 +69,6 @@ namespace SpaxUtils
 		[SerializeField, Header("Hit Detection")] private LayerMask hitDetectionMask;
 		[SerializeField] private float hitPause = 0.15f;
 		[SerializeField] private AnimationCurve hitPauseCurve;
-		[SerializeField, Header("Stats"), ConstDropdown(typeof(IStatIdentifierConstants))] private string energyStat;
-		[SerializeField, ConstDropdown(typeof(IStatIdentifierConstants))] private string offenceStat;
 
 		private IAgent agent;
 		private CallbackService callbackService;
@@ -80,9 +78,7 @@ namespace SpaxUtils
 		private Dictionary<string, Dictionary<ICombatMove, int>> moves = new Dictionary<string, Dictionary<ICombatMove, int>>();
 		private CombatPerformanceHelper performance;
 		private TimedCurveModifier timeMod;
-
-		private EntityStat energy;
-		private EntityStat offence;
+		private bool wasPerforming;
 
 		public void InjectDependencies(IAgent agent, CallbackService callbackService,
 			TransformLookup transformLookup, RigidbodyWrapper rigidbodyWrapper)
@@ -99,9 +95,6 @@ namespace SpaxUtils
 			AddCombatMove(ActorActs.LIGHT, unarmedLight, -1);
 			AddCombatMove(ActorActs.HEAVY, unarmedHeavy, -1);
 			AddCombatMove(ActorActs.BLOCK, unarmedBlock, -1);
-
-			energy = agent.GetStat(energyStat, true);
-			offence = agent.GetStat(offenceStat, true);
 		}
 
 		protected void OnDisable()
@@ -126,6 +119,7 @@ namespace SpaxUtils
 				performance.PerformanceUpdateEvent += OnPerformanceUpdateEvent;
 				performance.PerformanceCompletedEvent += OnPerformanceCompletedEvent;
 				finalPerformer = performance;
+				wasPerforming = false;
 				return true;
 			}
 
@@ -174,7 +168,7 @@ namespace SpaxUtils
 			// Check for possible combo / follow up move.
 			if (Current != null && Finishing && !Completed)
 			{
-				foreach (ActCombatPair combo in Current.Combos)
+				foreach (ActCombatPair combo in Current.FollowUps)
 				{
 					if (combo.Act == act)
 					{
@@ -214,7 +208,7 @@ namespace SpaxUtils
 
 		private void OnNewHitDetected(List<HitScanHitData> newHits)
 		{
-			// TODO: Have hit pause duration depend on factors like weapon attack power, sharpness and hit surface hardness.
+			// TODO: Have hit pause duration depend on penetration % (factoring in power, sharpness, hardness.)
 			timeMod = new TimedCurveModifier(ModMethod.Absolute, hitPauseCurve, new Timer(hitPause), callbackService);
 
 			bool successfulHit = false;
@@ -239,10 +233,14 @@ namespace SpaxUtils
 						new Dictionary<string, float>()
 					);
 
-					// Add damages.
-					EntityStat defence = hittable.Entity.GetStat(AgentStatIdentifiers.DEFENCE);
-					float damage = SpaxFormulas.GetDamage(offence, defence ?? 1f);
-					hitData.Damages.Add(AgentStatIdentifiers.HEALTH, damage);
+					// If move is offensive, add default HEALTH damage to HitData.
+					if (performance.Current.Offensive &&
+						agent.TryGetStat(performance.Current.OffenceStat, out EntityStat offence) &&
+						hittable.Entity.TryGetStat(AgentStatIdentifiers.DEFENCE, out EntityStat defence))
+					{
+						float damage = SpaxFormulas.GetDamage(offence, defence);
+						hitData.Damages.Add(AgentStatIdentifiers.HEALTH, damage);
+					}
 
 					// Invoke hit event to allow adding of additional damage.
 					HitEvent?.Invoke(hitData);
