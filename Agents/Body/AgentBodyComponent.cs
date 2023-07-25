@@ -9,10 +9,12 @@ namespace SpaxUtils
 		public float Scale => scale;
 
 		public bool HasRigidbody => RigidbodyWrapper != null;
-		public bool HasAnimator => AnimatorWrapper != null && AnimatorWrapper.Animator != null;
-
 		public RigidbodyWrapper RigidbodyWrapper => RefComponentRelative(ref rigidbodyWrapper);
+		public float DefaultMass => defaultMass;
+
+		public bool HasAnimator => AnimatorWrapper != null && AnimatorWrapper.Animator != null;
 		public AnimatorWrapper AnimatorWrapper => RefComponentRelative(ref animatorWrapper);
+
 		public SkinnedMeshRenderer ReferenceMesh => RefComponentRelative(ref referenceSkin);
 		public Transform SkeletonRootBone => skeletonRootBone;
 		public Transform Head => head;
@@ -21,6 +23,7 @@ namespace SpaxUtils
 
 		[SerializeField] private float scale = 1f;
 		[SerializeField] private RigidbodyWrapper rigidbodyWrapper;
+		[SerializeField] private float defaultMass;
 		[SerializeField] private AnimatorWrapper animatorWrapper;
 		[SerializeField] private Transform skeletonRootBone;
 		[SerializeField] private Transform head;

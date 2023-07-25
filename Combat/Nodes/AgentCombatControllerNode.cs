@@ -269,13 +269,13 @@ namespace SpaxUtils
 			if (data.Slot.ID == HumanBoneIdentifiers.LEFT_HAND)
 			{
 				leftEquip = data;
-				leftComp = leftEquip.EquipedVisual.GetComponent<ArmedEquipmentComponent>();
+				leftComp = leftEquip.EquipedInstance.GetComponent<ArmedEquipmentComponent>();
 			}
 
 			if (data.Slot.ID == HumanBoneIdentifiers.RIGHT_HAND)
 			{
 				rightEquip = data;
-				rightComp = rightEquip.EquipedVisual.GetComponent<ArmedEquipmentComponent>();
+				rightComp = rightEquip.EquipedInstance.GetComponent<ArmedEquipmentComponent>();
 			}
 		}
 

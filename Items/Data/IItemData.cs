@@ -45,8 +45,8 @@ namespace SpaxUtils
 		IReadOnlyList<BehaviorAsset> InventoryBehaviour { get; }
 
 		/// <summary>
-		/// The stats of this item.
+		/// The (float) stats of this item.
 		/// </summary>
-		IReadOnlyList<LabeledFloatData> Stats { get; }
+		IReadOnlyList<LabeledFloatData> FloatStats { get; }
 	}
 }

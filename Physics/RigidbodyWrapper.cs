@@ -107,6 +107,7 @@ namespace SpaxUtils
 		[SerializeField] private int accelerationSmoothing = 3;
 
 		private EntityStat timeScale;
+		private StatSubscription massStatSub;
 
 		private Vector3 lastVelocity;
 		private SmoothVector3 velocityDelta;
@@ -116,7 +117,16 @@ namespace SpaxUtils
 			if (entity != null)
 			{
 				timeScale = entity.GetStat(EntityStatIdentifier.TIMESCALE, true, 1f);
+				if (entity.TryGetStat(EntityStatIdentifier.MASS, out EntityStat massStat))
+				{
+					massStatSub = new StatSubscription(massStat, (entityMassStat) => Mass = entityMassStat);
+				}
 			}
+		}
+
+		protected void OnDestroy()
+		{
+			massStatSub?.Dispose();
 		}
 
 		protected void Reset()

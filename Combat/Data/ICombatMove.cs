@@ -78,6 +78,11 @@ namespace SpaxUtils
 		string PerformSpeedMultiplierStat { get; }
 
 		/// <summary>
+		/// Stat identifier for the amount of force applied upon a succesful hit.
+		/// </summary>
+		string StrengthStat { get; }
+
+		/// <summary>
 		/// Whether this move is offensive and can damage other entities.
 		/// </summary>
 		bool Offensive { get; }
@@ -86,6 +91,11 @@ namespace SpaxUtils
 		/// Stat identifier for the damage calculation.
 		/// </summary>
 		string OffenceStat { get; }
+
+		/// <summary>
+		/// Multiplier value for the offence stat.
+		/// </summary>
+		float Offensiveness { get; }
 
 		/// <summary>
 		/// The cost to entity stat(s) for performing this move.

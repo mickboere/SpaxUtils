@@ -24,8 +24,10 @@ namespace SpaxUtils
 		public float ForceDelay => forceDelay;
 		public string ChargeSpeedMultiplierStat => chargeSpeedMultiplier;
 		public string PerformSpeedMultiplierStat => performSpeedMultiplier;
+		public string StrengthStat => strengthStat;
 		public bool Offensive => offensive;
 		public string OffenceStat => offenceStat;
+		public float Offensiveness => offensiveness;
 		public IList<StatCost> PerformCost => performCost;
 		public List<ActCombatPair> FollowUps => followUps;
 
@@ -60,8 +62,10 @@ namespace SpaxUtils
 
 		[SerializeField, Header("Stats"), ConstDropdown(typeof(IStatIdentifierConstants))] private string chargeSpeedMultiplier = AgentStatIdentifiers.ATTACK_CHARGE_SPEED;
 		[SerializeField, ConstDropdown(typeof(IStatIdentifierConstants))] private string performSpeedMultiplier = AgentStatIdentifiers.ATTACK_PERFORM_SPEED;
+		[SerializeField, ConstDropdown(typeof(IStatIdentifierConstants)), Tooltip("Influences force applied to target.")] private string strengthStat = AgentStatIdentifiers.STRENGTH;
 		[SerializeField, HideInInspector] private bool offensive;
 		[SerializeField, Conditional(nameof(offensive), drawToggle: true), ConstDropdown(typeof(IStatIdentifierConstants))] private string offenceStat = AgentStatIdentifiers.OFFENCE;
+		[SerializeField, Conditional(nameof(offensive)), Range(0f, 2f)] private float offensiveness = 1f;
 		[SerializeField] private List<StatCost> performCost;
 
 		[SerializeField, Header("Follow-Ups")] private List<ActCombatPair> followUps;

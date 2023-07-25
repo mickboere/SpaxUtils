@@ -15,8 +15,8 @@ namespace SpaxUtils
 		public ModMethod ModMethod => modMethod;
 		public Operation Operation => operation;
 
-		[SerializeField, ConstDropdown(typeof(IStatIdentifierConstants))] private string fromStat;
-		[SerializeField, ConstDropdown(typeof(IStatIdentifierConstants))] private string toStat;
+		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifierConstants))] private string fromStat;
+		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifierConstants))] private string toStat;
 
 		[SerializeField] private FormulaType formula;
 

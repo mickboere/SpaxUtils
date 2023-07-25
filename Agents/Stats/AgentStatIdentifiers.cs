@@ -86,7 +86,7 @@
 		public const string ENDURANCE_RECOVERY = BODY_STAT + "Endurance_Recovery";
 		public const string ENDURANCE_RECOVERY_DELAY = BODY_STAT + "Endurance_Recovery_Delay";
 
-		public const string MASS = BODY_STAT + "Mass";
+		public const string LOAD = BODY_STAT + "Load"; // Total equip load
 		public const string DEFENCE = BODY_STAT + "Defence";
 
 		// Daeth

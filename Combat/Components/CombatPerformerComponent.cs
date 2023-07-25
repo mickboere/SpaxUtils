@@ -78,7 +78,6 @@ namespace SpaxUtils
 		private Dictionary<string, Dictionary<ICombatMove, int>> moves = new Dictionary<string, Dictionary<ICombatMove, int>>();
 		private CombatPerformanceHelper performance;
 		private TimedCurveModifier timeMod;
-		private bool wasPerforming;
 
 		public void InjectDependencies(IAgent agent, CallbackService callbackService,
 			TransformLookup transformLookup, RigidbodyWrapper rigidbodyWrapper)
@@ -119,7 +118,6 @@ namespace SpaxUtils
 				performance.PerformanceUpdateEvent += OnPerformanceUpdateEvent;
 				performance.PerformanceCompletedEvent += OnPerformanceCompletedEvent;
 				finalPerformer = performance;
-				wasPerforming = false;
 				return true;
 			}
 
@@ -218,10 +216,19 @@ namespace SpaxUtils
 				{
 					Vector3 inertia = Current.Inertia.Look((hittable.Entity.Transform.position - Entity.Transform.position).FlattenY());
 
-					float weaponWeight = 5f;
-					float force = rigidbodyWrapper.Mass + weaponWeight; // TODO: Load from stats and calculate accordingly.
+					// Calculate attack force.
+					float strength = 0f;
+					if (agent.TryGetStat(performance.Current.StrengthStat, out EntityStat strengthStat))
+					{
+						strength = strengthStat;
+					}
 
-					// TODO: Apply appropriate knockback / counter force to attacker.
+					float weight = 0f;
+
+
+					float force = rigidbodyWrapper.Mass + strength + weight;
+
+					// TODO: Apply knockback to attacker.
 
 					// Generate hit-data for hittable.
 					HitData hitData = new HitData(
@@ -238,7 +245,7 @@ namespace SpaxUtils
 						agent.TryGetStat(performance.Current.OffenceStat, out EntityStat offence) &&
 						hittable.Entity.TryGetStat(AgentStatIdentifiers.DEFENCE, out EntityStat defence))
 					{
-						float damage = SpaxFormulas.GetDamage(offence, defence);
+						float damage = SpaxFormulas.GetDamage(offence, defence) * performance.Current.Offensiveness;
 						hitData.Damages.Add(AgentStatIdentifiers.HEALTH, damage);
 					}
 

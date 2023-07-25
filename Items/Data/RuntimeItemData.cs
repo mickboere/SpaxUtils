@@ -39,28 +39,36 @@ namespace SpaxUtils
 		}
 
 		/// <inheritdoc/>
-		public bool TryGetStat(string identifier, out float value, float defaultIfNull = 0f)
+		public bool TryGetData(string identifier, out RuntimeDataEntry data)
 		{
-			if (RuntimeData.ContainsEntry(identifier))
+			if (!RuntimeData.ContainsEntry(identifier))
 			{
-				value = RuntimeData.Get<float>(identifier);
-				return true;
-			}
-			else if (ItemData.Stats.Any(s => s.ID == identifier))
-			{
-				value = ItemData.Stats.First(s => s.ID == identifier).FloatValue;
-				return true;
+				LabeledFloatData floatData = ItemData.FloatStats.FirstOrDefault(s => s.ID == identifier);
+				if (floatData == null)
+				{
+					data = null;
+					return false;
+				}
+
+				data = new RuntimeDataEntry(floatData);
+				return RuntimeData.TryAdd(data);
 			}
 
-			value = defaultIfNull;
-			return false;
+			data = RuntimeData.GetEntry(identifier);
+			return true;
 		}
 
 		/// <inheritdoc/>
-		public float GetStat(string identifier, float defaultIfNull = 0f)
+		public bool TryGetStat(string identifier, out float value)
 		{
-			TryGetStat(identifier, out float value, defaultIfNull);
-			return value;
+			if (TryGetData(identifier, out RuntimeDataEntry data))
+			{
+				value = (float)data.Value;
+				return true;
+			}
+
+			value = 0f;
+			return false;
 		}
 
 		/// <summary>

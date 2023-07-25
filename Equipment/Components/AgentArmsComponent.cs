@@ -19,8 +19,8 @@ namespace SpaxUtils
 		public bool Sheathed { get; private set; }
 		public RuntimeEquipedData LeftEquip => leftEquip;
 		public RuntimeEquipedData RightEquip => rightEquip;
-		public GameObject LeftVisual => LeftEquip == null ? null : LeftEquip.EquipedVisual;
-		public GameObject RightVisual => RightEquip == null ? null : RightEquip.EquipedVisual;
+		public GameObject LeftVisual => LeftEquip == null ? null : LeftEquip.EquipedInstance;
+		public GameObject RightVisual => RightEquip == null ? null : RightEquip.EquipedInstance;
 
 		protected TransformLookup SafeLookup
 		{
@@ -150,13 +150,13 @@ namespace SpaxUtils
 		/// <param name="sheathe">TRUE will sheathe the arms, FALSE will unsheathe the arms.</param>
 		public void SheatheArms(bool sheathe)
 		{
-			if (leftEquip != null && leftEquip.EquipedVisual != null)
+			if (leftEquip != null && leftEquip.EquipedInstance != null)
 			{
-				SetParentAndOrientation(leftEquip.EquipedVisual.transform, true, sheathe);
+				SetParentAndOrientation(leftEquip.EquipedInstance.transform, true, sheathe);
 			}
-			if (rightEquip != null && rightEquip.EquipedVisual != null)
+			if (rightEquip != null && rightEquip.EquipedInstance != null)
 			{
-				SetParentAndOrientation(rightEquip.EquipedVisual.transform, false, sheathe);
+				SetParentAndOrientation(rightEquip.EquipedInstance.transform, false, sheathe);
 			}
 
 			Sheathed = sheathe;
@@ -227,9 +227,9 @@ namespace SpaxUtils
 		private void OnEquip(bool isLeft, RuntimeEquipedData data)
 		{
 			// Parent and position.
-			if (data.EquipedVisual != null)
+			if (data.EquipedInstance != null)
 			{
-				SetParentAndOrientation(data.EquipedVisual.transform, isLeft, Sheathed);
+				SetParentAndOrientation(data.EquipedInstance.transform, isLeft, Sheathed);
 			}
 
 			// Create helper.

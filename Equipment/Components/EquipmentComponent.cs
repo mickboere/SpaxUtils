@@ -213,7 +213,7 @@ namespace SpaxUtils
 				}
 
 				// Execute equipment behaviour.
-				equipedData.ExecuteBehaviour();
+				equipedData.InitializeBehaviour();
 
 				// Occupy the slot, apply data and invoke equiped event.
 				equipedItems[slot.ID] = equipedData;
@@ -237,11 +237,11 @@ namespace SpaxUtils
 				// Stop all running equiped behaviour.
 				equipedData.StopBehaviour();
 
-				if (equipedData.EquipedVisual != null)
+				if (equipedData.EquipedInstance != null)
 				{
 					// Destroy the equiped object.
-					sharedRigHandler.Remove(equipedData.EquipedVisual);
-					Destroy(equipedData.EquipedVisual);
+					sharedRigHandler.Remove(equipedData.EquipedInstance);
+					Destroy(equipedData.EquipedInstance);
 				}
 
 				// Clear equiped slot, apply data and invoke unequiping event.

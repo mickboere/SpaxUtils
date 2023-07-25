@@ -9,6 +9,7 @@ namespace SpaxUtils
 
 		// Equipment stats
 		private const string EQUIPMENT = ITEMS + "EQUIPMENT/";
+
 		public const string MASS = EQUIPMENT + "Mass";
 		public const string HARDNESS = EQUIPMENT + "Hardness";
 		public const string SHARPNESS = EQUIPMENT + "Sharpness";

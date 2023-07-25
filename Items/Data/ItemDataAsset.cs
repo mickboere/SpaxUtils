@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace SpaxUtils
 {
@@ -32,7 +33,7 @@ namespace SpaxUtils
 		public IReadOnlyList<BehaviorAsset> InventoryBehaviour => inventoryBehaviour;
 
 		/// <inheritdoc/>
-		public IReadOnlyList<LabeledFloatData> Stats => stats;
+		public IReadOnlyList<LabeledFloatData> FloatStats => itemStats;
 
 		[Header("Item Data")]
 		[SerializeField] private string id;
@@ -43,7 +44,7 @@ namespace SpaxUtils
 		[SerializeField] private Sprite icon;
 		[SerializeField] private GameObject worldItemPrefab;
 		[SerializeField, Expandable] private List<BehaviorAsset> inventoryBehaviour;
-		[SerializeField] private List<LabeledFloatData> stats;
+		[SerializeField, FormerlySerializedAs("stats")] private List<LabeledFloatData> itemStats;
 
 		public override string ToString()
 		{

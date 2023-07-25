@@ -16,19 +16,16 @@
 		RuntimeDataCollection RuntimeData { get; }
 
 		/// <summary>
-		/// Returns whether there is a stored value for stat data with id <paramref name="identifier"/>.
-		/// <see cref="RuntimeData"/> overrides <see cref="IItemData.Stats"/>.
+		/// Returns whether there is any runtime data stored for <paramref name="identifier"/>.
+		/// If data doesn't exist yet, a new entry will attempt to be added from <see cref="IItemData.FloatStats"/>.
 		/// </summary>
 		/// <param name="identifier">The identifier of the stat data to retrieve the value from.</param>
 		/// <returns>TRUE if success, FALSE is not. OUT: Value for stat data with id <paramref name="identifier"/>.</returns>
-		bool TryGetStat(string identifier, out float value, float defaultIfNull = 0f);
+		bool TryGetData(string identifier, out RuntimeDataEntry data);
 
 		/// <summary>
-		/// Returns value for stat data with id <paramref name="identifier"/>.
-		/// <see cref="RuntimeData"/> overrides <see cref="IItemData.Stats"/>.
+		/// Wraps around <see cref="TryGetData(string, out RuntimeDataEntry)"/>, returning the data value as a float.
 		/// </summary>
-		/// <param name="identifier">The identifier of the stat data to retrieve the value from.</param>
-		/// <returns>Value for stat data with id <paramref name="identifier"/>, <paramref name="defaultIfNull"/> if null.</returns>
-		float GetStat(string identifier, float defaultIfNull = 0f);
+		bool TryGetStat(string identifier, out float value);
 	}
 }

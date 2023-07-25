@@ -20,6 +20,11 @@ namespace SpaxUtils
 
 		protected void Awake()
 		{
+			if (agent.Body.HasRigidbody && agent.TryGetStat(EntityStatIdentifier.MASS, out EntityStat mass))
+			{
+				mass.BaseValue = agent.Body.DefaultMass;
+			}
+
 			// Initialize stat pairs.
 			foreach (MultiStat pair in multiStats)
 			{
@@ -30,7 +35,7 @@ namespace SpaxUtils
 		protected void Start()
 		{
 			// TODO: PLACEHOLDER! Recover must only be called upon respawning - not upon reloading.
-			Recover();
+			RecoverAll();
 		}
 
 		protected void Update()
@@ -45,7 +50,7 @@ namespace SpaxUtils
 		/// <summary>
 		/// Recovers all multistats.
 		/// </summary>
-		public void Recover()
+		public void RecoverAll()
 		{
 			foreach (MultiStat pair in multiStats)
 			{

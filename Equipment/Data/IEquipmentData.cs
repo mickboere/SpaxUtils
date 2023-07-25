@@ -13,7 +13,6 @@ namespace SpaxUtils
 		/// </summary>
 		GameObject EquipedPrefab { get; }
 
-
 		/// <summary>
 		/// The type of slot this equipment is able to be equiped in.
 		/// </summary>
@@ -28,5 +27,10 @@ namespace SpaxUtils
 		/// The behaviors to execute when this equipment is equiped.
 		/// </summary>
 		IReadOnlyList<BehaviorAsset> EquipedBehaviour { get; }
+
+		/// <summary>
+		/// <see cref="StatMappingSheet"/>s which map <see cref="IItemData.FloatStats"/> to the entity upon equiping.
+		/// </summary>
+		IReadOnlyList<StatMappingSheet> EquipedStatMappings { get; }
 	}
 }

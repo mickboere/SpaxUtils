@@ -28,7 +28,7 @@ namespace SpaxUtils
 		/// <summary>
 		/// The instantiated visual belonging to this equipment.
 		/// </summary>
-		public GameObject EquipedVisual { get; private set; }
+		public GameObject EquipedInstance { get; private set; }
 
 		/// <summary>
 		/// The see <see cref="IEquipmentData"/> (<see cref="IItemData"/>) of this equipment.
@@ -40,20 +40,35 @@ namespace SpaxUtils
 		/// </summary>
 		public IDependencyManager DependencyManager { get; private set; }
 
+		private List<DataStatMappingModifier> statModifiers = new List<DataStatMappingModifier>();
 		private List<BehaviorAsset> behaviors = new List<BehaviorAsset>();
 
-		public RuntimeEquipedData(RuntimeItemData runtimeItemData, IEquipmentSlot slot, IDependencyManager dependencyManager, GameObject equipedVisual = null)
+		public RuntimeEquipedData(RuntimeItemData runtimeItemData, IEquipmentSlot slot, IDependencyManager dependencyManager, GameObject equipedInstance = null)
 		{
 			RuntimeItemData = runtimeItemData;
 			Slot = slot;
 			DependencyManager = dependencyManager;
-			EquipedVisual = equipedVisual;
+			EquipedInstance = equipedInstance;
+
+			AddStatMappings();
+		}
+
+		public void Dispose()
+		{
+			foreach (DataStatMappingModifier mod in statModifiers)
+			{
+				mod.Dispose();
+			}
+			foreach (BehaviorAsset behaviour in behaviors)
+			{
+				behaviour.Destroy();
+			}
 		}
 
 		/// <summary>
 		/// Starts all equiped behaviours defined in the equipment data.
 		/// </summary>
-		public void ExecuteBehaviour()
+		public void InitializeBehaviour()
 		{
 			foreach (BehaviorAsset behaviour in EquipmentData.EquipedBehaviour)
 			{
@@ -75,15 +90,41 @@ namespace SpaxUtils
 			}
 		}
 
-		/// <summary>
-		/// Destroys all running equipment behaviour.
-		/// </summary>
-		public void Dispose()
+		private void AddStatMappings()
 		{
-			foreach (BehaviorAsset behaviour in behaviors)
+			Agent agent = DependencyManager.Get<Agent>(true, false);
+
+			foreach (StatMappingSheet statMappingSheet in EquipmentData.EquipedStatMappings)
 			{
-				behaviour.Destroy();
+				foreach (StatMapping mapping in statMappingSheet.Mappings)
+				{
+					// Retrieve target stat to add mapping modifier to.
+					EntityStat toStat = agent.GetStat(mapping.ToStat, true);
+					// Generate unique mod identifier for this equipment in case multiple items utilize the same mapping.
+					string identifier = GetModID(mapping.FromStat);
+
+					if (!toStat.HasModifier(identifier))
+					{
+						if (RuntimeItemData.TryGetData(mapping.FromStat, out RuntimeDataEntry fromData))
+						{
+							DataStatMappingModifier mod = new DataStatMappingModifier(mapping, fromData);
+							statModifiers.Add(mod);
+							toStat.AddModifier(identifier, mod);
+						}
+						// The "from" data could not be found in item data.
+						// No need to log since the StatMappingSheet can include mappings not relevant to this item.
+					}
+					else
+					{
+						SpaxDebug.Error($"Stat '{mapping.ToStat}' already contains a mapping from '{identifier}'.", "Mapping was not added.");
+					}
+				}
 			}
+		}
+
+		private string GetModID(string itemStat)
+		{
+			return $"{ItemData.ID}_{itemStat}";
 		}
 	}
 }

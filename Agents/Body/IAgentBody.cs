@@ -11,12 +11,16 @@ namespace SpaxUtils
 		float Scale { get; }
 
 		bool HasRigidbody { get; }
-		bool HasAnimator { get; }
 		RigidbodyWrapper RigidbodyWrapper { get; }
+		float DefaultMass { get; }
+
+		bool HasAnimator { get; }
 		AnimatorWrapper AnimatorWrapper { get; }
+
 		SkinnedMeshRenderer ReferenceMesh { get; }
 		Transform SkeletonRootBone { get; }
 		IReadOnlyList<Transform> Skeleton { get; }
+
 		Vector3 Center { get; }
 	}
 }
