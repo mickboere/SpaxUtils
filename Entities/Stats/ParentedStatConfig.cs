@@ -1,11 +1,12 @@
-﻿using UnityEngine;
+﻿using System.Collections.Generic;
+using UnityEngine;
 
 namespace SpaxUtils
 {
 	/// <summary>
 	/// <see cref="IStatConfiguration"/> struct implementation used for linking parent stat data for easy access.
 	/// </summary>
-	public struct StatConfigStruct : IStatConfiguration
+	public struct ParentedStatConfig : IStatConfiguration
 	{
 		public string Identifier => config.Identifier;
 		public float DefaultValue => config.DefaultValue;
@@ -27,10 +28,13 @@ namespace SpaxUtils
 		public Color Color => CopyParent ? parent.Color : config.Color;
 		public Sprite Icon => CopyParent ? parent.Icon : config.Icon;
 
+		public bool HasSubStats => config.HasSubStats;
+		public List<ISubStatConfiguration> SubStats => config.SubStats;
+
 		private IStatConfiguration config;
 		private IStatConfiguration parent;
 
-		public StatConfigStruct(IStatConfiguration config, IStatConfiguration parent)
+		public ParentedStatConfig(IStatConfiguration config, IStatConfiguration parent)
 		{
 			this.config = config;
 			this.parent = parent;

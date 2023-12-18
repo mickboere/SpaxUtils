@@ -5,11 +5,11 @@ using UnityEngine;
 namespace SpaxUtils
 {
 	/// <summary>
-	/// Component handling all drainable stats like health and energy using <see cref="MultiStat"/>s.
+	/// Component handling all drainable stats like health and energy using <see cref="PointsStat"/>s.
 	/// </summary>
 	public class AgentStatHandler : EntityComponentBase
 	{
-		[SerializeField] private List<MultiStat> multiStats;
+		[SerializeField] private List<PointsStat> multiStats;
 
 		private IAgent agent;
 
@@ -26,7 +26,7 @@ namespace SpaxUtils
 			}
 
 			// Initialize stat pairs.
-			foreach (MultiStat pair in multiStats)
+			foreach (PointsStat pair in multiStats)
 			{
 				pair.Initialize(agent);
 			}
@@ -41,7 +41,8 @@ namespace SpaxUtils
 		protected void Update()
 		{
 			// Update state pairs to initiate recovery.
-			foreach (MultiStat pair in multiStats)
+			// TODO: MUST BE DONE THROUGH BRAIN NODE TO PREVENT RECOVERY DURING DEATH.
+			foreach (PointsStat pair in multiStats)
 			{
 				pair.Update(Time.deltaTime * EntityTimeScale);
 			}
@@ -52,7 +53,7 @@ namespace SpaxUtils
 		/// </summary>
 		public void RecoverAll()
 		{
-			foreach (MultiStat pair in multiStats)
+			foreach (PointsStat pair in multiStats)
 			{
 				pair.Recover();
 			}

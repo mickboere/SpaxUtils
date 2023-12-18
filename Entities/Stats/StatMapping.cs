@@ -11,12 +11,14 @@ namespace SpaxUtils
 	public class StatMapping
 	{
 		public string FromStat => fromStat;
-		public string ToStat => toStat;
+		public string ToStat => toSubStat ? toStat.SubStat(subStat) : toStat;
 		public ModMethod ModMethod => modMethod;
 		public Operation Operation => operation;
 
 		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifierConstants))] private string fromStat;
 		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifierConstants))] private string toStat;
+		[SerializeField, HideInInspector] private bool toSubStat;
+		[SerializeField, Conditional(nameof(toSubStat), drawToggle: true), ConstDropdown(typeof(ILabeledDataIdentifierConstants))] private string subStat;
 
 		[SerializeField] private FormulaType formula;
 

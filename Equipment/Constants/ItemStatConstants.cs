@@ -7,11 +7,12 @@ namespace SpaxUtils
 	{
 		private const string ITEMS = "ITEMS/";
 
-		// Equipment stats
+		// < Equipment >
 		private const string EQUIPMENT = ITEMS + "EQUIPMENT/";
 
-		public const string MASS = EQUIPMENT + "Mass";
-		public const string HARDNESS = EQUIPMENT + "Hardness";
-		public const string SHARPNESS = EQUIPMENT + "Sharpness";
+		public const string MASS = EQUIPMENT + "Mass"; // Decides impact force and required strength.
+		public const string DEFENCE = EQUIPMENT + "Defence"; // Defensive power added to Body/Defence.
+
+		public const string OFFENCE = EQUIPMENT + "Offence"; // Raw offensive power added to Body/Offence.
 	}
 }

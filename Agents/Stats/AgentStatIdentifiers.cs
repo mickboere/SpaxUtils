@@ -80,13 +80,9 @@
 
 		// Earth
 		public const string ENDURANCE = BODY_STAT + "Endurance";
-		public const string ENDURANCE_MAX = BODY_STAT + "Endurance_Max";
-		public const string ENDURANCE_RECOVERABLE = BODY_STAT + "Endurance_Recoverable";
-		public const string ENDURANCE_FRAILTY = BODY_STAT + "Endurance_Frailty";
-		public const string ENDURANCE_RECOVERY = BODY_STAT + "Endurance_Recovery";
-		public const string ENDURANCE_RECOVERY_DELAY = BODY_STAT + "Endurance_Recovery_Delay";
 
 		public const string LOAD = BODY_STAT + "Load"; // Total equip load
+
 		public const string DEFENCE = BODY_STAT + "Defence";
 
 		// Daeth
@@ -94,11 +90,6 @@
 
 		// Fire
 		public const string ENERGY = BODY_STAT + "Energy";
-		public const string ENERGY_MAX = BODY_STAT + "Energy_Max";
-		public const string ENERGY_RECOVERABLE = BODY_STAT + "Energy_Recoverable";
-		public const string ENERGY_FRAILTY = BODY_STAT + "Energy_Frailty";
-		public const string ENERGY_RECOVERY = BODY_STAT + "Energy_Recovery";
-		public const string ENERGY_RECOVERY_DELAY = BODY_STAT + "Energy_Recovery_Delay";
 
 		public const string STRENGTH = BODY_STAT + "Strength";
 
@@ -115,19 +106,9 @@
 
 		// Water
 		public const string MANA = BODY_STAT + "Mana";
-		public const string MANA_MAX = BODY_STAT + "Mana_Max";
-		public const string MANA_RECOVERABLE = BODY_STAT + "Mana_Recoverable";
-		public const string MANA_FRAILTY = BODY_STAT + "Mana_Frailty";
-		public const string MANA_RECOVERY = BODY_STAT + "Mana_Recovery";
-		public const string MANA_RECOVERY_DELAY = BODY_STAT + "Mana_Recovery_Delay";
 
 		// Growth
 		public const string HEALTH = BODY_STAT + "Health";
-		public const string HEALTH_MAX = BODY_STAT + "Health_Max";
-		public const string HEALTH_RECOVERABLE = BODY_STAT + "Health_Recoverable";
-		public const string HEALTH_FRAILTY = BODY_STAT + "Health_Frailty";
-		public const string HEALTH_RECOVERY = BODY_STAT + "Health_Recovery";
-		public const string HEALTH_RECOVERY_DELAY = BODY_STAT + "Health_Recovery_Delay";
 
 		public const string RECOVERY = BODY_STAT + "Recovery";
 		public const string RECOVERY_DELAY = BODY_STAT + "Recovery_Delay";
@@ -135,5 +116,21 @@
 
 		// Soul Stats
 		//private const string SOUL_STAT = IStatIdentifierConstants.STATS + "SOUL/";
+
+		#region Sub Stats
+
+		/// <summary>
+		/// <see cref="StringExtensions.SubStat(string, string)"/>.
+		/// </summary>
+		public const string SUB_STAT = IStatIdentifierConstants.STATS + "Sub/";
+
+		public const string SUB_MAX = SUB_STAT + "Max";
+		public const string SUB_RECOVERABLE = SUB_STAT + "Recoverable";
+		public const string SUB_FRAILTY = SUB_STAT + "Frailty";
+		public const string SUB_RECOVERY = SUB_STAT + "Recovery";
+		public const string SUB_RECOVERY_DELAY = SUB_STAT + "Recovery_Delay";
+		public const string SUB_COST = SUB_STAT + "Cost";
+
+		#endregion Sub Stats
 	}
 }

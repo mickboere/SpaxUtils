@@ -17,18 +17,98 @@ namespace SpaxUtils
 
 		public StatLibraryService()
 		{
-			LoadConfigurations();
+			Initialize();
 		}
 
-		private void LoadConfigurations()
+		private void Initialize()
 		{
+			// Load all configurations from resources into one giant dictionary.
 			sheets = Resources.LoadAll<StatConfigurationSheet>(PATH);
+			Dictionary<string, StatConfiguration> masterList = new Dictionary<string, StatConfiguration>();
+			foreach (StatConfigurationSheet sheet in sheets)
+			{
+				foreach (StatConfiguration config in sheet.Configurations)
+				{
+					if (masterList.ContainsKey(config.Identifier))
+					{
+						SpaxDebug.Error($"Duplicate stat configurations of {config.Identifier}", $"duplicate found in {sheet.name}", sheet);
+					}
+					else
+					{
+						masterList.Add(config.Identifier, config);
+					}
+				}
+			}
+
+			// Initialize all individual stat configurations.
+			foreach (string identifier in masterList.Keys)
+			{
+				Resolve(identifier);
+			}
+
+			IStatConfiguration Resolve(string identifier)
+			{
+				// If resolved already, return cached result.
+				if (cache.ContainsKey(identifier))
+				{
+					return cache[identifier];
+				}
+
+				// Check if we can resolve at all (we always can unless called recursively).
+				if (!masterList.ContainsKey(identifier))
+				{
+					return null;
+				}
+
+				// Prevent circular parent dependencies.
+				if (currentlyResolving.Contains(identifier))
+				{
+					SpaxDebug.Error("Circular stat parenting conflict.",
+						$"Current: {identifier}, In progress: [{string.Join(", ", currentlyResolving)}]");
+					return null;
+				}
+
+				// Begin resolving:
+				currentlyResolving.Add(identifier);
+				IStatConfiguration result = masterList[identifier];
+
+				// Recursively resolve parent(s).
+				if (result.CopyParent)
+				{
+					IStatConfiguration parent = Resolve(result.ParentIdentifier);
+
+					if (parent == null)
+					{
+						SpaxDebug.Error("Could not find parent stat config. Creating parent-less config.",
+							$"\"{result.Identifier}\" requires parent; \"{result.ParentIdentifier}\"");
+					}
+					else
+					{
+						var parentedStatConfig = new ParentedStatConfig(result, parent);
+						result = parentedStatConfig;
+					}
+				}
+
+				// Resolve sub-stats.
+				if (result.HasSubStats)
+				{
+					List<ISubStatConfiguration> subStats = result.SubStats;
+					foreach (ISubStatConfiguration subStat in subStats)
+					{
+						ParentedSubStatConfig parentedSubStatConfig = new ParentedSubStatConfig(subStat, result);
+						cache.Add(parentedSubStatConfig.Identifier, parentedSubStatConfig);
+					}
+				}
+
+				currentlyResolving.Remove(identifier);
+				cache.Add(identifier, result);
+				return result;
+			}
 		}
 
 		/// <inheritdoc/>
 		public bool TryGet(string identifier, out IStatConfiguration configuration)
 		{
-			// Check if configuration was cached already.
 			if (cache.ContainsKey(identifier))
 			{
 				configuration = cache[identifier];
@@ -36,53 +116,17 @@ namespace SpaxUtils
 			}
 
 			configuration = null;
-
-			// Prevent circular parent dependencies.
-			if (currentlyResolving.Contains(identifier))
-			{
-				SpaxDebug.Error("Circular stat parenting conflict.",
-					$"Current: {identifier}, In progress: [{string.Join(", ", currentlyResolving)}]");
-				return false;
-			}
-			else
-			{
-				currentlyResolving.Add(identifier);
-			}
-
-			// Search for stat configuration in all registered configuration sheets.
-			foreach (StatConfigurationSheet sheet in sheets)
-			{
-				if (sheet.TryGet(identifier, out configuration))
-				{
-					if (configuration.CopyParent)
-					{
-						// Create a new config containing parent data.
-						if (TryGet(configuration.ParentIdentifier, out IStatConfiguration parent))
-						{
-							var config = new StatConfigStruct(configuration, parent);
-							configuration = config;
-						}
-						else
-						{
-							SpaxDebug.Error("Could not find parent stat config. Returning parent-less config.",
-								$"\"{configuration.Identifier}\" requires parent; \"{configuration.ParentIdentifier}\"");
-						}
-					}
-
-					currentlyResolving.Remove(identifier);
-					cache.Add(identifier, configuration);
-					return true;
-				}
-			}
-
-			currentlyResolving.Remove(identifier);
 			return false;
 		}
 
 		/// <inheritdoc/>
 		public IStatConfiguration Get(string identifier)
 		{
-			TryGet(identifier, out IStatConfiguration configuration);
+			if (!TryGet(identifier, out IStatConfiguration configuration))
+			{
+				SpaxDebug.Warning("Could not find stat configuration for stat:", identifier);
+			}
+
 			return configuration;
 		}
 	}

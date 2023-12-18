@@ -12,6 +12,7 @@ namespace SpaxUtils
 	{
 		public IReadOnlyList<StatMapping> Mappings => mappings;
 
+		[SerializeField, TextArea] private string notes;
 		[SerializeField] private List<StatMapping> mappings;
 	}
 }

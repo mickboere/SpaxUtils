@@ -10,7 +10,7 @@ namespace SpaxUtils
 
 			if (found == null)
 			{
-				string path = property.propertyPath.GetDirectoryPath('.') + "." + name;
+				string path = property.propertyPath.GetParent('.') + "." + name;
 				found = property.serializedObject.FindProperty(path);
 
 				if (log && found == null)

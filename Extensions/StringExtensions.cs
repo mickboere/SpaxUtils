@@ -40,7 +40,7 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
-		/// Splits string using <paramref name="divide"/> and returns the last element.
+		/// Splits string using <paramref name="divide"/> and returns the second to last element.
 		/// </summary>
 		public static string SecondToLastDivision(this string s, string divide = "/")
 		{
@@ -51,7 +51,7 @@ namespace SpaxUtils
 		/// <summary>
 		/// Splits string using <paramref name="divide"/> and returns all but the last element.
 		/// </summary>
-		public static string GetDirectoryPath(this string s, char divide = '/')
+		public static string GetParent(this string s, char divide = '/')
 		{
 			for (int i = s.Length - 1; i > 0; i--)
 			{
@@ -174,5 +174,16 @@ namespace SpaxUtils
 		}
 
 		#endregion
+
+		/// <summary>
+		/// Returns a sub-stat identifier for stat <paramref name="s"/> with the last division ("/") of <paramref name="subStat"/>.
+		/// </summary>
+		/// <param name="s">The main stat identifier.</param>
+		/// <param name="subStat">The desired sub-stat to attach with the identifier.</param>
+		/// <returns>A sub-stat identifier for stat <paramref name="s"/> with the last division ("/") of <paramref name="subStat"/>.</returns>
+		public static string SubStat(this string s, string subStat)
+		{
+			return s + "/" + subStat.LastDivision();
+		}
 	}
 }

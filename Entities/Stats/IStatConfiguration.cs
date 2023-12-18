@@ -1,49 +1,10 @@
-﻿using UnityEngine;
+﻿using System.Collections.Generic;
+using UnityEngine;
 
 namespace SpaxUtils
 {
-	public interface IStatConfiguration
+	public interface IStatConfiguration : IBaseStatConfiguration
 	{
-		/// <summary>
-		/// Constant string identifying this stat.
-		/// </summary>
-		string Identifier { get; }
-
-		/// <summary>
-		/// Default value for this stat if it is not set externally.
-		/// </summary>
-		float DefaultValue { get; }
-
-		/// <summary>
-		/// Defines whether this stat's value should be clamped to <see cref="MinValue"/>.
-		/// </summary>
-		bool HasMinValue { get; }
-
-		/// <summary>
-		/// The minimum value to clamp this stat to.
-		/// </summary>
-		float MinValue { get; }
-
-		/// <summary>
-		/// Defines whether this stat's value should be clamped to <see cref="MaxValue"/>.
-		/// </summary>
-		bool HasMaxValue { get; }
-
-		/// <summary>
-		/// The maximum value to clamp this stat to.
-		/// </summary>
-		float MaxValue { get; }
-
-		/// <summary>
-		/// User-facing name for this stat.
-		/// </summary>
-		string Name { get; }
-
-		/// <summary>
-		/// User-facing description for this stat.
-		/// </summary>
-		string Description { get; }
-
 		/// <summary>
 		/// Whether the <see cref="Color"/> and <see cref="Icon"/> should be copied from the parent stat.
 		/// </summary>
@@ -56,5 +17,15 @@ namespace SpaxUtils
 
 		Color Color { get; }
 		Sprite Icon { get; }
+
+		/// <summary>
+		/// Whether this stat has any sub-stats in <see cref="SubStats"/>.
+		/// </summary>
+		bool HasSubStats { get; }
+
+		/// <summary>
+		/// A list of sub-stat configurations which need to be configured together with the main stat.
+		/// </summary>
+		List<ISubStatConfiguration> SubStats { get; }
 	}
 }

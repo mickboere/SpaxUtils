@@ -3,34 +3,43 @@ using UnityEngine;
 
 namespace SpaxUtils
 {
+	/// <summary>
+	/// Class that manages a stat which defines points. This class will handle capping, damage recovery and all other sub-stats related to points.
+	/// </summary>
 	[Serializable]
-	public class MultiStat
+	public class PointsStat
 	{
-		public string CurrentStat => currentStat;
-		public string MaxStat => maxStat;
-		public bool IsRecoverable => isRecoverable;
-		public string RecoverableStat => recoverableStat;
+		[SerializeField, ConstDropdown(typeof(IStatIdentifierConstants))] private string stat;
+		[SerializeField] private bool isRecoverable;
+		[SerializeField] private bool hasRecovery;
 
-		[SerializeField, ConstDropdown(typeof(IStatIdentifierConstants))] private string currentStat;
-		[SerializeField, ConstDropdown(typeof(IStatIdentifierConstants))] private string maxStat;
-		[SerializeField, HideInInspector] private bool isRecoverable;
-		[SerializeField, Conditional(nameof(isRecoverable), drawToggle: true), ConstDropdown(typeof(IStatIdentifierConstants))] private string recoverableStat;
-		[SerializeField, Conditional(nameof(isRecoverable), hide: true), ConstDropdown(typeof(IStatIdentifierConstants))] private string frailtyStat;
-		[SerializeField, HideInInspector] private bool hasRecovery;
-		[SerializeField, Conditional(nameof(hasRecovery), drawToggle: true), ConstDropdown(typeof(IStatIdentifierConstants))] private string recoveryStat;
+		private string maxStat;
+		private string recoverableStat;
+		private string frailtyStat;
+		private string recoveryStat;
+		private string recoveryDelayStat;
 
 		private EntityStat current;
 		private EntityStat max;
 		private EntityStat recoverable;
 		private EntityStat frailty;
 		private EntityStat recovery;
+		private EntityStat recoveryDelay;
 
 		private float lastCurrent;
 		private float lastDamage;
 
+		private Timer recoveryTimer;
+
 		public void Initialize(IEntity entity)
 		{
-			current = entity.GetStat(currentStat, true);
+			maxStat = stat.SubStat(AgentStatIdentifiers.SUB_MAX);
+			recoverableStat = stat.SubStat(AgentStatIdentifiers.SUB_RECOVERABLE);
+			frailtyStat = stat.SubStat(AgentStatIdentifiers.SUB_FRAILTY);
+			recoveryStat = stat.SubStat(AgentStatIdentifiers.SUB_RECOVERY);
+			recoveryDelayStat = stat.SubStat(AgentStatIdentifiers.SUB_RECOVERY_DELAY);
+
+			current = entity.GetStat(stat, true);
 			current.ValueChangedEvent += OnCurrentChangedEvent;
 			lastCurrent = current;
 
@@ -46,12 +55,13 @@ namespace SpaxUtils
 			if (hasRecovery)
 			{
 				recovery = entity.GetStat(recoveryStat, true);
+				recoveryDelay = entity.GetStat(recoveryDelayStat, true);
 			}
 		}
 
 		public void Update(float delta)
 		{
-			if (hasRecovery)
+			if (hasRecovery && !recoveryTimer)
 			{
 				if (isRecoverable)
 				{
@@ -77,7 +87,14 @@ namespace SpaxUtils
 			{
 				// Current cannot exceed Max.
 				current.BaseValue = max;
-				// Return here as this change will reinvoke the callback.
+				// Return here as this change will have reinvoked the callback.
+				return;
+			}
+			else if (current < 0)
+			{
+				// Current cannot go lower than 0.
+				current.BaseValue = 0f;
+				// Return here as this change will have reinvoked the callback.
 				return;
 			}
 
@@ -89,6 +106,9 @@ namespace SpaxUtils
 				{
 					recoverable.BaseValue -= lastDamage * frailty;
 				}
+
+				// TODO: Make timer rely on entity timescale.
+				recoveryTimer = new Timer(recoveryDelay);
 			}
 			else if (isRecoverable)
 			{

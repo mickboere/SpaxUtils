@@ -228,7 +228,9 @@ namespace SpaxUtils
 				IStatConfiguration setting = statLibrary.Get(identifier);
 				RuntimeDataEntry data = new RuntimeDataEntry(identifier, setting == null ? defaultIfNull : setting.DefaultValue);
 				RuntimeData.TryAdd(data);
-				EntityStat stat = new EntityStat(data);
+				EntityStat stat = new EntityStat(data, null,
+						setting != null ? setting.HasMinValue ? setting.MinValue : null : null,
+						setting != null ? setting.HasMaxValue ? setting.MaxValue : null : null);
 				Stats.AddStat(identifier, stat);
 				return stat;
 			}

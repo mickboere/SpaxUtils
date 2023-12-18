@@ -6,6 +6,8 @@ namespace SpaxUtils
 	[CreateAssetMenu(fileName = "StatConfigurationSheet", menuName = "ScriptableObjects/Stats/Configuration Sheet")]
 	public class StatConfigurationSheet : ScriptableObject, IStatLibrary
 	{
+		public List<StatConfiguration> Configurations => configurations;
+
 		[SerializeField] private List<StatConfiguration> configurations;
 
 		private Dictionary<string, StatConfiguration> dictionary;
