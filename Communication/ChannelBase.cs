@@ -29,6 +29,7 @@ namespace SpaxUtils
 		{
 			history[key] = (val, timer);
 
+			OnReceived(key, val);
 			ReceivedEvent?.Invoke(key, val);
 
 			if (subscriptions.ContainsKey(key))
@@ -85,5 +86,12 @@ namespace SpaxUtils
 			timer = tuple.timer;
 			return true;
 		}
+
+		/// <summary>
+		/// Invoked when the channel has received a new message event through <see cref="Send{T}(Key, T, Timer)"/>.
+		/// </summary>
+		/// <param name="key">The variable identifying the message type.</param>
+		/// <param name="value">The variable containing the message.</param>
+		protected virtual void OnReceived(Key key, Val value) { }
 	}
 }

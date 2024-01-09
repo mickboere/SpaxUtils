@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 
 namespace SpaxUtils
 {
@@ -7,6 +8,16 @@ namespace SpaxUtils
 	/// </summary>
 	public interface IActor : IChannel<string, IAct>, IPerformer
 	{
+		/// <summary>
+		/// Amount of seconds to retry the last failed Act for.
+		/// </summary>
+		float RetryWindow { get; set; }
+
+		/// <summary>
+		/// The upper-most active performer.
+		/// </summary>
+		IPerformer MainPerformer { get; }
+
 		/// <summary>
 		/// Sends a new act to the actor.
 		/// </summary>

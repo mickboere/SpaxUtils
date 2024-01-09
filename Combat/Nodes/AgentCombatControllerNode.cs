@@ -12,16 +12,14 @@ namespace SpaxUtils
 	/// </summary>
 	public class AgentCombatControllerNode : StateMachineNodeBase
 	{
-		protected IPerformer Current => performers.Count > 0 ? performers[performers.Count - 1] : null;
-
 		[SerializeField, Input(backingValue = ShowBackingValue.Never)] protected Connections.StateComponent inConnection;
-		[SerializeField] private float retryActionWindow;
 		[SerializeField] private float controlWeightSmoothing = 6f;
 		[SerializeField, ConstDropdown(typeof(IIdentificationLabels))] private string[] targetLabels;
 		[SerializeField] private float autoAimRange = 2f;
 
-		private IEntity entity;
+		private IAgent agent;
 		private IActor actor;
+		private ICombatPerformer combatPerformer;
 		private AnimatorPoser poser;
 		private IAgentMovementHandler movementHandler;
 		private RigidbodyWrapper rigidbodyWrapper;
@@ -33,10 +31,7 @@ namespace SpaxUtils
 		private ITargeter targeter;
 
 		private FloatOperationModifier controlMod;
-		private List<IPerformer> performers = new List<IPerformer>();
-		private Dictionary<IPerformer, float> weights = new Dictionary<IPerformer, float>();
-		private Act<bool>? lastAct;
-		private (Act<bool> act, Timer timer)? lastFailedAttempt;
+		private Dictionary<IPerformer, (PoserStruct pose, float weight)> poses = new Dictionary<IPerformer, (PoserStruct pose, float weight)>();
 		private bool wasPerforming;
 		private Timer momentumTimer;
 		private bool appliedMomentum;
@@ -47,13 +42,14 @@ namespace SpaxUtils
 		private RuntimeEquipedData rightEquip;
 		private ArmedEquipmentComponent rightComp;
 
-		public void InjectDependencies(IEntity entity, IActor actor, AnimatorPoser poser,
+		public void InjectDependencies(IAgent agent, IActor actor, ICombatPerformer combatPerformer, AnimatorPoser poser,
 			IAgentMovementHandler movementHandler, RigidbodyWrapper rigidbodyWrapper,
 			IEquipmentComponent equipment, AgentArmsComponent armSlots, CallbackService callbackService,
 			IEntityCollection entityCollection, AgentNavigationHandler navigationHandler, ITargeter targeter)
 		{
-			this.entity = entity;
+			this.agent = agent;
 			this.actor = actor;
+			this.combatPerformer = combatPerformer;
 			this.poser = poser;
 			this.movementHandler = movementHandler;
 			this.rigidbodyWrapper = rigidbodyWrapper;
@@ -74,13 +70,12 @@ namespace SpaxUtils
 			equipment.EquipedEvent += OnEquipedEvent;
 			equipment.UnequipingEvent += OnUnquipingEvent;
 			actor.PerformanceUpdateEvent += OnPerformanceUpdateEvent;
-			actor.Listen<Act<bool>>(this, ActorActs.LIGHT, OnAct);
-			actor.Listen<Act<bool>>(this, ActorActs.HEAVY, OnAct);
+			combatPerformer.PoseUpdateEvent += OnPoseUpdateEvent;
 
 			controlMod = new FloatOperationModifier(ModMethod.Absolute, Operation.Multiply, 1f);
 			rigidbodyWrapper.Control.AddModifier(this, controlMod);
 
-			targetables = new EntityComponentFilter<ITargetable>(entityCollection, (entity) => entity.Identification.HasAll(targetLabels), (c) => true, entity);
+			targetables = new EntityComponentFilter<ITargetable>(entityCollection, (entity) => entity.Identification.HasAll(targetLabels), (c) => true, agent);
 
 			foreach (RuntimeEquipedData item in equipment.EquipedItems)
 			{
@@ -100,18 +95,17 @@ namespace SpaxUtils
 			equipment.EquipedEvent -= OnEquipedEvent;
 			equipment.UnequipingEvent -= OnUnquipingEvent;
 			actor.PerformanceUpdateEvent -= OnPerformanceUpdateEvent;
+			combatPerformer.PoseUpdateEvent -= OnPoseUpdateEvent;
 			actor.StopListening(this);
 
 			// Clear data.
 			targetables.Dispose();
-			foreach (IPerformer performer in performers)
+			foreach (IPerformer performer in poses.Keys)
 			{
 				poser.RevokeInstructions(performer);
 			}
-			performers.Clear();
+			poses.Clear();
 
-			lastAct = null;
-			lastFailedAttempt = null;
 			wasPerforming = false;
 			leftEquip = null;
 			leftComp = null;
@@ -133,53 +127,28 @@ namespace SpaxUtils
 			}
 		}
 
-		private void OnAct(Act<bool> act)
+		private void OnPoseUpdateEvent(IPerformer performer, PoserStruct pose, float weight)
 		{
-			if (lastAct.HasValue && lastAct.Value.Value && lastAct.Value.Title != act.Title)
-			{
-				// Invalid input for current performance.
-				return;
-			}
-
-			bool failed = false;
-			if (act.Value)
-			{
-				if (actor.TryProduce(act, out IPerformer performer))
-				{
-					performers.Add(performer);
-					wasPerforming = false;
-				}
-				else if (actor.Performing)
-				{
-					failed = true;
-				}
-			}
-			else if (Current != null && !Current.TryPerform())
-			{
-				failed = true;
-			}
-
-			lastFailedAttempt = failed ? (act, new Timer(retryActionWindow)) : null;
-			lastAct = act;
+			poses[performer] = (pose, weight);
 		}
 
-		private void OnPerformanceUpdateEvent(IPerformer performer, PoserStruct pose, float weight)
+		private void OnPerformanceUpdateEvent(IPerformer performer)
 		{
-			if (!performers.Contains(performer))
+			if (performer is not ICombatPerformer combatPerformer)
 			{
 				return;
 			}
 
-			ICombatPerformer combatPerformer = performer as ICombatPerformer;
-			bool performing = performer.PerformanceTime > 0f;
-			weights[performer] = weight;
+			bool performing = performer.RunTime > 0f;
 
-			// Only give control if it's the last performance.
-			if (performer == performers[performers.Count - 1])
+			// Only give control if it's the main performance.
+			if (performer == actor.MainPerformer)
 			{
-				// Check if in first frame of performance.
 				if (!wasPerforming && performing)
 				{
+					// < First frame of performance >
+
+					#region Aiming
 					if (targeter.Target != null)
 					{
 						// Auto aim to target.
@@ -192,19 +161,26 @@ namespace SpaxUtils
 						// Auto aim to closest targetable in range.
 						movementHandler.SetTargetVelocity((closest.Center - rigidbodyWrapper.Position).normalized);
 					}
+					#endregion Aiming
 
-					// Reduce performance cost(s) from stats.
+					#region Stats
 					if (combatPerformer.Current.PerformCost.Count > 0)
 					{
+						// Apply performance costs to stats.
 						foreach (StatCost statCost in combatPerformer.Current.PerformCost)
 						{
-							EntityStat stat = entity.GetStat(statCost.Stat);
-							if (stat != null)
+							if (agent.TryGetStat(statCost.Stat, out EntityStat costStat))
 							{
-								stat.BaseValue -= statCost.Cost;
+								float cost = statCost.Cost;
+								if (statCost.Multiply && agent.TryGetStat(statCost.Multiplier, out EntityStat multiplier))
+								{
+									cost *= multiplier;
+								}
+								costStat.BaseValue -= cost;
 							}
 						}
 					}
+					#endregion Stats
 
 					movementHandler.ForceRotation();
 					momentumTimer = new Timer(combatPerformer.Current.ForceDelay);
@@ -219,15 +195,8 @@ namespace SpaxUtils
 					appliedMomentum = true;
 				}
 
-				// Retry last failed input.
-				// TODO: Create generic implementation for this within the Actor which retries last failed input for x amount of time.
-				if (combatPerformer.Finishing)
-				{
-					RetryLastFailedAttempt();
-				}
-
 				// Set control.
-				float control = 1f - weights.Values.Sum().Clamp01();
+				float control = 1f - poses.Values.Select(v => v.weight).Sum().Clamp01();
 				controlMod.SetValue(controlMod.Value < control ? Mathf.Lerp(controlMod.Value, control, controlWeightSmoothing * Time.deltaTime) : control);
 			}
 
@@ -235,32 +204,15 @@ namespace SpaxUtils
 			if (performer.Completed)
 			{
 				poser.RevokeInstructions(performer);
-				performers.Remove(performer);
-				weights.Remove(performer);
-				if (weights.Count == 0)
+				poses.Remove(performer);
+				if (poses.Count == 0)
 				{
 					controlMod.SetValue(1f);
 				}
 			}
 			else
 			{
-				poser.ProvideInstructions(performer, PoserLayerConstants.BODY, pose, 1, weight);
-			}
-		}
-
-		private void RetryLastFailedAttempt()
-		{
-			// If there was a failed action attempt within the last retryActionWindow OR of positive value, retry it.
-			if (lastFailedAttempt.HasValue && (lastFailedAttempt.Value.act.Value || !lastFailedAttempt.Value.timer.Expired))
-			{
-				// If the last attempt was positive, only redo the positive as the input still needs to be released manually.
-				// If the last attempt was negative, redo both positive and negative input to do a full performance.
-				Act<bool> retry = lastFailedAttempt.Value.act;
-				OnAct(new Act<bool>(retry.Title, true));
-				if (!retry.Value)
-				{
-					OnAct(new Act<bool>(retry.Title, false));
-				}
+				poser.ProvideInstructions(performer, PoserLayerConstants.BODY, poses[performer].pose, 1, poses[performer].weight);
 			}
 		}
 

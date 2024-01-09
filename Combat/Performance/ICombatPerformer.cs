@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 
 namespace SpaxUtils
 {
@@ -8,9 +9,19 @@ namespace SpaxUtils
 	public interface ICombatPerformer : IPerformer
 	{
 		/// <summary>
-		/// Event invoked when hitting something, before the <see cref="HitData"/> is sent to the hit object.
+		/// Invoked whenever the desired agent-pose has been updated.
 		/// </summary>
-		event Action<HitData> HitEvent;
+		event Action<IPerformer, PoserStruct, float> PoseUpdateEvent;
+
+		/// <summary>
+		/// Event invoked when the combat performer has encountered new hits during an attack.
+		/// </summary>
+		event Action<List<HitScanHitData>> NewHitDetectedEvent;
+
+		/// <summary>
+		/// Event invoked while hitting a <see cref="IHittable"/>, before the <see cref="HitData"/> is sent to the hit object.
+		/// </summary>
+		event Action<HitData> ProcessHitEvent;
 
 		/// <summary>
 		/// The <see cref="ICombatMove"/> currently being performed.
@@ -43,11 +54,6 @@ namespace SpaxUtils
 		/// Returns whether the performance is currently released.
 		/// </summary>
 		bool Released { get; }
-
-		/// <summary>
-		/// Returns whether the performance is currently finishing.
-		/// </summary>
-		bool Finishing { get; }
 
 		#endregion
 

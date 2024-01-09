@@ -4,12 +4,11 @@ using System.Collections.Generic;
 namespace SpaxUtils
 {
 	/// <summary>
-	/// Interface for <see cref="IActor"/>-dependant components that can perform for an <see cref="IAct"/>.
+	/// Interface for classes that can perform an <see cref="IAct"/>.
 	/// </summary>
 	public interface IPerformer
 	{
-		public delegate void PerformanceUpdateDelegate(IPerformer performer, PoserStruct pose, float weight);
-		event PerformanceUpdateDelegate PerformanceUpdateEvent;
+		event Action<IPerformer> PerformanceUpdateEvent;
 		event Action<IPerformer> PerformanceCompletedEvent;
 
 		/// <summary>
@@ -24,11 +23,17 @@ namespace SpaxUtils
 		List<string> SupportsActs { get; }
 
 		/// <summary>
-		/// When true will block all other incoming acts from performing until false.
+		/// Whether this performer is currently actively performing.
 		/// </summary>
 		bool Performing { get; }
 
 		/// <summary>
+		/// Whether this performer is currently finishing up its performance and ready for another one to begin.
+		/// </summary>
+		bool Finishing { get; }
+
+		/// <summary>
+		/// Whether this performer has completed its performance.
 		/// Returns true when accessed in the last <see cref="PerformanceUpdateEvent"/>.
 		/// </summary>
 		bool Completed { get; }
@@ -36,7 +41,7 @@ namespace SpaxUtils
 		/// <summary>
 		/// The amount of time the performance has been going for.
 		/// </summary>
-		float PerformanceTime { get; }
+		float RunTime { get; }
 
 		/// <summary>
 		/// Try to prepare a performer to handle the <paramref name="act"/>.
@@ -46,9 +51,9 @@ namespace SpaxUtils
 		bool TryProduce(IAct act, out IPerformer performer);
 
 		/// <summary>
-		/// Attempt to release the performance currently being prepared.
+		/// Attempt to begin the performance currently being prepared.
 		/// </summary>
-		/// <returns>Whether the performance has been successfully released.</returns>
+		/// <returns>Whether the performance has been successfully begun.</returns>
 		bool TryPerform();
 	}
 }

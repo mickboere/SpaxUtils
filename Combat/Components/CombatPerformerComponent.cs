@@ -6,18 +6,25 @@ using UnityEngine;
 namespace SpaxUtils
 {
 	/// <summary>
-	/// Agent component that is able to execute an <see cref="ICombatMove"/> of which the progression broadcast through events but not applied to the agent.
+	/// Agent component that is able to execute an <see cref="ICombatMove"/> of which the progression is broadcast through events.
+	/// This component does not actually change anything on an agent-level, for that see <see cref="AgentCombatControllerNode"/>.
 	/// </summary>
 	public class CombatPerformerComponent : EntityComponentBase, ICombatPerformer
 	{
 		/// <inheritdoc/>
-		public event Action<HitData> HitEvent;
+		public event Action<List<HitScanHitData>> NewHitDetectedEvent;
 
 		/// <inheritdoc/>
-		public event IPerformer.PerformanceUpdateDelegate PerformanceUpdateEvent;
+		public event Action<HitData> ProcessHitEvent;
+
+		/// <inheritdoc/>
+		public event Action<IPerformer> PerformanceUpdateEvent;
 
 		/// <inheritdoc/>
 		public event Action<IPerformer> PerformanceCompletedEvent;
+
+		/// <inheritdoc/>
+		public event Action<IPerformer, PoserStruct, float> PoseUpdateEvent;
 
 		#region Properties
 
@@ -28,38 +35,38 @@ namespace SpaxUtils
 		public List<string> SupportsActs { get; } = new List<string> { ActorActs.LIGHT, ActorActs.HEAVY };
 
 		/// <inheritdoc/>
-		public float PerformanceTime => performance.PerformanceTime;
+		public float RunTime => performanceHelper.RunTime;
 
 		/// <inheritdoc/>
 		public bool Performing => !(Finishing || Completed);
 
 		/// <inheritdoc/>
-		public ICombatMove Current => performance != null ? performance.Current : null;
+		public ICombatMove Current => performanceHelper != null ? performanceHelper.Current : null;
 
 		/// <inheritdoc/>
-		public CombatPerformanceState State => performance.State;
+		public CombatPerformanceState State => performanceHelper.State;
 
 		/// <inheritdoc/>
-		public float Charge => performance.Charge;
+		public float Charge => performanceHelper.Charge;
 
 		#endregion
 
 		#region State getters
 
 		/// <inheritdoc/>
-		public bool Charging => performance != null && performance.Charging;
+		public bool Charging => performanceHelper != null && performanceHelper.Charging;
 
 		/// <inheritdoc/>
-		public bool Attacking => performance != null && performance.Attacking;
+		public bool Attacking => performanceHelper != null && performanceHelper.Attacking;
 
 		/// <inheritdoc/>
-		public bool Released => performance != null && performance.Released;
+		public bool Released => performanceHelper != null && performanceHelper.Released;
 
 		/// <inheritdoc/>
-		public bool Finishing => performance != null && performance.Finishing;
+		public bool Finishing => performanceHelper != null && performanceHelper.Finishing;
 
 		/// <inheritdoc/>
-		public bool Completed => performance == null || performance.Completed;
+		public bool Completed => performanceHelper == null || performanceHelper.Completed;
 
 		#endregion
 
@@ -76,7 +83,7 @@ namespace SpaxUtils
 		private RigidbodyWrapper rigidbodyWrapper;
 
 		private Dictionary<string, Dictionary<ICombatMove, int>> moves = new Dictionary<string, Dictionary<ICombatMove, int>>();
-		private CombatPerformanceHelper performance;
+		private CombatPerformanceHelper performanceHelper;
 		private TimedCurveModifier timeMod;
 
 		public void InjectDependencies(IAgent agent, CallbackService callbackService,
@@ -93,18 +100,17 @@ namespace SpaxUtils
 			// Add default unarmed moves.
 			AddCombatMove(ActorActs.LIGHT, unarmedLight, -1);
 			AddCombatMove(ActorActs.HEAVY, unarmedHeavy, -1);
-			AddCombatMove(ActorActs.BLOCK, unarmedBlock, -1);
 		}
 
 		protected void OnDisable()
 		{
-			performance?.Dispose();
+			performanceHelper?.Dispose();
 		}
 
 		/// <inheritdoc/>
 		public bool TryProduce(IAct act, out IPerformer finalPerformer)
 		{
-			finalPerformer = performance;
+			finalPerformer = performanceHelper;
 			ICombatMove combatMove = GetMove(act.Title);
 
 			if (combatMove == null)
@@ -114,10 +120,12 @@ namespace SpaxUtils
 
 			if (Completed || Finishing)
 			{
-				performance = new CombatPerformanceHelper(combatMove, agent, EntityTimeScale, callbackService, transformLookup, OnNewHitDetected, hitDetectionMask);
-				performance.PerformanceUpdateEvent += OnPerformanceUpdateEvent;
-				performance.PerformanceCompletedEvent += OnPerformanceCompletedEvent;
-				finalPerformer = performance;
+				performanceHelper = new CombatPerformanceHelper(combatMove, agent, EntityTimeScale, callbackService, transformLookup, hitDetectionMask);
+				performanceHelper.PerformanceUpdateEvent += OnPerformanceUpdateEvent;
+				performanceHelper.PerformanceCompletedEvent += OnPerformanceCompletedEvent;
+				performanceHelper.NewHitDetectedEvent += OnNewHitDetectedEvent;
+				performanceHelper.PoseUpdateEvent += OnPoseUpdateEvent;
+				finalPerformer = performanceHelper;
 				return true;
 			}
 
@@ -128,7 +136,7 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public bool TryPerform()
 		{
-			return performance.TryPerform();
+			return performanceHelper.TryPerform();
 		}
 
 		/// <inheritdoc/>
@@ -192,9 +200,9 @@ namespace SpaxUtils
 			return null;
 		}
 
-		private void OnPerformanceUpdateEvent(IPerformer performer, PoserStruct pose, float weight)
+		private void OnPerformanceUpdateEvent(IPerformer performer)
 		{
-			PerformanceUpdateEvent?.Invoke(performer, pose, weight);
+			PerformanceUpdateEvent?.Invoke(performer);
 		}
 
 		private void OnPerformanceCompletedEvent(IPerformer performer)
@@ -204,7 +212,12 @@ namespace SpaxUtils
 			PerformanceCompletedEvent?.Invoke(performer);
 		}
 
-		private void OnNewHitDetected(List<HitScanHitData> newHits)
+		private void OnPoseUpdateEvent(IPerformer performer, PoserStruct pose, float weight)
+		{
+			PoseUpdateEvent(performer, pose, weight);
+		}
+
+		private void OnNewHitDetectedEvent(List<HitScanHitData> newHits)
 		{
 			// TODO: Have hit pause duration depend on penetration % (factoring in power, sharpness, hardness.)
 			timeMod = new TimedCurveModifier(ModMethod.Absolute, hitPauseCurve, new Timer(hitPause), callbackService);
@@ -218,17 +231,12 @@ namespace SpaxUtils
 
 					// Calculate attack force.
 					float strength = 0f;
-					if (agent.TryGetStat(performance.Current.StrengthStat, out EntityStat strengthStat))
+					if (agent.TryGetStat(performanceHelper.Current.StrengthStat, out EntityStat strengthStat))
 					{
 						strength = strengthStat;
 					}
 
-					float weight = 0f;
-
-
-					float force = rigidbodyWrapper.Mass + strength + weight;
-
-					// TODO: Apply knockback to attacker.
+					float force = rigidbodyWrapper.Mass + strength;
 
 					// Generate hit-data for hittable.
 					HitData hitData = new HitData(
@@ -240,17 +248,17 @@ namespace SpaxUtils
 						new Dictionary<string, float>()
 					);
 
-					// If move is offensive, add default HEALTH damage to HitData.
-					if (performance.Current.Offensive &&
-						agent.TryGetStat(performance.Current.OffenceStat, out EntityStat offence) &&
+					// If move is offensive, add base health damage to HitData.
+					if (performanceHelper.Current.Offensive &&
+						agent.TryGetStat(performanceHelper.Current.OffenceStat, out EntityStat offence) &&
 						hittable.Entity.TryGetStat(AgentStatIdentifiers.DEFENCE, out EntityStat defence))
 					{
-						float damage = SpaxFormulas.GetDamage(offence, defence) * performance.Current.Offensiveness;
+						float damage = SpaxFormulas.GetDamage(offence, defence) * performanceHelper.Current.Offensiveness;
 						hitData.Damages.Add(AgentStatIdentifiers.HEALTH, damage);
 					}
 
 					// Invoke hit event to allow adding of additional damage.
-					HitEvent?.Invoke(hitData);
+					ProcessHitEvent?.Invoke(hitData);
 
 					if (hittable.Hit(hitData))
 					{

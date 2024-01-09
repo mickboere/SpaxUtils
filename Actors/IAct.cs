@@ -5,6 +5,9 @@
 	/// </summary>
 	public interface IAct
 	{
+		/// <summary>
+		/// Title of the act, used to identify whether this act can be performed by an <see cref="IPerformer"/> or not.
+		/// </summary>
 		string Title { get; }
 	}
 }

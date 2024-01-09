@@ -10,22 +10,24 @@ namespace SpaxUtils
 	/// </summary>
 	public class CombatPerformanceHelper : ICombatPerformer, IDisposable
 	{
-		public event Action<HitData> HitEvent;
-		public event IPerformer.PerformanceUpdateDelegate PerformanceUpdateEvent;
+		public event Action<List<HitScanHitData>> NewHitDetectedEvent;
+		public event Action<HitData> ProcessHitEvent;
+		public event Action<IPerformer> PerformanceUpdateEvent;
 		public event Action<IPerformer> PerformanceCompletedEvent;
+		public event Action<IPerformer, PoserStruct, float> PoseUpdateEvent;
 
 		#region Properties
 
 		public int Priority { get; }
 		public List<string> SupportsActs { get; } = new List<string> { ActorActs.LIGHT, ActorActs.HEAVY };
-		public float PerformanceTime { get; private set; }
+		public float RunTime { get; private set; }
 		public bool Performing => !(Finishing || Completed);
 
 		public ICombatMove Current { get; private set; }
 		public CombatPerformanceState State { get; private set; }
 		public float Charge { get; private set; }
 
-		#endregion // Properties
+		#endregion Properties
 
 		#region State getters
 		public bool Charging => Current != null && State.HasFlag(CombatPerformanceState.Charging);
@@ -39,7 +41,6 @@ namespace SpaxUtils
 		private EntityStat entityTimeScale;
 		private CallbackService callbackService;
 		private TransformLookup transformLookup;
-		private Action<List<HitScanHitData>> onNewHitDetected;
 		private LayerMask layerMask;
 
 		private CombatHitDetectionHelper hitDetectionHelper;
@@ -47,20 +48,19 @@ namespace SpaxUtils
 		public CombatPerformanceHelper(
 			ICombatMove move, IAgent agent, EntityStat entityTimeScale,
 			CallbackService callbackService, TransformLookup transformLookup,
-			Action<List<HitScanHitData>> onNewHitDetected, LayerMask layerMask, int prio = 0)
+			LayerMask layerMask, int prio = 0)
 		{
 			Priority = prio;
 
 			Current = move;
 			State = CombatPerformanceState.Charging;
 			Charge = 0f;
-			PerformanceTime = 0f;
+			RunTime = 0f;
 
 			this.agent = agent;
 			this.entityTimeScale = entityTimeScale;
 			this.callbackService = callbackService;
 			this.transformLookup = transformLookup;
-			this.onNewHitDetected = onNewHitDetected;
 			this.layerMask = layerMask;
 
 			callbackService.UpdateCallback += Update;
@@ -83,6 +83,7 @@ namespace SpaxUtils
 		{
 			if (Current == null || Released)
 			{
+				// Already performing.
 				return false;
 			}
 
@@ -130,31 +131,33 @@ namespace SpaxUtils
 			if (Attacking)
 			{
 				// Attacking
-				PerformanceTime += delta;
+				RunTime += delta;
 
 				if (!Finishing && hitDetectionHelper.Update(out List<HitScanHitData> newHits))
 				{
-					onNewHitDetected(newHits);
+					NewHitDetectedEvent?.Invoke(newHits);
 				}
 
 				// TODO: Clamp performance to MinDuration / Peak until agent is standing still.
 				// This won't be necessary until the charge mechanic increases attack force.
 			}
 
-			if (!Finishing && PerformanceTime > Current.MinDuration)
+			if (!Finishing && RunTime > Current.MinDuration)
 			{
 				// Finishing
 				State = State.SetFlag(CombatPerformanceState.Finishing);
 			}
 
-			if (!Completed && PerformanceTime > Current.TotalDuration)
+			if (!Completed && RunTime > Current.TotalDuration)
 			{
 				// Completed
 				State = State.SetFlag(CombatPerformanceState.Completed);
 			}
 
-			PoseTransition pose = Current.Evaluate(Charge, PerformanceTime, out float weight);
-			PerformanceUpdateEvent?.Invoke(this, new PoserStruct(new PoseInstructions(pose, 1f)), weight);
+			PoseTransition pose = Current.Evaluate(Charge, RunTime, out float weight);
+			PoseUpdateEvent?.Invoke(this, new PoserStruct(new PoseInstructions(pose, 1f)), weight);
+
+			PerformanceUpdateEvent?.Invoke(this);
 
 			// If the combat performance has fully completed, dispose of ourselves.
 			if (Completed)

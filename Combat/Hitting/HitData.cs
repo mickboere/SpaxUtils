@@ -26,13 +26,14 @@ namespace SpaxUtils
 
 		/// <summary>
 		/// The total force behind the hit.
+		/// Can differ from inertia to impose shounen-knockback.
 		/// </summary>
 		public float Force { get; }
 
 		/// <summary>
-		/// The (swing) direction of the hit.
+		/// The direction of the hit.
 		/// </summary>
-		public Vector3 Direction { get; }
+		public Vector3 HitDirection { get; }
 
 		/// <summary>
 		/// All damage values to be processed.
@@ -44,14 +45,14 @@ namespace SpaxUtils
 			IHittable hittable,
 			Vector3 inertia,
 			float force,
-			Vector3 direction,
+			Vector3 hitDirection,
 			Dictionary<string, float> damages)
 		{
 			Hitter = hitter;
 			Hittable = hittable;
 			Inertia = inertia;
 			Force = force;
-			Direction = direction;
+			HitDirection = hitDirection;
 			Damages = damages;
 		}
 	}

@@ -52,6 +52,12 @@ namespace SpaxUtils
 				}
 			}
 
+			if (closest == null || second == null)
+			{
+				SpaxDebug.Error("Could not complete blend", $"{name}, closest={closest}, second={second}");
+				return (null, null, 0f);
+			}
+
 			Vector3Extensions.InverseLerp(second.Position, closest.Position, position, out float interpolation);
 			return (second.Sequence, closest.Sequence, Mathf.Clamp01(interpolation));
 		}

@@ -43,7 +43,7 @@ namespace SpaxUtils
 		{
 			if (stunTimer)
 			{
-				PoserStruct instructions = hitBlendTree.GetInstructions(-lastHit.Direction.Localize(rigidbodyWrapper.transform).normalized, 0f);
+				PoserStruct instructions = hitBlendTree.GetInstructions(-lastHit.HitDirection.Localize(rigidbodyWrapper.transform).normalized, 0f);
 				animatorPoser.ProvideInstructions(this, PoserLayerConstants.BODY, instructions, 5, stunTimer.Progress.ReverseInOutCubic());
 				stunControlMod.SetValue(stunTimer.Progress.InOutCubic());
 			}
