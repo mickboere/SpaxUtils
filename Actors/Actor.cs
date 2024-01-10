@@ -12,7 +12,6 @@ namespace SpaxUtils
 	public class Actor : ChannelBase<string, IAct>, IActor, IDisposable
 	{
 		public const string DEFAULT_IDENTIFIER = "ACTOR";
-		public const float DEFAULT_RETRY_WINDOW = 0.333f;
 
 		public event Action<IPerformer> PerformanceUpdateEvent;
 		public event Action<IPerformer> PerformanceCompletedEvent;
@@ -25,7 +24,6 @@ namespace SpaxUtils
 		public float RunTime => MainPerformer == null ? 0f : MainPerformer.RunTime;
 
 		public IPerformer MainPerformer => activePerformers.Count > 0 ? activePerformers[activePerformers.Count - 1] : null;
-		public float RetryWindow { get; set; }
 
 		private bool autoRefreshSupport;
 		private List<IPerformer> availablePerformers;
@@ -35,12 +33,9 @@ namespace SpaxUtils
 
 		public Actor(
 			string identifier = DEFAULT_IDENTIFIER,
-			float retryWindow = DEFAULT_RETRY_WINDOW,
 			IEnumerable<IPerformer> performers = null)
 				: base(identifier)
 		{
-			RetryWindow = retryWindow;
-
 			// Collect performers.
 			this.availablePerformers = new List<IPerformer>();
 			if (performers != null)
@@ -143,18 +138,18 @@ namespace SpaxUtils
 		}
 
 		/// <inheritdoc/>
-		protected override void OnReceived(string key, IAct value)
+		protected override void OnReceived(string key, IAct act)
 		{
-			base.OnReceived(key, value);
+			base.OnReceived(key, act);
 
-			if (!SupportsActs.Contains(value.Title))
+			if (!SupportsActs.Contains(act.Title))
 			{
 				// Act type not supported.
 				return;
 			}
 
 			// Default Act<bool> behaviour (acting on button input for example)
-			if (value is Act<bool> boolAct)
+			if (act is Act<bool> boolAct)
 			{
 				// Ensure input is allowed during current activity.
 				if (lastAct.HasValue && lastAct.Value.Value && lastAct.Value.Title != boolAct.Title)
@@ -165,7 +160,7 @@ namespace SpaxUtils
 
 				bool failed = false;
 
-				// Try produce Act.
+				// Try produce Act on TRUE (button down).
 				if (boolAct.Value)
 				{
 					if (TryProduce(boolAct, out IPerformer performer) && !activePerformers.Contains(performer))
@@ -177,13 +172,13 @@ namespace SpaxUtils
 						failed = true;
 					}
 				}
-				// Try perform Act.
+				// Else try perform Act on FALSE (button up).
 				else if (MainPerformer != null && !MainPerformer.TryPerform())
 				{
 					failed = true;
 				}
 
-				lastFailedAttempt = failed ? (boolAct, new Timer(RetryWindow)) : null;
+				lastFailedAttempt = failed ? (boolAct, new Timer(act.Buffer)) : null;
 				lastAct = boolAct;
 			}
 		}
@@ -216,16 +211,17 @@ namespace SpaxUtils
 
 		private void RetryLastFailedAttempt()
 		{
-			// If there was a failed action attempt within the last retryActionWindow OR of positive value, retry it.
+			// If there was a failed action attempt AND its buffer timer hasn't expired yet OR the input button is down, retry it.
 			if (lastFailedAttempt.HasValue && (lastFailedAttempt.Value.act.Value || !lastFailedAttempt.Value.timer.Expired))
 			{
 				// If the last attempt was positive, only redo the positive as the input still needs to be released manually.
-				// If the last attempt was negative, redo both positive and negative input to do a full performance.
+				// If the last attempt was negative, redo both positive and negative input to simulate a full button press.
 				Act<bool> retry = lastFailedAttempt.Value.act;
-				OnReceived(retry.Title, new Act<bool>(retry.Title, true));
+				float buffer = lastFailedAttempt.Value.timer.Remaining;
+				OnReceived(retry.Title, new Act<bool>(retry.Title, true, buffer));
 				if (!retry.Value)
 				{
-					OnReceived(retry.Title, new Act<bool>(retry.Title, false));
+					OnReceived(retry.Title, new Act<bool>(retry.Title, false, buffer));
 				}
 			}
 		}

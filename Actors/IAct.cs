@@ -9,5 +9,10 @@
 		/// Title of the act, used to identify whether this act can be performed by an <see cref="IPerformer"/> or not.
 		/// </summary>
 		string Title { get; }
+
+		/// <summary>
+		/// Action retry-window when initial production attempt fails.
+		/// </summary>
+		float Buffer { get; }
 	}
 }
