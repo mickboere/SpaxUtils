@@ -26,36 +26,12 @@ namespace SpaxUtils
 		/// <summary>
 		/// The <see cref="ICombatMove"/> currently being performed.
 		/// </summary>
-		ICombatMove Current { get; }
-
-		/// <summary>
-		/// The state of the combat performance.
-		/// </summary>
-		CombatPerformanceState State { get; }
+		ICombatMove CurrentMove { get; }
 
 		/// <summary>
 		/// The amount (of time) this combat performance has spent charging.
 		/// </summary>
 		float Charge { get; }
-
-		#region State Getters
-
-		/// <summary>
-		/// Returns whether the performance is currently charging.
-		/// </summary>
-		bool Charging { get; }
-
-		/// <summary>
-		/// Returns whether the performance is currently attacking.
-		/// </summary>
-		bool Attacking { get; }
-
-		/// <summary>
-		/// Returns whether the performance is currently released.
-		/// </summary>
-		bool Released { get; }
-
-		#endregion
 
 		/// <summary>
 		/// Adds an <see cref="ICombatMove"/> to be performed upon <paramref name="act"/>.

@@ -11,6 +11,8 @@ namespace SpaxUtils
 		event Action<IPerformer> PerformanceUpdateEvent;
 		event Action<IPerformer> PerformanceCompletedEvent;
 
+		#region Properties
+
 		/// <summary>
 		/// Integer indicating the order of execution priority when dealing with multiple performers supporting the same acts.
 		/// Higher priority takes precedense over lower priority.
@@ -23,37 +25,38 @@ namespace SpaxUtils
 		List<string> SupportsActs { get; }
 
 		/// <summary>
-		/// Whether this performer is currently actively performing.
+		/// The state of the current performance.
 		/// </summary>
-		bool Performing { get; }
-
-		/// <summary>
-		/// Whether this performer is currently finishing up its performance and ready for another one to begin.
-		/// </summary>
-		bool Finishing { get; }
-
-		/// <summary>
-		/// Whether this performer has completed its performance.
-		/// Returns true when accessed in the last <see cref="PerformanceUpdateEvent"/>.
-		/// </summary>
-		bool Completed { get; }
+		Performance State { get; }
 
 		/// <summary>
 		/// The amount of time the performance has been going for.
 		/// </summary>
 		float RunTime { get; }
 
+		#endregion Properties
+
+		#region Methods
+
 		/// <summary>
 		/// Try to prepare a performer to handle the <paramref name="act"/>.
 		/// </summary>
-		/// <param name="act">The act to try and produce for.</param>
-		/// <returns>Whether the requested performance has succesfully been produced and ready for performance.</returns>
-		bool TryProduce(IAct act, out IPerformer performer);
+		/// <param name="act">The act to try and prepare for.</param>
+		/// <returns>Whether the requested performance has succesfully been prepared and is ready for performance.</returns>
+		bool TryPrepare(IAct act, out IPerformer performer);
 
 		/// <summary>
 		/// Attempt to begin the performance currently being prepared.
 		/// </summary>
 		/// <returns>Whether the performance has been successfully begun.</returns>
 		bool TryPerform();
+
+		/// <summary>
+		/// Will try the cancel the current performance.
+		/// </summary>
+		/// <returns>Whether the performance has been succesfully canceled.</returns>
+		bool TryCancel();
+
+		#endregion
 	}
 }

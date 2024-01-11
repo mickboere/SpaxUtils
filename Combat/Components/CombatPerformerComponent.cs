@@ -26,7 +26,7 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public event Action<IPerformer, PoserStruct, float> PoseUpdateEvent;
 
-		#region Properties
+		#region IPerformer Properties
 
 		/// <inheritdoc/>
 		public int Priority => 0;
@@ -35,40 +35,22 @@ namespace SpaxUtils
 		public List<string> SupportsActs { get; } = new List<string> { ActorActs.LIGHT, ActorActs.HEAVY };
 
 		/// <inheritdoc/>
-		public float RunTime => performanceHelper.RunTime;
+		public Performance State => performanceHelper != null ? performanceHelper.State : Performance.Inactive;
 
 		/// <inheritdoc/>
-		public bool Performing => !(Finishing || Completed);
+		public float RunTime => performanceHelper != null ? performanceHelper.RunTime : 0f;
+
+		#endregion IPerformer Properties
+
+		#region ICombatPerformer Properties
 
 		/// <inheritdoc/>
-		public ICombatMove Current => performanceHelper != null ? performanceHelper.Current : null;
+		public ICombatMove CurrentMove => performanceHelper != null ? performanceHelper.CurrentMove : null;
 
 		/// <inheritdoc/>
-		public CombatPerformanceState State => performanceHelper.State;
+		public float Charge => performanceHelper != null ? performanceHelper.Charge : 0f;
 
-		/// <inheritdoc/>
-		public float Charge => performanceHelper.Charge;
-
-		#endregion
-
-		#region State getters
-
-		/// <inheritdoc/>
-		public bool Charging => performanceHelper != null && performanceHelper.Charging;
-
-		/// <inheritdoc/>
-		public bool Attacking => performanceHelper != null && performanceHelper.Attacking;
-
-		/// <inheritdoc/>
-		public bool Released => performanceHelper != null && performanceHelper.Released;
-
-		/// <inheritdoc/>
-		public bool Finishing => performanceHelper != null && performanceHelper.Finishing;
-
-		/// <inheritdoc/>
-		public bool Completed => performanceHelper == null || performanceHelper.Completed;
-
-		#endregion
+		#endregion ICombatPerformer Properties
 
 		[SerializeField, Header("Default Moves")] private CombatMove unarmedLight;
 		[SerializeField] private CombatMove unarmedHeavy;
@@ -108,7 +90,7 @@ namespace SpaxUtils
 		}
 
 		/// <inheritdoc/>
-		public bool TryProduce(IAct act, out IPerformer finalPerformer)
+		public bool TryPrepare(IAct act, out IPerformer finalPerformer)
 		{
 			finalPerformer = performanceHelper;
 			ICombatMove combatMove = GetMove(act.Title);
@@ -118,7 +100,7 @@ namespace SpaxUtils
 				return false;
 			}
 
-			if (Completed || Finishing)
+			if (performanceHelper == null || State == Performance.Finishing)
 			{
 				performanceHelper = new CombatPerformanceHelper(combatMove, agent, EntityTimeScale, callbackService, transformLookup, hitDetectionMask);
 				performanceHelper.PerformanceUpdateEvent += OnPerformanceUpdateEvent;
@@ -136,7 +118,22 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public bool TryPerform()
 		{
+			if (performanceHelper == null)
+			{
+				return false;
+			}
+
 			return performanceHelper.TryPerform();
+		}
+
+		public bool TryCancel()
+		{
+			if (performanceHelper == null)
+			{
+				return false;
+			}
+
+			return performanceHelper.TryCancel();
 		}
 
 		/// <inheritdoc/>
@@ -172,9 +169,9 @@ namespace SpaxUtils
 		private ICombatMove GetMove(string act)
 		{
 			// Check for possible combo / follow up move.
-			if (Current != null && Finishing && !Completed)
+			if (CurrentMove != null && State == Performance.Finishing)
 			{
-				foreach (ActCombatPair combo in Current.FollowUps)
+				foreach (ActCombatPair combo in CurrentMove.FollowUps)
 				{
 					if (combo.Act == act)
 					{
@@ -227,11 +224,11 @@ namespace SpaxUtils
 			{
 				if (hit.GameObject.TryGetComponentRelative(out IHittable hittable))
 				{
-					Vector3 inertia = Current.Inertia.Look((hittable.Entity.Transform.position - Entity.Transform.position).FlattenY());
+					Vector3 inertia = CurrentMove.Inertia.Look((hittable.Entity.Transform.position - Entity.Transform.position).FlattenY());
 
 					// Calculate attack force.
 					float strength = 0f;
-					if (agent.TryGetStat(performanceHelper.Current.StrengthStat, out EntityStat strengthStat))
+					if (agent.TryGetStat(performanceHelper.CurrentMove.StrengthStat, out EntityStat strengthStat))
 					{
 						strength = strengthStat;
 					}
@@ -249,11 +246,11 @@ namespace SpaxUtils
 					);
 
 					// If move is offensive, add base health damage to HitData.
-					if (performanceHelper.Current.Offensive &&
-						agent.TryGetStat(performanceHelper.Current.OffenceStat, out EntityStat offence) &&
+					if (performanceHelper.CurrentMove.Offensive &&
+						agent.TryGetStat(performanceHelper.CurrentMove.OffenceStat, out EntityStat offence) &&
 						hittable.Entity.TryGetStat(AgentStatIdentifiers.DEFENCE, out EntityStat defence))
 					{
-						float damage = SpaxFormulas.GetDamage(offence, defence) * performanceHelper.Current.Offensiveness;
+						float damage = SpaxFormulas.GetDamage(offence, defence) * performanceHelper.CurrentMove.Offensiveness;
 						hitData.Damages.Add(AgentStatIdentifiers.HEALTH, damage);
 					}
 

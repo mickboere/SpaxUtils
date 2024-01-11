@@ -164,10 +164,10 @@ namespace SpaxUtils
 					#endregion Aiming
 
 					#region Stats
-					if (combatPerformer.Current.PerformCost.Count > 0)
+					if (combatPerformer.CurrentMove.PerformCost.Count > 0)
 					{
 						// Apply performance costs to stats.
-						foreach (StatCost statCost in combatPerformer.Current.PerformCost)
+						foreach (StatCost statCost in combatPerformer.CurrentMove.PerformCost)
 						{
 							if (agent.TryGetStat(statCost.Stat, out EntityStat costStat))
 							{
@@ -183,7 +183,7 @@ namespace SpaxUtils
 					#endregion Stats
 
 					movementHandler.ForceRotation();
-					momentumTimer = new Timer(combatPerformer.Current.ForceDelay);
+					momentumTimer = new Timer(combatPerformer.CurrentMove.ForceDelay);
 					appliedMomentum = false;
 				}
 				wasPerforming = performing;
@@ -191,7 +191,7 @@ namespace SpaxUtils
 				// Apply momentum to user after delay.
 				if (performing && !appliedMomentum && !momentumTimer)
 				{
-					rigidbodyWrapper.AddImpactRelative(combatPerformer.Current.Inertia);
+					rigidbodyWrapper.AddImpactRelative(combatPerformer.CurrentMove.Inertia);
 					appliedMomentum = true;
 				}
 
@@ -201,7 +201,7 @@ namespace SpaxUtils
 			}
 
 			// Clean up if the performance has completed, set pose if not.
-			if (performer.Completed)
+			if (performer.State == Performance.Completed)
 			{
 				poser.RevokeInstructions(performer);
 				poses.Remove(performer);

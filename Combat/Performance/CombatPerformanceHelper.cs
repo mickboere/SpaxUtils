@@ -16,26 +16,17 @@ namespace SpaxUtils
 		public event Action<IPerformer> PerformanceCompletedEvent;
 		public event Action<IPerformer, PoserStruct, float> PoseUpdateEvent;
 
-		#region Properties
-
+		#region IPerformer Properties
 		public int Priority { get; }
 		public List<string> SupportsActs { get; } = new List<string> { ActorActs.LIGHT, ActorActs.HEAVY };
+		public Performance State { get; private set; }
 		public float RunTime { get; private set; }
-		public bool Performing => !(Finishing || Completed);
+		#endregion IPerformer Properties
 
-		public ICombatMove Current { get; private set; }
-		public CombatPerformanceState State { get; private set; }
+		#region ICombatPerformer Properties
+		public ICombatMove CurrentMove { get; private set; }
 		public float Charge { get; private set; }
-
-		#endregion Properties
-
-		#region State getters
-		public bool Charging => Current != null && State.HasFlag(CombatPerformanceState.Charging);
-		public bool Attacking => Current != null && !State.HasFlag(CombatPerformanceState.Charging);
-		public bool Released => Current != null && State.HasFlag(CombatPerformanceState.Released);
-		public bool Finishing => Current != null && State.HasFlag(CombatPerformanceState.Finishing);
-		public bool Completed => Current == null || State.HasFlag(CombatPerformanceState.Completed);
-		#endregion
+		#endregion ICombatPerformer Properties
 
 		private IAgent agent;
 		private EntityStat entityTimeScale;
@@ -43,6 +34,7 @@ namespace SpaxUtils
 		private TransformLookup transformLookup;
 		private LayerMask layerMask;
 
+		private bool released;
 		private CombatHitDetectionHelper hitDetectionHelper;
 
 		public CombatPerformanceHelper(
@@ -51,11 +43,11 @@ namespace SpaxUtils
 			LayerMask layerMask, int prio = 0)
 		{
 			Priority = prio;
-
-			Current = move;
-			State = CombatPerformanceState.Charging;
-			Charge = 0f;
+			State = Performance.Preparing;
 			RunTime = 0f;
+
+			CurrentMove = move;
+			Charge = 0f;
 
 			this.agent = agent;
 			this.entityTimeScale = entityTimeScale;
@@ -72,7 +64,7 @@ namespace SpaxUtils
 			callbackService.UpdateCallback -= Update;
 		}
 
-		public bool TryProduce(IAct act, out IPerformer performer)
+		public bool TryPrepare(IAct act, out IPerformer performer)
 		{
 			performer = null;
 			SpaxDebug.Error("Helper automatically begins performance on creation.");
@@ -81,23 +73,36 @@ namespace SpaxUtils
 
 		public bool TryPerform()
 		{
-			if (Current == null || Released)
+			if (released)
 			{
 				// Already performing.
 				return false;
 			}
 
-			State = State.SetFlag(CombatPerformanceState.Released);
+			released = true;
 
-			if (Charging && Current.RequireMinCharge)
+			if (CurrentMove.RequireMinCharge && Charge < CurrentMove.MinCharge)
 			{
-				// Cancel current.
-				State = State.UnsetFlag(CombatPerformanceState.Charging);
-				Current = null;
+				// Min charge not reached but required, cancel attack.
+				TryCancel();
+				return false;
 			}
 
 			// Auto complete current with minimum charge.
 			return true;
+		}
+
+		public bool TryCancel()
+		{
+			if (State == Performance.Preparing)
+			{
+				State = Performance.Completed;
+				return true;
+			}
+			else
+			{
+				return false;
+			}
 		}
 
 		public void AddCombatMove(string act, ICombatMove move, int prio)
@@ -112,55 +117,50 @@ namespace SpaxUtils
 
 		private void Update()
 		{
-			EntityStat speedMult = Charging ? agent.GetStat(Current.ChargeSpeedMultiplierStat) : agent.GetStat(Current.PerformSpeedMultiplierStat);
+			EntityStat speedMult = State == Performance.Preparing ? agent.GetStat(CurrentMove.ChargeSpeedMultiplierStat) : agent.GetStat(CurrentMove.PerformSpeedMultiplierStat);
 			float delta = Time.deltaTime * (speedMult ?? 1f) * entityTimeScale;
 
-			if (Charging)
+			if (State == Performance.Preparing)
 			{
 				// Charging
 				Charge += delta;
 
-				if (Released && Charge > Current.MinCharge)
+				if (released && Charge > CurrentMove.MinCharge)
 				{
 					// Finished charging.
-					State = State.UnsetFlag(CombatPerformanceState.Charging);
-					hitDetectionHelper = new CombatHitDetectionHelper(agent, transformLookup, Current, layerMask);
+					State = Performance.Performing;
+					hitDetectionHelper = new CombatHitDetectionHelper(agent, transformLookup, CurrentMove, layerMask);
 				}
 			}
-
-			if (Attacking)
+			else
 			{
 				// Attacking
 				RunTime += delta;
 
-				if (!Finishing && hitDetectionHelper.Update(out List<HitScanHitData> newHits))
+				if (State != Performance.Finishing && hitDetectionHelper.Update(out List<HitScanHitData> newHits))
 				{
 					NewHitDetectedEvent?.Invoke(newHits);
 				}
 
-				// TODO: Clamp performance to MinDuration / Peak until agent is standing still.
-				// This won't be necessary until the charge mechanic increases attack force.
+				if (RunTime > CurrentMove.MinDuration)
+				{
+					// Finishing
+					State = Performance.Finishing;
+				}
+				else if (RunTime > CurrentMove.TotalDuration)
+				{
+					// Completed
+					State = Performance.Completed;
+				}
 			}
 
-			if (!Finishing && RunTime > Current.MinDuration)
-			{
-				// Finishing
-				State = State.SetFlag(CombatPerformanceState.Finishing);
-			}
-
-			if (!Completed && RunTime > Current.TotalDuration)
-			{
-				// Completed
-				State = State.SetFlag(CombatPerformanceState.Completed);
-			}
-
-			PoseTransition pose = Current.Evaluate(Charge, RunTime, out float weight);
+			PoseTransition pose = CurrentMove.Evaluate(Charge, RunTime, out float weight);
 			PoseUpdateEvent?.Invoke(this, new PoserStruct(new PoseInstructions(pose, 1f)), weight);
 
 			PerformanceUpdateEvent?.Invoke(this);
 
 			// If the combat performance has fully completed, dispose of ourselves.
-			if (Completed)
+			if (State == Performance.Completed)
 			{
 				PerformanceCompletedEvent?.Invoke(this);
 				Dispose();

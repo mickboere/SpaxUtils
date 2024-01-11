@@ -14,30 +14,35 @@ namespace SpaxUtils
 		private AnimatorPoser poser;
 		private IAgentMovementHandler movementHandler;
 		private RigidbodyWrapper rigidbodyWrapper;
+		private GuardPerformerComponent guardPerformerComponent;
 
 		public void InjectDependencies(IAgent agent, IActor actor, AnimatorPoser poser,
-			IAgentMovementHandler movementHandler, RigidbodyWrapper rigidbodyWrapper)
+			IAgentMovementHandler movementHandler, RigidbodyWrapper rigidbodyWrapper,
+			GuardPerformerComponent guardPerformerComponent)
 		{
 			this.agent = agent;
 			this.actor = actor;
 			this.poser = poser;
 			this.movementHandler = movementHandler;
 			this.rigidbodyWrapper = rigidbodyWrapper;
+			this.guardPerformerComponent = guardPerformerComponent;
 		}
 
 		public override void OnStateEntered()
 		{
 			base.OnStateEntered();
-
-			// Subscribe to events.
-			actor.Listen<Act<bool>>(this, ActorActs.GUARD, OnGuard);
-
-
+			guardPerformerComponent.PoseUpdateEvent += OnPoseUpdateEvent;
 		}
 
-		private void OnGuard(Act<bool> act)
+		public override void OnStateExit()
 		{
+			base.OnStateExit();
+			guardPerformerComponent.PoseUpdateEvent -= OnPoseUpdateEvent;
+		}
 
+		private void OnPoseUpdateEvent(PoserStruct pose, float weight)
+		{
+			poser.ProvideInstructions(this, PoserLayerConstants.BODY, pose, 1, 1f);
 		}
 	}
 }

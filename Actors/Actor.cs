@@ -18,11 +18,12 @@ namespace SpaxUtils
 
 		public int Priority => int.MaxValue;
 		public List<string> SupportsActs { get; private set; } = new List<string>();
-		public bool Performing => MainPerformer == null ? false : MainPerformer.Performing;
-		public bool Finishing => MainPerformer == null ? false : MainPerformer.Finishing;
-		public bool Completed => MainPerformer == null ? false : MainPerformer.Completed;
-		public float RunTime => MainPerformer == null ? 0f : MainPerformer.RunTime;
+		public Performance State => MainPerformer != null ? MainPerformer.State : Performance.Inactive;
+		public float RunTime => MainPerformer != null ? MainPerformer.RunTime : 0f;
 
+		/// <summary>
+		/// The last performer to be activated.
+		/// </summary>
 		public IPerformer MainPerformer => activePerformers.Count > 0 ? activePerformers[activePerformers.Count - 1] : null;
 
 		private bool autoRefreshSupport;
@@ -114,11 +115,11 @@ namespace SpaxUtils
 
 		#region Production
 		/// <inheritdoc/>
-		public bool TryProduce(IAct act, out IPerformer finalPerformer)
+		public bool TryPrepare(IAct act, out IPerformer finalPerformer)
 		{
 			finalPerformer = null;
 			if (!SupportsActs.Contains(act.Title) ||
-				(MainPerformer != null && !MainPerformer.Finishing))
+				(MainPerformer != null && State != Performance.Finishing))
 			{
 				return false;
 			}
@@ -127,7 +128,7 @@ namespace SpaxUtils
 			{
 				if (performer.SupportsActs.Contains(act.Title))
 				{
-					if (performer.TryProduce(act, out finalPerformer))
+					if (performer.TryPrepare(act, out finalPerformer))
 					{
 						return true;
 					}
@@ -163,11 +164,11 @@ namespace SpaxUtils
 				// Try produce Act on TRUE (button down).
 				if (boolAct.Value)
 				{
-					if (TryProduce(boolAct, out IPerformer performer) && !activePerformers.Contains(performer))
+					if (TryPrepare(boolAct, out IPerformer performer) && !activePerformers.Contains(performer))
 					{
 						activePerformers.Add(performer);
 					}
-					else if (MainPerformer.Performing)
+					else if (State == Performance.Performing)
 					{
 						failed = true;
 					}
@@ -189,6 +190,11 @@ namespace SpaxUtils
 		public bool TryPerform()
 		{
 			return MainPerformer == null ? false : MainPerformer.TryPerform();
+		}
+
+		public bool TryCancel()
+		{
+			return MainPerformer == null ? false : MainPerformer.TryCancel();
 		}
 
 		private void OnPerformanceUpdateEvent(IPerformer performer)
