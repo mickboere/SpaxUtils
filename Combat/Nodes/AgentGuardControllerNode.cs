@@ -38,11 +38,12 @@ namespace SpaxUtils
 		{
 			base.OnStateExit();
 			guardPerformerComponent.PoseUpdateEvent -= OnPoseUpdateEvent;
+			poser.RevokeInstructions(this);
 		}
 
 		private void OnPoseUpdateEvent(PoserStruct pose, float weight)
 		{
-			poser.ProvideInstructions(this, PoserLayerConstants.BODY, pose, 1, 1f);
+			poser.ProvideInstructions(this, PoserLayerConstants.BODY, pose, 1, weight);
 		}
 	}
 }

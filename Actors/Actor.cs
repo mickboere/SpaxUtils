@@ -209,9 +209,8 @@ namespace SpaxUtils
 
 		private void OnPerformanceCompletedEvent(IPerformer performer)
 		{
-			PerformanceCompletedEvent?.Invoke(performer);
-
 			activePerformers.Remove(performer);
+			PerformanceCompletedEvent?.Invoke(performer);
 		}
 		#endregion Performance
 

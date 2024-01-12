@@ -147,7 +147,7 @@ namespace SpaxUtils
 					// Finishing
 					State = Performance.Finishing;
 				}
-				else if (RunTime > CurrentMove.TotalDuration)
+				if (RunTime > CurrentMove.TotalDuration)
 				{
 					// Completed
 					State = Performance.Completed;

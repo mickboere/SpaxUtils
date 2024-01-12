@@ -211,7 +211,7 @@ namespace SpaxUtils
 
 		private void OnPoseUpdateEvent(IPerformer performer, PoserStruct pose, float weight)
 		{
-			PoseUpdateEvent(performer, pose, weight);
+			PoseUpdateEvent?.Invoke(performer, pose, weight);
 		}
 
 		private void OnNewHitDetectedEvent(List<HitScanHitData> newHits)

@@ -14,56 +14,106 @@ namespace SpaxUtils
 		#region IPerformer properties
 
 		public int Priority => 0;
-
 		public List<string> SupportsActs => new List<string> { ActorActs.GUARD };
-
 		public Performance State { get; private set; }
-
 		public float RunTime { get; private set; }
 
 		#endregion IPerformer properties
 
-		public bool Guarding { get; private set; }
+		[SerializeField] private PerformanceMove defaultGuardMove;
 
-		[SerializeField] private PoseSequence defaultGuardPose;
+		private IAgent agent;
 
-		public void InjectDependencies()
+		private bool guarding;
+		private float guardTime;
+
+		public void InjectDependencies(IAgent agent)
 		{
-		}
-
-		protected void Update()
-		{
-
+			this.agent = agent;
 		}
 
 		public bool TryPrepare(IAct act, out IPerformer performer)
 		{
 			performer = this;
-
 			if (State == Performance.Performing)
 			{
 				return false;
 			}
 
-			Guarding = true;
+			State = Performance.Preparing;
+			guarding = true;
 			return true;
 		}
 
 		public bool TryPerform()
 		{
-			if (!Guarding)
+			if (!guarding)
 			{
 				return false;
 			}
 
-
-
+			guarding = false;
 			return true;
 		}
 
 		public bool TryCancel()
 		{
 			return false;
+		}
+
+		protected void Update()
+		{
+			if (State != Performance.Inactive)
+			{
+				EntityStat speedMult = State == Performance.Preparing ? agent.GetStat(defaultGuardMove.ChargeSpeedMultiplierStat) : agent.GetStat(defaultGuardMove.PerformSpeedMultiplierStat);
+				float delta = Time.deltaTime * (speedMult ?? 1f) * EntityTimeScale;
+
+				if (State == Performance.Preparing)
+				{
+					// Block
+					guardTime += delta;
+
+					if (!guarding && guardTime > defaultGuardMove.MinCharge)
+					{
+						// Enter parry.
+						State = Performance.Performing;
+					}
+				}
+				else
+				{
+					// Parry
+					RunTime += delta;
+
+					if (RunTime > defaultGuardMove.MinDuration)
+					{
+						// Finishing
+						State = Performance.Finishing;
+					}
+					if (RunTime > defaultGuardMove.TotalDuration)
+					{
+						// Completed
+						State = Performance.Completed;
+					}
+				}
+
+				PoseTransition pose = defaultGuardMove.Evaluate(guardTime, RunTime, out float weight);
+				PoseUpdateEvent?.Invoke(new PoserStruct(new PoseInstructions(pose, 1f)), weight);
+
+				PerformanceUpdateEvent?.Invoke(this);
+
+				if (State == Performance.Completed)
+				{
+					OnComplete();
+				}
+			}
+		}
+
+		private void OnComplete()
+		{
+			PerformanceCompletedEvent?.Invoke(this);
+			State = Performance.Inactive;
+			guardTime = 0f;
+			RunTime = 0f;
 		}
 	}
 }
