@@ -7,54 +7,35 @@ namespace SpaxUtils
 {
 	/// <summary>
 	/// Agent component that is able to execute an <see cref="ICombatMove"/> of which the progression is broadcast through events.
-	/// This component does not actually change anything on an agent-level, for that see <see cref="AgentCombatControllerNode"/>.
+	/// This component does not actually apply anything on an agent-level, for that see <see cref="AgentCombatControllerNode"/>.
 	/// </summary>
 	public class CombatPerformerComponent : EntityComponentBase, ICombatPerformer
 	{
-		/// <inheritdoc/>
 		public event Action<List<HitScanHitData>> NewHitDetectedEvent;
-
-		/// <inheritdoc/>
 		public event Action<HitData> ProcessHitEvent;
-
-		/// <inheritdoc/>
 		public event Action<IPerformer> PerformanceUpdateEvent;
-
-		/// <inheritdoc/>
 		public event Action<IPerformer> PerformanceCompletedEvent;
-
-		/// <inheritdoc/>
 		public event Action<IPerformer, PoserStruct, float> PoseUpdateEvent;
 
 		#region IPerformer Properties
 
-		/// <inheritdoc/>
+		public string Act => performanceHelper != null ? performanceHelper.Act : null;
 		public int Priority => 0;
-
-		/// <inheritdoc/>
-		public List<string> SupportsActs { get; } = new List<string> { ActorActs.LIGHT, ActorActs.HEAVY };
-
-		/// <inheritdoc/>
 		public Performance State => performanceHelper != null ? performanceHelper.State : Performance.Inactive;
-
-		/// <inheritdoc/>
 		public float RunTime => performanceHelper != null ? performanceHelper.RunTime : 0f;
 
 		#endregion IPerformer Properties
 
 		#region ICombatPerformer Properties
 
-		/// <inheritdoc/>
 		public ICombatMove CurrentMove => performanceHelper != null ? performanceHelper.CurrentMove : null;
-
-		/// <inheritdoc/>
 		public float Charge => performanceHelper != null ? performanceHelper.Charge : 0f;
 
 		#endregion ICombatPerformer Properties
 
 		[SerializeField, Header("Default Moves")] private CombatMove unarmedLight;
 		[SerializeField] private CombatMove unarmedHeavy;
-		[SerializeField] private CombatMove unarmedBlock;
+		[SerializeField] private CombatMove unarmedGuard;
 		[SerializeField, Header("Hit Detection")] private LayerMask hitDetectionMask;
 		[SerializeField] private float hitPause = 0.15f;
 		[SerializeField] private AnimationCurve hitPauseCurve;
@@ -63,18 +44,20 @@ namespace SpaxUtils
 		private CallbackService callbackService;
 		private TransformLookup transformLookup;
 		private RigidbodyWrapper rigidbodyWrapper;
+		private IGrounderComponent grounder;
 
 		private Dictionary<string, Dictionary<ICombatMove, int>> moves = new Dictionary<string, Dictionary<ICombatMove, int>>();
 		private CombatPerformanceHelper performanceHelper;
 		private TimedCurveModifier timeMod;
 
 		public void InjectDependencies(IAgent agent, CallbackService callbackService,
-			TransformLookup transformLookup, RigidbodyWrapper rigidbodyWrapper)
+			TransformLookup transformLookup, RigidbodyWrapper rigidbodyWrapper, IGrounderComponent grounder)
 		{
 			this.agent = agent;
 			this.callbackService = callbackService;
 			this.transformLookup = transformLookup;
 			this.rigidbodyWrapper = rigidbodyWrapper;
+			this.grounder = grounder;
 		}
 
 		protected void Start()
@@ -82,6 +65,7 @@ namespace SpaxUtils
 			// Add default unarmed moves.
 			AddCombatMove(ActorActs.LIGHT, unarmedLight, -1);
 			AddCombatMove(ActorActs.HEAVY, unarmedHeavy, -1);
+			AddCombatMove(ActorActs.GUARD, unarmedGuard, -1);
 		}
 
 		protected void OnDisable()
@@ -90,20 +74,34 @@ namespace SpaxUtils
 		}
 
 		/// <inheritdoc/>
+		public bool SupportsAct(string act)
+		{
+			return moves.ContainsKey(act);
+		}
+
+		/// <inheritdoc/>
 		public bool TryPrepare(IAct act, out IPerformer finalPerformer)
 		{
-			finalPerformer = performanceHelper;
-			ICombatMove combatMove = GetMove(act.Title);
+			finalPerformer = null;
 
+			// Must be grounded.
+			if (!grounder.Grounded)
+			{
+				return false;
+			}
+
+			// Must have a supported move.
+			ICombatMove combatMove = GetMove(act.Title);
 			if (combatMove == null)
 			{
 				return false;
 			}
 
+			// If there isn't already a performance helper running, create a new one and return it.
+			// If the existing performance is finishing we can override it because it will dispose of itself once completed.
 			if (performanceHelper == null || State == Performance.Finishing)
 			{
-				// We can override the current performanceHelper here if it's finishing because it will dispose of itself once completed.
-				performanceHelper = new CombatPerformanceHelper(combatMove, agent, EntityTimeScale, callbackService, transformLookup, hitDetectionMask);
+				performanceHelper = new CombatPerformanceHelper(act.Title, combatMove, agent, EntityTimeScale, callbackService, transformLookup, hitDetectionMask);
 				performanceHelper.PerformanceUpdateEvent += OnPerformanceUpdateEvent;
 				performanceHelper.PerformanceCompletedEvent += OnPerformanceCompletedEvent;
 				performanceHelper.NewHitDetectedEvent += OnNewHitDetectedEvent;
@@ -207,6 +205,7 @@ namespace SpaxUtils
 		{
 			if (performer == performanceHelper)
 			{
+				// Must be discarded manually because even if it's disposed it'll still hold a reference.
 				performanceHelper = null;
 			}
 

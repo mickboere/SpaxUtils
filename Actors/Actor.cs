@@ -16,8 +16,8 @@ namespace SpaxUtils
 		public event Action<IPerformer> PerformanceUpdateEvent;
 		public event Action<IPerformer> PerformanceCompletedEvent;
 
+		public string Act => MainPerformer != null ? MainPerformer.Act : null;
 		public int Priority => int.MaxValue;
-		public List<string> SupportsActs { get; private set; } = new List<string>();
 		public Performance State => MainPerformer != null ? MainPerformer.State : Performance.Inactive;
 		public float RunTime => MainPerformer != null ? MainPerformer.RunTime : 0f;
 
@@ -26,7 +26,6 @@ namespace SpaxUtils
 		/// </summary>
 		public IPerformer MainPerformer => activePerformers.Count > 0 ? activePerformers[activePerformers.Count - 1] : null;
 
-		private bool autoRefreshSupport;
 		private List<IPerformer> availablePerformers;
 		private List<IPerformer> activePerformers = new List<IPerformer>();
 		private Act<bool>? lastAct;
@@ -41,20 +40,15 @@ namespace SpaxUtils
 			this.availablePerformers = new List<IPerformer>();
 			if (performers != null)
 			{
-				autoRefreshSupport = false;
 				foreach (IPerformer performer in performers)
 				{
 					AddPerformer(performer);
 				}
 			}
-
-			autoRefreshSupport = true;
-			RefreshSupport();
 		}
 
 		public void Dispose()
 		{
-			autoRefreshSupport = false;
 			while (availablePerformers.Count > 0)
 			{
 				RemovePerformer(availablePerformers[0]);
@@ -87,11 +81,6 @@ namespace SpaxUtils
 
 			performer.PerformanceUpdateEvent += OnPerformanceUpdateEvent;
 			performer.PerformanceCompletedEvent += OnPerformanceCompletedEvent;
-
-			if (autoRefreshSupport)
-			{
-				RefreshSupport();
-			}
 		}
 
 		/// <inheritdoc/>
@@ -105,20 +94,29 @@ namespace SpaxUtils
 			availablePerformers.Remove(performer);
 			performer.PerformanceUpdateEvent -= OnPerformanceUpdateEvent;
 			performer.PerformanceCompletedEvent -= OnPerformanceCompletedEvent;
-
-			if (autoRefreshSupport)
-			{
-				RefreshSupport();
-			}
 		}
 		#endregion Management
 
 		#region Production
 		/// <inheritdoc/>
+		public bool SupportsAct(string act)
+		{
+			foreach (IPerformer available in availablePerformers)
+			{
+				if (available.SupportsAct(act))
+				{
+					return true;
+				}
+			}
+
+			return false;
+		}
+
+		/// <inheritdoc/>
 		public bool TryPrepare(IAct act, out IPerformer finalPerformer)
 		{
 			finalPerformer = null;
-			if (!SupportsActs.Contains(act.Title) ||
+			if (!SupportsAct(act.Title) ||
 				(MainPerformer != null && State != Performance.Finishing))
 			{
 				return false;
@@ -126,7 +124,7 @@ namespace SpaxUtils
 
 			foreach (IPerformer performer in availablePerformers)
 			{
-				if (performer.SupportsActs.Contains(act.Title))
+				if (performer.SupportsAct(act.Title))
 				{
 					if (performer.TryPrepare(act, out finalPerformer))
 					{
@@ -143,7 +141,7 @@ namespace SpaxUtils
 		{
 			base.OnReceived(key, act);
 
-			if (!SupportsActs.Contains(act.Title))
+			if (!SupportsAct(act.Title))
 			{
 				// Act type not supported.
 				return;
@@ -228,15 +226,6 @@ namespace SpaxUtils
 				{
 					OnReceived(retry.Title, new Act<bool>(retry.Title, false, buffer));
 				}
-			}
-		}
-
-		private void RefreshSupport()
-		{
-			SupportsActs = new List<string>();
-			foreach (IPerformer performer in availablePerformers)
-			{
-				SupportsActs.AddRange(performer.SupportsActs);
 			}
 		}
 	}

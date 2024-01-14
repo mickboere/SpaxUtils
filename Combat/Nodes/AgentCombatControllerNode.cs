@@ -8,7 +8,7 @@ using UnityEngine;
 namespace SpaxUtils
 {
 	/// <summary>
-	/// Node that catches all <see cref="IAct"/>s relating to combat and tries to pass them to an <see cref="IPerformer"/> for execution.
+	/// Node that applies all combat performance belonging to <see cref="CombatPerformerComponent"/> to the agent.
 	/// </summary>
 	public class AgentCombatControllerNode : StateMachineNodeBase
 	{

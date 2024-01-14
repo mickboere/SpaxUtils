@@ -20,9 +20,9 @@ namespace SpaxUtils
 		int Priority { get; }
 
 		/// <summary>
-		/// Returns which type of acts this performer is able to execute.
+		/// The title of the act this performer is currently performing.
 		/// </summary>
-		List<string> SupportsActs { get; }
+		string Act { get; }
 
 		/// <summary>
 		/// The state of the current performance.
@@ -37,6 +37,13 @@ namespace SpaxUtils
 		#endregion Properties
 
 		#region Methods
+
+		/// <summary>
+		/// Returns whether this performer supports acts of type <paramref name="act"/>.
+		/// </summary>
+		/// <param name="act"></param>
+		/// <returns></returns>
+		bool SupportsAct(string act);
 
 		/// <summary>
 		/// Try to prepare a performer to handle the <paramref name="act"/>.

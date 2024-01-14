@@ -18,7 +18,7 @@ namespace SpaxUtils
 
 		#region IPerformer Properties
 		public int Priority { get; }
-		public List<string> SupportsActs { get; } = new List<string> { ActorActs.LIGHT, ActorActs.HEAVY };
+		public string Act { get; }
 		public Performance State { get; private set; }
 		public float RunTime { get; private set; }
 		#endregion IPerformer Properties
@@ -37,11 +37,12 @@ namespace SpaxUtils
 		private bool released;
 		private CombatHitDetectionHelper hitDetectionHelper;
 
-		public CombatPerformanceHelper(
+		public CombatPerformanceHelper(string act,
 			ICombatMove move, IAgent agent, EntityStat entityTimeScale,
 			CallbackService callbackService, TransformLookup transformLookup,
 			LayerMask layerMask, int prio = 0)
 		{
+			Act = act;
 			Priority = prio;
 			State = Performance.Preparing;
 			RunTime = 0f;
@@ -62,6 +63,12 @@ namespace SpaxUtils
 		{
 			hitDetectionHelper?.Dispose();
 			callbackService.UpdateCallback -= Update;
+		}
+
+		public bool SupportsAct(string act)
+		{
+			SpaxDebug.Error("Helper does not support any particular act.");
+			return false;
 		}
 
 		public bool TryPrepare(IAct act, out IPerformer performer)
