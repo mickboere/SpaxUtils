@@ -102,6 +102,7 @@ namespace SpaxUtils
 
 			if (performanceHelper == null || State == Performance.Finishing)
 			{
+				// We can override the current performanceHelper here if it's finishing because it will dispose of itself once completed.
 				performanceHelper = new CombatPerformanceHelper(combatMove, agent, EntityTimeScale, callbackService, transformLookup, hitDetectionMask);
 				performanceHelper.PerformanceUpdateEvent += OnPerformanceUpdateEvent;
 				performanceHelper.PerformanceCompletedEvent += OnPerformanceCompletedEvent;
@@ -204,6 +205,11 @@ namespace SpaxUtils
 
 		private void OnPerformanceCompletedEvent(IPerformer performer)
 		{
+			if (performer == performanceHelper)
+			{
+				performanceHelper = null;
+			}
+
 			performer.PerformanceUpdateEvent -= OnPerformanceUpdateEvent;
 			performer.PerformanceCompletedEvent -= OnPerformanceCompletedEvent;
 			PerformanceCompletedEvent?.Invoke(performer);
