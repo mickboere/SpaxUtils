@@ -6,7 +6,10 @@ using System;
 
 namespace SpaxUtils
 {
-	public class SheatheArmsNode : StateMachineNodeBase
+	/// <summary>
+	/// Agent node that either sheathes or keeps up arms, updating their IK to match equiped items.
+	/// </summary>
+	public class AgentArmsNode : StateMachineNodeBase
 	{
 		[SerializeField, Input(backingValue = ShowBackingValue.Never)] protected Connections.StateComponent inConnection;
 
@@ -17,23 +20,29 @@ namespace SpaxUtils
 		[SerializeField, Conditional(nameof(animateIK))] private float reachDuration = 0.5f;
 		[SerializeField, Conditional(nameof(animateIK))] private float recoverDuration = 1f;
 
-		private IEntity entity;
 		private AgentArmsComponent arms;
 		private CallbackService callbackService;
 		private IIKComponent ik;
 		private RigidbodyWrapper rigidbodyWrapper;
+		private IEquipmentComponent equipment;
 
 		private EntityStat entityTimeScale;
 		private FloatOperationModifier controlMod;
 		private Coroutine coroutine;
 
-		public void InjectDependencies(IEntity entity, AgentArmsComponent arms, CallbackService callbackService, IIKComponent ik, RigidbodyWrapper rigidbodyWrapper)
+		private RuntimeEquipedData leftEquip;
+		private ArmedEquipmentComponent leftComp;
+		private RuntimeEquipedData rightEquip;
+		private ArmedEquipmentComponent rightComp;
+
+		public void InjectDependencies(IEntity entity, AgentArmsComponent arms, CallbackService callbackService,
+			IIKComponent ik, RigidbodyWrapper rigidbodyWrapper, IEquipmentComponent equipment)
 		{
-			this.entity = entity;
 			this.arms = arms;
 			this.callbackService = callbackService;
 			this.ik = ik;
 			this.rigidbodyWrapper = rigidbodyWrapper;
+			this.equipment = equipment;
 
 			entityTimeScale = entity.GetStat(EntityStatIdentifier.TIMESCALE, false);
 			controlMod?.Dispose();
@@ -57,6 +66,16 @@ namespace SpaxUtils
 		public override void OnStateEntered()
 		{
 			base.OnStateEntered();
+
+			// Subscribe to events.
+			callbackService.LateUpdateCallback += OnLateUpdate;
+			equipment.EquipedEvent += OnEquipedEvent;
+			equipment.UnequipingEvent += OnUnquipingEvent;
+
+			foreach (RuntimeEquipedData item in equipment.EquipedItems)
+			{
+				OnEquipedEvent(item);
+			}
 
 			if (sheathe != arms.Sheathed)
 			{
@@ -84,15 +103,43 @@ namespace SpaxUtils
 		public override void OnStateExit()
 		{
 			base.OnStateExit();
+
+			// Unsubscribe from events.
+			callbackService.LateUpdateCallback -= OnLateUpdate;
+			equipment.EquipedEvent -= OnEquipedEvent;
+			equipment.UnequipingEvent -= OnUnquipingEvent;
+
+			// Clean up
 			if (coroutine != null)
 			{
 				callbackService.StopCoroutine(coroutine);
 				coroutine = null;
 			}
-
 			ik.RemoveInfluencer(this, IKChainConstants.LEFT_ARM);
 			ik.RemoveInfluencer(this, IKChainConstants.RIGHT_ARM);
 			rigidbodyWrapper.Control.RemoveModifier(this);
+
+			leftEquip = null;
+			leftComp = null;
+			rightEquip = null;
+			rightComp = null;
+
+			arms.ResetArms();
+		}
+
+		private void OnLateUpdate()
+		{
+			if(!sheathe)
+			{
+				if (leftComp != null)
+				{
+					arms.UpdateArm(true, leftComp.ArmedSettings, Time.deltaTime);
+				}
+				if (rightComp != null)
+				{
+					arms.UpdateArm(false, rightComp.ArmedSettings, Time.deltaTime);
+				}
+			}
 		}
 
 		private IEnumerator Animate(float duration, bool invert, Action callback)
@@ -134,6 +181,36 @@ namespace SpaxUtils
 			Debug.DrawRay(orientation.pos, orientation.rot * Vector3.forward * 0.2f, Color.blue);
 
 			return orientation;
+		}
+
+		private void OnEquipedEvent(RuntimeEquipedData data)
+		{
+			if (data.Slot.ID == HumanBoneIdentifiers.LEFT_HAND)
+			{
+				leftEquip = data;
+				leftComp = leftEquip.EquipedInstance.GetComponent<ArmedEquipmentComponent>();
+			}
+
+			if (data.Slot.ID == HumanBoneIdentifiers.RIGHT_HAND)
+			{
+				rightEquip = data;
+				rightComp = rightEquip.EquipedInstance.GetComponent<ArmedEquipmentComponent>();
+			}
+		}
+
+		private void OnUnquipingEvent(RuntimeEquipedData data)
+		{
+			if (data == leftEquip)
+			{
+				leftEquip = null;
+				leftComp = null;
+			}
+
+			if (data == rightEquip)
+			{
+				rightEquip = null;
+				rightComp = null;
+			}
 		}
 	}
 }

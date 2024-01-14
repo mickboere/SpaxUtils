@@ -38,6 +38,11 @@ namespace SpaxUtils
 			}
 		}
 
+		/// <summary>
+		/// Composite weight float for both arms that can be influenced by external modifiers.
+		/// </summary>
+		public CompositeFloat Weight { get; set; } = new CompositeFloat(1f);
+
 		[SerializeField, HideInInspector] private bool left;
 		[SerializeField, Conditional(nameof(left), drawToggle: true), ConstDropdown(typeof(IEquipmentSlotTypeConstants))] private string leftType;
 		[SerializeField, HideInInspector] private bool right;
@@ -129,10 +134,10 @@ namespace SpaxUtils
 		/// <param name="weight">Effective weight of the arm's IK.</param>
 		/// <param name="settings">Armed settings defining how an arm should be carried.</param>
 		/// <param name="delta">Delta time used for interpolation and smoothing.</param>
-		public void UpdateArm(bool isLeft, float weight, ArmedSettings settings, float delta)
+		public void UpdateArm(bool isLeft, ArmedSettings settings, float delta)
 		{
-			if (isLeft) { leftHelper?.Update(weight, settings, delta); }
-			else { rightHelper?.Update(weight, settings, delta); }
+			if (isLeft) { leftHelper?.Update(Weight, settings, delta); }
+			else { rightHelper?.Update(Weight, settings, delta); }
 		}
 
 		/// <summary>

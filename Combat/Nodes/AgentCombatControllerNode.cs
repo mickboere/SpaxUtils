@@ -23,9 +23,7 @@ namespace SpaxUtils
 		private AnimatorPoser poser;
 		private IAgentMovementHandler movementHandler;
 		private RigidbodyWrapper rigidbodyWrapper;
-		private IEquipmentComponent equipment;
-		private AgentArmsComponent armSlots;
-		private CallbackService callbackService;
+		private AgentArmsComponent arms;
 		private IEntityCollection entityCollection;
 		private AgentNavigationHandler navigationHandler;
 		private ITargeter targeter;
@@ -37,14 +35,8 @@ namespace SpaxUtils
 		private bool appliedMomentum;
 		private EntityComponentFilter<ITargetable> targetables;
 
-		private RuntimeEquipedData leftEquip;
-		private ArmedEquipmentComponent leftComp;
-		private RuntimeEquipedData rightEquip;
-		private ArmedEquipmentComponent rightComp;
-
 		public void InjectDependencies(IAgent agent, IActor actor, ICombatPerformer combatPerformer, AnimatorPoser poser,
-			IAgentMovementHandler movementHandler, RigidbodyWrapper rigidbodyWrapper,
-			IEquipmentComponent equipment, AgentArmsComponent armSlots, CallbackService callbackService,
+			IAgentMovementHandler movementHandler, RigidbodyWrapper rigidbodyWrapper, AgentArmsComponent arms,
 			IEntityCollection entityCollection, AgentNavigationHandler navigationHandler, ITargeter targeter)
 		{
 			this.agent = agent;
@@ -53,9 +45,7 @@ namespace SpaxUtils
 			this.poser = poser;
 			this.movementHandler = movementHandler;
 			this.rigidbodyWrapper = rigidbodyWrapper;
-			this.equipment = equipment;
-			this.armSlots = armSlots;
-			this.callbackService = callbackService;
+			this.arms = arms;
 			this.entityCollection = entityCollection;
 			this.navigationHandler = navigationHandler;
 			this.targeter = targeter;
@@ -66,21 +56,14 @@ namespace SpaxUtils
 			base.OnStateEntered();
 
 			// Subscribe to events.
-			callbackService.LateUpdateCallback += OnLateUpdate;
-			equipment.EquipedEvent += OnEquipedEvent;
-			equipment.UnequipingEvent += OnUnquipingEvent;
 			actor.PerformanceUpdateEvent += OnPerformanceUpdateEvent;
 			combatPerformer.PoseUpdateEvent += OnPoseUpdateEvent;
 
 			controlMod = new FloatOperationModifier(ModMethod.Absolute, Operation.Multiply, 1f);
 			rigidbodyWrapper.Control.AddModifier(this, controlMod);
+			arms.Weight.AddModifier(this, controlMod);
 
 			targetables = new EntityComponentFilter<ITargetable>(entityCollection, (entity) => entity.Identification.HasAll(targetLabels), (c) => true, agent);
-
-			foreach (RuntimeEquipedData item in equipment.EquipedItems)
-			{
-				OnEquipedEvent(item);
-			}
 		}
 
 		public override void OnStateExit()
@@ -89,16 +72,15 @@ namespace SpaxUtils
 
 			// Return control to movement handler.
 			rigidbodyWrapper.Control.RemoveModifier(this);
+			arms.Weight.RemoveModifier(this);
 
 			// Unsubscribe from events.
-			callbackService.LateUpdateCallback -= OnLateUpdate;
-			equipment.EquipedEvent -= OnEquipedEvent;
-			equipment.UnequipingEvent -= OnUnquipingEvent;
 			actor.PerformanceUpdateEvent -= OnPerformanceUpdateEvent;
 			combatPerformer.PoseUpdateEvent -= OnPoseUpdateEvent;
 			actor.StopListening(this);
 
 			// Clear data.
+			controlMod.Dispose();
 			targetables.Dispose();
 			foreach (IPerformer performer in poses.Keys)
 			{
@@ -107,24 +89,6 @@ namespace SpaxUtils
 			poses.Clear();
 
 			wasPerforming = false;
-			leftEquip = null;
-			leftComp = null;
-			rightEquip = null;
-			rightComp = null;
-
-			armSlots.ResetArms();
-		}
-
-		private void OnLateUpdate()
-		{
-			if (leftComp != null)
-			{
-				armSlots.UpdateArm(true, controlMod.Value, leftComp.ArmedSettings, Time.deltaTime);
-			}
-			if (rightComp != null)
-			{
-				armSlots.UpdateArm(false, controlMod.Value, rightComp.ArmedSettings, Time.deltaTime);
-			}
 		}
 
 		private void OnPoseUpdateEvent(IPerformer performer, PoserStruct pose, float weight)
@@ -213,36 +177,6 @@ namespace SpaxUtils
 			else
 			{
 				poser.ProvideInstructions(performer, PoserLayerConstants.BODY, poses[performer].pose, 1, poses[performer].weight);
-			}
-		}
-
-		private void OnEquipedEvent(RuntimeEquipedData data)
-		{
-			if (data.Slot.ID == HumanBoneIdentifiers.LEFT_HAND)
-			{
-				leftEquip = data;
-				leftComp = leftEquip.EquipedInstance.GetComponent<ArmedEquipmentComponent>();
-			}
-
-			if (data.Slot.ID == HumanBoneIdentifiers.RIGHT_HAND)
-			{
-				rightEquip = data;
-				rightComp = rightEquip.EquipedInstance.GetComponent<ArmedEquipmentComponent>();
-			}
-		}
-
-		private void OnUnquipingEvent(RuntimeEquipedData data)
-		{
-			if (data == leftEquip)
-			{
-				leftEquip = null;
-				leftComp = null;
-			}
-
-			if (data == rightEquip)
-			{
-				rightEquip = null;
-				rightComp = null;
 			}
 		}
 	}
