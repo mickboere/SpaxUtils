@@ -1,4 +1,5 @@
 ﻿using SpaxUtils.StateMachine;
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -17,10 +18,12 @@ namespace SpaxUtils
 		[SerializeField, ConstDropdown(typeof(IInputActionMaps))] private string actionMap;
 		[SerializeField, ConstDropdown(typeof(IInputActions))] private string input;
 		[SerializeField, ConstDropdown(typeof(IActConstants))] private string act;
+		[SerializeField] private bool holdEveryFrame;
 
 		private PlayerInputWrapper playerInputWrapper;
 		private IAgent agent;
 		private Option option;
+		private bool holding;
 
 		public void InjectDependencies(PlayerInputWrapper playerInputWrapper, IAgent agent)
 		{
@@ -31,29 +34,47 @@ namespace SpaxUtils
 		public override void OnStateEntered()
 		{
 			base.OnStateEntered();
-
 			playerInputWrapper.RequestActionMaps(this, 0, actionMap);
-			// Create option that maps input press to act<true>, release to act<false>.
 			option = new Option(act, input, (c) =>
 			{
 				if (c.started)
 				{
 					agent.Actor.Send(new Act<bool>(act, true));
+					holding = true;
 				}
 				else if (c.canceled)
 				{
 					agent.Actor.Send(new Act<bool>(act, false));
+					holding = false;
 				}
 			}, playerInputWrapper);
 			option.MakeAvailable();
 		}
 
+		public override void OnExitingState(Action callback)
+		{
+			if (holding)
+			{
+				agent.Actor.Send(new Act<bool>(act, false));
+				holding = false;
+			}
+			base.OnExitingState(callback);
+		}
+
 		public override void OnStateExit()
 		{
 			base.OnStateExit();
-
 			option.Dispose();
 			playerInputWrapper.CompleteActionMapRequest(this);
+		}
+
+		public override void OnUpdate()
+		{
+			base.OnUpdate();
+			if (holdEveryFrame && holding)
+			{
+				agent.Actor.Send(new Act<bool>(act, true));
+			}
 		}
 	}
 }

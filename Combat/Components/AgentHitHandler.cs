@@ -47,6 +47,10 @@ namespace SpaxUtils
 				animatorPoser.ProvideInstructions(this, PoserLayerConstants.BODY, instructions, 5, stunTimer.Progress.ReverseInOutCubic());
 				stunControlMod.SetValue(stunTimer.Progress.InOutCubic());
 			}
+			else
+			{
+				animatorPoser.RevokeInstructions(this);
+			}
 		}
 
 		private void OnHitEvent(HitData hitData)

@@ -84,8 +84,8 @@ namespace SpaxUtils
 		{
 			finalPerformer = null;
 
-			// Must be grounded.
-			if (!grounder.Grounded)
+			// Must be grounded and in control.
+			if (!grounder.Grounded || rigidbodyWrapper.Control < 0.5f)
 			{
 				return false;
 			}
