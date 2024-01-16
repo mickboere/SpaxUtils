@@ -54,7 +54,7 @@ namespace SpaxUtils
 
 			if (closest == null || second == null)
 			{
-				SpaxDebug.Error("Could not complete blend", $"{name}, closest={closest}, second={second}");
+				SpaxDebug.Error("Could not complete blend", $"{name}, pos={position}, closest={closest}, second={second}");
 				return (null, null, 0f);
 			}
 

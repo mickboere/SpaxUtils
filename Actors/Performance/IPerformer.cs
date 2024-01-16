@@ -20,9 +20,9 @@ namespace SpaxUtils
 		int Priority { get; }
 
 		/// <summary>
-		/// The title of the act this performer is currently performing.
+		/// The act this performer is currently performing.
 		/// </summary>
-		string Act { get; }
+		IAct Act { get; }
 
 		/// <summary>
 		/// The state of the current performance.
@@ -59,10 +59,11 @@ namespace SpaxUtils
 		bool TryPerform();
 
 		/// <summary>
-		/// Will try the cancel the current performance.
+		/// Will try to cancel the current performance.
+		/// If <paramref name="force"/> is TRUE, it will cancel the performance regardless of state.
 		/// </summary>
 		/// <returns>Whether the performance has been succesfully canceled.</returns>
-		bool TryCancel();
+		bool TryCancel(bool force);
 
 		#endregion
 	}

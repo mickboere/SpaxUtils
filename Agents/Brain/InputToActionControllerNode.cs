@@ -18,6 +18,9 @@ namespace SpaxUtils
 		[SerializeField, ConstDropdown(typeof(IInputActionMaps))] private string actionMap;
 		[SerializeField, ConstDropdown(typeof(IInputActions))] private string input;
 		[SerializeField, ConstDropdown(typeof(IActConstants))] private string act;
+		[SerializeField] private bool interuptable;
+		[SerializeField, HideInInspector] private bool customBuffer;
+		[SerializeField, Conditional(nameof(customBuffer), drawToggle: true)] private float buffer;
 		[SerializeField] private bool holdEveryFrame;
 
 		private PlayerInputWrapper playerInputWrapper;
@@ -39,12 +42,12 @@ namespace SpaxUtils
 			{
 				if (c.started)
 				{
-					agent.Actor.Send(new Act<bool>(act, true));
+					agent.Actor.Send(new Act<bool>(act, true, interuptable, customBuffer ? buffer : Act<bool>.DEFAULT_BUFFER));
 					holding = true;
 				}
 				else if (c.canceled)
 				{
-					agent.Actor.Send(new Act<bool>(act, false));
+					agent.Actor.Send(new Act<bool>(act, false, interuptable, customBuffer ? buffer : Act<bool>.DEFAULT_BUFFER));
 					holding = false;
 				}
 			}, playerInputWrapper);
@@ -73,7 +76,7 @@ namespace SpaxUtils
 			base.OnUpdate();
 			if (holdEveryFrame && holding)
 			{
-				agent.Actor.Send(new Act<bool>(act, true));
+				agent.Actor.Send(new Act<bool>(act, true, interuptable, customBuffer ? buffer : Act<bool>.DEFAULT_BUFFER));
 			}
 		}
 	}

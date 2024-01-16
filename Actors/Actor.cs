@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Linq;
 using System.Collections.Generic;
+using UnityEngine;
 
 namespace SpaxUtils
 {
@@ -16,7 +17,7 @@ namespace SpaxUtils
 		public event Action<IPerformer> PerformanceUpdateEvent;
 		public event Action<IPerformer> PerformanceCompletedEvent;
 
-		public string Act => MainPerformer != null ? MainPerformer.Act : null;
+		public IAct Act => MainPerformer != null ? MainPerformer.Act : null;
 		public int Priority => int.MaxValue;
 		public Performance State => MainPerformer != null ? MainPerformer.State : Performance.Inactive;
 		public float RunTime => MainPerformer != null ? MainPerformer.RunTime : 0f;
@@ -28,7 +29,7 @@ namespace SpaxUtils
 
 		private List<IPerformer> availablePerformers;
 		private List<IPerformer> activePerformers = new List<IPerformer>();
-		private Act<bool>? lastAct;
+		private Act<bool>? lastPerformedAct;
 		private (Act<bool> act, Timer timer)? lastFailedAttempt;
 
 		public Actor(
@@ -62,6 +63,7 @@ namespace SpaxUtils
 		}
 
 		#region Management
+
 		/// <inheritdoc/>
 		public void AddPerformer(IPerformer performer)
 		{
@@ -95,15 +97,56 @@ namespace SpaxUtils
 			performer.PerformanceUpdateEvent -= OnPerformanceUpdateEvent;
 			performer.PerformanceCompletedEvent -= OnPerformanceCompletedEvent;
 		}
+
 		#endregion Management
 
 		#region Production
+
+		/// <inheritdoc/>
+		protected override void OnReceived(string key, IAct act)
+		{
+			base.OnReceived(key, act);
+
+			if (!SupportsAct(act.Title))
+			{
+				return;
+			}
+
+			// Default Act<bool> behaviour
+			// (AKA button behaviour - TRUE prepares act, FALSE performs it).
+			if (act is Act<bool> boolAct)
+			{
+				if (boolAct.Value && MainPerformer != null && Act.Title == act.Title && (int)State < (int)Performance.Finishing)
+				{
+					// Don't process duplicate / continuous input.
+					return;
+				}
+
+				bool failed = true;
+				if ((boolAct.Value && TryPrepare(boolAct, out _)) ||
+					(!boolAct.Value && MainPerformer != null && lastPerformedAct.HasValue &&
+						lastPerformedAct.Value.Title == boolAct.Title && lastPerformedAct.Value.Value &&
+						MainPerformer.TryPerform()))
+				{
+					failed = false;
+					lastPerformedAct = act.Title == ActorActs.CANCEL ? null : boolAct;
+				}
+
+				lastFailedAttempt = failed ? (boolAct, new Timer(act.Buffer)) : null;
+			}
+		}
+
 		/// <inheritdoc/>
 		public bool SupportsAct(string act)
 		{
-			foreach (IPerformer available in availablePerformers)
+			if (act == ActorActs.CANCEL)
 			{
-				if (available.SupportsAct(act))
+				return true;
+			}
+
+			foreach (IPerformer performer in availablePerformers)
+			{
+				if (performer.SupportsAct(act))
 				{
 					return true;
 				}
@@ -116,18 +159,25 @@ namespace SpaxUtils
 		public bool TryPrepare(IAct act, out IPerformer finalPerformer)
 		{
 			finalPerformer = null;
-			if (!SupportsAct(act.Title) ||
-				(MainPerformer != null && State != Performance.Finishing))
+
+			// Soft-Cancel mechanic.
+			if (MainPerformer != null && act.Title == ActorActs.CANCEL)
 			{
-				return false;
+				finalPerformer = MainPerformer;
+				return MainPerformer.TryCancel(false);
 			}
 
-			foreach (IPerformer performer in availablePerformers)
+			// Ensure Support and Non-Occupance or Interuptability.
+			if (SupportsAct(act.Title) &&
+				(MainPerformer == null || State == Performance.Finishing || (Act.Interuptable && TryCancel(false))))
 			{
-				if (performer.SupportsAct(act.Title))
+				// Try start new performance.
+				foreach (IPerformer performer in availablePerformers)
 				{
-					if (performer.TryPrepare(act, out finalPerformer))
+					if (performer.SupportsAct(act.Title) &&
+						performer.TryPrepare(act, out finalPerformer))
 					{
+						activePerformers.Add(finalPerformer);
 						return true;
 					}
 				}
@@ -136,63 +186,20 @@ namespace SpaxUtils
 			return false;
 		}
 
-		/// <inheritdoc/>
-		protected override void OnReceived(string key, IAct act)
-		{
-			base.OnReceived(key, act);
-
-			if (!SupportsAct(act.Title))
-			{
-				// Act type not supported.
-				return;
-			}
-
-			// Default Act<bool> behaviour (acting on button input for example)
-			if (act is Act<bool> boolAct)
-			{
-				// Ensure input is allowed during current activity.
-				if (lastAct.HasValue && lastAct.Value.Value && lastAct.Value.Title != boolAct.Title)
-				{
-					// Invalid input for current performance, a <false> value is required first.
-					return;
-				}
-
-				bool failed = false;
-
-				// Try produce Act on TRUE (button down).
-				if (boolAct.Value)
-				{
-					if (TryPrepare(boolAct, out IPerformer performer) && !activePerformers.Contains(performer))
-					{
-						activePerformers.Add(performer);
-					}
-					else if (State == Performance.Performing)
-					{
-						failed = true;
-					}
-				}
-				// Else try perform Act on FALSE (button up).
-				else if (MainPerformer != null && !MainPerformer.TryPerform())
-				{
-					failed = true;
-				}
-
-				lastFailedAttempt = failed ? (boolAct, new Timer(act.Buffer)) : null;
-				lastAct = boolAct;
-			}
-		}
 		#endregion Production
 
 		#region Performance
+
 		/// <inheritdoc/>
 		public bool TryPerform()
 		{
 			return MainPerformer == null ? false : MainPerformer.TryPerform();
 		}
 
-		public bool TryCancel()
+		/// <inheritdoc/>
+		public bool TryCancel(bool force)
 		{
-			return MainPerformer == null ? false : MainPerformer.TryCancel();
+			return MainPerformer == null ? false : MainPerformer.TryCancel(force);
 		}
 
 		private void OnPerformanceUpdateEvent(IPerformer performer)
@@ -210,21 +217,24 @@ namespace SpaxUtils
 			activePerformers.Remove(performer);
 			PerformanceCompletedEvent?.Invoke(performer);
 		}
+
 		#endregion Performance
 
 		private void RetryLastFailedAttempt()
 		{
-			// If there was a failed action attempt AND its buffer timer hasn't expired yet OR the input button is down, retry it.
-			if (lastFailedAttempt.HasValue && (lastFailedAttempt.Value.act.Value || !lastFailedAttempt.Value.timer.Expired))
+			// If there was a failed action attempt previous frame or earlier AND its buffer timer hasn't expired yet OR the input button is down, retry it.
+			if (lastFailedAttempt.HasValue &&
+				lastFailedAttempt.Value.timer.StartTime < lastFailedAttempt.Value.timer.CurrentTime &&
+				(lastFailedAttempt.Value.act.Value || !lastFailedAttempt.Value.timer.Expired))
 			{
 				// If the last attempt was positive, only redo the positive as the input still needs to be released manually.
 				// If the last attempt was negative, redo both positive and negative input to simulate a full button press.
 				Act<bool> retry = lastFailedAttempt.Value.act;
 				float buffer = lastFailedAttempt.Value.timer.Remaining;
-				OnReceived(retry.Title, new Act<bool>(retry.Title, true, buffer));
+				OnReceived(retry.Title, new Act<bool>(retry.Title, true, retry.Interuptable, buffer));
 				if (!retry.Value)
 				{
-					OnReceived(retry.Title, new Act<bool>(retry.Title, false, buffer));
+					OnReceived(retry.Title, new Act<bool>(retry.Title, false, retry.Interuptable, buffer));
 				}
 			}
 		}

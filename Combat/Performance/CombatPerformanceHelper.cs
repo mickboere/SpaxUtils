@@ -18,7 +18,7 @@ namespace SpaxUtils
 
 		#region IPerformer Properties
 		public int Priority { get; }
-		public string Act { get; }
+		public IAct Act { get; }
 		public Performance State { get; private set; }
 		public float RunTime { get; private set; }
 		#endregion IPerformer Properties
@@ -37,7 +37,7 @@ namespace SpaxUtils
 		private bool released;
 		private CombatHitDetectionHelper hitDetectionHelper;
 
-		public CombatPerformanceHelper(string act,
+		public CombatPerformanceHelper(IAct act,
 			ICombatMove move, IAgent agent, EntityStat entityTimeScale,
 			CallbackService callbackService, TransformLookup transformLookup,
 			LayerMask layerMask, int prio = 0)
@@ -56,21 +56,25 @@ namespace SpaxUtils
 			this.transformLookup = transformLookup;
 			this.layerMask = layerMask;
 
+			hitDetectionHelper = new CombatHitDetectionHelper(agent, transformLookup, CurrentMove, layerMask);
+
 			callbackService.UpdateCallback += Update;
 		}
 
 		public void Dispose()
 		{
-			hitDetectionHelper?.Dispose();
 			callbackService.UpdateCallback -= Update;
+			hitDetectionHelper.Dispose();
 		}
 
+		/// <inheritdoc/>
 		public bool SupportsAct(string act)
 		{
 			SpaxDebug.Error("Helper does not support any particular act.");
 			return false;
 		}
 
+		/// <inheritdoc/>
 		public bool TryPrepare(IAct act, out IPerformer performer)
 		{
 			performer = null;
@@ -78,6 +82,7 @@ namespace SpaxUtils
 			return false;
 		}
 
+		/// <inheritdoc/>
 		public bool TryPerform()
 		{
 			if (released)
@@ -91,7 +96,7 @@ namespace SpaxUtils
 			if (CurrentMove.RequireMinCharge && Charge < CurrentMove.MinCharge)
 			{
 				// Min charge not reached but required, cancel attack.
-				TryCancel();
+				TryCancel(false);
 				return false;
 			}
 
@@ -99,9 +104,10 @@ namespace SpaxUtils
 			return true;
 		}
 
-		public bool TryCancel()
+		/// <inheritdoc/>
+		public bool TryCancel(bool force)
 		{
-			if (State == Performance.Preparing)
+			if (force || State == Performance.Preparing || State == Performance.Finishing)
 			{
 				State = Performance.Completed;
 				return true;
@@ -136,7 +142,6 @@ namespace SpaxUtils
 				{
 					// Finished charging.
 					State = Performance.Performing;
-					hitDetectionHelper = new CombatHitDetectionHelper(agent, transformLookup, CurrentMove, layerMask);
 				}
 			}
 			else
@@ -144,20 +149,20 @@ namespace SpaxUtils
 				// Attacking
 				RunTime += delta;
 
-				if (State != Performance.Finishing && hitDetectionHelper.Update(out List<HitScanHitData> newHits))
+				if (State == Performance.Performing && hitDetectionHelper.Update(out List<HitScanHitData> newHits))
 				{
 					NewHitDetectedEvent?.Invoke(newHits);
 				}
 
-				if (RunTime > CurrentMove.MinDuration)
-				{
-					// Finishing
-					State = Performance.Finishing;
-				}
 				if (RunTime > CurrentMove.TotalDuration)
 				{
 					// Completed
 					State = Performance.Completed;
+				}
+				else if (RunTime > CurrentMove.MinDuration)
+				{
+					// Finishing
+					State = Performance.Finishing;
 				}
 			}
 
@@ -166,11 +171,9 @@ namespace SpaxUtils
 
 			PerformanceUpdateEvent?.Invoke(this);
 
-			// If the combat performance has fully completed, dispose of ourselves.
 			if (State == Performance.Completed)
 			{
 				PerformanceCompletedEvent?.Invoke(this);
-				Dispose();
 			}
 		}
 	}

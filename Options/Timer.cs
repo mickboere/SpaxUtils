@@ -38,7 +38,7 @@ namespace SpaxUtils
 		public bool Expired => CurrentTime >= StartTime + (Duration + durationModifier);
 		public bool Running => CurrentTime >= StartTime && !Expired;
 
-		private float CurrentTime => Realtime ? UnityEngine.Time.realtimeSinceStartup : UnityEngine.Time.time;
+		public float CurrentTime => Realtime ? UnityEngine.Time.realtimeSinceStartup : UnityEngine.Time.time;
 
 		private float durationModifier;
 		private bool paused;

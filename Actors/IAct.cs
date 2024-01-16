@@ -11,6 +11,11 @@
 		string Title { get; }
 
 		/// <summary>
+		/// Whether this act can be interupted by other acts.
+		/// </summary>
+		bool Interuptable { get; }
+
+		/// <summary>
 		/// Action retry-window when initial production attempt fails.
 		/// </summary>
 		float Buffer { get; }

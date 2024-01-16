@@ -10,6 +10,7 @@ namespace SpaxUtils
 		[SerializeField] private PoseSequenceBlendTree hitBlendTree;
 		[SerializeField] private float maxStunTime = 3f;
 
+		private IAgent agent;
 		private IHittable hittable;
 		private RigidbodyWrapper rigidbodyWrapper;
 		private AnimatorPoser animatorPoser;
@@ -18,8 +19,10 @@ namespace SpaxUtils
 		private Timer stunTimer;
 		private FloatOperationModifier stunControlMod;
 
-		public void InjectDependencies(IHittable hittable, RigidbodyWrapper rigidbodyWrapper, AnimatorPoser animatorPoser)
+		public void InjectDependencies(IAgent agent, IHittable hittable,
+			RigidbodyWrapper rigidbodyWrapper, AnimatorPoser animatorPoser)
 		{
+			this.agent = agent;
 			this.hittable = hittable;
 			this.rigidbodyWrapper = rigidbodyWrapper;
 			this.animatorPoser = animatorPoser;
@@ -60,6 +63,8 @@ namespace SpaxUtils
 
 			float stunTime = hitData.Force / rigidbodyWrapper.Mass;
 			stunTimer = new Timer(Mathf.Min(stunTime, maxStunTime));
+
+			agent.Actor.TryCancel(true);
 
 			foreach (var damage in hitData.Damages)
 			{

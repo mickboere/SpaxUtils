@@ -56,7 +56,8 @@ namespace SpaxUtils
 			base.OnStateEntered();
 
 			// Subscribe to events.
-			actor.PerformanceUpdateEvent += OnPerformanceUpdateEvent;
+			combatPerformer.PerformanceUpdateEvent += OnPerformanceUpdateEvent;
+			combatPerformer.PerformanceCompletedEvent += OnPerformanceCompletedEvent;
 			combatPerformer.PoseUpdateEvent += OnPoseUpdateEvent;
 
 			controlMod = new FloatOperationModifier(ModMethod.Absolute, Operation.Multiply, 1f);
@@ -75,9 +76,9 @@ namespace SpaxUtils
 			arms.Weight.RemoveModifier(this);
 
 			// Unsubscribe from events.
-			actor.PerformanceUpdateEvent -= OnPerformanceUpdateEvent;
+			combatPerformer.PerformanceUpdateEvent -= OnPerformanceUpdateEvent;
+			combatPerformer.PerformanceCompletedEvent -= OnPerformanceCompletedEvent;
 			combatPerformer.PoseUpdateEvent -= OnPoseUpdateEvent;
-			actor.StopListening(this);
 
 			// Clear data.
 			controlMod.Dispose();
@@ -98,11 +99,7 @@ namespace SpaxUtils
 
 		private void OnPerformanceUpdateEvent(IPerformer performer)
 		{
-			if (performer is not ICombatPerformer combatPerformer)
-			{
-				return;
-			}
-
+			var combatPerformer = performer as ICombatPerformer;
 			bool performing = performer.RunTime > 0f;
 
 			// Only give control if it's the main performance.
@@ -164,19 +161,20 @@ namespace SpaxUtils
 				controlMod.SetValue(controlMod.Value < control ? Mathf.Lerp(controlMod.Value, control, controlWeightSmoothing * Time.deltaTime) : control);
 			}
 
-			// Clean up if the performance has completed, set pose if not.
-			if (performer.State == Performance.Completed)
-			{
-				poser.RevokeInstructions(performer);
-				poses.Remove(performer);
-				if (poses.Count == 0)
-				{
-					controlMod.SetValue(1f);
-				}
-			}
-			else
+			// Set pose if performance isn't completed.
+			if (performer.State != Performance.Completed)
 			{
 				poser.ProvideInstructions(performer, PoserLayerConstants.BODY, poses[performer].pose, 1, poses[performer].weight);
+			}
+		}
+
+		private void OnPerformanceCompletedEvent(IPerformer performer)
+		{
+			poser.RevokeInstructions(performer);
+			poses.Remove(performer);
+			if (poses.Count == 0)
+			{
+				controlMod.SetValue(1f);
 			}
 		}
 	}
