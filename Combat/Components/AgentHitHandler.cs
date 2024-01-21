@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using System.Collections.Generic;
+using UnityEngine;
 
 namespace SpaxUtils
 {
@@ -11,6 +12,7 @@ namespace SpaxUtils
 		[SerializeField] private float maxStunTime = 3f;
 
 		private IAgent agent;
+		private IActor actor;
 		private IHittable hittable;
 		private RigidbodyWrapper rigidbodyWrapper;
 		private AnimatorPoser animatorPoser;
@@ -19,10 +21,11 @@ namespace SpaxUtils
 		private Timer stunTimer;
 		private FloatOperationModifier stunControlMod;
 
-		public void InjectDependencies(IAgent agent, IHittable hittable,
+		public void InjectDependencies(IAgent agent, IActor actor, IHittable hittable,
 			RigidbodyWrapper rigidbodyWrapper, AnimatorPoser animatorPoser)
 		{
 			this.agent = agent;
+			this.actor = actor;
 			this.hittable = hittable;
 			this.rigidbodyWrapper = rigidbodyWrapper;
 			this.animatorPoser = animatorPoser;
@@ -47,7 +50,7 @@ namespace SpaxUtils
 			if (stunTimer)
 			{
 				PoserStruct instructions = hitBlendTree.GetInstructions(-lastHit.HitDirection.Localize(rigidbodyWrapper.transform).normalized, 0f);
-				animatorPoser.ProvideInstructions(this, PoserLayerConstants.BODY, instructions, 5, stunTimer.Progress.ReverseInOutCubic());
+				animatorPoser.ProvideInstructions(this, PoserLayerConstants.BODY, instructions, 10, stunTimer.Progress.ReverseInOutCubic());
 				stunControlMod.SetValue(stunTimer.Progress.InOutCubic());
 			}
 			else
@@ -59,23 +62,51 @@ namespace SpaxUtils
 		private void OnHitEvent(HitData hitData)
 		{
 			lastHit = hitData;
-			rigidbodyWrapper.AddImpact(hitData.Inertia, hitData.Force);
 
-			float stunTime = hitData.Force / rigidbodyWrapper.Mass;
-			stunTimer = new Timer(Mathf.Min(stunTime, maxStunTime));
-
-			agent.Actor.TryCancel(true);
-
-			foreach (var damage in hitData.Damages)
+			if (!hitData.Parry && actor.Act != null && actor.Act.Title == ActorActs.GUARD)
 			{
-				EntityStat stat = Entity.GetStat(damage.Key);
-				if (stat != null)
+				switch (actor.State)
 				{
-					stat.BaseValue = Mathf.Max(0f, stat.BaseValue - damage.Value);
+					case Performance.Preparing:
+						// Block.
+
+						break;
+					case Performance.Performing:
+						// Parry.
+						//if (hitData.Hitter.TryGetEntityComponent(out IHittable enemyHittable))
+						//{
+						//	enemyHittable.Hit(
+						//		new HitData(
+						//			Entity,
+						//			enemyHittable,
+						//			Vector3.zero,
+						//			1f,
+						//			hitData.Hitter.GameObject.transform.position - Entity.GameObject.transform.position,
+						//			true,
+						//			new Dictionary<string, float>()));
+						//}
+						break;
 				}
 			}
+			else
+			{
+				// Clean hit.
+				agent.Actor.TryCancel(true);
 
-			SpaxDebug.Log($"OnHitEvent", $"i={hitData.Inertia}, f={hitData.Force}, stun={stunTime}s");
+				rigidbodyWrapper.AddImpact(hitData.Inertia, hitData.Force);
+
+				float stunTime = hitData.Force / rigidbodyWrapper.Mass;
+				stunTimer = new Timer(Mathf.Min(stunTime, maxStunTime));
+
+				foreach (var damage in hitData.Damages)
+				{
+					EntityStat stat = Entity.GetStat(damage.Key);
+					if (stat != null)
+					{
+						stat.BaseValue = Mathf.Max(0f, stat.BaseValue - damage.Value);
+					}
+				}
+			}
 		}
 	}
 }

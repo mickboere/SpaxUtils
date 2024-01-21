@@ -25,7 +25,7 @@ namespace SpaxUtils
 		public ICombatMove CurrentMove => MainPerformance != null ? MainPerformance.CurrentMove : null;
 		public float Charge => MainPerformance != null ? MainPerformance.Charge : 0f;
 
-		private CombatPerformanceHelper MainPerformance => helpers.Count > 0 ? helpers[helpers.Count - 1] : null;
+		private CombatPerformer MainPerformance => helpers.Count > 0 ? helpers[helpers.Count - 1] : null;
 
 		[Header("Default Moves")]
 		[SerializeField] private CombatMove unarmedLight;
@@ -36,6 +36,7 @@ namespace SpaxUtils
 		[SerializeField] private float hitPause = 0.15f;
 		[SerializeField] private AnimationCurve hitPauseCurve;
 
+		private IDependencyManager dependencyManager;
 		private IAgent agent;
 		private CallbackService callbackService;
 		private TransformLookup transformLookup;
@@ -43,12 +44,13 @@ namespace SpaxUtils
 		private IGrounderComponent grounder;
 
 		private Dictionary<string, Dictionary<ICombatMove, int>> moves = new Dictionary<string, Dictionary<ICombatMove, int>>();
-		private List<CombatPerformanceHelper> helpers = new List<CombatPerformanceHelper>();
+		private List<CombatPerformer> helpers = new List<CombatPerformer>();
 		private TimedCurveModifier timeMod;
 
-		public void InjectDependencies(IAgent agent, CallbackService callbackService,
+		public void InjectDependencies(IDependencyManager dependencyManager, IAgent agent, CallbackService callbackService,
 			TransformLookup transformLookup, RigidbodyWrapper rigidbodyWrapper, IGrounderComponent grounder)
 		{
+			this.dependencyManager = dependencyManager;
 			this.agent = agent;
 			this.callbackService = callbackService;
 			this.transformLookup = transformLookup;
@@ -66,7 +68,7 @@ namespace SpaxUtils
 
 		protected void OnDisable()
 		{
-			foreach (CombatPerformanceHelper helper in helpers)
+			foreach (CombatPerformer helper in helpers)
 			{
 				helper.Dispose();
 			}
@@ -101,13 +103,13 @@ namespace SpaxUtils
 			// If the existing performance is finishing we can override it because it will dispose of itself once completed.
 			if (MainPerformance == null || State == Performance.Finishing || State == Performance.Completed)
 			{
-				var helper = new CombatPerformanceHelper(act, combatMove, agent, EntityTimeScale, callbackService, transformLookup, hitDetectionMask);
-				helper.PerformanceUpdateEvent += OnPerformanceUpdateEvent;
-				helper.PerformanceCompletedEvent += OnPerformanceCompletedEvent;
-				helper.NewHitDetectedEvent += OnNewHitDetectedEvent;
-				helper.PoseUpdateEvent += OnPoseUpdateEvent;
-				finalPerformer = helper;
-				helpers.Add(helper);
+				var performer = new CombatPerformer(dependencyManager, act, combatMove, agent, EntityTimeScale, callbackService, transformLookup, hitDetectionMask);
+				performer.PerformanceUpdateEvent += OnPerformanceUpdateEvent;
+				performer.PerformanceCompletedEvent += OnPerformanceCompletedEvent;
+				performer.NewHitDetectedEvent += OnNewHitDetectedEvent;
+				performer.PoseUpdateEvent += OnPoseUpdateEvent;
+				finalPerformer = performer;
+				helpers.Add(performer);
 				return true;
 			}
 
@@ -200,7 +202,7 @@ namespace SpaxUtils
 
 		private void OnPerformanceCompletedEvent(IPerformer performer)
 		{
-			var helper = (CombatPerformanceHelper)performer;
+			var helper = (CombatPerformer)performer;
 			helpers.Remove(helper);
 
 			performer.PerformanceUpdateEvent -= OnPerformanceUpdateEvent;
@@ -218,67 +220,7 @@ namespace SpaxUtils
 
 		private void OnNewHitDetectedEvent(List<HitScanHitData> newHits)
 		{
-			// TODO: Have hit pause duration depend on penetration % (factoring in power, sharpness, hardness.)
-			timeMod = new TimedCurveModifier(ModMethod.Absolute, hitPauseCurve, new Timer(hitPause), callbackService);
-
-			bool successfulHit = false;
-			foreach (HitScanHitData hit in newHits)
-			{
-				if (hit.GameObject.TryGetComponentRelative(out IHittable hittable))
-				{
-					Vector3 inertia = CurrentMove.Inertia.Look((hittable.Entity.Transform.position - Entity.Transform.position).FlattenY());
-
-					// Calculate attack force.
-					float strength = 0f;
-					if (agent.TryGetStat(MainPerformance.CurrentMove.StrengthStat, out EntityStat strengthStat))
-					{
-						strength = strengthStat;
-					}
-
-					float force = rigidbodyWrapper.Mass + strength;
-
-					// Generate hit-data for hittable.
-					HitData hitData = new HitData(
-						Entity,
-						hittable,
-						inertia,
-						force,
-						hit.Direction,
-						new Dictionary<string, float>()
-					);
-
-					// If move is offensive, add base health damage to HitData.
-					if (MainPerformance.CurrentMove.Offensive &&
-						agent.TryGetStat(MainPerformance.CurrentMove.OffenceStat, out EntityStat offence) &&
-						hittable.Entity.TryGetStat(AgentStatIdentifiers.DEFENCE, out EntityStat defence))
-					{
-						float damage = SpaxFormulas.GetDamage(offence, defence) * MainPerformance.CurrentMove.Offensiveness;
-						hitData.Damages.Add(AgentStatIdentifiers.HEALTH, damage);
-					}
-
-					// Invoke hit event to allow adding of additional damage.
-					ProcessHitEvent?.Invoke(hitData);
-
-					if (hittable.Hit(hitData))
-					{
-						successfulHit = true;
-
-						// Apply hit pause to enemy.
-						// TODO: Must be applied on enemy's end.
-						EntityStat hitTimeScale = hittable.Entity.GetStat(EntityStatIdentifier.TIMESCALE);
-						if (hitTimeScale != null)
-						{
-							hitTimeScale.AddModifier(this, timeMod);
-						}
-					}
-				}
-			}
-
-			if (successfulHit)
-			{
-				EntityTimeScale.RemoveModifier(this);
-				EntityTimeScale.AddModifier(this, timeMod);
-			}
+			NewHitDetectedEvent?.Invoke(newHits);
 		}
 	}
 }

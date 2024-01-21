@@ -9,7 +9,7 @@ namespace SpaxUtils
 		public GameObject EquipedPrefab => equipedPrefab;
 		public string SlotType => slotType;
 		public IReadOnlyList<string> CoversLocations => coversLocations;
-		public IReadOnlyList<BehaviorAsset> EquipedBehaviour => equipedBehaviour;
+		public IReadOnlyList<BehaviourAsset> EquipedBehaviour => equipedBehaviour;
 		public IReadOnlyList<StatMappingSheet> EquipedStatMappings => equipedStatMappings;
 
 		private const string TT_SLOT_TYPE =
@@ -23,7 +23,7 @@ namespace SpaxUtils
 		[SerializeField] private GameObject equipedPrefab;
 		[SerializeField, Tooltip(TT_SLOT_TYPE), ConstDropdown(typeof(IEquipmentSlotTypeConstants))] private string slotType;
 		[SerializeField, Tooltip(TT_COVER), ConstDropdown(typeof(IBodyLocationConstants))] private List<string> coversLocations;
-		[SerializeField, Expandable] private List<BehaviorAsset> equipedBehaviour;
+		[SerializeField, Expandable] private List<BehaviourAsset> equipedBehaviour;
 		[SerializeField, Expandable] private List<StatMappingSheet> equipedStatMappings;
 	}
 }

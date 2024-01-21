@@ -15,6 +15,11 @@ namespace SpaxUtils
 		List<string> HitBoxes { get; }
 
 		/// <summary>
+		/// Time into combat performance before hit detection is activated.
+		/// </summary>
+		float HitDetectionDelay { get; }
+
+		/// <summary>
 		/// The follow-up moves available during the release of this move.
 		/// </summary>
 		List<ActCombatPair> FollowUps { get; }

@@ -30,7 +30,7 @@ namespace SpaxUtils
 		public GameObject WorldItemPrefab => worldItemPrefab;
 
 		/// <inheritdoc/>
-		public IReadOnlyList<BehaviorAsset> InventoryBehaviour => inventoryBehaviour;
+		public IReadOnlyList<BehaviourAsset> InventoryBehaviour => inventoryBehaviour;
 
 		/// <inheritdoc/>
 		public IReadOnlyList<LabeledFloatData> FloatStats => itemStats;
@@ -43,7 +43,7 @@ namespace SpaxUtils
 		[SerializeField, Tooltip(TT_UNIQUE)] private bool unique;
 		[SerializeField] private Sprite icon;
 		[SerializeField] private GameObject worldItemPrefab;
-		[SerializeField, Expandable] private List<BehaviorAsset> inventoryBehaviour;
+		[SerializeField, Expandable] private List<BehaviourAsset> inventoryBehaviour;
 		[SerializeField, FormerlySerializedAs("stats")] private List<LabeledFloatData> itemStats;
 
 		public override string ToString()

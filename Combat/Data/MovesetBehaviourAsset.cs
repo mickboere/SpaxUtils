@@ -6,8 +6,8 @@ namespace SpaxUtils
 	/// <summary>
 	/// <see cref="IBehaviour"/> asset that modifies the current moveset.
 	/// </summary>
-	[CreateAssetMenu(fileName = "Moveset", menuName = "ScriptableObjects/Moveset Behavior")]
-	public class MovesetBehaviorAsset : BehaviorAsset
+	[CreateAssetMenu(fileName = "Moveset", menuName = "ScriptableObjects/Moveset Behaviour")]
+	public class MovesetBehaviourAsset : BehaviourAsset
 	{
 		[SerializeField] private int prio;
 		[SerializeField] private List<ActCombatPair> moveSet;

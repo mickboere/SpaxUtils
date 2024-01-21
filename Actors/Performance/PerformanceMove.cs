@@ -21,8 +21,9 @@ namespace SpaxUtils
 		public float Release => release;
 		public float TotalDuration => MinDuration + Release;
 		public string PerformSpeedMultiplierStat => performSpeedMultiplier;
+		public IReadOnlyList<BehaviourAsset> Behaviour => behaviour;
 
-		#endregion // Properties
+		#endregion Properties
 
 		#region Tooltips
 
@@ -33,7 +34,7 @@ namespace SpaxUtils
 		private const string TT_CHARGE_FADEOUT = "Duration of transition from charge pose to performing pose, relative to MinDuration.";
 		private const string TT_RELEASE = "Interuptable sustain / fadeout time after the minimum duration.";
 
-		#endregion
+		#endregion Tooltips
 
 		[SerializeField] new private string name;
 		[SerializeField, TextArea] private string description;
@@ -50,6 +51,7 @@ namespace SpaxUtils
 		[SerializeField, Range(0f, 1f), Tooltip(TT_CHARGE_FADEOUT)] private float chargeFadeout = 0.3f;
 		[SerializeField, Tooltip(TT_RELEASE)] private float release = 0.5f;
 		[SerializeField, ConstDropdown(typeof(IStatIdentifierConstants))] private string performSpeedMultiplier = AgentStatIdentifiers.ATTACK_PERFORM_SPEED;
+		[SerializeField, Expandable] private List<BehaviourAsset> behaviour;
 
 		/// <inheritdoc/>
 		public PoseTransition Evaluate(float chargeTime, float performTime, out float weight)

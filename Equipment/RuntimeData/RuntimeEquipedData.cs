@@ -41,7 +41,7 @@ namespace SpaxUtils
 		public IDependencyManager DependencyManager { get; private set; }
 
 		private List<DataStatMappingModifier> statModifiers = new List<DataStatMappingModifier>();
-		private List<BehaviorAsset> behaviors = new List<BehaviorAsset>();
+		private List<BehaviourAsset> behaviours = new List<BehaviourAsset>();
 
 		public RuntimeEquipedData(RuntimeItemData runtimeItemData, IEquipmentSlot slot, IDependencyManager dependencyManager, GameObject equipedInstance = null)
 		{
@@ -59,7 +59,7 @@ namespace SpaxUtils
 			{
 				mod.Dispose();
 			}
-			foreach (BehaviorAsset behaviour in behaviors)
+			foreach (BehaviourAsset behaviour in behaviours)
 			{
 				behaviour.Destroy();
 			}
@@ -70,10 +70,10 @@ namespace SpaxUtils
 		/// </summary>
 		public void InitializeBehaviour()
 		{
-			foreach (BehaviorAsset behaviour in EquipmentData.EquipedBehaviour)
+			foreach (BehaviourAsset behaviour in EquipmentData.EquipedBehaviour)
 			{
-				BehaviorAsset behaviourInstance = behaviour.CreateInstance();
-				behaviors.Add(behaviourInstance);
+				BehaviourAsset behaviourInstance = behaviour.CreateInstance();
+				behaviours.Add(behaviourInstance);
 				DependencyManager.Inject(behaviourInstance);
 				behaviourInstance.Start();
 			}
@@ -84,7 +84,7 @@ namespace SpaxUtils
 		/// </summary>
 		public void StopBehaviour()
 		{
-			foreach (BehaviorAsset behaviour in behaviors)
+			foreach (BehaviourAsset behaviour in behaviours)
 			{
 				behaviour.Stop();
 			}

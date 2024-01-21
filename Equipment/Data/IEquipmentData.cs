@@ -26,7 +26,7 @@ namespace SpaxUtils
 		/// <summary>
 		/// The behaviors to execute when this equipment is equiped.
 		/// </summary>
-		IReadOnlyList<BehaviorAsset> EquipedBehaviour { get; }
+		IReadOnlyList<BehaviourAsset> EquipedBehaviour { get; }
 
 		/// <summary>
 		/// <see cref="StatMappingSheet"/>s which map <see cref="IItemData.FloatStats"/> to the entity upon equiping.

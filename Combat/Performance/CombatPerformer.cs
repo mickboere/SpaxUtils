@@ -8,7 +8,7 @@ namespace SpaxUtils
 	/// Helper class for <see cref="CombatPerformerComponent"/> which performs a single <see cref="ICombatMove"/>.
 	/// Implements <see cref="ICombatPerformer"/>.
 	/// </summary>
-	public class CombatPerformanceHelper : ICombatPerformer, IDisposable
+	public class CombatPerformer : ICombatPerformer, IDisposable
 	{
 		public event Action<List<HitScanHitData>> NewHitDetectedEvent;
 		public event Action<HitData> ProcessHitEvent;
@@ -28,43 +28,52 @@ namespace SpaxUtils
 		public float Charge { get; private set; }
 		#endregion ICombatPerformer Properties
 
+		private IDependencyManager dependencyManager;
 		private IAgent agent;
 		private EntityStat entityTimeScale;
 		private CallbackService callbackService;
-		private TransformLookup transformLookup;
-		private LayerMask layerMask;
 
 		private bool released;
-		private CombatHitDetectionHelper hitDetectionHelper;
+		private CombatHitDetector hitDetector;
+		private List<BehaviourAsset> behaviours;
 
-		public CombatPerformanceHelper(IAct act,
+		public CombatPerformer(IDependencyManager dependencyManager, IAct act,
 			ICombatMove move, IAgent agent, EntityStat entityTimeScale,
 			CallbackService callbackService, TransformLookup transformLookup,
 			LayerMask layerMask, int prio = 0)
 		{
+			// Initialize dependencies.
+			this.dependencyManager = new DependencyManager(dependencyManager, $"CombatPerformance: {move.Name}");
+			this.dependencyManager.Bind(this);
+			this.dependencyManager.Bind(move);
+
+			// Initialize variables.
 			Act = act;
-			Priority = prio;
-			State = Performance.Preparing;
-			RunTime = 0f;
-
 			CurrentMove = move;
-			Charge = 0f;
-
+			Priority = prio;
 			this.agent = agent;
 			this.entityTimeScale = entityTimeScale;
 			this.callbackService = callbackService;
-			this.transformLookup = transformLookup;
-			this.layerMask = layerMask;
+			State = Performance.Preparing;
+			RunTime = 0f;
+			Charge = 0f;
 
-			hitDetectionHelper = new CombatHitDetectionHelper(agent, transformLookup, CurrentMove, layerMask);
+			// Initialize hit detector.
+			hitDetector = new CombatHitDetector(agent, transformLookup, CurrentMove, layerMask);
+
+			// Initialize behaviours.
+			behaviours = new List<BehaviourAsset>();
+			StartBehaviour();
 
 			callbackService.UpdateCallback += Update;
 		}
 
 		public void Dispose()
 		{
+			dependencyManager.Dispose();
+			StopBehaviour();
 			callbackService.UpdateCallback -= Update;
-			hitDetectionHelper.Dispose();
+			hitDetector.Dispose();
 		}
 
 		/// <inheritdoc/>
@@ -135,10 +144,10 @@ namespace SpaxUtils
 
 			if (State == Performance.Preparing)
 			{
-				// Charging
+				// Charging.
 				Charge += delta;
 
-				if (released && Charge > CurrentMove.MinCharge)
+				if (released && Charge >= CurrentMove.MinCharge)
 				{
 					// Finished charging.
 					State = Performance.Performing;
@@ -146,20 +155,21 @@ namespace SpaxUtils
 			}
 			else
 			{
-				// Attacking
+				// Attacking.
 				RunTime += delta;
 
-				if (State == Performance.Performing && hitDetectionHelper.Update(out List<HitScanHitData> newHits))
+				// Hit detection.
+				if (State == Performance.Performing && RunTime >= CurrentMove.HitDetectionDelay && hitDetector.Update(out List<HitScanHitData> newHits))
 				{
 					NewHitDetectedEvent?.Invoke(newHits);
 				}
 
-				if (RunTime > CurrentMove.TotalDuration)
+				if (RunTime >= CurrentMove.TotalDuration)
 				{
 					// Completed
 					State = Performance.Completed;
 				}
-				else if (RunTime > CurrentMove.MinDuration)
+				else if (RunTime >= CurrentMove.MinDuration)
 				{
 					// Finishing
 					State = Performance.Finishing;
@@ -174,6 +184,25 @@ namespace SpaxUtils
 			if (State == Performance.Completed)
 			{
 				PerformanceCompletedEvent?.Invoke(this);
+			}
+		}
+
+		private void StartBehaviour()
+		{
+			foreach (BehaviourAsset behaviour in CurrentMove.Behaviour)
+			{
+				BehaviourAsset behaviourInstance = behaviour.CreateInstance();
+				behaviours.Add(behaviourInstance);
+				dependencyManager.Inject(behaviourInstance);
+				behaviourInstance.Start();
+			}
+		}
+
+		private void StopBehaviour()
+		{
+			foreach (BehaviourAsset behaviour in behaviours)
+			{
+				behaviour.Destroy();
 			}
 		}
 	}

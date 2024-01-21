@@ -1,4 +1,6 @@
-﻿namespace SpaxUtils
+﻿using System.Collections.Generic;
+
+namespace SpaxUtils
 {
 	/// <summary>
 	/// Interface for 3-part performances (introduction/charge/preparation -> execution/performance -> outroduction/release).
@@ -58,6 +60,11 @@
 		/// Stat identifier for the perform speed multiplier.
 		/// </summary>
 		string PerformSpeedMultiplierStat { get; }
+
+		/// <summary>
+		/// <see cref="BehaviourAsset"/>s to instantiate during performance.
+		/// </summary>
+		IReadOnlyList<BehaviourAsset> Behaviour { get; }
 
 		/// <summary>
 		/// Evaluates the combat move at <paramref name="chargeTime"/> seconds of charge and <paramref name="performTime"/> seconds of performance.

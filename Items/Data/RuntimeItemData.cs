@@ -26,7 +26,7 @@ namespace SpaxUtils
 
 		public IDependencyManager DependencyManager { get; private set; }
 
-		private List<BehaviorAsset> behaviours = new List<BehaviorAsset>();
+		private List<BehaviourAsset> behaviours = new List<BehaviourAsset>();
 
 		public RuntimeItemData(IItemData itemData, RuntimeDataCollection runtimeData, IDependencyManager dependencyManager)
 		{
@@ -76,9 +76,9 @@ namespace SpaxUtils
 		/// </summary>
 		public void InitializeBehaviour()
 		{
-			foreach (BehaviorAsset behaviour in ItemData.InventoryBehaviour)
+			foreach (BehaviourAsset behaviour in ItemData.InventoryBehaviour)
 			{
-				BehaviorAsset behaviourInstance = behaviour.CreateInstance();
+				BehaviourAsset behaviourInstance = behaviour.CreateInstance();
 				behaviours.Add(behaviourInstance);
 				DependencyManager.Inject(behaviourInstance);
 				behaviourInstance.Start();
@@ -91,7 +91,7 @@ namespace SpaxUtils
 		/// </summary>
 		public void StopBehaviour()
 		{
-			foreach (BehaviorAsset behaviour in behaviours)
+			foreach (BehaviourAsset behaviour in behaviours)
 			{
 				behaviour.Stop();
 			}
@@ -99,7 +99,7 @@ namespace SpaxUtils
 
 		public void Dispose()
 		{
-			foreach (BehaviorAsset behaviour in behaviours)
+			foreach (BehaviourAsset behaviour in behaviours)
 			{
 				behaviour.Destroy();
 			}

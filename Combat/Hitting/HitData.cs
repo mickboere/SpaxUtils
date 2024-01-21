@@ -36,6 +36,11 @@ namespace SpaxUtils
 		public Vector3 HitDirection { get; }
 
 		/// <summary>
+		/// Whether the incurred hit resulted from a parry.
+		/// </summary>
+		public bool Parry { get; }
+
+		/// <summary>
 		/// All damage values to be processed.
 		/// </summary>
 		public Dictionary<string, float> Damages { get; }
@@ -46,6 +51,7 @@ namespace SpaxUtils
 			Vector3 inertia,
 			float force,
 			Vector3 hitDirection,
+			bool parry,
 			Dictionary<string, float> damages)
 		{
 			Hitter = hitter;
@@ -53,6 +59,7 @@ namespace SpaxUtils
 			Inertia = inertia;
 			Force = force;
 			HitDirection = hitDirection;
+			Parry = parry;
 			Damages = damages;
 		}
 	}
