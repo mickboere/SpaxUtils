@@ -12,7 +12,6 @@ namespace SpaxUtils
 		#region Properties
 		public List<string> HitBoxes => hitBoxes;
 		public float HitDetectionDelay => hitDetectionDelay;
-		public List<ActCombatPair> FollowUps => followUps;
 		public Vector3 Inertia => momentum;
 		public float ForceDelay => forceDelay;
 		public string StrengthStat => strengthStat;
@@ -26,7 +25,6 @@ namespace SpaxUtils
 		[Header("Combat")]
 		[SerializeField, ConstDropdown(typeof(ITransformLookupIdentifiers), showAdress: true)] private List<string> hitBoxes;
 		[SerializeField] private float hitDetectionDelay = 0f;
-		[SerializeField] private List<ActCombatPair> followUps;
 
 		[Header("Forces")]
 		[SerializeField] private Vector3 momentum;

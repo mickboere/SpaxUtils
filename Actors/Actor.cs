@@ -17,9 +17,9 @@ namespace SpaxUtils
 		public event Action<IPerformer> PerformanceUpdateEvent;
 		public event Action<IPerformer> PerformanceCompletedEvent;
 
-		public IAct Act => MainPerformer != null ? MainPerformer.Act : null;
 		public int Priority => int.MaxValue;
-		public Performance State => MainPerformer != null ? MainPerformer.State : Performance.Inactive;
+		public IAct Act => MainPerformer != null ? MainPerformer.Act : null;
+		public PerformanceState State => MainPerformer != null ? MainPerformer.State : PerformanceState.Inactive;
 		public float RunTime => MainPerformer != null ? MainPerformer.RunTime : 0f;
 
 		/// <summary>
@@ -116,7 +116,7 @@ namespace SpaxUtils
 			// (AKA button behaviour - TRUE prepares act, FALSE performs it).
 			if (act is Act<bool> boolAct)
 			{
-				if (boolAct.Value && MainPerformer != null && Act.Title == act.Title && (int)State < (int)Performance.Finishing)
+				if (boolAct.Value && MainPerformer != null && Act.Title == act.Title && !(State.HasFlag(PerformanceState.Finishing) || State.HasFlag(PerformanceState.Completed)))
 				{
 					// Don't process duplicate / continuous input.
 					return;
@@ -169,7 +169,7 @@ namespace SpaxUtils
 
 			// Ensure Support and Non-Occupance or Interuptability.
 			if (SupportsAct(act.Title) &&
-				(MainPerformer == null || State == Performance.Finishing || (Act.Interuptable && TryCancel(false))))
+				(MainPerformer == null || State == PerformanceState.Finishing || (act.Interuptor && TryCancel(false))))
 			{
 				// Try start new performance.
 				foreach (IPerformer performer in availablePerformers)
@@ -231,10 +231,10 @@ namespace SpaxUtils
 				// If the last attempt was negative, redo both positive and negative input to simulate a full button press.
 				Act<bool> retry = lastFailedAttempt.Value.act;
 				float buffer = lastFailedAttempt.Value.timer.Remaining;
-				OnReceived(retry.Title, new Act<bool>(retry.Title, true, retry.Interuptable, buffer));
+				OnReceived(retry.Title, new Act<bool>(retry.Title, true, retry.Interuptable, retry.Interuptor, buffer));
 				if (!retry.Value)
 				{
-					OnReceived(retry.Title, new Act<bool>(retry.Title, false, retry.Interuptable, buffer));
+					OnReceived(retry.Title, new Act<bool>(retry.Title, false, retry.Interuptable, retry.Interuptor, buffer));
 				}
 			}
 		}

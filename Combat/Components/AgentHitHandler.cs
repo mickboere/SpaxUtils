@@ -63,15 +63,15 @@ namespace SpaxUtils
 		{
 			lastHit = hitData;
 
-			if (!hitData.Parry && actor.Act != null && actor.Act.Title == ActorActs.GUARD)
+			if (!hitData.Parry && actor.Act != null && actor.Act.Title == ActorActs.LEFT)
 			{
 				switch (actor.State)
 				{
-					case Performance.Preparing:
+					case PerformanceState.Preparing:
 						// Block.
 
 						break;
-					case Performance.Performing:
+					case PerformanceState.Performing:
 						// Parry.
 						//if (hitData.Hitter.TryGetEntityComponent(out IHittable enemyHittable))
 						//{

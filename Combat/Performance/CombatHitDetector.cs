@@ -6,7 +6,7 @@ using UnityEngine;
 namespace SpaxUtils
 {
 	/// <summary>
-	/// Helper class for <see cref="CombatPerformer"/> which tracks a series of colliders to check for hits.
+	/// Helper class <see cref="ICombatMove"/> behaviours which tracks a series of colliders to check for hits.
 	/// </summary>
 	public class CombatHitDetector : IDisposable
 	{

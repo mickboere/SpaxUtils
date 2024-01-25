@@ -1,0 +1,237 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using UnityEngine;
+
+namespace SpaxUtils
+{
+	/// <summary>
+	/// Agent component that is able to execute an <see cref="IPerformanceMove"/> of which the progression is broadcast through events.
+	/// This component does not actually apply anything on an agent-level, for that see <see cref="ActorPerformanceControllerNode"/>.
+	/// </summary>
+	public class MovePerformerComponent : EntityComponentBase, IMovePerformer
+	{
+		//public event Action<List<HitScanHitData>> NewHitDetectedEvent;
+		//public event Action<HitData> ProcessHitEvent;
+
+		public event Action<IPerformer> PerformanceUpdateEvent;
+		public event Action<IPerformer> PerformanceCompletedEvent;
+		public event Action<IPerformer, PoserStruct, float> PoseUpdateEvent;
+
+		public int Priority => 0;
+		public IAct Act => MainPerformer != null ? MainPerformer.Act : null;
+		public PerformanceState State => MainPerformer != null ? MainPerformer.State : PerformanceState.Inactive;
+		public float RunTime => MainPerformer != null ? MainPerformer.RunTime : 0f;
+
+		public IPerformanceMove Move => MainPerformer != null ? MainPerformer.Move : null;
+		public float Charge => MainPerformer != null ? MainPerformer.Charge : 0f;
+
+		private MovePerformer MainPerformer => helpers.Count > 0 ? helpers[helpers.Count - 1] : null;
+
+		[SerializeField] private List<ActMovePair> unarmedMoves;
+		[SerializeField, Range(0f, 1f)] private float minimumControl = 0.7f;
+
+		private IDependencyManager dependencyManager;
+		private IAgent agent;
+		private IGrounderComponent grounder;
+		private RigidbodyWrapper rigidbodyWrapper;
+		private CallbackService callbackService;
+
+		private Dictionary<string, Dictionary<object, (PerformanceState state, IPerformanceMove move, int prio)>> moves =
+			new Dictionary<string, Dictionary<object, (PerformanceState state, IPerformanceMove move, int prio)>>();
+		private List<MovePerformer> helpers = new List<MovePerformer>();
+
+		public void InjectDependencies(IDependencyManager dependencyManager, IAgent agent,
+			IGrounderComponent grounder, RigidbodyWrapper rigidbodyWrapper, CallbackService callbackService)
+		{
+			this.dependencyManager = dependencyManager;
+			this.agent = agent;
+			this.grounder = grounder;
+			this.rigidbodyWrapper = rigidbodyWrapper;
+			this.callbackService = callbackService;
+		}
+
+		protected void Start()
+		{
+			// Add default unarmed moves.
+			foreach (ActMovePair pair in unarmedMoves)
+			{
+				AddMove(pair.Act, this, PerformanceState.Inactive | PerformanceState.Finishing | PerformanceState.Completed, pair.Move, pair.Prio);
+			}
+		}
+
+		protected void OnDisable()
+		{
+			foreach (MovePerformer helper in helpers)
+			{
+				helper.Dispose();
+			}
+			helpers.Clear();
+		}
+
+		/// <inheritdoc/>
+		public bool SupportsAct(string act)
+		{
+			return moves.ContainsKey(act);
+		}
+
+		/// <inheritdoc/>
+		public bool TryPrepare(IAct act, out IPerformer finalPerformer)
+		{
+			finalPerformer = null;
+
+			// Must be grounded and in control.
+			if (!grounder.Grounded || (State == PerformanceState.Inactive && rigidbodyWrapper.Control < minimumControl))
+			{
+				return false;
+			}
+
+			// Must have a supported move.
+			IPerformanceMove move = GetMove(act.Title);
+			if (move == null)
+			{
+				return false;
+			}
+
+			// If there isn't already a performance helper running, create a new one and return it.
+			// If the existing performance is finishing we can override it because it will dispose of itself once completed.
+			if (MainPerformer == null || State == PerformanceState.Finishing || State == PerformanceState.Completed)
+			{
+				var performer = new MovePerformer(dependencyManager, act, move, agent, EntityTimeScale, callbackService);
+				performer.PerformanceUpdateEvent += OnPerformanceUpdateEvent;
+				performer.PerformanceCompletedEvent += OnPerformanceCompletedEvent;
+				//performer.NewHitDetectedEvent += OnNewHitDetectedEvent;
+				performer.PoseUpdateEvent += OnPoseUpdateEvent;
+				finalPerformer = performer;
+				helpers.Add(performer);
+				AddFollowUpMoves(performer, move);
+				return true;
+			}
+
+			// A move is already being performed, report a negative to allow for input buffering.
+			return false;
+		}
+
+		/// <inheritdoc/>
+		public bool TryPerform()
+		{
+			if (MainPerformer == null)
+			{
+				return false;
+			}
+
+			return MainPerformer.TryPerform();
+		}
+
+		/// <inheritdoc/>
+		public bool TryCancel(bool force)
+		{
+			return MainPerformer == null ? false : MainPerformer.TryCancel(force);
+		}
+
+		#region Move Management
+
+		/// <inheritdoc/>
+		public void AddMove(string act, object owner, PerformanceState state, IPerformanceMove move, int prio)
+		{
+			if (move == null)
+			{
+				return;
+			}
+
+			// Ensure act.
+			if (!moves.ContainsKey(act))
+			{
+				moves.Add(act, new Dictionary<object, (PerformanceState state, IPerformanceMove move, int prio)>());
+			}
+
+			// Set move prio.
+			moves[act][owner] = (state, move, prio);
+		}
+
+		/// <inheritdoc/>
+		public void RemoveMove(string act, object owner)
+		{
+			if (moves.ContainsKey(act) && moves[act].ContainsKey(owner))
+			{
+				moves[act].Remove(owner);
+			}
+			if (moves[act].Count == 0)
+			{
+				moves.Remove(act);
+			}
+		}
+
+		/// <summary>
+		/// Returns highest prio move for <paramref name="act"/>.
+		/// </summary>
+		private IPerformanceMove GetMove(string act)
+		{
+			if (moves.ContainsKey(act))
+			{
+				(PerformanceState state, IPerformanceMove move, int prio)? top = null;
+
+				foreach (var entry in moves[act])
+				{
+					if (entry.Value.state.HasFlag(State) && (top == null || entry.Value.prio > top.Value.prio))
+					{
+						top = entry.Value;
+					}
+				}
+
+				return top.HasValue ? top.Value.move : null;
+			}
+
+			return null;
+		}
+
+		private void AddFollowUpMoves(IPerformer performer, IPerformanceMove move)
+		{
+			foreach (MoveFollowUp followUp in move.FollowUps)
+			{
+				AddMove(followUp.Act, performer, followUp.State, followUp.Move, followUp.Prio);
+			}
+		}
+
+		private void RemoveFollowUpMoves(IPerformer performer)
+		{
+			string[] acts = moves.Keys.ToArray();
+			foreach (string act in acts)
+			{
+				RemoveMove(act, performer);
+			}
+		}
+
+		#endregion Move Management
+
+		private void OnPerformanceUpdateEvent(IPerformer performer)
+		{
+			PerformanceUpdateEvent?.Invoke(performer);
+		}
+
+		private void OnPerformanceCompletedEvent(IPerformer performer)
+		{
+			var helper = (MovePerformer)performer;
+			helpers.Remove(helper);
+
+			RemoveFollowUpMoves(performer);
+
+			performer.PerformanceUpdateEvent -= OnPerformanceUpdateEvent;
+			performer.PerformanceCompletedEvent -= OnPerformanceCompletedEvent;
+
+			PerformanceCompletedEvent?.Invoke(performer);
+
+			helper.Dispose();
+		}
+
+		private void OnPoseUpdateEvent(IPerformer performer, PoserStruct pose, float weight)
+		{
+			PoseUpdateEvent?.Invoke(performer, pose, weight);
+		}
+
+		//private void OnNewHitDetectedEvent(List<HitScanHitData> newHits)
+		//{
+		//	NewHitDetectedEvent?.Invoke(newHits);
+		//}
+	}
+}

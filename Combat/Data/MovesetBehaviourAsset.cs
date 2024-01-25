@@ -9,12 +9,11 @@ namespace SpaxUtils
 	[CreateAssetMenu(fileName = "Moveset", menuName = "ScriptableObjects/Moveset Behaviour")]
 	public class MovesetBehaviourAsset : BehaviourAsset
 	{
-		[SerializeField] private int prio;
-		[SerializeField] private List<ActCombatPair> moveSet;
+		[SerializeField] private List<ActMovePair> moveSet;
 
-		private ICombatPerformer combatPerformer;
+		private IMovePerformer combatPerformer;
 
-		public void InjectDependencies(ICombatPerformer combatPerformer)
+		public void InjectDependencies(IMovePerformer combatPerformer)
 		{
 			this.combatPerformer = combatPerformer;
 		}
@@ -22,18 +21,18 @@ namespace SpaxUtils
 		public override void Start()
 		{
 			base.Start();
-			foreach (ActCombatPair combatAct in moveSet)
+			foreach (ActMovePair pair in moveSet)
 			{
-				combatPerformer.AddCombatMove(combatAct.Act, combatAct.Move, prio);
+				combatPerformer.AddMove(pair.Act, this, PerformanceState.Inactive | PerformanceState.Finishing | PerformanceState.Completed, pair.Move, pair.Prio);
 			}
 		}
 
 		public override void Stop()
 		{
 			base.Stop();
-			foreach (ActCombatPair combatAct in moveSet)
+			foreach (ActMovePair pair in moveSet)
 			{
-				combatPerformer.RemoveCombatMove(combatAct.Act, combatAct.Move);
+				combatPerformer.RemoveMove(pair.Act, this);
 			}
 		}
 	}

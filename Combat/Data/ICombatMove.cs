@@ -20,11 +20,6 @@ namespace SpaxUtils
 		float HitDetectionDelay { get; }
 
 		/// <summary>
-		/// The follow-up moves available during the release of this move.
-		/// </summary>
-		List<ActCombatPair> FollowUps { get; }
-
-		/// <summary>
 		/// The relative inertia of this combat move to apply to the user.
 		/// </summary>
 		public Vector3 Inertia { get; }

@@ -13,15 +13,21 @@ namespace SpaxUtils
 
 		public string Name => string.IsNullOrWhiteSpace(name) ? base.name : name;
 		public string Description => description;
+
+		public IReadOnlyList<BehaviourAsset> Behaviour => behaviour;
+		public IReadOnlyList<MoveFollowUp> FollowUps => followUps;
+
+		public bool HasCharge => hasCharge;
 		public float MinCharge => minCharge;
 		public float MaxCharge => maxCharge;
 		public bool RequireMinCharge => requireMinCharge;
 		public string ChargeSpeedMultiplierStat => chargeSpeedMultiplier;
-		public float MinDuration => minDuration;
+
+		public bool HasPerformance => hasPerformance;
+		public float MinDuration => hasPerformance ? minDuration : 0f;
 		public float Release => release;
 		public float TotalDuration => MinDuration + Release;
 		public string PerformSpeedMultiplierStat => performSpeedMultiplier;
-		public IReadOnlyList<BehaviourAsset> Behaviour => behaviour;
 
 		#endregion Properties
 
@@ -38,20 +44,25 @@ namespace SpaxUtils
 
 		[SerializeField] new private string name;
 		[SerializeField, TextArea] private string description;
+
+		[Header("Data")]
 		[SerializeField] private PoseSequence sequence;
+		[SerializeField, Expandable] private List<BehaviourAsset> behaviour;
+		[SerializeField] private List<MoveFollowUp> followUps;
 
 		[Header("Preparation")]
-		[SerializeField, Tooltip(TT_MIN_CHARGE)] private float minCharge = 0.3f;
-		[SerializeField, Tooltip(TT_MAX_CHARGE)] private float maxCharge = 1f;
-		[SerializeField, Tooltip(TT_REQUIRE_MIN_CHARGE)] private bool requireMinCharge;
-		[SerializeField, ConstDropdown(typeof(IStatIdentifierConstants))] private string chargeSpeedMultiplier = AgentStatIdentifiers.ATTACK_CHARGE_SPEED;
+		[SerializeField] private bool hasCharge;
+		[SerializeField, Conditional(nameof(hasCharge), hide: true), Tooltip(TT_MIN_CHARGE)] private float minCharge = 0.3f;
+		[SerializeField, Conditional(nameof(hasCharge), hide: true), Tooltip(TT_MAX_CHARGE)] private float maxCharge = 1f;
+		[SerializeField, Conditional(nameof(hasCharge), hide: true), Tooltip(TT_REQUIRE_MIN_CHARGE)] private bool requireMinCharge;
+		[SerializeField, Conditional(nameof(hasCharge), hide: true), ConstDropdown(typeof(IStatIdentifierConstants))] private string chargeSpeedMultiplier = AgentStatIdentifiers.ATTACK_CHARGE_SPEED;
 
 		[Header("Performance")]
-		[SerializeField, Tooltip(TT_MIN_DURATION)] private float minDuration = 0.4f;
-		[SerializeField, Range(0f, 1f), Tooltip(TT_CHARGE_FADEOUT)] private float chargeFadeout = 0.3f;
+		[SerializeField] private bool hasPerformance;
+		[SerializeField, Conditional(nameof(hasPerformance), hide: true), Tooltip(TT_MIN_DURATION)] private float minDuration = 0.4f;
+		[SerializeField, Conditional(nameof(hasPerformance), hide: true), Range(0f, 1f), Tooltip(TT_CHARGE_FADEOUT)] private float chargeFadeout = 0.3f;
 		[SerializeField, Tooltip(TT_RELEASE)] private float release = 0.5f;
-		[SerializeField, ConstDropdown(typeof(IStatIdentifierConstants))] private string performSpeedMultiplier = AgentStatIdentifiers.ATTACK_PERFORM_SPEED;
-		[SerializeField, Expandable] private List<BehaviourAsset> behaviour;
+		[SerializeField, Conditional(nameof(hasPerformance), hide: true), ConstDropdown(typeof(IStatIdentifierConstants))] private string performSpeedMultiplier = AgentStatIdentifiers.ATTACK_PERFORM_SPEED;
 
 		/// <inheritdoc/>
 		public PoseTransition Evaluate(float chargeTime, float performTime, out float weight)
@@ -61,10 +72,10 @@ namespace SpaxUtils
 			float chargeWeight = chargePose.EvaluateTransition(Mathf.Clamp01(chargeTime / maxCharge));
 
 			// Performing.
-			float performanceWeight = Mathf.Clamp01(performTime / (MinDuration * chargeFadeout)).InOutSine();
+			float performanceWeight = hasPerformance ? Mathf.Clamp01(performTime / (MinDuration * chargeFadeout)).InOutSine() : Mathf.Sign(performTime);
 			weight = Mathf.Lerp(chargeWeight, 1f - Mathf.Clamp01((performTime - MinDuration) / Release), performanceWeight);
 
-			return sequence.Evaluate(performTime);
+			return sequence.Evaluate(hasPerformance ? performTime : 0f);
 		}
 	}
 }

@@ -27,7 +27,7 @@ namespace SpaxUtils
 		/// <summary>
 		/// The state of the current performance.
 		/// </summary>
-		Performance State { get; }
+		PerformanceState State { get; }
 
 		/// <summary>
 		/// The amount of time the performance has been going for.

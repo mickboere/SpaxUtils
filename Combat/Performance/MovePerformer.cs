@@ -5,28 +5,28 @@ using UnityEngine;
 namespace SpaxUtils
 {
 	/// <summary>
-	/// Helper class for <see cref="CombatPerformerComponent"/> which performs a single <see cref="ICombatMove"/>.
-	/// Implements <see cref="ICombatPerformer"/>.
+	/// Helper class for <see cref="MovePerformerComponent"/> which performs a single <see cref="IPerformanceMove"/>.
+	/// Implements <see cref="IMovePerformer"/>.
 	/// </summary>
-	public class CombatPerformer : ICombatPerformer, IDisposable
+	public class MovePerformer : IMovePerformer, IDisposable
 	{
-		public event Action<List<HitScanHitData>> NewHitDetectedEvent;
-		public event Action<HitData> ProcessHitEvent;
+		//public event Action<List<HitScanHitData>> NewHitDetectedEvent;
+		//public event Action<HitData> ProcessHitEvent;
 		public event Action<IPerformer> PerformanceUpdateEvent;
 		public event Action<IPerformer> PerformanceCompletedEvent;
 		public event Action<IPerformer, PoserStruct, float> PoseUpdateEvent;
 
 		#region IPerformer Properties
-		public int Priority { get; }
+		public int Priority => 0;
 		public IAct Act { get; }
-		public Performance State { get; private set; }
+		public PerformanceState State { get; private set; }
 		public float RunTime { get; private set; }
 		#endregion IPerformer Properties
 
-		#region ICombatPerformer Properties
-		public ICombatMove CurrentMove { get; private set; }
+		#region IMovePerformer Properties
+		public IPerformanceMove Move { get; private set; }
 		public float Charge { get; private set; }
-		#endregion ICombatPerformer Properties
+		#endregion IMovePerformer Properties
 
 		private IDependencyManager dependencyManager;
 		private IAgent agent;
@@ -34,13 +34,11 @@ namespace SpaxUtils
 		private CallbackService callbackService;
 
 		private bool released;
-		private CombatHitDetector hitDetector;
 		private List<BehaviourAsset> behaviours;
 
-		public CombatPerformer(IDependencyManager dependencyManager, IAct act,
-			ICombatMove move, IAgent agent, EntityStat entityTimeScale,
-			CallbackService callbackService, TransformLookup transformLookup,
-			LayerMask layerMask, int prio = 0)
+		public MovePerformer(IDependencyManager dependencyManager, IAct act,
+			IPerformanceMove move, IAgent agent, EntityStat entityTimeScale,
+			CallbackService callbackService)
 		{
 			// Initialize dependencies.
 			this.dependencyManager = new DependencyManager(dependencyManager, $"CombatPerformance: {move.Name}");
@@ -48,18 +46,14 @@ namespace SpaxUtils
 			this.dependencyManager.Bind(move);
 
 			// Initialize variables.
-			Act = act;
-			CurrentMove = move;
-			Priority = prio;
 			this.agent = agent;
 			this.entityTimeScale = entityTimeScale;
 			this.callbackService = callbackService;
-			State = Performance.Preparing;
+			Act = act;
+			Move = move;
+			State = Move.HasCharge ? PerformanceState.Preparing : PerformanceState.Performing;
 			RunTime = 0f;
 			Charge = 0f;
-
-			// Initialize hit detector.
-			hitDetector = new CombatHitDetector(agent, transformLookup, CurrentMove, layerMask);
 
 			// Initialize behaviours.
 			behaviours = new List<BehaviourAsset>();
@@ -73,7 +67,6 @@ namespace SpaxUtils
 			dependencyManager.Dispose();
 			StopBehaviour();
 			callbackService.UpdateCallback -= Update;
-			hitDetector.Dispose();
 		}
 
 		/// <inheritdoc/>
@@ -102,7 +95,7 @@ namespace SpaxUtils
 
 			released = true;
 
-			if (CurrentMove.RequireMinCharge && Charge < CurrentMove.MinCharge)
+			if (Move.RequireMinCharge && Charge < Move.MinCharge)
 			{
 				// Min charge not reached but required, cancel attack.
 				TryCancel(false);
@@ -116,9 +109,9 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public bool TryCancel(bool force)
 		{
-			if (force || State == Performance.Preparing || State == Performance.Finishing)
+			if (force || Act.Interuptable || State == PerformanceState.Preparing)
 			{
-				State = Performance.Completed;
+				State = PerformanceState.Completed;
 				return true;
 			}
 			else
@@ -127,61 +120,58 @@ namespace SpaxUtils
 			}
 		}
 
-		public void AddCombatMove(string act, ICombatMove move, int prio)
+		public void AddMove(string act, object owner, PerformanceState state, IPerformanceMove move, int prio)
 		{
-			SpaxDebug.Error("Combat performance helper does not support multiple moves.");
+			SpaxDebug.Error("MovePerformer does not support multiple moves.");
 		}
 
-		public void RemoveCombatMove(string act, ICombatMove move)
+		public void RemoveMove(string act, object owner)
 		{
-			SpaxDebug.Error("Combat performance helper does not support multiple moves.");
+			SpaxDebug.Error("MovePerformer does not support multiple moves.");
 		}
 
 		private void Update()
 		{
-			EntityStat speedMult = State == Performance.Preparing ? agent.GetStat(CurrentMove.ChargeSpeedMultiplierStat) : agent.GetStat(CurrentMove.PerformSpeedMultiplierStat);
+			EntityStat speedMult = State == PerformanceState.Preparing ? agent.GetStat(Move.ChargeSpeedMultiplierStat) : agent.GetStat(Move.PerformSpeedMultiplierStat);
 			float delta = Time.deltaTime * (speedMult ?? 1f) * entityTimeScale;
 
-			if (State == Performance.Preparing)
+			if (State == PerformanceState.Preparing)
 			{
-				// Charging.
+				// Preparing.
 				Charge += delta;
 
-				if (released && Charge >= CurrentMove.MinCharge)
+				if (released && Charge >= Move.MinCharge)
 				{
 					// Finished charging.
-					State = Performance.Performing;
+					State = PerformanceState.Performing;
 				}
 			}
-			else
+			// No else statement to remove unnecessary frame delay.
+			if (State != PerformanceState.Preparing)
 			{
-				// Attacking.
+				// Performing.
 				RunTime += delta;
 
-				// Hit detection.
-				if (State == Performance.Performing && RunTime >= CurrentMove.HitDetectionDelay && hitDetector.Update(out List<HitScanHitData> newHits))
-				{
-					NewHitDetectedEvent?.Invoke(newHits);
-				}
-
-				if (RunTime >= CurrentMove.TotalDuration)
+				if (RunTime >= Move.TotalDuration)
 				{
 					// Completed
-					State = Performance.Completed;
+					State = PerformanceState.Completed;
 				}
-				else if (RunTime >= CurrentMove.MinDuration)
+				else if (RunTime >= Move.MinDuration)
 				{
 					// Finishing
-					State = Performance.Finishing;
+					State = PerformanceState.Finishing;
 				}
 			}
 
-			PoseTransition pose = CurrentMove.Evaluate(Charge, RunTime, out float weight);
+			PoseTransition pose = Move.Evaluate(Charge, RunTime, out float weight);
 			PoseUpdateEvent?.Invoke(this, new PoserStruct(new PoseInstructions(pose, 1f)), weight);
+
+			UpdateBehaviour();
 
 			PerformanceUpdateEvent?.Invoke(this);
 
-			if (State == Performance.Completed)
+			if (State == PerformanceState.Completed)
 			{
 				PerformanceCompletedEvent?.Invoke(this);
 			}
@@ -189,7 +179,7 @@ namespace SpaxUtils
 
 		private void StartBehaviour()
 		{
-			foreach (BehaviourAsset behaviour in CurrentMove.Behaviour)
+			foreach (BehaviourAsset behaviour in Move.Behaviour)
 			{
 				BehaviourAsset behaviourInstance = behaviour.CreateInstance();
 				behaviours.Add(behaviourInstance);
@@ -203,6 +193,17 @@ namespace SpaxUtils
 			foreach (BehaviourAsset behaviour in behaviours)
 			{
 				behaviour.Destroy();
+			}
+		}
+
+		private void UpdateBehaviour()
+		{
+			foreach (BehaviourAsset behaviour in behaviours)
+			{
+				if (behaviour is IUpdatable updatable)
+				{
+					updatable.ExUpdate(Time.deltaTime);
+				}
 			}
 		}
 	}

@@ -16,6 +16,11 @@
 		bool Interuptable { get; }
 
 		/// <summary>
+		/// Whether this act should attempt to interupt other acts.
+		/// </summary>
+		bool Interuptor { get; }
+
+		/// <summary>
 		/// Action retry-window when initial production attempt fails.
 		/// </summary>
 		float Buffer { get; }

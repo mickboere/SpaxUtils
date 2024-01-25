@@ -4,39 +4,164 @@ using UnityEngine;
 
 namespace SpaxUtils
 {
+	/// <summary>
+	/// Behaviour for melee <see cref="ICombatMove"/>s that manages hit-detection during performance.
+	/// </summary>
 	[CreateAssetMenu(fileName = "Behaviour_MeleeAttack", menuName = "ScriptableObjects/MeleeAttackBehaviourAsset")]
-	public class MeleeAttackBehaviourAsset : BehaviourAsset
+	public class MeleeAttackBehaviourAsset : BehaviourAsset, IUpdatable
 	{
-		private ICombatPerformer performer;
+		[SerializeField] private float controlWeightSmoothing = 6f;
+		[SerializeField, ConstDropdown(typeof(IIdentificationLabels))] private string[] targetLabels;
+		[SerializeField] private float autoAimRange = 2f;
+		[SerializeField] private LayerMask hitDetectionMask;
+		[SerializeField] private float hitPause = 0.2f;
+		[SerializeField] private AnimationCurve hitPauseCurve;
+
+		private IMovePerformer performer;
 		private ICombatMove move;
 		private IAgent agent;
 		private RigidbodyWrapper rigidbodyWrapper;
+		private CallbackService callbackService;
+		private TransformLookup transformLookup;
+		private ITargeter targeter;
+		private IAgentMovementHandler movementHandler;
+		private AgentNavigationHandler navigationHandler;
+		private AgentArmsComponent arms;
+		private IEntityCollection entityCollection;
 
-		public void InjectDependencies(ICombatPerformer performer, ICombatMove move,
-			IAgent agent, RigidbodyWrapper rigidbodyWrapper)
+		private CombatHitDetector hitDetector;
+		private EntityStat entityTimeScale;
+		private TimedCurveModifier timeMod;
+		private FloatOperationModifier controlMod;
+		private bool wasPerforming;
+		private Timer momentumTimer;
+		private bool appliedMomentum;
+		private EntityComponentFilter<ITargetable> targetables;
+		private float weight;
+
+		public void InjectDependencies(IMovePerformer performer, ICombatMove move,
+			IAgent agent, RigidbodyWrapper rigidbodyWrapper, CallbackService callbackService,
+			TransformLookup transformLookup, ITargeter targeter, IAgentMovementHandler movementHandler,
+			AgentNavigationHandler navigationHandler, AgentArmsComponent arms, IEntityCollection entityCollection)
 		{
 			this.performer = performer;
 			this.move = move;
 			this.agent = agent;
 			this.rigidbodyWrapper = rigidbodyWrapper;
+			this.callbackService = callbackService;
+			this.transformLookup = transformLookup;
+			this.targeter = targeter;
+			this.movementHandler = movementHandler;
+			this.navigationHandler = navigationHandler;
+			this.arms = arms;
+			this.entityCollection = entityCollection;
+
+			entityTimeScale = agent.GetStat(EntityStatIdentifier.TIMESCALE, true, 1f);
 		}
 
 		public override void Start()
 		{
 			base.Start();
-			performer.NewHitDetectedEvent += OnNewHitDetectedEvent;
+
+			hitDetector = new CombatHitDetector(agent, transformLookup, move, hitDetectionMask);
+			controlMod = new FloatOperationModifier(ModMethod.Absolute, Operation.Multiply, 1f);
+			rigidbodyWrapper.Control.AddModifier(this, controlMod);
+			arms.Weight.AddModifier(this, controlMod);
+
+			targetables = new EntityComponentFilter<ITargetable>(entityCollection, (entity) => entity.Identification.HasAll(targetLabels), (c) => true, agent);
+
+			performer.PoseUpdateEvent += OnPoseUpdateEvent;
 		}
 
 		public override void Stop()
 		{
 			base.Stop();
-			performer.NewHitDetectedEvent -= OnNewHitDetectedEvent;
+
+			rigidbodyWrapper.Control.RemoveModifier(this);
+			arms.Weight.RemoveModifier(this);
+
+			performer.PoseUpdateEvent -= OnPoseUpdateEvent;
+
+			hitDetector.Dispose();
+			controlMod.Dispose();
+			targetables.Dispose();
 		}
 
-		private void OnNewHitDetectedEvent(List<HitScanHitData> newHits)
+		public void ExUpdate(float delta)
+		{
+			if (performer.State == PerformanceState.Performing)
+			{
+				if (performer.RunTime >= move.HitDetectionDelay && hitDetector.Update(out List<HitScanHitData> newHits))
+				{
+					OnNewHitDetected(newHits);
+				}
+
+				if (!wasPerforming)
+				{
+					// < First frame of performance >
+
+					#region Aiming
+					if (targeter.Target != null)
+					{
+						// Auto aim to target.
+						movementHandler.SetTargetVelocity((targeter.Target.Center - rigidbodyWrapper.Position).normalized);
+					}
+					else if (rigidbodyWrapper.TargetVelocity.magnitude <= 1f &&
+						navigationHandler.TryGetClosestTargetable(targetables.Components, false, out ITargetable closest, out float distance) &&
+						distance < autoAimRange)
+					{
+						// Auto aim to closest targetable in range.
+						movementHandler.SetTargetVelocity((closest.Center - rigidbodyWrapper.Position).normalized);
+					}
+					#endregion Aiming
+
+					#region Stats
+					if (move.PerformCost.Count > 0)
+					{
+						// Apply performance costs to stats.
+						foreach (StatCost statCost in move.PerformCost)
+						{
+							if (agent.TryGetStat(statCost.Stat, out EntityStat costStat))
+							{
+								float cost = statCost.Cost;
+								if (statCost.Multiply && agent.TryGetStat(statCost.Multiplier, out EntityStat multiplier))
+								{
+									cost *= multiplier;
+								}
+								costStat.BaseValue -= cost;
+							}
+						}
+					}
+					#endregion Stats
+
+					movementHandler.ForceRotation();
+					momentumTimer = new Timer(move.ForceDelay);
+					appliedMomentum = false;
+				}
+				wasPerforming = true;
+
+				// Apply momentum to user after delay.
+				if (!appliedMomentum && !momentumTimer)
+				{
+					rigidbodyWrapper.AddImpactRelative(move.Inertia);
+					appliedMomentum = true;
+				}
+			}
+
+			// Set control.
+			float control = 1f - weight;
+			controlMod.SetValue(controlMod.Value < control ? Mathf.Lerp(controlMod.Value, control, controlWeightSmoothing * Time.deltaTime) : control);
+		}
+
+		private void OnPoseUpdateEvent(IPerformer performer, PoserStruct pose, float weight)
+		{
+			this.weight = weight;
+		}
+
+		private void OnNewHitDetected(List<HitScanHitData> newHits)
 		{
 			// TODO: Have hit pause duration depend on penetration % (factoring in power, sharpness, hardness.)
-			//timeMod = new TimedCurveModifier(ModMethod.Absolute, hitPauseCurve, new Timer(hitPause), callbackService);
+			timeMod = new TimedCurveModifier(ModMethod.Absolute, hitPauseCurve, new Timer(hitPause), callbackService);
 
 			bool successfulHit = false;
 			foreach (HitScanHitData hit in newHits)
@@ -47,7 +172,7 @@ namespace SpaxUtils
 
 					// Calculate attack force.
 					float strength = 0f;
-					if (agent.TryGetStat(performer.CurrentMove.StrengthStat, out EntityStat strengthStat))
+					if (agent.TryGetStat(move.StrengthStat, out EntityStat strengthStat))
 					{
 						strength = strengthStat;
 					}
@@ -66,11 +191,11 @@ namespace SpaxUtils
 					);
 
 					// If move is offensive, add base health damage to HitData.
-					if (performer.CurrentMove.Offensive &&
-						agent.TryGetStat(performer.CurrentMove.OffenceStat, out EntityStat offence) &&
+					if (move.Offensive &&
+						agent.TryGetStat(move.OffenceStat, out EntityStat offence) &&
 						hittable.Entity.TryGetStat(AgentStatIdentifiers.DEFENCE, out EntityStat defence))
 					{
-						float damage = SpaxFormulas.GetDamage(offence, defence) * performer.CurrentMove.Offensiveness;
+						float damage = SpaxFormulas.GetDamage(offence, defence) * move.Offensiveness;
 						hitData.Damages.Add(AgentStatIdentifiers.HEALTH, damage);
 					}
 
@@ -92,11 +217,11 @@ namespace SpaxUtils
 				}
 			}
 
-			//if (successfulHit)
-			//{
-			//	EntityTimeScale.RemoveModifier(this);
-			//	EntityTimeScale.AddModifier(this, timeMod);
-			//}
+			if (successfulHit)
+			{
+				entityTimeScale.RemoveModifier(this);
+				entityTimeScale.AddModifier(this, timeMod);
+			}
 		}
 	}
 }
