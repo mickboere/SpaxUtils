@@ -5,7 +5,15 @@ namespace SpaxUtils
 	public static class FloatExtensions
 	{
 		/// <summary>
-		/// <see cref="Mathf.Approximately(float, float)"/> shorthand.
+		/// In-line version of <see cref="Mathf.Lerp(float, float, float)"/>.
+		/// </summary>
+		public static float Lerp(this float a, float b, float t)
+		{
+			return Mathf.Lerp(a, b, t);
+		}
+
+		/// <summary>
+		/// In-line version of <see cref="Mathf.Approximately(float, float)"/>.
 		/// </summary>
 		public static bool Approx(this float a, float b)
 		{
@@ -13,6 +21,7 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
+		/// In-line version of <see cref="Mathf.Repeat(float, float)"/>.
 		/// Loops <paramref name="f"/> around to be between 0 and <paramref name="max"/>.
 		/// </summary>
 		public static float Repeat(this float f, float max = 1f)

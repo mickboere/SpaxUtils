@@ -33,14 +33,14 @@ namespace SpaxUtils
 
 		protected void OnEnable()
 		{
-			hittable.OnHitEvent += OnHitEvent;
+			hittable.Subscribe(this, OnHitEvent, -1);
 			stunControlMod = new FloatOperationModifier(ModMethod.Absolute, Operation.Multiply, 1f);
 			rigidbodyWrapper.Control.AddModifier(this, stunControlMod);
 		}
 
 		protected void OnDisable()
 		{
-			hittable.OnHitEvent -= OnHitEvent;
+			hittable.Unsubscribe(this);
 			rigidbodyWrapper.Control.RemoveModifier(this);
 			stunControlMod.Dispose();
 		}
@@ -63,48 +63,19 @@ namespace SpaxUtils
 		{
 			lastHit = hitData;
 
-			if (!hitData.Parry && actor.Act != null && actor.Act.Title == ActorActs.LEFT)
+			agent.Actor.TryCancel(true);
+
+			rigidbodyWrapper.AddImpact(hitData.Inertia, hitData.Force);
+
+			float stunTime = hitData.Force / rigidbodyWrapper.Mass;
+			stunTimer = new Timer(Mathf.Min(stunTime, maxStunTime));
+
+			foreach (var damage in hitData.Damages)
 			{
-				switch (actor.State)
+				EntityStat stat = Entity.GetStat(damage.Key);
+				if (stat != null)
 				{
-					case PerformanceState.Preparing:
-						// Block.
-
-						break;
-					case PerformanceState.Performing:
-						// Parry.
-						//if (hitData.Hitter.TryGetEntityComponent(out IHittable enemyHittable))
-						//{
-						//	enemyHittable.Hit(
-						//		new HitData(
-						//			Entity,
-						//			enemyHittable,
-						//			Vector3.zero,
-						//			1f,
-						//			hitData.Hitter.GameObject.transform.position - Entity.GameObject.transform.position,
-						//			true,
-						//			new Dictionary<string, float>()));
-						//}
-						break;
-				}
-			}
-			else
-			{
-				// Clean hit.
-				agent.Actor.TryCancel(true);
-
-				rigidbodyWrapper.AddImpact(hitData.Inertia, hitData.Force);
-
-				float stunTime = hitData.Force / rigidbodyWrapper.Mass;
-				stunTimer = new Timer(Mathf.Min(stunTime, maxStunTime));
-
-				foreach (var damage in hitData.Damages)
-				{
-					EntityStat stat = Entity.GetStat(damage.Key);
-					if (stat != null)
-					{
-						stat.BaseValue = Mathf.Max(0f, stat.BaseValue - damage.Value);
-					}
+					stat.BaseValue = Mathf.Max(0f, stat.BaseValue - damage.Value);
 				}
 			}
 		}

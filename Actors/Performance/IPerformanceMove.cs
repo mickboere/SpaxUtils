@@ -63,12 +63,11 @@ namespace SpaxUtils
 
 		/// <summary>
 		/// The minimum performing duration of this move.
-		/// Typically set to the performance-peak of the move's pose sequence.
 		/// </summary>
 		float MinDuration { get; }
 
 		/// <summary>
-		/// Interuptable release / fadeout time after the minimum duration.
+		/// Pose fadeout time after RunTime exeeds the minimum duration.
 		/// </summary>
 		float Release { get; }
 
@@ -84,12 +83,18 @@ namespace SpaxUtils
 		string PerformSpeedMultiplierStat { get; }
 
 		/// <summary>
+		/// Time it takes for the performance to fade away after canceling.
+		/// </summary>
+		float CancelDuration { get; }
+
+		/// <summary>
 		/// Evaluates the combat move at <paramref name="chargeTime"/> seconds of charge and <paramref name="performTime"/> seconds of performance.
 		/// </summary>
 		/// <param name="chargeTime">The amount of seconds of charge.</param>
 		/// <param name="performTime">The amount of seconds of performance.</param>
 		/// <param name="weight">The resulting effective weight of the complete pose blend.</param>
+		/// <param name="cancelTime">If the move has been canceled, how long has it been canceled for?</param>
 		/// <returns><see cref="PoseTransition"/> resulting from the evaluation.</returns>
-		PoseTransition Evaluate(float chargeTime, float performTime, out float weight);
+		PoseTransition Evaluate(float chargeTime, float performTime, out float weight, float cancelTime = 0f);
 	}
 }

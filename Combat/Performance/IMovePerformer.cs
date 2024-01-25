@@ -14,16 +14,6 @@ namespace SpaxUtils
 		event Action<IPerformer, PoserStruct, float> PoseUpdateEvent;
 
 		/// <summary>
-		/// Event invoked when the combat performer has encountered new hits during an attack.
-		/// </summary>
-		//event Action<List<HitScanHitData>> NewHitDetectedEvent;
-
-		/// <summary>
-		/// Event invoked while hitting a <see cref="IHittable"/>, before the <see cref="HitData"/> is sent to the hit object.
-		/// </summary>
-		//event Action<HitData> ProcessHitEvent;
-
-		/// <summary>
 		/// The <see cref="IPerformanceMove"/> currently being performed.
 		/// </summary>
 		IPerformanceMove Move { get; }

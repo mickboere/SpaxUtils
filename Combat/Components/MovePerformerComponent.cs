@@ -11,9 +11,6 @@ namespace SpaxUtils
 	/// </summary>
 	public class MovePerformerComponent : EntityComponentBase, IMovePerformer
 	{
-		//public event Action<List<HitScanHitData>> NewHitDetectedEvent;
-		//public event Action<HitData> ProcessHitEvent;
-
 		public event Action<IPerformer> PerformanceUpdateEvent;
 		public event Action<IPerformer> PerformanceCompletedEvent;
 		public event Action<IPerformer, PoserStruct, float> PoseUpdateEvent;

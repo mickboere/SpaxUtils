@@ -10,22 +10,24 @@ namespace SpaxUtils
 	/// </summary>
 	public class MovePerformer : IMovePerformer, IDisposable
 	{
-		//public event Action<List<HitScanHitData>> NewHitDetectedEvent;
-		//public event Action<HitData> ProcessHitEvent;
 		public event Action<IPerformer> PerformanceUpdateEvent;
 		public event Action<IPerformer> PerformanceCompletedEvent;
 		public event Action<IPerformer, PoserStruct, float> PoseUpdateEvent;
 
 		#region IPerformer Properties
+
 		public int Priority => 0;
 		public IAct Act { get; }
 		public PerformanceState State { get; private set; }
 		public float RunTime { get; private set; }
+
 		#endregion IPerformer Properties
 
 		#region IMovePerformer Properties
+
 		public IPerformanceMove Move { get; private set; }
 		public float Charge { get; private set; }
+
 		#endregion IMovePerformer Properties
 
 		private IDependencyManager dependencyManager;
@@ -33,8 +35,10 @@ namespace SpaxUtils
 		private EntityStat entityTimeScale;
 		private CallbackService callbackService;
 
-		private bool released;
 		private List<BehaviourAsset> behaviours;
+		private bool released;
+		private bool canceled;
+		private float cancelTime;
 
 		public MovePerformer(IDependencyManager dependencyManager, IAct act,
 			IPerformanceMove move, IAgent agent, EntityStat entityTimeScale,
@@ -111,7 +115,8 @@ namespace SpaxUtils
 		{
 			if (force || Act.Interuptable || State == PerformanceState.Preparing)
 			{
-				State = PerformanceState.Completed;
+				State = PerformanceState.Finishing;
+				canceled = true;
 				return true;
 			}
 			else
@@ -135,36 +140,49 @@ namespace SpaxUtils
 			EntityStat speedMult = State == PerformanceState.Preparing ? agent.GetStat(Move.ChargeSpeedMultiplierStat) : agent.GetStat(Move.PerformSpeedMultiplierStat);
 			float delta = Time.deltaTime * (speedMult ?? 1f) * entityTimeScale;
 
-			if (State == PerformanceState.Preparing)
+			if (canceled)
 			{
-				// Preparing.
-				Charge += delta;
+				cancelTime += delta;
 
-				if (released && Charge >= Move.MinCharge)
+				if (cancelTime >= Move.CancelDuration)
 				{
-					// Finished charging.
-					State = PerformanceState.Performing;
-				}
-			}
-			// No else statement to remove unnecessary frame delay.
-			if (State != PerformanceState.Preparing)
-			{
-				// Performing.
-				RunTime += delta;
-
-				if (RunTime >= Move.TotalDuration)
-				{
-					// Completed
+					// Completed cancel fadeout.
 					State = PerformanceState.Completed;
 				}
-				else if (RunTime >= Move.MinDuration)
+			}
+			else
+			{
+				if (State == PerformanceState.Preparing)
 				{
-					// Finishing
-					State = PerformanceState.Finishing;
+					// Preparing.
+					Charge += delta;
+
+					if (released && Charge >= Move.MinCharge)
+					{
+						// Finished charging.
+						State = PerformanceState.Performing;
+					}
+				}
+				// No else statement to remove unnecessary frame delay.
+				if (State != PerformanceState.Preparing)
+				{
+					// Performing.
+					RunTime += delta;
+
+					if (RunTime >= Move.TotalDuration)
+					{
+						// Completed
+						State = PerformanceState.Completed;
+					}
+					else if (RunTime >= Move.MinDuration)
+					{
+						// Finishing
+						State = PerformanceState.Finishing;
+					}
 				}
 			}
 
-			PoseTransition pose = Move.Evaluate(Charge, RunTime, out float weight);
+			PoseTransition pose = Move.Evaluate(Charge, RunTime, out float weight, cancelTime);
 			PoseUpdateEvent?.Invoke(this, new PoserStruct(new PoseInstructions(pose, 1f)), weight);
 
 			UpdateBehaviour();
