@@ -51,6 +51,7 @@ namespace SpaxUtils
 		[SerializeField] private PoseSequence sequence;
 		[SerializeField, Expandable] private List<BehaviourAsset> behaviour;
 		[SerializeField] private List<MoveFollowUp> followUps;
+		[SerializeField] private float cancelDuration = 0.25f;
 
 		[Header("Preparation")]
 		[SerializeField] private bool hasCharge;
@@ -65,7 +66,6 @@ namespace SpaxUtils
 		[SerializeField, Conditional(nameof(hasPerformance), hide: true), Range(0f, 1f), Tooltip(TT_CHARGE_FADEOUT)] private float chargeFadeout = 0.3f;
 		[SerializeField, Tooltip(TT_RELEASE)] private float release = 0.5f;
 		[SerializeField, Conditional(nameof(hasPerformance), hide: true), ConstDropdown(typeof(IStatIdentifierConstants))] private string performSpeedMultiplier = AgentStatIdentifiers.ATTACK_PERFORM_SPEED;
-		[SerializeField] private float cancelDuration = 0.25f;
 
 		/// <inheritdoc/>
 		public PoseTransition Evaluate(float chargeTime, float performTime, out float weight, float cancelTime = 0f)
@@ -79,6 +79,11 @@ namespace SpaxUtils
 			weight = Mathf.Lerp(chargeWeight, 1f - Mathf.Clamp01((performTime - MinDuration) / Release), performanceWeight).Lerp(0f, cancelTime / CancelDuration);
 
 			return sequence.Evaluate(hasPerformance ? performTime : 0f);
+		}
+
+		public override string ToString()
+		{
+			return $"PerformanceMove(\"{name}\", \"{description}\", hasCharge:{hasCharge}, hasPerformance:{hasPerformance})";
 		}
 	}
 }

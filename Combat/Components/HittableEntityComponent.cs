@@ -37,7 +37,7 @@ namespace SpaxUtils
 			subscribers.Add((listener, callback, prio));
 			if (subscribers.Count > 2 && prio > subscribers[subscribers.Count - 2].prio)
 			{
-				subscribers.Sort((a, b) => a.prio.CompareTo(b.prio));
+				subscribers.Sort((a, b) => b.prio.CompareTo(a.prio));
 			}
 		}
 

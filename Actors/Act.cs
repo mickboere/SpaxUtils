@@ -25,7 +25,7 @@
 
 		public override string ToString()
 		{
-			return $"Act(\"{Title}\" : \"{Value}\", interuptable={Interuptable}, buffer={Buffer})";
+			return $"Act(\"{Title}\" : \"{Value}\", interuptable={Interuptable}, interuptor={Interuptor}, buffer={Buffer})";
 		}
 	}
 }

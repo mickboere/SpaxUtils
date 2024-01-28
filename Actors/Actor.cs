@@ -79,7 +79,10 @@ namespace SpaxUtils
 			}
 
 			availablePerformers.Add(performer);
-			availablePerformers.Sort((a, b) => a.Priority.CompareTo(b.Priority));
+			if (availablePerformers.Count > 2 && performer.Priority > availablePerformers[availablePerformers.Count - 2].Priority)
+			{
+				availablePerformers.Sort((a, b) => b.Priority.CompareTo(a.Priority));
+			}
 
 			performer.PerformanceUpdateEvent += OnPerformanceUpdateEvent;
 			performer.PerformanceCompletedEvent += OnPerformanceCompletedEvent;
@@ -168,8 +171,9 @@ namespace SpaxUtils
 			}
 
 			// Ensure Support and Non-Occupance or Interuptability.
-			if (SupportsAct(act.Title) &&
-				(MainPerformer == null || State == PerformanceState.Finishing || (act.Interuptor && TryCancel(false))))
+			if (SupportsAct(act.Title) && (MainPerformer == null ||
+				State == PerformanceState.Finishing || State == PerformanceState.Completed ||
+				(act.Interuptor && Act.Interuptable && TryCancel(false))))
 			{
 				// Try start new performance.
 				foreach (IPerformer performer in availablePerformers)

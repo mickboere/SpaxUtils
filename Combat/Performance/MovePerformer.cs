@@ -61,7 +61,7 @@ namespace SpaxUtils
 
 			// Initialize behaviours.
 			behaviours = new List<BehaviourAsset>();
-			StartBehaviour();
+			StartBehaviours();
 
 			callbackService.UpdateCallback += Update;
 		}
@@ -69,7 +69,7 @@ namespace SpaxUtils
 		public void Dispose()
 		{
 			dependencyManager.Dispose();
-			StopBehaviour();
+			StopBehaviours();
 			callbackService.UpdateCallback -= Update;
 		}
 
@@ -91,7 +91,7 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public bool TryPerform()
 		{
-			if (released)
+			if (!Move.HasCharge || released)
 			{
 				// Already performing.
 				return false;
@@ -113,9 +113,9 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public bool TryCancel(bool force)
 		{
-			if (force || Act.Interuptable || State == PerformanceState.Preparing)
+			if (force || State == PerformanceState.Preparing)
 			{
-				State = PerformanceState.Finishing;
+				// Delay setting state to "Finishing" to prevent state change during Followup Move.
 				canceled = true;
 				return true;
 			}
@@ -137,12 +137,11 @@ namespace SpaxUtils
 
 		private void Update()
 		{
-			EntityStat speedMult = State == PerformanceState.Preparing ? agent.GetStat(Move.ChargeSpeedMultiplierStat) : agent.GetStat(Move.PerformSpeedMultiplierStat);
-			float delta = Time.deltaTime * (speedMult ?? 1f) * entityTimeScale;
-
 			if (canceled)
 			{
-				cancelTime += delta;
+				State = PerformanceState.Finishing;
+
+				cancelTime += Time.deltaTime * entityTimeScale;
 
 				if (cancelTime >= Move.CancelDuration)
 				{
@@ -152,6 +151,9 @@ namespace SpaxUtils
 			}
 			else
 			{
+				EntityStat speedMult = State == PerformanceState.Preparing ? agent.GetStat(Move.ChargeSpeedMultiplierStat) : agent.GetStat(Move.PerformSpeedMultiplierStat);
+				float delta = Time.deltaTime * (speedMult ?? 1f) * entityTimeScale;
+
 				if (State == PerformanceState.Preparing)
 				{
 					// Preparing.
@@ -163,7 +165,7 @@ namespace SpaxUtils
 						State = PerformanceState.Performing;
 					}
 				}
-				// No else statement to remove unnecessary frame delay.
+				// No else statement here to prevent frame delay.
 				if (State != PerformanceState.Preparing)
 				{
 					// Performing.
@@ -185,7 +187,7 @@ namespace SpaxUtils
 			PoseTransition pose = Move.Evaluate(Charge, RunTime, out float weight, cancelTime);
 			PoseUpdateEvent?.Invoke(this, new PoserStruct(new PoseInstructions(pose, 1f)), weight);
 
-			UpdateBehaviour();
+			UpdateBehaviours();
 
 			PerformanceUpdateEvent?.Invoke(this);
 
@@ -195,7 +197,9 @@ namespace SpaxUtils
 			}
 		}
 
-		private void StartBehaviour()
+		#region Behaviours
+
+		private void StartBehaviours()
 		{
 			foreach (BehaviourAsset behaviour in Move.Behaviour)
 			{
@@ -206,7 +210,7 @@ namespace SpaxUtils
 			}
 		}
 
-		private void StopBehaviour()
+		private void StopBehaviours()
 		{
 			foreach (BehaviourAsset behaviour in behaviours)
 			{
@@ -214,7 +218,7 @@ namespace SpaxUtils
 			}
 		}
 
-		private void UpdateBehaviour()
+		private void UpdateBehaviours()
 		{
 			foreach (BehaviourAsset behaviour in behaviours)
 			{
@@ -224,5 +228,7 @@ namespace SpaxUtils
 				}
 			}
 		}
+
+		#endregion Behaviours
 	}
 }

@@ -90,23 +90,14 @@ namespace SpaxUtils
 				return false;
 			}
 
-			// If there isn't already a performance helper running, create a new one and return it.
-			// If the existing performance is finishing we can override it because it will dispose of itself once completed.
-			if (MainPerformer == null || State == PerformanceState.Finishing || State == PerformanceState.Completed)
-			{
-				var performer = new MovePerformer(dependencyManager, act, move, agent, EntityTimeScale, callbackService);
-				performer.PerformanceUpdateEvent += OnPerformanceUpdateEvent;
-				performer.PerformanceCompletedEvent += OnPerformanceCompletedEvent;
-				//performer.NewHitDetectedEvent += OnNewHitDetectedEvent;
-				performer.PoseUpdateEvent += OnPoseUpdateEvent;
-				finalPerformer = performer;
-				helpers.Add(performer);
-				AddFollowUpMoves(performer, move);
-				return true;
-			}
-
-			// A move is already being performed, report a negative to allow for input buffering.
-			return false;
+			var performer = new MovePerformer(dependencyManager, act, move, agent, EntityTimeScale, callbackService);
+			performer.PerformanceUpdateEvent += OnPerformanceUpdateEvent;
+			performer.PerformanceCompletedEvent += OnPerformanceCompletedEvent;
+			performer.PoseUpdateEvent += OnPoseUpdateEvent;
+			finalPerformer = performer;
+			helpers.Add(performer);
+			AddFollowUpMoves(performer, move);
+			return true;
 		}
 
 		/// <inheritdoc/>
@@ -164,22 +155,22 @@ namespace SpaxUtils
 		/// </summary>
 		private IPerformanceMove GetMove(string act)
 		{
-			if (moves.ContainsKey(act))
+			if (!moves.ContainsKey(act))
 			{
-				(PerformanceState state, IPerformanceMove move, int prio)? top = null;
-
-				foreach (var entry in moves[act])
-				{
-					if (entry.Value.state.HasFlag(State) && (top == null || entry.Value.prio > top.Value.prio))
-					{
-						top = entry.Value;
-					}
-				}
-
-				return top.HasValue ? top.Value.move : null;
+				return null;
 			}
 
-			return null;
+			(PerformanceState state, IPerformanceMove move, int prio)? top = null;
+
+			foreach (KeyValuePair<object, (PerformanceState state, IPerformanceMove move, int prio)> entry in moves[act])
+			{
+				if (entry.Value.state.HasFlag(State) && (top == null || entry.Value.prio > top.Value.prio))
+				{
+					top = entry.Value;
+				}
+			}
+
+			return top.HasValue ? top.Value.move : null;
 		}
 
 		private void AddFollowUpMoves(IPerformer performer, IPerformanceMove move)
