@@ -2,11 +2,13 @@
 {
 	public class ActorActs : IActConstants
 	{
-		public const string LIGHT = "Light";
-		public const string HEAVY = "Heavy";
-		public const string LEFT = "Left";
-		public const string RIGHT = "Right";
-		public const string TARGET = "Target";
 		public const string CANCEL = "Cancel";
+
+		public const string TARGET = "Target";
+
+		public const string ATTACK_LIGHT = "Light Attack";
+		public const string ATTACK_HEAVY = "Heavy Attack";
+		public const string GUARD = "Guard";
+		public const string PARRY = "Parry";
 	}
 }

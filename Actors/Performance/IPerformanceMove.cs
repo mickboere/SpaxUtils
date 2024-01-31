@@ -27,6 +27,8 @@ namespace SpaxUtils
 		/// </summary>
 		IReadOnlyList<MoveFollowUp> FollowUps { get; }
 
+		#region Charge
+
 		/// <summary>
 		/// Whether the move can be charged or automatically performs.
 		/// </summary>
@@ -53,6 +55,10 @@ namespace SpaxUtils
 		/// Stat identifier for the charge speed multiplier.
 		/// </summary>
 		string ChargeSpeedMultiplierStat { get; }
+
+		#endregion Charge
+
+		#region Performance
 
 		/// <summary>
 		/// What should be done if this move is released after preparing.
@@ -81,6 +87,8 @@ namespace SpaxUtils
 		/// Stat identifier for the perform speed multiplier.
 		/// </summary>
 		string PerformSpeedMultiplierStat { get; }
+
+		#endregion Performance
 
 		/// <summary>
 		/// Time it takes for the performance to fade away after canceling.

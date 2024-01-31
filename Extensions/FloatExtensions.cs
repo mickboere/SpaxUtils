@@ -73,6 +73,28 @@ namespace SpaxUtils
 
 		#region Easing functions
 
+		#region Sine
+
+		/// <summary>
+		/// https://easings.net/#easeInOutSine
+		/// </summary>
+		public static float InOutSine(this float x)
+		{
+			return -(Mathf.Cos(Mathf.PI * x) - 1) / 2;
+		}
+
+		/// <summary>
+		/// https://easings.net/#easeInOutSine
+		/// </summary>
+		public static float ReverseInOutSine(this float x)
+		{
+			return InOutSine(1f - x);
+		}
+
+		#endregion Sine
+
+		#region Quad
+
 		/// <summary>
 		/// https://easings.net/#easeInQuad
 		/// </summary>
@@ -80,6 +102,26 @@ namespace SpaxUtils
 		{
 			return x * x;
 		}
+
+		/// <summary>
+		/// https://easings.net/#easeOutQuad
+		/// </summary>
+		public static float OutQuad(this float x)
+		{
+			return 1f - (1f - x) * (1f - x);
+		}
+
+		/// <summary>
+		/// https://easings.net/#easeInOutQuad
+		/// </summary>
+		public static float InOutQuad(this float x)
+		{
+			return x < 0.5f ? 2f * x * x : 1f - Mathf.Pow(-2f * x + 2f, 2f) / 2f;
+		}
+
+		#endregion Quad
+
+		#region Cubic
 
 		/// <summary>
 		/// https://easings.net/#easeInCubic
@@ -105,21 +147,9 @@ namespace SpaxUtils
 			return InOutCubic(1f - x);
 		}
 
-		/// <summary>
-		/// https://easings.net/#easeInOutSine
-		/// </summary>
-		public static float InOutSine(this float x)
-		{
-			return -(Mathf.Cos(Mathf.PI * x) - 1) / 2;
-		}
+		#endregion Cubic
 
-		/// <summary>
-		/// https://easings.net/#easeInOutSine
-		/// </summary>
-		public static float ReverseInOutSine(this float x)
-		{
-			return InOutSine(1f - x);
-		}
+		#region Expo
 
 		/// <summary>
 		/// https://easings.net/#easeInExpo
@@ -137,6 +167,8 @@ namespace SpaxUtils
 			return x == 1f ? 1f : 1f - Mathf.Pow(2f, -10f * x);
 		}
 
-		#endregion
+		#endregion Expo
+
+		#endregion Easing Functions
 	}
 }

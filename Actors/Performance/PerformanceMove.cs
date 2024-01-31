@@ -24,7 +24,7 @@ namespace SpaxUtils
 		public string ChargeSpeedMultiplierStat => chargeSpeedMultiplier;
 
 		public bool HasPerformance => hasPerformance;
-		public float MinDuration => hasPerformance ? minDuration : 0f;
+		public float MinDuration => HasPerformance ? minDuration : 0f;
 		public float Release => release;
 		public float TotalDuration => MinDuration + Release;
 		public string PerformSpeedMultiplierStat => performSpeedMultiplier;
@@ -72,13 +72,13 @@ namespace SpaxUtils
 		{
 			// Charging.
 			IPose chargePose = sequence.Get(0);
-			float chargeWeight = chargePose.EvaluateTransition(Mathf.Clamp01(chargeTime / maxCharge));
+			float chargeWeight = chargePose.EvaluateTransition(Mathf.Clamp01(chargeTime / MaxCharge));
 
 			// Performing.
-			float performanceWeight = hasPerformance ? Mathf.Clamp01(performTime / (MinDuration * chargeFadeout)).InOutSine() : Mathf.Sign(performTime);
-			weight = Mathf.Lerp(chargeWeight, 1f - Mathf.Clamp01((performTime - MinDuration) / Release), performanceWeight).Lerp(0f, cancelTime / CancelDuration);
+			float performanceWeight = HasPerformance ? Mathf.Clamp01(performTime / (MinDuration * chargeFadeout)).InOutSine() : Mathf.Sign(performTime);
+			weight = Mathf.Lerp(chargeWeight, 1f - Mathf.Clamp01((performTime - MinDuration) / Release).InOutSine(), performanceWeight).Lerp(0f, cancelTime / CancelDuration);
 
-			return sequence.Evaluate(hasPerformance ? performTime : 0f);
+			return sequence.Evaluate(HasPerformance ? performTime : 0f);
 		}
 
 		public override string ToString()

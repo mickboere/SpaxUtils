@@ -23,6 +23,15 @@
 			Buffer = buffer;
 		}
 
+		public Act(IAct act, T value)
+		{
+			Title = act.Title;
+			Value = value;
+			Interuptable = act.Interuptable;
+			Interuptor = act.Interuptor;
+			Buffer = act.Buffer;
+		}
+
 		public override string ToString()
 		{
 			return $"Act(\"{Title}\" : \"{Value}\", interuptable={Interuptable}, interuptor={Interuptor}, buffer={Buffer})";
