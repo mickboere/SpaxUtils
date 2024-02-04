@@ -88,14 +88,13 @@ namespace SpaxUtils
 							entry.Value = stringCollection;
 							break;
 						case JTokenType.Object:
+						default:
 							// JArray to RuntimeDataCollection.
 							RuntimeDataCollection childCollection = new RuntimeDataCollection(entry.ID, jArray.ToObject<List<RuntimeDataEntry>>(), this);
 							_data[entry.ID] = childCollection;
 							entry.Dispose();
 							break;
 					}
-
-
 				}
 				else
 				{
@@ -313,17 +312,6 @@ namespace SpaxUtils
 				if (entry.Value is T cast)
 				{
 					return cast;
-				}
-				else if (entry.Value is JToken token)
-				{
-					// Object was deserialized as JToken, try to convert it to desired type.
-					T jCast = token.ToObject<T>();
-					if (jCast != null)
-					{
-						// Replace entry value with cast since we now know its correct type.
-						entry.Value = jCast;
-						return jCast;
-					}
 				}
 
 				SpaxDebug.Error($"Value cast is not valid.", $"For ID '{id}', cannot cast '{entry.Value.GetType().FullName}' to {typeof(T).FullName}");

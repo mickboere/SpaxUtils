@@ -56,7 +56,6 @@ namespace SpaxUtils
 				playerCollection = runtimeDataService.CurrentProfile.Get<List<string>>(ID_PLAYER_COLLECTION);
 			}
 
-			// Check if player index exceeds collection size.
 			if (playerIndex < playerCollection.Count)
 			{
 				// Overwrite entity at player index.
@@ -66,13 +65,8 @@ namespace SpaxUtils
 			else
 			{
 				// Expand player collection.
-				string[] newCollection = new string[playerIndex + 1];
-				for (int i = 0; i < playerCollection.Count; i++)
-				{
-					newCollection[i] = playerCollection[i];
-				}
-				newCollection[playerIndex] = entity.Identification.ID;
-				runtimeDataService.CurrentProfile.Set(ID_PLAYER_COLLECTION, newCollection);
+				playerCollection.Add(entity.Identification.ID);
+				runtimeDataService.CurrentProfile.Set(ID_PLAYER_COLLECTION, playerCollection);
 			}
 		}
 	}
