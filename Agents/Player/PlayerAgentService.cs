@@ -1,4 +1,6 @@
-﻿namespace SpaxUtils
+﻿using System.Collections.Generic;
+
+namespace SpaxUtils
 {
 	/// <summary>
 	/// Service that keeps track of player entities and the data belonging to them.
@@ -24,8 +26,8 @@
 		{
 			if (runtimeDataService.CurrentProfile.ContainsEntry(ID_PLAYER_COLLECTION))
 			{
-				string[] playerCollection = runtimeDataService.CurrentProfile.Get<string[]>(ID_PLAYER_COLLECTION);
-				if (playerIndex < playerCollection.Length)
+				List<string> playerCollection = runtimeDataService.CurrentProfile.Get<List<string>>(ID_PLAYER_COLLECTION);
+				if (playerIndex < playerCollection.Count)
 				{
 					string id = playerCollection[playerIndex];
 					if (runtimeDataService.CurrentProfile.ContainsEntry(id))
@@ -48,14 +50,14 @@
 		public void MarkPlayerEntity(IEntity entity, int playerIndex)
 		{
 			// Load player collection.
-			string[] playerCollection = new string[0];
+			List<string> playerCollection = new List<string>();
 			if (runtimeDataService.CurrentProfile.ContainsEntry(ID_PLAYER_COLLECTION))
 			{
-				playerCollection = runtimeDataService.CurrentProfile.Get<string[]>(ID_PLAYER_COLLECTION);
+				playerCollection = runtimeDataService.CurrentProfile.Get<List<string>>(ID_PLAYER_COLLECTION);
 			}
 
 			// Check if player index exceeds collection size.
-			if (playerIndex < playerCollection.Length)
+			if (playerIndex < playerCollection.Count)
 			{
 				// Overwrite entity at player index.
 				playerCollection[playerIndex] = entity.Identification.ID;
@@ -65,7 +67,7 @@
 			{
 				// Expand player collection.
 				string[] newCollection = new string[playerIndex + 1];
-				for (int i = 0; i < playerCollection.Length; i++)
+				for (int i = 0; i < playerCollection.Count; i++)
 				{
 					newCollection[i] = playerCollection[i];
 				}

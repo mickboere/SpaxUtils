@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Newtonsoft.Json.Linq;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -156,8 +157,7 @@ namespace SpaxUtils
 
 			if (data != null)
 			{
-				// TODO: Iterate through data to convert jarrays to collections, doubles to ints, etc.
-
+				data.CorrectData();
 				SpaxDebug.Log($"Loaded profile from \"{PROFILES_PATH + profileId + PROFILE_FILE_TYPE}\":\n", JsonUtils.Serialize(data));
 			}
 

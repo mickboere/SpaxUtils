@@ -8,6 +8,7 @@ namespace SpaxUtils
 	{
 		public string ID => identifier;
 		public object Value { get { return curve; } set { curve = (AnimationCurve)value; } }
+		public Type ValueType => typeof(AnimationCurve);
 		public AnimationCurve CurveValue => curve;
 
 		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifierConstants))] private string identifier;

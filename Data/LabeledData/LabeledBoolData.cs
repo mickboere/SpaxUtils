@@ -8,6 +8,7 @@ namespace SpaxUtils
 	{
 		public string ID => identifier;
 		public object Value { get { return value; } set { this.value = (bool)value; } }
+		public Type ValueType => typeof(bool);
 		public bool BoolValue => value;
 
 		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifierConstants))] private string identifier;

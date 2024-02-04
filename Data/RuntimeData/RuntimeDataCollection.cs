@@ -61,10 +61,51 @@ namespace SpaxUtils
 			if (dataEntries != null)
 			{
 				Data = dataEntries;
+				CorrectData();
 			}
 			else
 			{
 				_data = new Dictionary<string, RuntimeDataEntry>();
+			}
+		}
+
+		/// <summary>
+		/// Will cast all data to the appropriate types.
+		/// </summary>
+		public void CorrectData()
+		{
+			List<RuntimeDataEntry> entries = _data.Values.ToList();
+
+			foreach (RuntimeDataEntry entry in entries)
+			{
+				if (entry.Value is JArray jArray)
+				{
+					switch (jArray[0].Type)
+					{
+						case JTokenType.String:
+							// JArray to List<string>
+							List<string> stringCollection = jArray.ToObject<List<string>>();
+							entry.Value = stringCollection;
+							break;
+						case JTokenType.Object:
+							// JArray to RuntimeDataCollection.
+							RuntimeDataCollection childCollection = new RuntimeDataCollection(entry.ID, jArray.ToObject<List<RuntimeDataEntry>>(), this);
+							_data[entry.ID] = childCollection;
+							entry.Dispose();
+							break;
+					}
+
+
+				}
+				else
+				{
+					switch (entry.Value)
+					{
+						case double d:
+							entry.Value = (float)d;
+							break;
+					}
+				}
 			}
 		}
 
@@ -212,19 +253,6 @@ namespace SpaxUtils
 				{
 					return cast;
 				}
-				else if (typeof(T).IsAssignableFrom(typeof(RuntimeDataCollection)) && entry.Value is JArray array)
-				{
-					// Entry is supposed to be a collection, convert and replace it.
-					List<RuntimeDataEntry> entries = array.ToObject<List<RuntimeDataEntry>>();
-					if (entries != null)
-					{
-						RuntimeDataCollection collection = new RuntimeDataCollection(id, entries, this);
-						_data[id] = collection;
-						entry.Dispose();
-						DataUpdatedEvent?.Invoke(collection);
-						return collection as T;
-					}
-				}
 
 				SpaxDebug.Error($"Entry cast is not valid.", $"For ID '{id}', cannot cast '{entry.GetType().FullName}' to {typeof(T).FullName}.\n" +
 					$"Entry value: {(entry.Value == null ? "null" : entry.Value.GetType().FullName)}");
@@ -250,24 +278,6 @@ namespace SpaxUtils
 				if (entry is T cast)
 				{
 					results.Add(cast);
-				}
-				else if (isCollection && entry.Value is JArray array)
-				{
-					List<RuntimeDataEntry> childEntries = array.ToObject<List<RuntimeDataEntry>>();
-					if (childEntries != null)
-					{
-						// Entry is supposed to be a collection, convert and replace it.
-						RuntimeDataCollection collection = new RuntimeDataCollection(entry.ID, childEntries, this);
-						_data[entry.ID] = collection;
-						entry.Dispose();
-						DataUpdatedEvent?.Invoke(collection);
-						results.Add(collection as T);
-					}
-					else
-					{
-						SpaxDebug.Error($"Entry cast is not valid.", $"For ID '{entry.ID}', cannot cast '{entry.GetType().FullName}' to {typeof(T).FullName}.\n" +
-							$"Entry value: {(entry.Value == null ? "null" : entry.Value.GetType().FullName)}");
-					}
 				}
 			}
 

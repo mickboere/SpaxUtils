@@ -31,6 +31,12 @@ namespace SpaxUtils
 		protected object _value;
 
 		/// <summary>
+		/// The <see cref="Type"/> of the value object.
+		/// </summary>
+		[JsonIgnore]
+		public Type ValueType => _value.GetType();
+
+		/// <summary>
 		/// The parent <see cref="RuntimeDataCollection"/> of this data.
 		/// </summary>
 		[JsonIgnore]
@@ -83,7 +89,7 @@ namespace SpaxUtils
 
 		public override string ToString()
 		{
-			return $"{{ ID={ID}, Value={Value} }}";
+			return $"{{ ID={ID}, Value={Value}, Type={ValueType.FullName} }}";
 		}
 	}
 }
