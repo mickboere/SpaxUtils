@@ -20,7 +20,7 @@ namespace SpaxUtils
 
 		protected void Awake()
 		{
-			if (agent.Body.HasRigidbody && agent.TryGetStat(EntityStatIdentifier.MASS, out EntityStat mass))
+			if (agent.Body.HasRigidbody && agent.TryGetStat(EntityStatIdentifiers.MASS, out EntityStat mass))
 			{
 				mass.BaseValue = agent.Body.DefaultMass;
 			}

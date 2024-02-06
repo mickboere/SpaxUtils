@@ -3,7 +3,7 @@
 	/// <summary>
 	/// Interface for classes that that contain <see cref="ILabeledData"/> Identifier constants.
 	/// </summary>
-	public interface ILabeledDataIdentifierConstants
+	public interface ILabeledDataIdentifiers
 	{
 		const string STRING = "STRING/";
 		const string INT = "INT/";

@@ -107,13 +107,19 @@ namespace SpaxUtils
 			return round ? Mathf.Round(LD()) : LD();
 		}
 
-		public static float GetDamage(float offense, float defense)
+		/// <summary>
+		/// Standard damage formula taking an <paramref name="offence"/> value and <paramref name="defence"/> value.
+		/// </summary>
+		/// <param name="offence">The attacker's offensive power.</param>
+		/// <param name="defence">The defender's defensive power.</param>
+		/// <param name="exponentiality">Amount of exponentiality applied to the formula. Default = 0.5.</param>
+		/// <returns>The resulting damage.</returns>
+		public static float CalculateDamage(float offence, float defence, float exponentiality = 0.5f)
 		{
-			return Mathf.Round(
-				Mathf.Lerp(
-					Mathf.Max(0f, offense - defense),
-					offense * offense / defense,
-					0.2f)); // Exponentiality is scaled down.
+			return Mathf.Round(Mathf.Lerp(
+				Mathf.Max(0f, offence - defence),
+				offence * offence / defence,
+				exponentiality));
 		}
 	}
 }

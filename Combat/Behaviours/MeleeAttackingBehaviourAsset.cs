@@ -16,8 +16,7 @@ namespace SpaxUtils
 		[SerializeField] private float hitPause = 0.2f;
 		[SerializeField] private AnimationCurve hitPauseCurve;
 
-		private ICombatMove move;
-		private IAgent agent;
+		private ICombatMove combatMove;
 		private CallbackService callbackService;
 		private TransformLookup transformLookup;
 		private ITargeter targeter;
@@ -29,18 +28,20 @@ namespace SpaxUtils
 		private EntityStat entityTimeScale;
 		private TimedCurveModifier timeMod;
 
+		private EntityStat strengthStat;
+		private EntityStat offenceStat;
+		private EntityStat piercingStat;
+
 		private bool wasPerforming;
 		private Timer momentumTimer;
 		private bool appliedMomentum;
 		private EntityComponentFilter<ITargetable> targetables;
 
-
-		public void InjectDependencies(ICombatMove move, IAgent agent, CallbackService callbackService,
+		public void InjectDependencies(ICombatMove move, CallbackService callbackService,
 			TransformLookup transformLookup, ITargeter targeter, IAgentMovementHandler movementHandler,
 			AgentNavigationHandler navigationHandler, IEntityCollection entityCollection)
 		{
-			this.move = move;
-			this.agent = agent;
+			this.combatMove = move;
 			this.callbackService = callbackService;
 			this.transformLookup = transformLookup;
 			this.targeter = targeter;
@@ -48,15 +49,18 @@ namespace SpaxUtils
 			this.navigationHandler = navigationHandler;
 			this.entityCollection = entityCollection;
 
-			entityTimeScale = agent.GetStat(EntityStatIdentifier.TIMESCALE, true, 1f);
+			entityTimeScale = Agent.GetStat(EntityStatIdentifiers.TIMESCALE, true, 1f);
+			strengthStat = Agent.GetStat(AgentStatIdentifiers.STRENGTH);
+			offenceStat = Agent.GetStat(AgentStatIdentifiers.OFFENCE);
+			piercingStat = Agent.GetStat(AgentStatIdentifiers.PIERCING, true);
 		}
 
 		public override void Start()
 		{
 			base.Start();
 
-			hitDetector = new CombatHitDetector(agent, transformLookup, move, hitDetectionMask);
-			targetables = new EntityComponentFilter<ITargetable>(entityCollection, (entity) => entity.Identification.HasAll(targetLabels), (c) => true, agent);
+			hitDetector = new CombatHitDetector(Agent, transformLookup, combatMove, hitDetectionMask);
+			targetables = new EntityComponentFilter<ITargetable>(entityCollection, (entity) => entity.Identification.HasAll(targetLabels), (c) => true, Agent);
 		}
 
 		public override void Stop()
@@ -67,11 +71,11 @@ namespace SpaxUtils
 			targetables.Dispose();
 		}
 
-		public override void ExUpdate(float delta)
+		public override void CustomUpdate(float delta)
 		{
-			base.ExUpdate(delta);
+			base.CustomUpdate(delta);
 
-			if (performer.State == PerformanceState.Performing)
+			if (Performer.State == PerformanceState.Performing)
 			{
 				if (!wasPerforming)
 				{
@@ -79,7 +83,7 @@ namespace SpaxUtils
 					wasPerforming = true;
 				}
 
-				if (performer.RunTime >= move.HitDetectionDelay && hitDetector.Update(out List<HitScanHitData> newHits))
+				if (Performer.RunTime >= combatMove.HitDetectionDelay && hitDetector.Update(out List<HitScanHitData> newHits))
 				{
 					OnNewHitDetected(newHits);
 				}
@@ -87,7 +91,7 @@ namespace SpaxUtils
 				// Apply momentum to user after delay.
 				if (!appliedMomentum && !momentumTimer)
 				{
-					rigidbodyWrapper.AddImpactRelative(move.Inertia);
+					RigidbodyWrapper.AddImpactRelative(combatMove.Inertia);
 					appliedMomentum = true;
 				}
 			}
@@ -99,26 +103,26 @@ namespace SpaxUtils
 			if (targeter.Target != null)
 			{
 				// Auto aim to target.
-				movementHandler.SetTargetVelocity((targeter.Target.Center - rigidbodyWrapper.Position).normalized);
+				movementHandler.SetTargetVelocity((targeter.Target.Center - RigidbodyWrapper.Position).normalized);
 			}
-			else if (rigidbodyWrapper.TargetVelocity.magnitude <= 1f &&
+			else if (RigidbodyWrapper.TargetVelocity.magnitude <= 1f &&
 				navigationHandler.TryGetClosestTargetable(targetables.Components, false, out ITargetable closest, out float distance) &&
 				distance < autoAimRange)
 			{
 				// Auto aim to closest targetable in range.
-				movementHandler.SetTargetVelocity((closest.Center - rigidbodyWrapper.Position).normalized);
+				movementHandler.SetTargetVelocity((closest.Center - RigidbodyWrapper.Position).normalized);
 			}
 
 			// Stats.
-			if (move.PerformCost.Count > 0)
+			if (combatMove.PerformCost.Count > 0)
 			{
 				// Performance cost.
-				foreach (StatCost statCost in move.PerformCost)
+				foreach (StatCost statCost in combatMove.PerformCost)
 				{
-					if (agent.TryGetStat(statCost.Stat, out EntityStat costStat))
+					if (Agent.TryGetStat(statCost.Stat, out EntityStat costStat))
 					{
 						float cost = statCost.Cost;
-						if (statCost.Multiply && agent.TryGetStat(statCost.Multiplier, out EntityStat multiplier))
+						if (statCost.Multiply && Agent.TryGetStat(statCost.Multiplier, out EntityStat multiplier))
 						{
 							cost *= multiplier;
 						}
@@ -128,7 +132,7 @@ namespace SpaxUtils
 			}
 
 			movementHandler.ForceRotation();
-			momentumTimer = new Timer(move.ForceDelay);
+			momentumTimer = new Timer(combatMove.ForceDelay);
 			appliedMomentum = false;
 		}
 
@@ -142,38 +146,27 @@ namespace SpaxUtils
 			{
 				if (hit.GameObject.TryGetComponentRelative(out IHittable hittable))
 				{
-					Vector3 inertia = move.Inertia.Look((hittable.Entity.Transform.position - agent.Transform.position).FlattenY());
+					Vector3 inertia = combatMove.Inertia.Look((hittable.Entity.Transform.position - Agent.Transform.position).FlattenY());
 
-					// Calculate attack force.
-					float strength = 0f;
-					if (agent.TryGetStat(move.StrengthStat, out EntityStat strengthStat))
-					{
-						strength = strengthStat;
-					}
-
-					float force = rigidbodyWrapper.Mass + strength;
+					// Calculate hit data.
+					float mass = RigidbodyWrapper.Mass * combatMove.MassInfluence;
+					float strength = strengthStat * combatMove.Strength;
+					float offence = offenceStat * combatMove.Offensiveness;
+					float piercing = piercingStat * combatMove.Piercing;
 
 					// Generate hit-data for hittable.
 					HitData hitData = new HitData(
-						agent,
 						hittable,
+						Agent,
 						inertia,
-						force,
 						hit.Direction,
-						false,
-						new Dictionary<string, float>()
+						mass,
+						strength,
+						offence,
+						piercing
 					);
 
-					// If move is offensive, add base health damage to HitData.
-					if (move.Offensive &&
-						agent.TryGetStat(move.OffenceStat, out EntityStat offence) &&
-						hittable.Entity.TryGetStat(AgentStatIdentifiers.DEFENCE, out EntityStat defence))
-					{
-						float damage = SpaxFormulas.GetDamage(offence, defence) * move.Offensiveness;
-						hitData.Damages.Add(AgentStatIdentifiers.HEALTH, damage);
-					}
-
-					// TODO: Create communication channel where other classes can add damages to the hitdata.
+					// TODO: Create IHitter class where other classes can add damages to the hitdata.
 
 					if (hittable.Hit(hitData))
 					{

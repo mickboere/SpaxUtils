@@ -188,7 +188,7 @@ namespace SpaxUtils
 		}
 
 		/// <inheritdoc/>
-		public virtual EntityStat GetStat(string identifier, bool createDataIfNull = false, float defaultIfNull = 0f)
+		public virtual EntityStat GetStat(string identifier, bool createDataIfNull = false, float defaultValueIfUndefined = 0f)
 		{
 			if (Stats.HasStat(identifier))
 			{
@@ -211,7 +211,8 @@ namespace SpaxUtils
 					IStatConfiguration setting = statLibrary.Get(identifier);
 					EntityStat stat = new EntityStat(entry, null,
 						setting != null ? setting.HasMinValue ? setting.MinValue : null : null,
-						setting != null ? setting.HasMaxValue ? setting.MaxValue : null : null);
+						setting != null ? setting.HasMaxValue ? setting.MaxValue : null : null,
+						setting != null ? setting.Decimals : DecimalMethod.Decimal);
 
 					Stats.AddStat(identifier, stat);
 					return stat;
@@ -226,11 +227,12 @@ namespace SpaxUtils
 			{
 				// Data does not exist, create it along with the stat.
 				IStatConfiguration setting = statLibrary.Get(identifier);
-				RuntimeDataEntry data = new RuntimeDataEntry(identifier, setting == null ? defaultIfNull : setting.DefaultValue);
+				RuntimeDataEntry data = new RuntimeDataEntry(identifier, setting == null ? defaultValueIfUndefined : setting.DefaultValue);
 				RuntimeData.TryAdd(data);
 				EntityStat stat = new EntityStat(data, null,
 						setting != null ? setting.HasMinValue ? setting.MinValue : null : null,
-						setting != null ? setting.HasMaxValue ? setting.MaxValue : null : null);
+						setting != null ? setting.HasMaxValue ? setting.MaxValue : null : null,
+						setting != null ? setting.Decimals : DecimalMethod.Decimal);
 				Stats.AddStat(identifier, stat);
 				return stat;
 			}

@@ -1,12 +1,12 @@
 ﻿namespace SpaxUtils
 {
-	public class ItemDataIdentifierConstants : ILabeledDataIdentifierConstants
+	public class ItemDataIdentifierConstants : ILabeledDataIdentifiers
 	{
 		#region Base Categories
-		private const string STRING = ILabeledDataIdentifierConstants.STRING;
-		private const string INT = ILabeledDataIdentifierConstants.INT;
-		private const string FLOAT = ILabeledDataIdentifierConstants.FLOAT;
-		private const string BOOL = ILabeledDataIdentifierConstants.BOOL;
+		private const string STRING = ILabeledDataIdentifiers.STRING;
+		private const string INT = ILabeledDataIdentifiers.INT;
+		private const string FLOAT = ILabeledDataIdentifiers.FLOAT;
+		private const string BOOL = ILabeledDataIdentifiers.BOOL;
 		#endregion
 
 		// Strings

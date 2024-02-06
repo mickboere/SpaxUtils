@@ -6,7 +6,8 @@
 	public enum ModMethod
 	{
 		/// <summary>
-		/// Let the implementation decide.
+		/// Mod application method will depend on operation type of modifier.
+		/// Default example: Min/Max operations will be Absolute, everything else Additive.
 		/// </summary>
 		Auto = 1 << 0,
 

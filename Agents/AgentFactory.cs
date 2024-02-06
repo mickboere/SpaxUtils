@@ -65,7 +65,7 @@ namespace SpaxUtils
 			}
 
 			// Bind all dependency components.
-			DependencyUtils.BindDependencyComponents(rootGo, dependencyManager, includeChildren: true);
+			DependencyUtils.BindMonoBehaviours(rootGo, dependencyManager, includeChildren: true);
 
 			// Inject all dependencies.
 			DependencyUtils.Inject(rootGo, dependencyManager, includeChildren: true, bindComponents: false);

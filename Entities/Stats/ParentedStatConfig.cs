@@ -18,6 +18,7 @@ namespace SpaxUtils
 		public bool HasMaxValue => config.HasMaxValue;
 
 		public float MaxValue => config.MaxValue;
+		public DecimalMethod Decimals => config.Decimals;
 
 		public string Name => config.Name;
 		public string Description => config.Description;

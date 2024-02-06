@@ -19,6 +19,7 @@ namespace SpaxUtils
 		public float MinValue => minValue;
 		public bool HasMaxValue => hasMaxValue;
 		public float MaxValue => maxValue;
+		public DecimalMethod Decimals => decimals;
 
 		public string Name => string.IsNullOrWhiteSpace(name) ? Identifier.LastDivision().Replace('_', ' ') : name;
 		public string Description => description;
@@ -31,22 +32,23 @@ namespace SpaxUtils
 		public bool HasSubStats => subStats != null && subStats.Count > 0;
 		public List<ISubStatConfiguration> SubStats => new List<ISubStatConfiguration>(subStats);
 
-		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifierConstants))] private string identifier;
+		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifiers))] private string identifier;
 		[SerializeField] private float defaultValue;
 		[SerializeField, HideInInspector] private bool hasMinValue;
 		[SerializeField, Conditional(nameof(hasMinValue), drawToggle: true)] private float minValue;
 		[SerializeField, HideInInspector] private bool hasMaxValue;
 		[SerializeField, Conditional(nameof(hasMaxValue), drawToggle: true)] private float maxValue;
+		[SerializeField] private DecimalMethod decimals;
 		[SerializeField] private string name;
 		[SerializeField, TextArea] private string description;
 		[SerializeField, HideInInspector] private bool copyParent;
-		[SerializeField, Conditional(nameof(copyParent), drawToggle: true), ConstDropdown(typeof(ILabeledDataIdentifierConstants))] private string parentIdentifier;
+		[SerializeField, Conditional(nameof(copyParent), drawToggle: true), ConstDropdown(typeof(ILabeledDataIdentifiers))] private string parentIdentifier;
 		[SerializeField, Conditional(nameof(copyParent), true, false, true)] private Color color;
 		[SerializeField, Conditional(nameof(copyParent), true, false, true)] private Sprite icon;
-		[SerializeField, FormerlySerializedAs("_subStats")] private List<SubStatConfiguration> subStats;
+		[SerializeField] private List<SubStatConfiguration> subStats;
 
 		public StatConfiguration(string identifier, float defaultValue,
-			bool hasMinValue, float minValue, bool hasMaxValue, float maxValue,
+			bool hasMinValue, float minValue, bool hasMaxValue, float maxValue, DecimalMethod decimals,
 			string name, string description,
 			bool copyParent, string parentIdentifier,
 			Color color, Sprite icon)
@@ -57,6 +59,7 @@ namespace SpaxUtils
 			this.minValue = minValue;
 			this.hasMaxValue = hasMaxValue;
 			this.maxValue = maxValue;
+			this.decimals = decimals;
 			this.name = name;
 			this.description = description;
 			this.copyParent = copyParent;

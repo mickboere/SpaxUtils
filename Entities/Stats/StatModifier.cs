@@ -1,30 +1,41 @@
 ﻿namespace SpaxUtils
 {
 	/// <summary>
-	/// Basic implementation of an <see cref="IStatModifier/>.
+	/// Float modifier that uses another stat as mod value.
 	/// </summary>
-	public class StatModifier : IStatModifier
+	public class StatModifier : FloatModifierBase
 	{
-		/// <summary>
-		/// <inheritdoc/>
-		/// </summary>
-		public string Stat { get; private set; }
+		public override ModMethod Method => Config.Method;
+		public IStatModConfig Config { get; private set; }
 
-		/// <summary>
-		/// <inheritdoc/>
-		/// </summary>
-		public object Identifier { get; private set; }
+		private CompositeFloatBase modifierStat;
 
-		/// <summary>
-		/// <inheritdoc/>
-		/// </summary>
-		public IModifier<float> Modifier { get; private set; }
-
-		public StatModifier(string stat, object identifier, IModifier<float> modifier)
+		public StatModifier(IStatModConfig config, CompositeFloatBase modifierStat)
 		{
-			Stat = stat;
-			Identifier = identifier;
-			Modifier = modifier;
+			this.Config = config;
+			this.modifierStat = modifierStat;
+
+			modifierStat.CompositeChangedEvent += OnInputStatChanged;
+		}
+
+		public override void Dispose()
+		{
+			if (modifierStat != null)
+			{
+				modifierStat.CompositeChangedEvent -= OnInputStatChanged;
+			}
+
+			base.Dispose();
+		}
+
+		public override float Modify(float input)
+		{
+			return FloatOperationModifier.Operate(input, Config.Operation, Config.GetModifierValue(modifierStat.Value));
+		}
+
+		private void OnInputStatChanged(CompositeFloatBase composite)
+		{
+			OnModChanged();
 		}
 	}
 }

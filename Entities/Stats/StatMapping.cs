@@ -8,17 +8,17 @@ namespace SpaxUtils
 	/// Maps one stat's value to another.
 	/// </summary>
 	[Serializable]
-	public class StatMapping
+	public class StatMapping : IStatModConfig
 	{
 		public string FromStat => fromStat;
 		public string ToStat => toSubStat ? toStat.SubStat(subStat) : toStat;
-		public ModMethod ModMethod => modMethod;
+		public ModMethod Method => modMethod;
 		public Operation Operation => operation;
 
-		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifierConstants))] private string fromStat;
-		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifierConstants))] private string toStat;
+		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifiers))] private string fromStat;
+		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifiers))] private string toStat;
 		[SerializeField, HideInInspector] private bool toSubStat;
-		[SerializeField, Conditional(nameof(toSubStat), drawToggle: true), ConstDropdown(typeof(ILabeledDataIdentifierConstants))] private string subStat;
+		[SerializeField, Conditional(nameof(toSubStat), drawToggle: true), ConstDropdown(typeof(ILabeledDataIdentifiers))] private string subStat;
 
 		[SerializeField] private FormulaType formula;
 
@@ -32,7 +32,7 @@ namespace SpaxUtils
 		[SerializeField, Conditional(nameof(formula), 3)] private float logPower = 2f;
 		[SerializeField, Conditional(nameof(formula), 3)] private float logShift = 0f;
 
-		[SerializeField, FormerlySerializedAs("outputMultiplier")] private float scale = 1f;
+		[SerializeField] private float scale = 1f;
 
 		[SerializeField, Conditional(nameof(formula), 4)] private AnimationCurve curve;
 
@@ -44,10 +44,8 @@ namespace SpaxUtils
 
 		private bool Round => scale > 1f;
 
-		/// <summary>
-		/// Calculates the mapped value.
-		/// </summary>
-		public float GetMappedValue(float input)
+		/// <inheritdoc/>
+		public float GetModifierValue(float input)
 		{
 			switch (formula)
 			{

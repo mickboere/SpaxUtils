@@ -62,40 +62,38 @@ namespace SpaxUtils
 		/// <param name="bindComponents">Defines whether any found components of type <see cref="IDependency"/> should be bound to the dependency injector.</param>
 		public static void Inject(GameObject root, IDependencyManager dependencyManager, bool includeChildren = true, bool bindComponents = false)
 		{
-			// Retrieve components.
-			MonoBehaviour[] components = includeChildren ? root.GetComponentsInChildren<MonoBehaviour>(true) : root.GetComponents<MonoBehaviour>();
+			List<MonoBehaviour> monoBehaviours = GatherMonoBehaviours(root, includeChildren);
 
 			if (bindComponents)
 			{
 				// Bind IDependencyComponents.
-				BindDependencyComponents(components, dependencyManager);
+				BindMonoBehaviours(monoBehaviours, dependencyManager);
 			}
 
 			// Inject
-			foreach (MonoBehaviour component in components)
+			foreach (MonoBehaviour monoBehaviour in monoBehaviours)
 			{
-				dependencyManager.Inject(component);
+				dependencyManager.Inject(monoBehaviour);
 			}
 		}
 
 		/// <summary>
 		/// Will bind any components implementing <see cref="IDependency"/> to the given <paramref name="dependencyManager"/>.
 		/// </summary>
-		public static void BindDependencyComponents(GameObject root, IDependencyManager dependencyManager, bool includeChildren = true)
+		public static void BindMonoBehaviours(GameObject root, IDependencyManager dependencyManager, bool includeChildren = true)
 		{
-			// Retrieving components.
-			MonoBehaviour[] components = includeChildren ? root.GetComponentsInChildren<MonoBehaviour>(true) : root.GetComponents<MonoBehaviour>();
+			List<MonoBehaviour> monoBehaviours = GatherMonoBehaviours(root, includeChildren);
 
 			// Bind IDependencyComponents.
-			BindDependencyComponents(components, dependencyManager);
+			BindMonoBehaviours(monoBehaviours, dependencyManager);
 		}
 
 		/// <summary>
 		/// Binds all components implementing <see cref="IDependency"/> to the <see cref="IDependencyManager"/>.
 		/// </summary>
-		public static void BindDependencyComponents(MonoBehaviour[] components, IDependencyManager dependencyManager)
+		public static void BindMonoBehaviours(List<MonoBehaviour> monoBehaviours, IDependencyManager dependencyManager)
 		{
-			foreach (MonoBehaviour component in components)
+			foreach (MonoBehaviour component in monoBehaviours)
 			{
 				// Bind if component is IDependency.
 				if (component is IDependency)
@@ -114,6 +112,21 @@ namespace SpaxUtils
 				}
 			}
 		}
+
+		public static List<MonoBehaviour> GatherMonoBehaviours(GameObject root, bool includeChildren = true)
+		{
+			// Retrieving components.
+			List<MonoBehaviour> components = new List<MonoBehaviour>(includeChildren ? root.GetComponentsInChildren<MonoBehaviour>(true) : root.GetComponents<MonoBehaviour>());
+			components.Sort(delegate (MonoBehaviour a, MonoBehaviour b)
+			{
+				DefaultExecutionOrder orderA = a.GetType().GetCustomAttribute<DefaultExecutionOrder>();
+				DefaultExecutionOrder orderB = b.GetType().GetCustomAttribute<DefaultExecutionOrder>();
+				return (orderA == null ? 0 : orderA.order).CompareTo(orderB == null ? 0 : orderB.order);
+			});
+			return components;
+		}
+
+		#region Instantiation
 
 		/// <summary>
 		/// (Safely) Instantiates an object deactivated, preventing its Awake function from being called until it is enabled in the future.
@@ -195,5 +208,7 @@ namespace SpaxUtils
 		{
 			return InstantiateAndInject(gameObject, null, position, rotation, dependencies, includeChildren, bindComponents);
 		}
+
+		#endregion Instantiation
 	}
 }

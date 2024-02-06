@@ -30,7 +30,7 @@ namespace SpaxUtils
 		public virtual void InjectDependencies(IEntity entity)
 		{
 			this.entity = entity;
-			EntityTimeScale = entity.GetStat(EntityStatIdentifier.TIMESCALE, true, 1f);
+			EntityTimeScale = entity.GetStat(EntityStatIdentifiers.TIMESCALE, true, 1f);
 		}
 	}
 }

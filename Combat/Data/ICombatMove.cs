@@ -29,25 +29,29 @@ namespace SpaxUtils
 		/// </summary>
 		public float ForceDelay { get; }
 
-		/// <summary>
-		/// Stat identifier for the amount of force applied upon a succesful hit.
-		/// </summary>
-		string StrengthStat { get; }
+		#region Hit Data
 
 		/// <summary>
-		/// Whether this move is offensive and can damage other entities.
+		/// Percentage of user's mass that gets transfered into the attack.
 		/// </summary>
-		bool Offensive { get; }
+		float MassInfluence { get; }
 
 		/// <summary>
-		/// Stat identifier for the damage calculation.
+		/// Percentage of user's strength that gets transfered into the attack.
 		/// </summary>
-		string OffenceStat { get; }
+		float Strength { get; }
 
 		/// <summary>
-		/// Multiplier value for the offence stat.
+		/// Percentage of user's offence that gets transfered into the attack.
 		/// </summary>
 		float Offensiveness { get; }
+
+		/// <summary>
+		/// Percentage of user's piercing ability that gets transfered into the attack.
+		/// </summary>
+		float Piercing { get; }
+
+		#endregion
 
 		/// <summary>
 		/// The cost to entity stat(s) for performing this move.

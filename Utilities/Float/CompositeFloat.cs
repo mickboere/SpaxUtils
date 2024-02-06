@@ -25,9 +25,30 @@ namespace SpaxUtils
 
 		[SerializeField] protected float baseValue;
 
-		public CompositeFloat(float baseValue, Dictionary<object, IModifier<float>> modifiers = null) : base(modifiers)
+		private float? minValue;
+		private float? maxValue;
+
+		public CompositeFloat(float baseValue,
+			Dictionary<object, IModifier<float>> modifiers = null,
+			float? minValue = null, float? maxValue = null) : base(modifiers)
 		{
 			this.baseValue = baseValue;
+			this.minValue = minValue;
+			this.maxValue = maxValue;
+		}
+
+		public override float GetValue()
+		{
+			float value = base.GetValue();
+			if (minValue.HasValue && value < minValue.Value)
+			{
+				value = minValue.Value;
+			}
+			if (maxValue.HasValue && value > maxValue.Value)
+			{
+				value = maxValue.Value;
+			}
+			return value;
 		}
 
 		public CompositeFloat Clone()

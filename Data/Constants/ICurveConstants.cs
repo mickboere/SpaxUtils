@@ -1,6 +1,6 @@
 ﻿namespace SpaxUtils
 {
-	public interface ICurveConstants : ILabeledDataIdentifierConstants
+	public interface ICurveConstants : ILabeledDataIdentifiers
 	{
 		const string CURVE = "CURVE/";
 	}

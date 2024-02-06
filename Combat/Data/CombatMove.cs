@@ -14,27 +14,27 @@ namespace SpaxUtils
 		public float HitDetectionDelay => hitDetectionDelay;
 		public Vector3 Inertia => momentum;
 		public float ForceDelay => forceDelay;
-		public string StrengthStat => strengthStat;
-		public bool Offensive => offensive;
-		public string OffenceStat => offenceStat;
+		public float MassInfluence => massInfluence;
+		public float Strength => strength;
 		public float Offensiveness => offensiveness;
+		public float Piercing => piercing;
 		public IList<StatCost> PerformCost => performCost;
 
 		#endregion // Properties
 
-		[Header("Combat")]
+		[Header("Hit detection")]
 		[SerializeField, ConstDropdown(typeof(ITransformLookupIdentifiers), showAdress: true)] private List<string> hitBoxes;
 		[SerializeField] private float hitDetectionDelay = 0f;
 
-		[Header("Forces")]
+		[Header("Momentum")]
 		[SerializeField] private Vector3 momentum;
 		[SerializeField] private float forceDelay;
 
 		[Header("Stats")]
-		[SerializeField, ConstDropdown(typeof(IStatIdentifierConstants)), Tooltip("Influences force applied to target.")] private string strengthStat = AgentStatIdentifiers.STRENGTH;
-		[SerializeField, HideInInspector] private bool offensive;
-		[SerializeField, Conditional(nameof(offensive), drawToggle: true), ConstDropdown(typeof(IStatIdentifierConstants))] private string offenceStat = AgentStatIdentifiers.OFFENCE;
-		[SerializeField, Conditional(nameof(offensive)), Range(0f, 2f)] private float offensiveness = 1f;
+		[SerializeField, Range(0f, 1f), Tooltip("Percentage of user's mass transfered into hit.")] private float massInfluence = 0.5f;
+		[SerializeField, Range(0f, 1f), Tooltip("Percentage of user's strength transfered into hit.")] private float strength = 1f;
+		[SerializeField, Range(0f, 1f), Tooltip("Percentage of user's offence transfered into hit.")] private float offensiveness = 1f;
+		[SerializeField, Range(0f, 1f), Tooltip("Percentage of user's piercing transfered into hit.")] private float piercing = 1f;
 		[SerializeField] private List<StatCost> performCost;
 	}
 }

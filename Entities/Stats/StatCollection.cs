@@ -68,13 +68,5 @@ namespace SpaxUtils
 			}
 			return false;
 		}
-
-		public void Modify(IStatModifier modifier)
-		{
-			if (TryGetStat(modifier.Stat, out T stat))
-			{
-				stat.AddModifier(modifier.Identifier, modifier.Modifier);
-			}
-		}
 	}
 }

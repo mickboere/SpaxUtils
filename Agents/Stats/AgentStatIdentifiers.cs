@@ -19,35 +19,35 @@
 		public const string BODY_LEVEL = BODY_ATTRIBUTE + "Body_Level"; // All attribute levels combined.
 
 		// Earth
-		public const string TENACITY = BODY_ATTRIBUTE + "Tenacity"; // Endurance
+		public const string TENACITY = BODY_ATTRIBUTE + "Tenacity";
 		public const string TENACITY_LEVEL = BODY_ATTRIBUTE + "Tenacity_Level";
 
 		// Daeth
-		public const string HOSTILITY = BODY_ATTRIBUTE + "Hostility"; // Offence
+		public const string HOSTILITY = BODY_ATTRIBUTE + "Hostility";
 		public const string HOSTILITY_LEVEL = BODY_ATTRIBUTE + "Hostility_Level";
 
 		// Fire
-		public const string ACTIVITY = BODY_ATTRIBUTE + "Activity"; // Energy
+		public const string ACTIVITY = BODY_ATTRIBUTE + "Activity";
 		public const string ACTIVITY_LEVEL = BODY_ATTRIBUTE + "Activity_Level";
 
 		// Light
-		public const string DEXTERITY = BODY_ATTRIBUTE + "Dexterity"; // Attack speed
+		public const string DEXTERITY = BODY_ATTRIBUTE + "Dexterity";
 		public const string DEXTERITY_LEVEL = BODY_ATTRIBUTE + "Dexterity_Level";
 
 		// Air
-		public const string AGILITY = BODY_ATTRIBUTE + "Agility"; // Movement speed
+		public const string AGILITY = BODY_ATTRIBUTE + "Agility";
 		public const string AGILITY_LEVEL = BODY_ATTRIBUTE + "Agility_Level";
 
 		// Faeth
-		public const string IMMUNITY = BODY_ATTRIBUTE + "Immunity"; // Defence
+		public const string IMMUNITY = BODY_ATTRIBUTE + "Immunity";
 		public const string IMMUNITY_LEVEL = BODY_ATTRIBUTE + "Immunity_Level";
 
 		// Water
-		public const string CAPACITY = BODY_ATTRIBUTE + "Capacity"; // Mana
+		public const string CAPACITY = BODY_ATTRIBUTE + "Capacity";
 		public const string CAPACITY_LEVEL = BODY_ATTRIBUTE + "Capacity_Level";
 
 		// Growth
-		public const string VITALITY = BODY_ATTRIBUTE + "Vitality"; // Health
+		public const string VITALITY = BODY_ATTRIBUTE + "Vitality";
 		public const string VITALITY_LEVEL = BODY_ATTRIBUTE + "Vitality_Level";
 		#endregion Body Attributes
 
@@ -79,24 +79,22 @@
 		private const string BODY_STAT = IStatIdentifierConstants.STATS + "BODY/";
 
 		// Earth
-		public const string ENDURANCE = BODY_STAT + "Endurance";
-
-		public const string LOAD = BODY_STAT + "Load"; // Total equip load
-
-		public const string DEFENCE = BODY_STAT + "Defence";
+		public const string LOAD = BODY_STAT + "Load"; // Total equip load.
+		public const string ENDURANCE = BODY_STAT + "Endurance"; // Total amount of force one can absorb.
+		public const string DEFENCE = BODY_STAT + "Defence"; // Total amount of passive defence.
+		public const string GUARD = BODY_STAT + "Guard"; // Total amount of active defence.
 
 		// Daeth
-		public const string OFFENCE = BODY_STAT + "Offence";
+		public const string OFFENCE = BODY_STAT + "Offence"; // Total damage output.
+		public const string PIERCING = BODY_STAT + "Piercing"; // Piercing power of attacks, scales with Offence to calculate penetration.
 
 		// Fire
-		public const string ENERGY = BODY_STAT + "Energy";
-
-		public const string STRENGTH = BODY_STAT + "Strength";
+		public const string ENERGY = BODY_STAT + "Energy"; // Amount of available force.
+		public const string STRENGTH = BODY_STAT + "Strength"; // Force output.
 
 		// Light
 		public const string ATTACK_CHARGE_SPEED = BODY_STAT + "Attack_Charge_Speed";
 		public const string ATTACK_PERFORM_SPEED = BODY_STAT + "Attack_Perform_Speed";
-		//public const string CONDUCTIVITY = BODY_STAT + "Conductivity"; // (Magic) Charge Speed.
 
 		// Air
 		public const string MOVEMENT_SPEED = BODY_STAT + "Movement_Speed";
@@ -109,7 +107,6 @@
 
 		// Growth
 		public const string HEALTH = BODY_STAT + "Health";
-
 		public const string RECOVERY = BODY_STAT + "Recovery";
 		public const string RECOVERY_DELAY = BODY_STAT + "Recovery_Delay";
 		#endregion Body Stats

@@ -11,7 +11,7 @@ namespace SpaxUtils
 		public Type ValueType => typeof(bool);
 		public bool BoolValue => value;
 
-		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifierConstants))] private string identifier;
+		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifiers))] private string identifier;
 		[SerializeField] private bool value;
 	}
 }

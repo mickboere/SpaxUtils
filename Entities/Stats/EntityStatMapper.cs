@@ -7,6 +7,7 @@ namespace SpiritAxis
 	/// <see cref="IEntityComponent"/> that takes a <see cref="StatMappingSheet"/> to modify one stat with another.
 	/// Stats that do not exist yet will be created.
 	/// </summary>
+	[DefaultExecutionOrder(-999)]
 	public class EntityStatMapper : EntityComponentBase
 	{
 		[SerializeField] private StatMappingSheet[] mappingSheets;
@@ -41,14 +42,14 @@ namespace SpiritAxis
 						EntityStat fromStat = Entity.GetStat(mapping.FromStat, true);
 
 						// Create the mapping modifier.
-						StatMappingModifier mod = new StatMappingModifier(mapping, fromStat);
+						StatModifier mod = new StatModifier(mapping, fromStat);
 
 						// Add the mapping modifier.
 						toStat.AddModifier(mapping.FromStat, mod);
 					}
 					else
 					{
-						SpaxDebug.Error($"Stat '{mapping.ToStat}' already contains a mapping from '{mapping.FromStat}'.", "Mapping was not added.");
+						SpaxDebug.Error($"Stat '{mapping.ToStat}' already contains a mapping from '{mapping.FromStat}'.", "Mapping was not added.", statMappingSheet);
 					}
 				}
 			}

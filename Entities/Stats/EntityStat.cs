@@ -7,7 +7,7 @@ namespace SpaxUtils
 	/// <summary>
 	/// <see cref="CompositeFloatBase"/> implementation that allows modifications to an entity's <see cref="RuntimeDataEntry"/>s.
 	/// </summary>
-	public class EntityStat : CompositeFloatBase, IDisposable
+	public class EntityStat : CompositeFloatBase
 	{
 		/// <summary>
 		/// Links to the identifier of the attached <see cref="RuntimeDataEntry"/>.
@@ -33,14 +33,17 @@ namespace SpaxUtils
 		private RuntimeDataEntry data;
 		private float? minValue;
 		private float? maxValue;
+		private DecimalMethod decimals;
 
 		public EntityStat(RuntimeDataEntry data,
 			Dictionary<object, IModifier<float>> modifiers = null,
-			float? minValue = null, float? maxValue = null) : base(modifiers)
+			float? minValue = null, float? maxValue = null,
+			DecimalMethod decimals = DecimalMethod.Decimal) : base(modifiers)
 		{
 			this.data = data;
 			this.minValue = minValue;
 			this.maxValue = maxValue;
+			this.decimals = decimals;
 
 			data.ValueChangedEvent += OnDataValueChanged;
 		}
@@ -56,12 +59,43 @@ namespace SpaxUtils
 			{
 				value = maxValue.Value;
 			}
-			return value;
+
+			switch (decimals)
+			{
+				case DecimalMethod.Floor:
+					return Mathf.Floor(value);
+				case DecimalMethod.Round:
+					return Mathf.Round(value);
+				case DecimalMethod.Ceil:
+					return Mathf.Ceil(value);
+				case DecimalMethod.Decimal:
+				default:
+					return value;
+			}
 		}
 
-		public void Dispose()
+		public override void Dispose()
 		{
 			data.ValueChangedEvent -= OnDataValueChanged;
+			base.Dispose();
+		}
+
+		public void Damage(float damage)
+		{
+			BaseValue = Mathf.Max(0f, BaseValue - damage);
+		}
+
+		public void Damage(float damage, out bool drained)
+		{
+			drained = damage > BaseValue;
+			Damage(damage);
+		}
+
+		public void Damage(float damage, out bool drained, out float excess)
+		{
+			excess = Mathf.Abs(Mathf.Min(0, BaseValue - damage));
+			drained = excess > 0;
+			Damage(damage);
 		}
 
 		private void OnDataValueChanged(object newValue)

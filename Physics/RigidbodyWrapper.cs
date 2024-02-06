@@ -116,8 +116,8 @@ namespace SpaxUtils
 		{
 			if (entity != null)
 			{
-				timeScale = entity.GetStat(EntityStatIdentifier.TIMESCALE, true, 1f);
-				if (entity.TryGetStat(EntityStatIdentifier.MASS, out EntityStat massStat))
+				timeScale = entity.GetStat(EntityStatIdentifiers.TIMESCALE, true, 1f);
+				if (entity.TryGetStat(EntityStatIdentifiers.MASS, out EntityStat massStat))
 				{
 					massStatSub = new StatSubscription(massStat, (entityMassStat) => Mass = entityMassStat);
 				}

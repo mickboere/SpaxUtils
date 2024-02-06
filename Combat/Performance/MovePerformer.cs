@@ -224,7 +224,7 @@ namespace SpaxUtils
 			{
 				if (behaviour is IUpdatable updatable)
 				{
-					updatable.ExUpdate(Time.deltaTime);
+					updatable.CustomUpdate(Time.deltaTime);
 				}
 			}
 		}

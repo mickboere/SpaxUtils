@@ -1,5 +1,9 @@
 ﻿namespace SpaxUtils
 {
+	/// <summary>
+	/// Basic interface for stat configurations.
+	/// <seealso cref="StatConfiguration"/>.
+	/// </summary>
 	public interface IBaseStatConfiguration
 	{
 		/// <summary>
@@ -31,6 +35,11 @@
 		/// The maximum value to clamp this stat to.
 		/// </summary>
 		float MaxValue { get; }
+
+		/// <summary>
+		/// How to handle decimals for this stat.
+		/// </summary>
+		DecimalMethod Decimals { get; }
 
 		/// <summary>
 		/// User-facing name for this stat.

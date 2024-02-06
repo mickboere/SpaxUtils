@@ -44,7 +44,7 @@ namespace SpaxUtils
 			this.rigidbodyWrapper = rigidbodyWrapper;
 			this.equipment = equipment;
 
-			entityTimeScale = entity.GetStat(EntityStatIdentifier.TIMESCALE, false);
+			entityTimeScale = entity.GetStat(EntityStatIdentifiers.TIMESCALE, false);
 			controlMod?.Dispose();
 			controlMod = new FloatOperationModifier(ModMethod.Absolute, Operation.Multiply, 1f);
 			rigidbodyWrapper.Control.AddModifier(this, controlMod);

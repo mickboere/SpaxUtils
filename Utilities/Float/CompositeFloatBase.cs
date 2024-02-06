@@ -8,7 +8,7 @@ namespace SpaxUtils
 	/// Calculates a final value by applying a collection of modifiers to a base value.
 	/// Calculations happen on-demand to prevent recalculation for every change.
 	/// </summary>
-	public abstract class CompositeFloatBase
+	public abstract class CompositeFloatBase : IDisposable
 	{
 		/// <summary>
 		/// Called whenever any value within the composite has been changed.
@@ -70,6 +70,11 @@ namespace SpaxUtils
 			}
 
 			recalculate = true;
+		}
+
+		public virtual void Dispose()
+		{
+			modifiers.Clear();
 		}
 
 		/// <summary>

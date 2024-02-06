@@ -5,7 +5,7 @@
 	/// </summary>
 	public class DataStatMappingModifier : FloatModifierBase
 	{
-		public override ModMethod Method => Mapping.ModMethod;
+		public override ModMethod Method => Mapping.Method;
 		public StatMapping Mapping { get; private set; }
 		public RuntimeDataEntry Data { get; private set; }
 
@@ -29,7 +29,7 @@
 
 		public override float Modify(float input)
 		{
-			return FloatOperationModifier.Operate(input, Mapping.Operation, Mapping.GetMappedValue((float)Data.Value));
+			return FloatOperationModifier.Operate(input, Mapping.Operation, Mapping.GetModifierValue((float)Data.Value));
 		}
 
 		private void OnValueChangedEvent(object value)

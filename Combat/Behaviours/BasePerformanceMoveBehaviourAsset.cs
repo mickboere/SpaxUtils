@@ -10,22 +10,29 @@ namespace SpaxUtils
 	/// </summary>
 	public abstract class BasePerformanceMoveBehaviourAsset : BehaviourAsset, IUpdatable
 	{
+		protected IAgent Agent { get; private set; }
+		protected IMovePerformer Performer { get; private set; }
+		protected IPerformanceMove Move { get; private set; }
+		protected RigidbodyWrapper RigidbodyWrapper { get; private set; }
+		protected AgentArmsComponent Arms { get; private set; }
+
+		protected PerformanceState State => Performer.State;
+		protected float Weight { get; private set; }
+
 		[SerializeField] private float controlWeightSmoothing = 6f;
 		[SerializeField] private bool blockArms;
 
-		protected IMovePerformer performer;
-		protected RigidbodyWrapper rigidbodyWrapper;
-		protected AgentArmsComponent arms;
-
 		private FloatOperationModifier controlMod;
-		private float weight;
-
-		public void InjectDependencies(IMovePerformer performer,
+		
+		public void InjectDependencies(IAgent agent,
+			IMovePerformer performer, IPerformanceMove move,
 			RigidbodyWrapper rigidbodyWrapper, AgentArmsComponent arms)
 		{
-			this.performer = performer;
-			this.rigidbodyWrapper = rigidbodyWrapper;
-			this.arms = arms;
+			Agent = agent;
+			Performer = performer;
+			Move = move;
+			RigidbodyWrapper = rigidbodyWrapper;
+			Arms = arms;
 		}
 
 		public override void Start()
@@ -33,43 +40,43 @@ namespace SpaxUtils
 			base.Start();
 
 			controlMod = new FloatOperationModifier(ModMethod.Absolute, Operation.Multiply, 1f);
-			rigidbodyWrapper.Control.AddModifier(this, controlMod);
+			RigidbodyWrapper.Control.AddModifier(this, controlMod);
 
 			if (blockArms)
 			{
-				arms.Weight.AddModifier(this, controlMod);
+				Arms.Weight.AddModifier(this, controlMod);
 			}
 
 			// Retrieve pose updates to set control weight.
-			performer.PoseUpdateEvent += OnPoseUpdateEvent;
+			Performer.PoseUpdateEvent += OnPoseUpdateEvent;
 		}
 
 		public override void Stop()
 		{
 			base.Stop();
 
-			rigidbodyWrapper.Control.RemoveModifier(this);
+			RigidbodyWrapper.Control.RemoveModifier(this);
 
 			if (blockArms)
 			{
-				arms.Weight.RemoveModifier(this);
+				Arms.Weight.RemoveModifier(this);
 			}
 
-			performer.PoseUpdateEvent -= OnPoseUpdateEvent;
+			Performer.PoseUpdateEvent -= OnPoseUpdateEvent;
 
 			controlMod.Dispose();
 		}
 
-		public virtual void ExUpdate(float delta)
+		public virtual void CustomUpdate(float delta)
 		{
 			// Set control from pose weight.
-			float control = 1f - weight;
+			float control = 1f - Weight;
 			controlMod.SetValue(controlMod.Value < control ? Mathf.Lerp(controlMod.Value, control, controlWeightSmoothing * Time.deltaTime) : control);
 		}
 
 		private void OnPoseUpdateEvent(IPerformer performer, PoserStruct pose, float weight)
 		{
-			this.weight = weight;
+			this.Weight = weight;
 		}
 	}
 }

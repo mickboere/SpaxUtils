@@ -10,14 +10,14 @@ namespace SpaxUtils
 	public class HitData
 	{
 		/// <summary>
-		/// The entity responsible for this hit.
-		/// </summary>
-		public IEntity Hitter { get; }
-
-		/// <summary>
 		/// The entity which was hit.
 		/// </summary>
 		public IHittable Hittable { get; }
+
+		/// <summary>
+		/// The entity responsible for this hit.
+		/// </summary>
+		public IEntity Hitter { get; }
 
 		/// <summary>
 		/// The inertia of the hitter.
@@ -25,42 +25,48 @@ namespace SpaxUtils
 		public Vector3 Inertia { get; }
 
 		/// <summary>
-		/// The total force behind the hit.
-		/// Can differ from inertia to impose shounen-knockback.
+		/// The swing direction of the hit.
 		/// </summary>
-		public float Force { get; }
+		public Vector3 Direction { get; }
 
 		/// <summary>
-		/// The direction of the hit.
+		/// The total mass behind the hit, defines force transfer capacity.
 		/// </summary>
-		public Vector3 HitDirection { get; }
+		public float Mass { get; }
 
 		/// <summary>
-		/// Whether the incurred hit resulted from a parry.
+		/// The total strength behind the hit, defines impact force.
 		/// </summary>
-		public bool Parry { get; }
+		public float Strength { get; }
 
 		/// <summary>
-		/// All damage values to be processed.
+		/// The total offensive power of the hit, defines penetration damage.
 		/// </summary>
-		public Dictionary<string, float> Damages { get; }
+		public float Offence { get; }
+
+		/// <summary>
+		/// The total piercing power of the hit, defines penetration capacity.
+		/// </summary>
+		public float Piercing { get; }
 
 		public HitData(
-			IEntity hitter,
 			IHittable hittable,
+			IEntity hitter,
 			Vector3 inertia,
-			float force,
-			Vector3 hitDirection,
-			bool parry,
-			Dictionary<string, float> damages)
+			Vector3 direction,
+			float mass,
+			float strength,
+			float offence,
+			float piercing)
 		{
-			Hitter = hitter;
 			Hittable = hittable;
+			Hitter = hitter;
 			Inertia = inertia;
-			Force = force;
-			HitDirection = hitDirection;
-			Parry = parry;
-			Damages = damages;
+			Direction = direction;
+			Mass = mass;
+			Strength = strength;
+			Offence = offence;
+			Piercing = piercing;
 		}
 	}
 }

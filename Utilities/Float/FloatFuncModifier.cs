@@ -3,8 +3,8 @@
 namespace SpaxUtils
 {
 	/// <summary>
-	/// <see cref="IModifier{T}"/> float implementation that supports any type of modification through a <see cref="Func{T, TResult}"/>.
-	/// Note that Func modifiers can NOT be saved.
+	/// <see cref="FloatModifierBase"/> implementation that supports any type of modification through a <see cref="Func{float, float}"/>.
+	/// <see cref="FuncChanged"/> should be invoked anytime the func values change.
 	/// </summary>
 	public class FloatFuncModifier : FloatModifierBase
 	{

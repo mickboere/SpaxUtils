@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace SpaxUtils
 {
-	public class AIDataIdentifiers : ILabeledDataIdentifierConstants
+	public class AIDataIdentifiers : ILabeledDataIdentifiers
 	{
 		public const string AI = "AI/";
 

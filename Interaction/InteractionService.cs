@@ -40,8 +40,8 @@ namespace SpiritAxis
 			// Collect all consenting interactables within interactor's range.
 			foreach (IInteractable interactable in interactables.Components)
 			{
-				// Skip the interactor ofcourse
-				if (interactable == interactor)
+				// Skip any interactables belonging to the interactor entity.
+				if (interactable == interactor || interactable.Entity == interactor.Entity)
 				{
 					continue;
 				}

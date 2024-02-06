@@ -1,6 +1,6 @@
 namespace SpaxUtils
 {
-	public interface IStatIdentifierConstants : ILabeledDataIdentifierConstants
+	public interface IStatIdentifierConstants : ILabeledDataIdentifiers
 	{
 		const string STATS = "STATS/";
 	}

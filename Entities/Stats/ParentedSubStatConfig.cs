@@ -18,6 +18,7 @@ namespace SpaxUtils
 		public bool HasMaxValue => subStatConfig.HasMaxValue;
 
 		public float MaxValue => subStatConfig.MaxValue;
+		public DecimalMethod Decimals => subStatConfig.Decimals;
 
 		public string Name => parentStatConfig.Name + " " + subStatConfig.Name;
 		public string Description => subStatConfig.Description;
