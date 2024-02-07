@@ -15,7 +15,10 @@ namespace SpaxUtils
 		private IHittable hittable;
 		private RigidbodyWrapper rigidbodyWrapper;
 		private AnimatorPoser animatorPoser;
+		private CombatSettings combatSettings;
+		private CallbackService callbackService;
 
+		private EntityStat timescaleStat;
 		private EntityStat health;
 		private EntityStat endurance;
 		private EntityStat defence;
@@ -23,14 +26,18 @@ namespace SpaxUtils
 		private HitData lastHit;
 		private Timer stunTimer;
 		private FloatOperationModifier stunControlMod;
+		private TimedCurveModifier hitPauseMod;
 
 		public void InjectDependencies(IAgent agent, IHittable hittable,
-			RigidbodyWrapper rigidbodyWrapper, AnimatorPoser animatorPoser)
+			RigidbodyWrapper rigidbodyWrapper, AnimatorPoser animatorPoser,
+			CombatSettings combatSettings, CallbackService callbackService)
 		{
 			this.agent = agent;
 			this.hittable = hittable;
 			this.rigidbodyWrapper = rigidbodyWrapper;
 			this.animatorPoser = animatorPoser;
+			this.combatSettings = combatSettings;
+			this.callbackService = callbackService;
 		}
 
 		protected void OnEnable()
@@ -39,6 +46,7 @@ namespace SpaxUtils
 			stunControlMod = new FloatOperationModifier(ModMethod.Absolute, Operation.Multiply, 1f);
 			rigidbodyWrapper.Control.AddModifier(this, stunControlMod);
 
+			timescaleStat = agent.GetStat(EntityStatIdentifiers.TIMESCALE);
 			health = agent.GetStat(AgentStatIdentifiers.HEALTH);
 			endurance = agent.GetStat(AgentStatIdentifiers.ENDURANCE);
 			defence = agent.GetStat(AgentStatIdentifiers.DEFENCE);
@@ -80,7 +88,15 @@ namespace SpaxUtils
 			float penetration = hitData.Offence * hitData.Piercing / defence;
 			float impact = hitData.Strength * penetration.InvertClamped();
 
-			// TODO: Apply hit-pause depending on penetration on both ends, return it through HitData?.
+			// Apply hit-pause.
+			hitPauseMod?.Dispose();
+			hitPauseMod = new TimedCurveModifier(
+				ModMethod.Absolute,
+				combatSettings.HitPauseCurve,
+				new Timer(combatSettings.MaxHitPause * penetration.InvertClamped()),
+				callbackService);
+			timescaleStat.RemoveModifier(this);
+			timescaleStat.AddModifier(this, hitPauseMod);
 
 			// Apply damage.
 			health.Damage(damage, out bool dead);
@@ -102,6 +118,8 @@ namespace SpaxUtils
 				float stunTime = hitData.Strength / rigidbodyWrapper.Mass;
 				stunTimer = new Timer(Mathf.Min(stunTime, maxStunTime));
 			}
+
+			hitData.Return(penetration);
 		}
 	}
 }

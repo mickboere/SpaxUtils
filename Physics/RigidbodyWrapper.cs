@@ -8,7 +8,7 @@ namespace SpaxUtils
 	/// MonoBehaviour that wraps around Unity's <see cref="UnityEngine.Rigidbody"/> and provides additional functionality and optimizations.
 	/// Implements <see cref="IDependency"/> making it easy to retrieve the <see cref="UnityEngine.Rigidbody"/>.
 	/// </summary>
-	[DefaultExecutionOrder(-100)]
+	[DefaultExecutionOrder(1000)]
 	public class RigidbodyWrapper : MonoBehaviour, IDependency
 	{
 		/// <summary>
@@ -202,10 +202,16 @@ namespace SpaxUtils
 				mass = Mass;
 			}
 
-			Vector3 kE = velocity.KineticEnergy(mass);
-			Vector3 impactForce = (kE - KineticEnergy) / velocity.magnitude * Time.fixedDeltaTime;
+			#region Physics Based (falls apart on consecutive impacts)
+			//Vector3 kE = velocity.KineticEnergy(mass);
+			//Vector3 impactForce = (kE - KineticEnergy) / velocity.magnitude * Time.fixedDeltaTime;
 
-			Velocity += impactForce;
+			//Velocity += impactForce;
+			#endregion
+
+			Vector3 diff = (velocity - Velocity);
+			float effect = velocity.normalized.NormalizedDot(diff.normalized);
+			rigidbody.AddForce(diff * effect * mass, ForceMode.Impulse);
 		}
 
 		/// <summary>

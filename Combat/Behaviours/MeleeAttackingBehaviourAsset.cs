@@ -13,8 +13,6 @@ namespace SpaxUtils
 		[SerializeField, ConstDropdown(typeof(IIdentificationLabels))] private string[] targetLabels;
 		[SerializeField] private float autoAimRange = 2f;
 		[SerializeField] private LayerMask hitDetectionMask;
-		[SerializeField] private float hitPause = 0.2f;
-		[SerializeField] private AnimationCurve hitPauseCurve;
 
 		private ICombatMove combatMove;
 		private CallbackService callbackService;
@@ -23,23 +21,23 @@ namespace SpaxUtils
 		private IAgentMovementHandler movementHandler;
 		private AgentNavigationHandler navigationHandler;
 		private IEntityCollection entityCollection;
+		private CombatSettings combatSettings;
 
-		private CombatHitDetector hitDetector;
-		private EntityStat entityTimeScale;
-		private TimedCurveModifier timeMod;
-
+		private EntityStat timescaleStat;
 		private EntityStat strengthStat;
 		private EntityStat offenceStat;
 		private EntityStat piercingStat;
 
+		private CombatHitDetector hitDetector;
 		private bool wasPerforming;
 		private Timer momentumTimer;
 		private bool appliedMomentum;
 		private EntityComponentFilter<ITargetable> targetables;
+		private TimedCurveModifier hitPauseMod;
 
 		public void InjectDependencies(ICombatMove move, CallbackService callbackService,
 			TransformLookup transformLookup, ITargeter targeter, IAgentMovementHandler movementHandler,
-			AgentNavigationHandler navigationHandler, IEntityCollection entityCollection)
+			AgentNavigationHandler navigationHandler, IEntityCollection entityCollection, CombatSettings combatSettings)
 		{
 			this.combatMove = move;
 			this.callbackService = callbackService;
@@ -48,8 +46,9 @@ namespace SpaxUtils
 			this.movementHandler = movementHandler;
 			this.navigationHandler = navigationHandler;
 			this.entityCollection = entityCollection;
+			this.combatSettings = combatSettings;
 
-			entityTimeScale = Agent.GetStat(EntityStatIdentifiers.TIMESCALE, true, 1f);
+			timescaleStat = Agent.GetStat(EntityStatIdentifiers.TIMESCALE, true, 1f);
 			strengthStat = Agent.GetStat(AgentStatIdentifiers.STRENGTH);
 			offenceStat = Agent.GetStat(AgentStatIdentifiers.OFFENCE);
 			piercingStat = Agent.GetStat(AgentStatIdentifiers.PIERCING, true);
@@ -138,10 +137,7 @@ namespace SpaxUtils
 
 		private void OnNewHitDetected(List<HitScanHitData> newHits)
 		{
-			// TODO: Have hit pause duration depend on penetration % (factoring in power, sharpness, hardness...)
-			timeMod = new TimedCurveModifier(ModMethod.Absolute, hitPauseCurve, new Timer(hitPause), callbackService);
-
-			bool successfulHit = false;
+			HitData heaviestHit = null;
 			foreach (HitScanHitData hit in newHits)
 			{
 				if (hit.GameObject.TryGetComponentRelative(out IHittable hittable))
@@ -170,23 +166,25 @@ namespace SpaxUtils
 
 					if (hittable.Hit(hitData))
 					{
-						successfulHit = true;
-
-						// Apply hit pause to enemy.
-						// TODO: Must be applied on enemy's end.
-						//EntityStat hitTimeScale = hittable.Entity.GetStat(EntityStatIdentifier.TIMESCALE);
-						//if (hitTimeScale != null)
-						//{
-						//	hitTimeScale.AddModifier(this, timeMod);
-						//}
+						if (heaviestHit == null || hitData.Penetration < heaviestHit.Penetration)
+						{
+							heaviestHit = hitData;
+						}
 					}
 				}
 			}
 
-			if (successfulHit)
+			if (heaviestHit != null)
 			{
-				entityTimeScale.RemoveModifier(this);
-				entityTimeScale.AddModifier(this, timeMod);
+				// Apply hit-pause.
+				hitPauseMod?.Dispose();
+				hitPauseMod = new TimedCurveModifier(
+					ModMethod.Absolute,
+					combatSettings.HitPauseCurve,
+					new Timer(combatSettings.MaxHitPause * heaviestHit.Penetration.InvertClamped()),
+					callbackService);
+				timescaleStat.RemoveModifier(this);
+				timescaleStat.AddModifier(this, hitPauseMod);
 			}
 		}
 	}

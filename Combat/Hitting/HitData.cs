@@ -9,6 +9,8 @@ namespace SpaxUtils
 	/// </summary>
 	public class HitData
 	{
+		#region Send
+
 		/// <summary>
 		/// The entity which was hit.
 		/// </summary>
@@ -49,6 +51,14 @@ namespace SpaxUtils
 		/// </summary>
 		public float Piercing { get; }
 
+		#endregion Send
+
+		#region Return
+
+		public float Penetration { get; private set; } = 0f;
+
+		#endregion Return
+
 		public HitData(
 			IHittable hittable,
 			IEntity hitter,
@@ -67,6 +77,11 @@ namespace SpaxUtils
 			Strength = strength;
 			Offence = offence;
 			Piercing = piercing;
+		}
+
+		public void Return(float penetration)
+		{
+			Penetration = penetration;
 		}
 	}
 }

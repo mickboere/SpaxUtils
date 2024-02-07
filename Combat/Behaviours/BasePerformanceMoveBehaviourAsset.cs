@@ -23,7 +23,7 @@ namespace SpaxUtils
 		[SerializeField] private bool blockArms;
 
 		private FloatOperationModifier controlMod;
-		
+
 		public void InjectDependencies(IAgent agent,
 			IMovePerformer performer, IPerformanceMove move,
 			RigidbodyWrapper rigidbodyWrapper, AgentArmsComponent arms)

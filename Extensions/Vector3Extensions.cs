@@ -500,7 +500,7 @@ namespace SpaxUtils
 		/// </summary>
 		public static Vector3 KineticEnergy(this Vector3 velocity, float mass)
 		{
-			return velocity * velocity.magnitude * mass * 0.5f;
+			return 0.5f * mass * velocity * velocity.magnitude;
 		}
 
 		#endregion // Physics
@@ -516,7 +516,8 @@ namespace SpaxUtils
 			Vector3 normal = default;
 			for (int i = 0; i < points.Length; i++)
 			{
-				int next = i.AddAndRepeat(1, points.Length);
+				// int next = i.AddAndRepeat(1, points.Length); <- wtf?
+				int next = Mathf.Min(i + 1, points.Length - 1);
 
 				Vector3 a = center - points[i];
 				Vector3 b = points[next] - points[i];
