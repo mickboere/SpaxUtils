@@ -2,7 +2,10 @@
 
 namespace SpaxUtils
 {
-	public struct Timer
+	/// <summary>
+	/// Timer struct that reads the current time and counts the distance from the start time.
+	/// </summary>
+	public struct TimerStruct
 	{
 		public float StartTime { get; }
 		public float Duration { get; }
@@ -44,7 +47,7 @@ namespace SpaxUtils
 		private bool paused;
 		private float pauseStart;
 
-		public Timer(float duration, float startOffset, float speed = 1f, bool realtime = false)
+		public TimerStruct(float duration, float startOffset, float speed = 1f, bool realtime = false)
 		{
 			StartTime = (realtime ? UnityEngine.Time.realtimeSinceStartup : UnityEngine.Time.time) - startOffset * (1f / speed);
 			Duration = duration;
@@ -57,7 +60,7 @@ namespace SpaxUtils
 			Paused = paused;
 		}
 
-		public Timer(float duration = 0f, bool realtime = false) : this(duration, 0f, 1f, realtime) { }
+		public TimerStruct(float duration = 0f, bool realtime = false) : this(duration, 0f, 1f, realtime) { }
 
 		public void SubtractDuration(float time)
 		{
@@ -78,7 +81,7 @@ namespace SpaxUtils
 			Pause(false);
 		}
 
-		public static implicit operator bool(Timer timer)
+		public static implicit operator bool(TimerStruct timer)
 		{
 			return !timer.Expired;
 		}

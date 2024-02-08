@@ -24,7 +24,7 @@ namespace SpaxUtils
 		private EntityStat defence;
 
 		private HitData lastHit;
-		private Timer stunTimer;
+		private TimerClass stunTimer;
 		private FloatOperationModifier stunControlMod;
 		private TimedCurveModifier hitPauseMod;
 
@@ -50,22 +50,23 @@ namespace SpaxUtils
 			health = agent.GetStat(AgentStatIdentifiers.HEALTH);
 			endurance = agent.GetStat(AgentStatIdentifiers.ENDURANCE);
 			defence = agent.GetStat(AgentStatIdentifiers.DEFENCE);
+
+			stunTimer = new TimerClass(null, () => EntityTimeScale, true);
 		}
 
 		protected void OnDisable()
 		{
 			hittable.Unsubscribe(this);
 			rigidbodyWrapper.Control.RemoveModifier(this);
-			stunControlMod.Dispose();
 		}
 
 		protected void Update()
 		{
-			if (stunTimer)
+			if (!stunTimer.Expired)
 			{
 				PoserStruct instructions = hitBlendTree.GetInstructions(-lastHit.Direction.Localize(rigidbodyWrapper.transform), 0f);
 				animatorPoser.ProvideInstructions(this, PoserLayerConstants.BODY, instructions, 10, stunTimer.Progress.ReverseInOutCubic());
-				stunControlMod.SetValue(stunTimer.Progress.InOutCubic());
+				stunControlMod.SetValue(stunTimer.Progress.InOutSine());
 			}
 			else
 			{
@@ -93,7 +94,7 @@ namespace SpaxUtils
 			hitPauseMod = new TimedCurveModifier(
 				ModMethod.Absolute,
 				combatSettings.HitPauseCurve,
-				new Timer(combatSettings.MaxHitPause * penetration.InvertClamped()),
+				new TimerStruct(combatSettings.MaxHitPause * penetration.InvertClamped()),
 				callbackService);
 			timescaleStat.RemoveModifier(this);
 			timescaleStat.AddModifier(this, hitPauseMod);
@@ -115,8 +116,10 @@ namespace SpaxUtils
 				// Transfer Impact.
 				rigidbodyWrapper.AddImpact(hitData.Direction * impact, hitData.Mass);
 
-				float stunTime = hitData.Strength / rigidbodyWrapper.Mass;
-				stunTimer = new Timer(Mathf.Min(stunTime, maxStunTime));
+				// Apply stun.
+				// TODO: Should be based on actual stun state that has a minimum duration for low impact forces and a control-detector for big impacts that send the agent flying or sliding away.
+				float stunTime = impact * hitData.Mass / rigidbodyWrapper.Mass;
+				stunTimer.Reset(Mathf.Min(stunTime, maxStunTime));
 			}
 
 			hitData.Return(penetration);

@@ -9,10 +9,9 @@ namespace SpaxUtils
 	public interface IModifier<T>
 	{
 		/// <summary>
-		/// Invoked when any modifier property has changed.
-		/// Used to minimize the calculations required to get an accurate final value.
+		/// If a modifier is marked dirty it will prompt the composite to recalculate.
 		/// </summary>
-		event Action ModChangedEvent;
+		bool Dirty { get; }
 
 		/// <summary>
 		/// Defines the type of modification.
@@ -33,5 +32,10 @@ namespace SpaxUtils
 		/// (a-b): Subtracts generic <paramref name="b"/> from generic <paramref name="a"/>.
 		/// </summary>
 		T Subtract(T a, T b);
+
+		/// <summary>
+		/// Invoked by the modified composite upon applying this modifier, allowing it to be unmarked as dirty if necessary.
+		/// </summary>
+		void Applied();
 	}
 }

@@ -19,7 +19,7 @@ namespace SpaxUtils
 		/// <typeparam name="T"></typeparam>
 		/// <param name="act"></param>
 		/// <param name="timer"></param>
-		void Send<T>(T act, Timer timer = default) where T : IAct;
+		void Send<T>(T act, TimerStruct timer = default) where T : IAct;
 
 		/// <summary>
 		/// Add a new <see cref="IPerformer"/> able to take control and execute <see cref="IAct"/>s on behalf of the Agent.

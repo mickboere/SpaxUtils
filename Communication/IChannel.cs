@@ -25,8 +25,8 @@ namespace SpaxUtils
 		/// <typeparam name="T">The value data type. Should implement <see cref="Val"/>.</typeparam>
 		/// <param name="key">The data identifier.</param>
 		/// <param name="val">The data object.</param>
-		/// <param name="timer">The timer to store in the history, returned when calling <see cref="TryGetLast{T}(Key, out T, out Timer)"/>.</param>
-		void Send<T>(Key key, T val, Timer timer = default) where T : Val;
+		/// <param name="timer">The timer to store in the history, returned when calling <see cref="TryGetLast{T}(Key, out T, out TimerStruct)"/>.</param>
+		void Send<T>(Key key, T val, TimerStruct timer = default) where T : Val;
 
 		/// <summary>
 		/// Adds a new listener for data of type <typeparamref name="T"/> using key <paramref name="key"/>.
@@ -53,6 +53,6 @@ namespace SpaxUtils
 		/// <param name="val">The resulting data value.</param>
 		/// <param name="timer">The timer that was started when the data was received.</param>
 		/// <returns>Whether retrieving the data last stored with <paramref name="key"/> was succesful.</returns>
-		bool TryGetLast<T>(Key key, out T val, out Timer timer) where T : Val;
+		bool TryGetLast<T>(Key key, out T val, out TimerStruct timer) where T : Val;
 	}
 }

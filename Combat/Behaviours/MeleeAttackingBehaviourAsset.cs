@@ -30,7 +30,7 @@ namespace SpaxUtils
 
 		private CombatHitDetector hitDetector;
 		private bool wasPerforming;
-		private Timer momentumTimer;
+		private TimerStruct momentumTimer;
 		private bool appliedMomentum;
 		private EntityComponentFilter<ITargetable> targetables;
 		private TimedCurveModifier hitPauseMod;
@@ -131,7 +131,7 @@ namespace SpaxUtils
 			}
 
 			movementHandler.ForceRotation();
-			momentumTimer = new Timer(combatMove.ForceDelay);
+			momentumTimer = new TimerStruct(combatMove.ForceDelay);
 			appliedMomentum = false;
 		}
 
@@ -181,7 +181,7 @@ namespace SpaxUtils
 				hitPauseMod = new TimedCurveModifier(
 					ModMethod.Absolute,
 					combatSettings.HitPauseCurve,
-					new Timer(combatSettings.MaxHitPause * heaviestHit.Penetration.InvertClamped()),
+					new TimerStruct(combatSettings.MaxHitPause * heaviestHit.Penetration.InvertClamped()),
 					callbackService);
 				timescaleStat.RemoveModifier(this);
 				timescaleStat.AddModifier(this, hitPauseMod);

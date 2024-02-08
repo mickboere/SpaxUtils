@@ -14,7 +14,7 @@ namespace SpaxUtils
 		public CommunicationChannel(string identifier = DEFAULT_COMMS_IDENTIFIER) : base(identifier) { }
 
 		/// <inheritdoc/>
-		public void Send<T>(T message, Timer timer = default)
+		public void Send<T>(T message, TimerStruct timer = default)
 		{
 			base.Send<T>(typeof(T), message, timer);
 		}

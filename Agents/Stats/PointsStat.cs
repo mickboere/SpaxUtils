@@ -29,7 +29,7 @@ namespace SpaxUtils
 		private float lastCurrent;
 		private float lastDamage;
 
-		private Timer recoveryTimer;
+		private TimerStruct recoveryTimer;
 
 		public void Initialize(IEntity entity)
 		{
@@ -108,7 +108,7 @@ namespace SpaxUtils
 				}
 
 				// TODO: Make timer rely on entity timescale.
-				recoveryTimer = new Timer(recoveryDelay);
+				recoveryTimer = new TimerStruct(recoveryDelay);
 			}
 			else if (isRecoverable)
 			{

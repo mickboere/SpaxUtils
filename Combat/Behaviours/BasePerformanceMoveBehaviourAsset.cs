@@ -63,8 +63,6 @@ namespace SpaxUtils
 			}
 
 			Performer.PoseUpdateEvent -= OnPoseUpdateEvent;
-
-			controlMod.Dispose();
 		}
 
 		public virtual void CustomUpdate(float delta)

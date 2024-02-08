@@ -30,7 +30,7 @@ namespace SpaxUtils
 		private List<IPerformer> availablePerformers;
 		private List<IPerformer> activePerformers = new List<IPerformer>();
 		private Act<bool>? lastPerformedAct;
-		private (Act<bool> act, Timer timer)? lastFailedAttempt;
+		private (Act<bool> act, TimerStruct timer)? lastFailedAttempt;
 
 		public Actor(
 			string identifier = DEFAULT_IDENTIFIER,
@@ -57,7 +57,7 @@ namespace SpaxUtils
 		}
 
 		/// <inheritdoc/>
-		public void Send<T>(T act, Timer timer = default) where T : IAct
+		public void Send<T>(T act, TimerStruct timer = default) where T : IAct
 		{
 			base.Send<T>(act.Title, act, timer);
 		}
@@ -135,7 +135,7 @@ namespace SpaxUtils
 					lastPerformedAct = act.Title == ActorActs.CANCEL ? null : boolAct;
 				}
 
-				lastFailedAttempt = failed ? (boolAct, new Timer(act.Buffer)) : null;
+				lastFailedAttempt = failed ? (boolAct, new TimerStruct(act.Buffer)) : null;
 			}
 		}
 

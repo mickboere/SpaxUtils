@@ -30,9 +30,9 @@ namespace SpaxUtils
 		private float fromTime;
 		private float toTime;
 
-		private Timer? fromTimer;
-		private Timer? toTimer;
-		private Timer? transitionTimer;
+		private TimerStruct? fromTimer;
+		private TimerStruct? toTimer;
+		private TimerStruct? transitionTimer;
 
 		private CallbackService callbackService;
 
@@ -139,17 +139,17 @@ namespace SpaxUtils
 			fromSequence = null;
 			fromTimer = null;
 			toSequence = sequence;
-			toTimer = new Timer(sequence.TotalDuration, timeOffset, speed);
+			toTimer = new TimerStruct(sequence.TotalDuration, timeOffset, speed);
 			Pose(sequence, 0f);
 		}
 
 		public void Transition(object controller, PoseSequence fromSequence, float fromOffset, float fromSpeed, PoseSequence toSequence, float toOffset, float toSpeed, float transitionDuration)
 		{
 			this.fromSequence = fromSequence;
-			fromTimer = new Timer(fromSequence.TotalDuration, fromOffset, fromSpeed);
+			fromTimer = new TimerStruct(fromSequence.TotalDuration, fromOffset, fromSpeed);
 			this.toSequence = toSequence;
-			toTimer = new Timer(toSequence.TotalDuration, toOffset, toSpeed);
-			transitionTimer = new Timer(transitionDuration);
+			toTimer = new TimerStruct(toSequence.TotalDuration, toOffset, toSpeed);
+			transitionTimer = new TimerStruct(transitionDuration);
 			Pose(fromSequence, fromOffset, toSequence, toOffset, 0f, false);
 		}
 
@@ -174,8 +174,8 @@ namespace SpaxUtils
 			}
 
 			this.toSequence = toSequence;
-			toTimer = new Timer(toSequence.TotalDuration, timeOffset, speed);
-			transitionTimer = new Timer(transitionDuration);
+			toTimer = new TimerStruct(toSequence.TotalDuration, timeOffset, speed);
+			transitionTimer = new TimerStruct(transitionDuration);
 			// Pose happens in update.
 		}
 
@@ -185,7 +185,7 @@ namespace SpaxUtils
 			fromTimer = null;
 			toSequence = null;
 			toTimer = null;
-			transitionTimer = new Timer(transitionDuration);
+			transitionTimer = new TimerStruct(transitionDuration);
 			Pose(fromPose, toPose, 0f);
 		}
 
@@ -194,8 +194,8 @@ namespace SpaxUtils
 			fromSequence = null;
 			fromTimer = null;
 			this.toSequence = toSequence;
-			toTimer = new Timer(toSequence.TotalDuration, timeOffset, speed);
-			transitionTimer = new Timer(transitionDuration);
+			toTimer = new TimerStruct(toSequence.TotalDuration, timeOffset, speed);
+			transitionTimer = new TimerStruct(transitionDuration);
 			PoseTransition toPose = toSequence.Evaluate(timeOffset);
 			Pose(fromPose, toSequence, timeOffset, toPose.Transition);
 		}

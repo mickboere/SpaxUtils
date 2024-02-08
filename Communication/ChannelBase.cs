@@ -15,17 +15,17 @@ namespace SpaxUtils
 		public string Identifier { get; }
 
 		private Dictionary<Key, Dictionary<object, Action<Val>>> subscriptions;
-		private Dictionary<Key, (Val, Timer)> history;
+		private Dictionary<Key, (Val, TimerStruct)> history;
 
 		public ChannelBase(string identifier)
 		{
 			Identifier = identifier;
 			subscriptions = new Dictionary<Key, Dictionary<object, Action<Val>>>();
-			history = new Dictionary<Key, (Val, Timer)>();
+			history = new Dictionary<Key, (Val, TimerStruct)>();
 		}
 
 		/// <inheritdoc/>
-		public virtual void Send<T>(Key key, T val, Timer timer = default) where T : Val
+		public virtual void Send<T>(Key key, T val, TimerStruct timer = default) where T : Val
 		{
 			history[key] = (val, timer);
 
@@ -71,7 +71,7 @@ namespace SpaxUtils
 		}
 
 		/// <inheritdoc/>
-		public virtual bool TryGetLast<T>(Key key, out T val, out Timer timer) where T : Val
+		public virtual bool TryGetLast<T>(Key key, out T val, out TimerStruct timer) where T : Val
 		{
 			val = default;
 			timer = default;
@@ -81,14 +81,14 @@ namespace SpaxUtils
 				return false;
 			}
 
-			(Val val, Timer timer) tuple = history[key];
+			(Val val, TimerStruct timer) tuple = history[key];
 			val = (T)tuple.val;
 			timer = tuple.timer;
 			return true;
 		}
 
 		/// <summary>
-		/// Invoked when the channel has received a new message event through <see cref="Send{T}(Key, T, Timer)"/>.
+		/// Invoked when the channel has received a new message event through <see cref="Send{T}(Key, T, TimerStruct)"/>.
 		/// </summary>
 		/// <param name="key">The variable identifying the message type.</param>
 		/// <param name="value">The variable containing the message.</param>

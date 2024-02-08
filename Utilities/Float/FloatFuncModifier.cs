@@ -24,12 +24,9 @@ namespace SpaxUtils
 			return Func(input);
 		}
 
-		/// <summary>
-		/// Should be called whenever the func has changed, causing a difference in output.
-		/// </summary>
-		public void FuncChanged()
+		public override void Applied()
 		{
-			OnModChanged();
+			// FuncModifer is always dirty.
 		}
 	}
 }

@@ -1,9 +1,11 @@
-﻿namespace SpaxUtils
+﻿using System;
+
+namespace SpaxUtils
 {
 	/// <summary>
 	/// Float modifier that uses another stat as mod value.
 	/// </summary>
-	public class StatModifier : FloatModifierBase
+	public class StatModifier : FloatModifierBase, IDisposable
 	{
 		public override ModMethod Method => Config.Method;
 		public IStatModConfig Config { get; private set; }
@@ -18,14 +20,12 @@
 			modifierStat.CompositeChangedEvent += OnInputStatChanged;
 		}
 
-		public override void Dispose()
+		public void Dispose()
 		{
 			if (modifierStat != null)
 			{
 				modifierStat.CompositeChangedEvent -= OnInputStatChanged;
 			}
-
-			base.Dispose();
 		}
 
 		public override float Modify(float input)
@@ -35,7 +35,7 @@
 
 		private void OnInputStatChanged(CompositeFloatBase composite)
 		{
-			OnModChanged();
+			Dirty = true;
 		}
 	}
 }

@@ -45,7 +45,6 @@ namespace SpaxUtils
 			this.equipment = equipment;
 
 			entityTimeScale = entity.GetStat(EntityStatIdentifiers.TIMESCALE, false);
-			controlMod?.Dispose();
 			controlMod = new FloatOperationModifier(ModMethod.Absolute, Operation.Multiply, 1f);
 			rigidbodyWrapper.Control.AddModifier(this, controlMod);
 		}
@@ -144,7 +143,7 @@ namespace SpaxUtils
 
 		private IEnumerator Animate(float duration, bool invert, Action callback)
 		{
-			Timer t = new Timer(duration * (1f / (entityTimeScale ?? 1f)));
+			TimerStruct t = new TimerStruct(duration * (1f / (entityTimeScale ?? 1f)));
 			while (t)
 			{
 				float p = invert ? t.Progress.ReverseInOutCubic() : t.Progress.InOutCubic();

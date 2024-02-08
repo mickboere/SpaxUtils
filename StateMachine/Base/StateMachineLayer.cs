@@ -143,7 +143,7 @@ namespace SpaxUtils.StateMachine
 			List<IStateComponent> completed = new List<IStateComponent>();
 			CurrentState.OnEnteringState(() => completed.Add(CurrentState));
 			components.ForEach((component) => component.OnEnteringState(() => completed.Add(component)));
-			Timer warningTimer = new Timer(STUCK_WARNING_TIME);
+			TimerStruct warningTimer = new TimerStruct(STUCK_WARNING_TIME);
 			while (completed.Count < target)
 			{
 				if (!warningTimer.Paused && warningTimer.Expired)
@@ -182,7 +182,7 @@ namespace SpaxUtils.StateMachine
 			List<IStateComponent> completed = new List<IStateComponent>();
 			CurrentState.OnExitingState(() => completed.Add(CurrentState));
 			components.ForEach((component) => component.OnExitingState(() => completed.Add(component)));
-			Timer warningTimer = new Timer(STUCK_WARNING_TIME);
+			TimerStruct warningTimer = new TimerStruct(STUCK_WARNING_TIME);
 			while (completed.Count < target)
 			{
 				if (!warningTimer.Paused && warningTimer.Expired)

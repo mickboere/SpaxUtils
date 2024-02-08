@@ -39,7 +39,7 @@ namespace SpaxUtils
 		public void SetMethod(ModMethod method)
 		{
 			this.method = method;
-			OnModChanged();
+			Dirty = true;
 		}
 
 		/// <summary>
@@ -48,7 +48,7 @@ namespace SpaxUtils
 		public void SetOperation(Operation operation)
 		{
 			this.operation = operation;
-			OnModChanged();
+			Dirty = true;
 		}
 
 		/// <summary>
@@ -57,7 +57,7 @@ namespace SpaxUtils
 		public void SetValue(float value)
 		{
 			this.value = value;
-			OnModChanged();
+			Dirty = true;
 		}
 
 		/// <summary>

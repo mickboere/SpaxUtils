@@ -5,17 +5,12 @@ namespace SpaxUtils
 	/// <summary>
 	/// <see cref="IModifier{T}"/> float implementation that supports basic modification using a <see cref="SpaxUtils.Operation"/>.
 	/// </summary>
-	public abstract class FloatModifierBase : IModifier<float>, IDisposable
+	public abstract class FloatModifierBase : IModifier<float>
 	{
-		public event Action ModChangedEvent;
+		public virtual bool Dirty { get; protected set; } = true;
 
 		/// <inheritdoc/>
 		public abstract ModMethod Method { get; }
-
-		public virtual void Dispose()
-		{
-			OnModChanged();
-		}
 
 		/// <inheritdoc/>
 		public abstract float Modify(float input);
@@ -32,12 +27,10 @@ namespace SpaxUtils
 			return a - b;
 		}
 
-		/// <summary>
-		/// Will invoke the <see cref="ModChangedEvent"/>.
-		/// </summary>
-		protected void OnModChanged()
+		/// <inheritdoc/>
+		public virtual void Applied()
 		{
-			ModChangedEvent?.Invoke();
+			Dirty = false;
 		}
 	}
 }

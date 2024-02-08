@@ -1,17 +1,21 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace SpaxUtils
 {
 	/// <summary>
-	/// Component handling all drainable stats like health and energy using <see cref="PointsStat"/>s.
+	/// Component handling all generic agent-related stats.
 	/// </summary>
 	public class AgentStatHandler : EntityComponentBase
 	{
-		[SerializeField] private List<PointsStat> multiStats;
+		[SerializeField, FormerlySerializedAs("multiStats")] private List<PointsStat> pointsStats;
 
 		private IAgent agent;
+
+		private EntityStat recoveryStat;
+		private FloatFuncModifier recoveryMod;
 
 		public void InjectDependencies(IAgent agent)
 		{
@@ -20,15 +24,26 @@ namespace SpaxUtils
 
 		protected void Awake()
 		{
-			if (agent.Body.HasRigidbody && agent.TryGetStat(EntityStatIdentifiers.MASS, out EntityStat mass))
+			// Initialize stat pairs.
+			foreach (PointsStat pointStat in pointsStats)
 			{
-				mass.BaseValue = agent.Body.DefaultMass;
+				pointStat.Initialize(agent);
 			}
 
-			// Initialize stat pairs.
-			foreach (PointsStat pair in multiStats)
+			// Modify recovery stat with control (so that recovery only occurs when agent is in control).
+			if (agent.Body.HasRigidbody && agent.TryGetStat(AgentStatIdentifiers.RECOVERY, out recoveryStat))
 			{
-				pair.Initialize(agent);
+				recoveryMod = new FloatFuncModifier(ModMethod.Absolute, (f) => f * agent.Body.RigidbodyWrapper.Control);
+				recoveryStat.AddModifier(this, recoveryMod);
+			}
+		}
+
+		protected void OnDestroy()
+		{
+			// Clean up.
+			if (recoveryStat != null)
+			{
+				recoveryStat.RemoveModifier(this);
 			}
 		}
 
@@ -42,9 +57,9 @@ namespace SpaxUtils
 		{
 			// Update state pairs to initiate recovery.
 			// TODO: MUST BE DONE THROUGH BRAIN NODE TO PREVENT RECOVERY DURING DEATH.
-			foreach (PointsStat pair in multiStats)
+			foreach (PointsStat pointStat in pointsStats)
 			{
-				pair.Update(Time.deltaTime * EntityTimeScale);
+				pointStat.Update(Time.deltaTime * EntityTimeScale);
 			}
 		}
 
@@ -53,9 +68,9 @@ namespace SpaxUtils
 		/// </summary>
 		public void RecoverAll()
 		{
-			foreach (PointsStat pair in multiStats)
+			foreach (PointsStat pointStat in pointsStats)
 			{
-				pair.Recover();
+				pointStat.Recover();
 			}
 		}
 	}

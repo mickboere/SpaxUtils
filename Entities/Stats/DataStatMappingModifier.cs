@@ -1,9 +1,11 @@
-﻿namespace SpaxUtils
+﻿using System;
+
+namespace SpaxUtils
 {
 	/// <summary>
 	/// Float modifier that uses a <see cref="RuntimeDataEntry"/> as mod value.
 	/// </summary>
-	public class DataStatMappingModifier : FloatModifierBase
+	public class DataStatMappingModifier : FloatModifierBase, IDisposable
 	{
 		public override ModMethod Method => Mapping.Method;
 		public StatMapping Mapping { get; private set; }
@@ -17,14 +19,12 @@
 			data.ValueChangedEvent += OnValueChangedEvent;
 		}
 
-		public override void Dispose()
+		public void Dispose()
 		{
 			if (Data != null)
 			{
 				Data.ValueChangedEvent -= OnValueChangedEvent;
 			}
-
-			base.Dispose();
 		}
 
 		public override float Modify(float input)
@@ -34,7 +34,7 @@
 
 		private void OnValueChangedEvent(object value)
 		{
-			OnModChanged();
+			Dirty = true;
 		}
 	}
 }

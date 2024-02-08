@@ -13,7 +13,7 @@ namespace SpaxUtils
 		/// <typeparam name="T">The type of message.</typeparam>
 		/// <param name="message">The message value object.</param>
 		/// <param name="timer">The timer associated to this message.</param>
-		void Send<T>(T message, Timer timer = default);
+		void Send<T>(T message, TimerStruct timer = default);
 
 		/// <summary>
 		/// Have <paramref name="listener"/> subscribe to messages of type <typeparamref name="T"/>.

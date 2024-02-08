@@ -82,11 +82,8 @@ namespace SpaxUtils
 		/// </summary>
 		public virtual float GetValue()
 		{
-			if (recalculate)
+			if (recalculate || modifiers.Values.Any((m) => m.Dirty))
 			{
-				// Remove all modifiers that have been disposed of.
-				RemoveAllNullMods();
-
 				// Apply modifiers (ordering is handled by util method)
 				lastCalculatedValue = ModUtil.Modify(BaseValue, modifiers.Values);
 
@@ -113,7 +110,6 @@ namespace SpaxUtils
 
 			// Add the mod and request a recalculation.
 			modifiers[modIdentifier] = modifier;
-			modifier.ModChangedEvent += OnModChangedEvent;
 			ValueChanged();
 		}
 
@@ -122,17 +118,12 @@ namespace SpaxUtils
 			if (TryGetModifier(modIdentifier, out IModifier<float> modifier))
 			{
 				modifiers.Remove(modIdentifier);
-				modifier.ModChangedEvent -= OnModChangedEvent;
 				ValueChanged();
 			}
 		}
 
 		public void ClearModifiers()
 		{
-			foreach (IModifier<float> modifier in modifiers.Values)
-			{
-				modifier.ModChangedEvent -= OnModChangedEvent;
-			}
 			modifiers.Clear();
 			ValueChanged();
 		}
@@ -166,20 +157,6 @@ namespace SpaxUtils
 			recalculate = true;
 			ValueChangedEvent?.Invoke();
 			CompositeChangedEvent?.Invoke(this);
-		}
-
-		protected void OnModChangedEvent()
-		{
-			ValueChanged();
-		}
-
-		private void RemoveAllNullMods()
-		{
-			List<object> nullRefs = modifiers.Where(pair => pair.Value == null).Select(pair => pair.Key).ToList();
-			foreach (object badKey in nullRefs)
-			{
-				modifiers.Remove(badKey);
-			}
 		}
 
 		/// <summary>

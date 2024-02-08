@@ -47,10 +47,12 @@ namespace SpaxUtils
 			{
 				case ModMethod.Apply:
 				case ModMethod.Absolute:
+					modifier.Applied();
 					return modifier.Modify(currentValue);
 				case ModMethod.Auto:
 				case ModMethod.Base:
 				case ModMethod.Additive:
+					modifier.Applied();
 					return ModAdditive(baseValue, currentValue, modifier);
 				default:
 					SpaxDebug.Error($"IModifier<{typeof(T)}> ", $"ModMethod: {modifier.Method} could not be applied.");
@@ -68,7 +70,7 @@ namespace SpaxUtils
 		/// <param name="modifier">The <see cref="IModifier{T}"/> implementation to apply additively to the composite data.</param>
 		public static T ModAdditive<T>(T baseValue, T currentValue, IModifier<T> modifier)
 		{
-			// current + mod(base) - base
+			// Performs: current + mod(base) - base
 			return modifier.Add(currentValue, modifier.Subtract(modifier.Modify(baseValue), baseValue));
 		}
 	}
