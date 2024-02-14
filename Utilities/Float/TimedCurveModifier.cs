@@ -9,17 +9,17 @@ namespace SpaxUtils
 	public class TimedCurveModifier : FloatModifierBase, IDisposable
 	{
 		public override ModMethod Method => method;
+		public TimerStruct Timer { get; }
 
 		private ModMethod method;
 		private AnimationCurve curve;
-		private TimerStruct timer;
 		private CallbackService callbackService;
 
 		public TimedCurveModifier(ModMethod method, AnimationCurve curve, TimerStruct timer, CallbackService callbackService)
 		{
 			this.method = method;
 			this.curve = curve;
-			this.timer = timer;
+			this.Timer = timer;
 			this.callbackService = callbackService;
 
 			callbackService.UpdateCallback += OnUpdate;
@@ -32,7 +32,7 @@ namespace SpaxUtils
 
 		private void OnUpdate()
 		{
-			if (!timer)
+			if (!Timer)
 			{
 				Dispose();
 			}
@@ -49,7 +49,7 @@ namespace SpaxUtils
 
 		public override float Modify(float input)
 		{
-			return input * curve.Evaluate(timer.Progress);
+			return input * curve.Evaluate(Timer.Progress);
 		}
 	}
 }

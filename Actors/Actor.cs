@@ -21,6 +21,7 @@ namespace SpaxUtils
 		public IAct Act => MainPerformer != null ? MainPerformer.Act : null;
 		public PerformanceState State => MainPerformer != null ? MainPerformer.State : PerformanceState.Inactive;
 		public float RunTime => MainPerformer != null ? MainPerformer.RunTime : 0f;
+		public bool Blocked { get; set; } = false;
 
 		/// <summary>
 		/// The last performer to be activated.
@@ -110,7 +111,7 @@ namespace SpaxUtils
 		{
 			base.OnReceived(key, act);
 
-			if (!SupportsAct(act.Title))
+			if (!SupportsAct(act.Title) || Blocked)
 			{
 				return;
 			}
@@ -171,7 +172,7 @@ namespace SpaxUtils
 			}
 
 			// Ensure Support and Non-Occupance or Interuptability.
-			if (SupportsAct(act.Title) && (MainPerformer == null ||
+			if (!Blocked && SupportsAct(act.Title) && (MainPerformer == null ||
 				State == PerformanceState.Finishing || State == PerformanceState.Completed ||
 				(act.Interuptor && Act.Interuptable && TryCancel(false))))
 			{

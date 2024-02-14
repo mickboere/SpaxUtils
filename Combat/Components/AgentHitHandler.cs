@@ -67,10 +67,13 @@ namespace SpaxUtils
 				PoserStruct instructions = hitBlendTree.GetInstructions(-lastHit.Direction.Localize(rigidbodyWrapper.transform), 0f);
 				animatorPoser.ProvideInstructions(this, PoserLayerConstants.BODY, instructions, 10, stunTimer.Progress.ReverseInOutCubic());
 				stunControlMod.SetValue(stunTimer.Progress.InOutSine());
+				agent.Actor.Blocked = true;
 			}
 			else
 			{
 				animatorPoser.RevokeInstructions(this);
+				stunControlMod.SetValue(1f);
+				agent.Actor.Blocked = false;
 			}
 		}
 
@@ -85,29 +88,23 @@ namespace SpaxUtils
 			}
 
 			// Calculate damage and impact.
-			float damage = SpaxFormulas.CalculateDamage(hitData.Offence, defence);
-			float penetration = hitData.Offence * hitData.Piercing / defence;
-			float impact = hitData.Strength * penetration.InvertClamped();
+			hitData.Penetration = hitData.Parried ? 0f : hitData.Offence * hitData.Piercing / defence;
+			float absorbtion = hitData.Penetration.InvertClamped().OutCubic();//.Range(combatSettings.MinAbsorbtion, combatSettings.MaxAbsorbtion);
+			float damage = hitData.Parried ? 0f : SpaxFormulas.CalculateDamage(hitData.Offence, defence);
+			float impact = hitData.Parried ? 0f : hitData.Strength * absorbtion;
 
 			// Apply hit-pause.
 			hitPauseMod?.Dispose();
 			hitPauseMod = new TimedCurveModifier(
 				ModMethod.Absolute,
 				combatSettings.HitPauseCurve,
-				new TimerStruct(combatSettings.MaxHitPause * penetration.InvertClamped()),
+				new TimerStruct(combatSettings.MaxHitPause * absorbtion),
 				callbackService);
 			timescaleStat.RemoveModifier(this);
 			timescaleStat.AddModifier(this, hitPauseMod);
 
-			// Apply damage.
-			health.Damage(damage, out bool dead);
-			if (dead)
-			{
-				// TODO: Die!
-			}
-
-			// Apply impact.
-			endurance.Damage(impact, out bool stunned);
+			// Damage endurance.
+			endurance.Damage(damage + impact, out bool stunned);
 			if (stunned)
 			{
 				// Stunned.
@@ -122,7 +119,12 @@ namespace SpaxUtils
 				stunTimer.Reset(Mathf.Min(stunTime, maxStunTime));
 			}
 
-			hitData.Return(penetration);
+			// Damage health.
+			health.Damage(damage, out bool dead);
+			if (dead)
+			{
+				// TODO: Die! Should be applied after impact and stun have been processed.
+			}
 		}
 	}
 }

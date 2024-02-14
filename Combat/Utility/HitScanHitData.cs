@@ -8,6 +8,10 @@ namespace SpaxUtils
 	public struct HitScanHitData
 	{
 		public RaycastHit RaycastHit { get; private set; }
+
+		/// <summary>
+		/// The normalized direction of the scan at the moment of the hit.
+		/// </summary>
 		public Vector3 Direction { get; private set; }
 
 		public GameObject GameObject => RaycastHit.transform.gameObject;

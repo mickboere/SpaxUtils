@@ -27,7 +27,7 @@ namespace SpaxUtils
 		public Vector3 Inertia { get; }
 
 		/// <summary>
-		/// The swing direction of the hit.
+		/// The normalized swing direction of the hit.
 		/// </summary>
 		public Vector3 Direction { get; }
 
@@ -55,7 +55,15 @@ namespace SpaxUtils
 
 		#region Return
 
-		public float Penetration { get; private set; } = 0f;
+		/// <summary>
+		/// Return data defining whether this hit has been parried.
+		/// </summary>
+		public bool Parried { get; set; }
+
+		/// <summary>
+		/// Return data defining percentage of offensive penetration,
+		/// </summary>
+		public float Penetration { get; set; } = 0f;
 
 		#endregion Return
 
@@ -77,11 +85,6 @@ namespace SpaxUtils
 			Strength = strength;
 			Offence = offence;
 			Piercing = piercing;
-		}
-
-		public void Return(float penetration)
-		{
-			Penetration = penetration;
 		}
 	}
 }

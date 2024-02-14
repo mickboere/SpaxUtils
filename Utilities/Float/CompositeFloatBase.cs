@@ -86,7 +86,6 @@ namespace SpaxUtils
 			{
 				// Apply modifiers (ordering is handled by util method)
 				lastCalculatedValue = ModUtil.Modify(BaseValue, modifiers.Values);
-
 				recalculate = false;
 			}
 
@@ -150,7 +149,7 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
-		/// Called whenever a new modification to either the base value or any of the modifiers has been detected.
+		/// Called whenever a new modification to the base value has been detected.
 		/// </summary>
 		protected void ValueChanged()
 		{

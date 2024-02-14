@@ -71,6 +71,20 @@ namespace SpaxUtils
 			return Mathf.Abs(f);
 		}
 
+		/// <summary>
+		/// Remaps value <paramref name="f"/> to a different range.
+		/// </summary>
+		/// <param name="f">The value to remap.</param>
+		/// <param name="a">The new minimum value.</param>
+		/// <param name="b">The new maximum value.</param>
+		/// <param name="fromA">The previous minimum value.</param>
+		/// <param name="fromB">The previous maximum value.</param>
+		/// <returns></returns>
+		public static float Range(this float f, float a, float b, float fromA = 0f, float fromB = 1f)
+		{
+			return Mathf.Lerp(a, b, Mathf.InverseLerp(fromA, fromB, f));
+		}
+
 		#region Easing functions
 
 		#region Sine
@@ -132,11 +146,19 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
+		/// https://easings.net/#easeOutCubic
+		/// </summary>
+		public static float OutCubic(this float x)
+		{
+			return 1f - Mathf.Pow(1f - x, 3f);
+		}
+
+		/// <summary>
 		/// https://easings.net/#easeInOutCubic
 		/// </summary>
 		public static float InOutCubic(this float x)
 		{
-			return x < 0.5 ? 4 * x * x * x : 1 - Mathf.Pow(-2 * x + 2, 3) / 2;
+			return x < 0.5f ? 4f * x * x * x : 1f - Mathf.Pow(-2f * x + 2f, 3f) / 2f;
 		}
 
 		/// <summary>

@@ -14,7 +14,7 @@ namespace SpaxUtils
 		[SerializeField] private float autoAimRange = 2f;
 		[SerializeField] private LayerMask hitDetectionMask;
 
-		private ICombatMove combatMove;
+		protected ICombatMove combatMove;
 		private CallbackService callbackService;
 		private TransformLookup transformLookup;
 		private ITargeter targeter;
@@ -111,6 +111,7 @@ namespace SpaxUtils
 				// Auto aim to closest targetable in range.
 				movementHandler.SetTargetVelocity((closest.Center - RigidbodyWrapper.Position).normalized);
 			}
+			movementHandler.ForceRotation();
 
 			// Stats.
 			if (combatMove.PerformCost.Count > 0)
@@ -130,27 +131,23 @@ namespace SpaxUtils
 				}
 			}
 
-			movementHandler.ForceRotation();
 			momentumTimer = new TimerStruct(combatMove.ForceDelay);
 			appliedMomentum = false;
 		}
 
-		private void OnNewHitDetected(List<HitScanHitData> newHits)
+		protected void OnNewHitDetected(List<HitScanHitData> newHits)
 		{
-			HitData heaviestHit = null;
 			foreach (HitScanHitData hit in newHits)
 			{
 				if (hit.GameObject.TryGetComponentRelative(out IHittable hittable))
 				{
-					Vector3 inertia = combatMove.Inertia.Look((hittable.Entity.Transform.position - Agent.Transform.position).FlattenY());
-
-					// Calculate hit data.
+					// Generate hit data.
+					Vector3 inertia = combatMove.Inertia.Look((hittable.Entity.Transform.position - Agent.Transform.position).FlattenY().normalized);
 					float mass = RigidbodyWrapper.Mass * combatMove.MassInfluence;
 					float strength = strengthStat * combatMove.Strength;
 					float offence = offenceStat * combatMove.Offensiveness;
 					float piercing = piercingStat * combatMove.Piercing;
 
-					// Generate hit-data for hittable.
 					HitData hitData = new HitData(
 						hittable,
 						Agent,
@@ -162,29 +159,34 @@ namespace SpaxUtils
 						piercing
 					);
 
-					// TODO: Create IHitter class where other classes can add damages to the hitdata.
-
-					if (hittable.Hit(hitData))
-					{
-						if (heaviestHit == null || hitData.Penetration < heaviestHit.Penetration)
-						{
-							heaviestHit = hitData;
-						}
-					}
+					ProcessAttack(hittable, hitData);
 				}
 			}
+		}
 
-			if (heaviestHit != null)
+		protected virtual void ProcessAttack(IHittable hittable, HitData hitData)
+		{
+			// Send hit and apply return data.
+			if (hittable.Hit(hitData))
 			{
-				// Apply hit-pause.
-				hitPauseMod?.Dispose();
-				hitPauseMod = new TimedCurveModifier(
-					ModMethod.Absolute,
-					combatSettings.HitPauseCurve,
-					new TimerStruct(combatSettings.MaxHitPause * heaviestHit.Penetration.InvertClamped()),
-					callbackService);
-				timescaleStat.RemoveModifier(this);
-				timescaleStat.AddModifier(this, hitPauseMod);
+				if (hitData.Parried)
+				{
+					Performer.TryCancel(true);
+				}
+
+				float hitPause = combatSettings.MaxHitPause * hitData.Penetration.InvertClamped();
+				if (hitPauseMod == null || hitPause > hitPauseMod.Timer.Remaining)
+				{
+					// Apply hit-pause.
+					hitPauseMod?.Dispose();
+					hitPauseMod = new TimedCurveModifier(
+						ModMethod.Absolute,
+						combatSettings.HitPauseCurve,
+						new TimerStruct(hitPause),
+						callbackService);
+					timescaleStat.RemoveModifier(this);
+					timescaleStat.AddModifier(this, hitPauseMod);
+				}
 			}
 		}
 	}

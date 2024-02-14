@@ -22,11 +22,11 @@ namespace SpaxUtils
 		public static float Exp(float level, float constant = CONSTANT, float power = POWER,
 			bool round = false)
 		{
-			float E()
+			float Formula()
 			{
 				return Mathf.Pow(level / constant, power);
 			}
-			return round ? Mathf.Round(E()) : E();
+			return round ? Mathf.Round(Formula()) : Formula();
 		}
 
 		/// <summary>
@@ -41,11 +41,11 @@ namespace SpaxUtils
 		public static float ExpDiff(float level, float constant = CONSTANT, float power = POWER,
 			bool round = false, bool implicitRound = false)
 		{
-			float ED()
+			float Formula()
 			{
 				return Exp(level, constant, power, implicitRound) - Exp(level - 1, constant, power, implicitRound);
 			}
-			return round ? Mathf.Round(ED()) : ED();
+			return round ? Mathf.Round(Formula()) : Formula();
 		}
 
 		/// <summary>
@@ -59,11 +59,11 @@ namespace SpaxUtils
 		public static float InvExp(float exp, float constant = CONSTANT, float power = POWER,
 			bool floor = false)
 		{
-			float E()
+			float Formula()
 			{
 				return Mathf.Pow(exp, 1f / power) * constant;
 			}
-			return floor ? Mathf.Floor(E()) : E();
+			return floor ? Mathf.Floor(Formula()) : Formula();
 		}
 
 		/// <summary>
@@ -79,11 +79,11 @@ namespace SpaxUtils
 		public static float Log(float level, float constant = CONSTANT, float power = POWER, float scale = SCALE, float shift = 0f,
 			bool round = false)
 		{
-			float L()
+			float Formula()
 			{
 				return shift + Mathf.Log(1f + level / constant, power) * scale;
 			}
-			return round ? Mathf.Round(L()) : L();
+			return round ? Mathf.Round(Formula()) : Formula();
 		}
 
 		/// <summary>
@@ -100,11 +100,11 @@ namespace SpaxUtils
 		public static float LogDiff(float level, float constant = CONSTANT, float power = POWER, float scale = SCALE, float shift = 0f,
 			bool round = false, bool implicitRound = false)
 		{
-			float LD()
+			float Formula()
 			{
 				return Log(level, constant, power, scale, shift, implicitRound) - Log(level - 1f, constant, power, scale, shift, implicitRound);
 			}
-			return round ? Mathf.Round(LD()) : LD();
+			return round ? Mathf.Round(Formula()) : Formula();
 		}
 
 		/// <summary>
@@ -112,14 +112,18 @@ namespace SpaxUtils
 		/// </summary>
 		/// <param name="offence">The attacker's offensive power.</param>
 		/// <param name="defence">The defender's defensive power.</param>
-		/// <param name="exponentiality">Amount of exponentiality applied to the formula. Default = 0.5.</param>
+		/// <param name="exponence">Amount of exponence applied to the formula. 0 will simply substract defence from offence. Default = 0.5.</param>
 		/// <returns>The resulting damage.</returns>
-		public static float CalculateDamage(float offence, float defence, float exponentiality = 0.5f)
+		public static float CalculateDamage(float offence, float defence, float exponence = 0.5f, bool round = false)
 		{
-			return Mathf.Round(Mathf.Lerp(
+			float Formula()
+			{
+				return Mathf.Lerp(
 				Mathf.Max(0f, offence - defence),
 				offence * offence / defence,
-				exponentiality));
+				exponence);
+			}
+			return round ? Mathf.Round(Formula()) : Formula();
 		}
 	}
 }

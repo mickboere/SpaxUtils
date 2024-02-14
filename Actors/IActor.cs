@@ -14,6 +14,11 @@ namespace SpaxUtils
 		IPerformer MainPerformer { get; }
 
 		/// <summary>
+		/// Whether the actor is currently blocked from performing.
+		/// </summary>
+		bool Blocked { get; set; }
+
+		/// <summary>
 		/// Sends a new act to the actor.
 		/// </summary>
 		/// <typeparam name="T"></typeparam>
