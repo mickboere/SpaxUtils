@@ -14,9 +14,9 @@ namespace SpaxUtils
 		public float HitDetectionDelay => hitDetectionDelay;
 		public Vector3 Inertia => momentum;
 		public float ForceDelay => forceDelay;
-		public float MassInfluence => massInfluence;
+		public string Limb => limb;
 		public float Strength => strength;
-		public float Offensiveness => offensiveness;
+		public float Offence => offence;
 		public float Piercing => piercing;
 		public IList<StatCost> PerformCost => performCost;
 
@@ -31,9 +31,9 @@ namespace SpaxUtils
 		[SerializeField] private float forceDelay;
 
 		[Header("Stats")]
-		[SerializeField, Range(0f, 1f), Tooltip("Percentage of user's mass transfered into hit.")] private float massInfluence = 0.5f;
+		[SerializeField, ConstDropdown(typeof(IStatIdentifierConstants), filter: AgentStatIdentifiers.SUB_STAT)] private string limb;
 		[SerializeField, Range(0f, 1f), Tooltip("Percentage of user's strength transfered into hit.")] private float strength = 1f;
-		[SerializeField, Range(0f, 1f), Tooltip("Percentage of user's offence transfered into hit.")] private float offensiveness = 1f;
+		[SerializeField, Range(0f, 1f), Tooltip("Percentage of user's offence transfered into hit.")] private float offence = 1f;
 		[SerializeField, Range(0f, 1f), Tooltip("Percentage of user's piercing transfered into hit.")] private float piercing = 1f;
 		[SerializeField] private List<StatCost> performCost;
 	}

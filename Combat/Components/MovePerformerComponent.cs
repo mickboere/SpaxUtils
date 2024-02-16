@@ -120,7 +120,7 @@ namespace SpaxUtils
 		#region Move Management
 
 		/// <inheritdoc/>
-		public void AddMove(string act, object owner, PerformanceState state, IPerformanceMove move, int prio)
+		public void AddMove(string act, object context, PerformanceState state, IPerformanceMove move, int prio)
 		{
 			if (move == null)
 			{
@@ -134,15 +134,15 @@ namespace SpaxUtils
 			}
 
 			// Set move prio.
-			moves[act][owner] = (state, move, prio);
+			moves[act][context] = (state, move, prio);
 		}
 
 		/// <inheritdoc/>
-		public void RemoveMove(string act, object owner)
+		public void RemoveMove(string act, object context)
 		{
-			if (moves.ContainsKey(act) && moves[act].ContainsKey(owner))
+			if (moves.ContainsKey(act) && moves[act].ContainsKey(context))
 			{
-				moves[act].Remove(owner);
+				moves[act].Remove(context);
 			}
 			if (moves[act].Count == 0)
 			{

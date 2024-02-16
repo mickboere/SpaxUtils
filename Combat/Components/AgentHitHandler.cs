@@ -82,40 +82,40 @@ namespace SpaxUtils
 			lastHit = hitData;
 
 			// Transfer intertia.
-			if (hitData.Hitter.TryGetStat(EntityStatIdentifiers.MASS, out EntityStat hitterMass))
+			if (hitData.Hitter.TryGetStat(AgentStatIdentifiers.MASS, out EntityStat hitterMass))
 			{
 				rigidbodyWrapper.AddImpact(hitData.Inertia, hitterMass);
 			}
 
 			// Calculate damage and impact.
 			hitData.Penetration = hitData.Parried ? 0f : hitData.Offence * hitData.Piercing / defence;
-			float absorbtion = hitData.Penetration.InvertClamped().OutCubic();//.Range(combatSettings.MinAbsorbtion, combatSettings.MaxAbsorbtion);
+			float impact = hitData.Penetration.InvertClamped().OutCubic();
 			float damage = hitData.Parried ? 0f : SpaxFormulas.CalculateDamage(hitData.Offence, defence);
-			float impact = hitData.Parried ? 0f : hitData.Strength * absorbtion;
+			float force = hitData.Parried ? 0f : hitData.Strength * impact;
 
 			// Apply hit-pause.
 			hitPauseMod?.Dispose();
 			hitPauseMod = new TimedCurveModifier(
 				ModMethod.Absolute,
 				combatSettings.HitPauseCurve,
-				new TimerStruct(combatSettings.MaxHitPause * absorbtion),
+				new TimerStruct(combatSettings.MaxHitPause * impact),
 				callbackService);
 			timescaleStat.RemoveModifier(this);
 			timescaleStat.AddModifier(this, hitPauseMod);
 
 			// Damage endurance.
-			endurance.Damage(damage + impact, out bool stunned);
+			endurance.Damage(force, out bool stunned);
 			if (stunned)
 			{
 				// Stunned.
 				agent.Actor.TryCancel(true);
 
 				// Transfer Impact.
-				rigidbodyWrapper.AddImpact(hitData.Direction * impact, hitData.Mass);
+				rigidbodyWrapper.AddImpact(hitData.Direction * force, hitData.Mass);
 
 				// Apply stun.
 				// TODO: Should be based on actual stun state that has a minimum duration for low impact forces and a control-detector for big impacts that send the agent flying or sliding away.
-				float stunTime = impact * hitData.Mass / rigidbodyWrapper.Mass;
+				float stunTime = force * hitData.Mass / rigidbodyWrapper.Mass;
 				stunTimer.Reset(Mathf.Min(stunTime, maxStunTime));
 			}
 

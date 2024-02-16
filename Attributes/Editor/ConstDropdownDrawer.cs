@@ -75,7 +75,7 @@ namespace SpaxUtils
 
 				// Option could not be found, reset the option if allowed, else add it as an error.
 				optionIndex = 0;
-				if (constDropdownAttribute.ForceOption)
+				if (true)//constDropdownAttribute.ForceOption)
 				{
 					if (!string.IsNullOrEmpty(currentOption))
 					{
@@ -88,8 +88,9 @@ namespace SpaxUtils
 							error = false;
 						}
 
-						SpaxDebug.Error($"Invalid value; '{currentOption}' selected in dropdown.",
-							$"Converted to '{(string.IsNullOrEmpty(storedOptions[optionIndex]) ? constDropdownAttribute.EmptyOption : storedOptions[optionIndex])}'.");
+						SpaxDebug.Log($"Invalid value; '{currentOption}' selected in dropdown.",
+							$"Converted to '{(string.IsNullOrEmpty(storedOptions[optionIndex]) ? constDropdownAttribute.EmptyOption : storedOptions[optionIndex])}'.",
+							color: Color.yellow);
 					}
 				}
 				else
@@ -125,10 +126,19 @@ namespace SpaxUtils
 
 		private int TryFindRenamedValue(string oldValue, List<string> newValues, int renameAccuracy)
 		{
+			// First check if capitalization changed.
+			for (int i = 0; i < newValues.Count; i++)
+			{
+				if (oldValue.ToUpper() == newValues[i].ToUpper())
+				{
+					return i;
+				}
+			}
+
 			string oldValueSplit = oldValue.Split(ConstDropdownAttribute.ADRESS_SEPARATOR).Last();
 			string[] newValuesSplit = newValues.Select((v) => v.Split(ConstDropdownAttribute.ADRESS_SEPARATOR).Last()).ToArray();
 
-			// First check if the filename or adress changed by splitting all the new value paths and only looking at the value part.
+			// Secondly check if the filename or adress changed by splitting all the new value paths and only looking at the value part.
 			for (int i = 0; i < newValuesSplit.Length; i++)
 			{
 				if (oldValueSplit == newValuesSplit[i])

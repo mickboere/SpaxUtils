@@ -32,9 +32,9 @@ namespace SpaxUtils
 		#region Hit Data
 
 		/// <summary>
-		/// Percentage of user's mass that gets transfered into the attack.
+		/// Sub-Stat identifying the limb responsible for performing hits.
 		/// </summary>
-		float MassInfluence { get; }
+		string Limb { get; }
 
 		/// <summary>
 		/// Percentage of user's strength that gets transfered into the attack.
@@ -44,7 +44,7 @@ namespace SpaxUtils
 		/// <summary>
 		/// Percentage of user's offence that gets transfered into the attack.
 		/// </summary>
-		float Offensiveness { get; }
+		float Offence { get; }
 
 		/// <summary>
 		/// Percentage of user's piercing ability that gets transfered into the attack.

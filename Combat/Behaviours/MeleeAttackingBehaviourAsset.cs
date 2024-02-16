@@ -24,6 +24,7 @@ namespace SpaxUtils
 		private CombatSettings combatSettings;
 
 		private EntityStat timescaleStat;
+		private EntityStat massStat;
 		private EntityStat strengthStat;
 		private EntityStat offenceStat;
 		private EntityStat piercingStat;
@@ -49,9 +50,10 @@ namespace SpaxUtils
 			this.combatSettings = combatSettings;
 
 			timescaleStat = Agent.GetStat(EntityStatIdentifiers.TIMESCALE, true, 1f);
+			massStat = Agent.GetStat(AgentStatIdentifiers.MASS.SubStat(combatMove.Limb));
 			strengthStat = Agent.GetStat(AgentStatIdentifiers.STRENGTH);
-			offenceStat = Agent.GetStat(AgentStatIdentifiers.OFFENCE);
-			piercingStat = Agent.GetStat(AgentStatIdentifiers.PIERCING, true);
+			offenceStat = Agent.GetStat(AgentStatIdentifiers.OFFENCE.SubStat(combatMove.Limb));
+			piercingStat = Agent.GetStat(AgentStatIdentifiers.PIERCING.SubStat(combatMove.Limb));
 		}
 
 		public override void Start()
@@ -143,9 +145,9 @@ namespace SpaxUtils
 				{
 					// Generate hit data.
 					Vector3 inertia = combatMove.Inertia.Look((hittable.Entity.Transform.position - Agent.Transform.position).FlattenY().normalized);
-					float mass = RigidbodyWrapper.Mass * combatMove.MassInfluence;
+					float mass = massStat;
 					float strength = strengthStat * combatMove.Strength;
-					float offence = offenceStat * combatMove.Offensiveness;
+					float offence = offenceStat * combatMove.Offence;
 					float piercing = piercingStat * combatMove.Piercing;
 
 					HitData hitData = new HitData(

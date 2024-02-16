@@ -44,7 +44,7 @@ namespace SpaxUtils
 		[SerializeField] private Sprite icon;
 		[SerializeField] private GameObject worldItemPrefab;
 		[SerializeField, Expandable] private List<BehaviourAsset> inventoryBehaviour;
-		[SerializeField, FormerlySerializedAs("stats")] private List<LabeledFloatData> itemStats;
+		[SerializeField] private List<LabeledFloatData> itemStats;
 
 		public override string ToString()
 		{

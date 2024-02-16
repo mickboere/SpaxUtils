@@ -79,10 +79,11 @@
 		private const string BODY_STAT = IStatIdentifierConstants.STATS + "BODY/";
 
 		// Earth
+		public const string MASS = BODY_STAT + "Mass"; // Total body mass.
 		public const string LOAD = BODY_STAT + "Load"; // Total equip load.
 		public const string ENDURANCE = BODY_STAT + "Endurance"; // Total amount of force one can absorb.
 		public const string DEFENCE = BODY_STAT + "Defence"; // Total amount of passive defence.
-		public const string GUARD = BODY_STAT + "Guard"; // Total amount of active defence.
+		public const string GUARD = BODY_STAT + "Guard"; // Total amount of active (guarding) defence.
 
 		// Daeth
 		public const string OFFENCE = BODY_STAT + "Offence"; // Total damage output.
@@ -119,14 +120,19 @@
 		/// <summary>
 		/// <see cref="StringExtensions.SubStat(string, string)"/>.
 		/// </summary>
-		public const string SUB_STAT = IStatIdentifierConstants.STATS + "Sub/";
+		public const string SUB_STAT = IStatIdentifierConstants.STATS + "SUB/";
 
+		// Point-stats
 		public const string SUB_MAX = SUB_STAT + "Max";
 		public const string SUB_RECOVERABLE = SUB_STAT + "Recoverable";
 		public const string SUB_FRAILTY = SUB_STAT + "Frailty";
 		public const string SUB_RECOVERY = SUB_STAT + "Recovery";
 		public const string SUB_RECOVERY_DELAY = SUB_STAT + "Recovery_Delay";
 		public const string SUB_COST = SUB_STAT + "Cost";
+
+		// Limbs
+		public const string SUB_RIGHT_HAND = SUB_STAT + "Right Hand";
+		public const string SUB_LEFT_HAND = SUB_STAT + "Left Hand";
 
 		#endregion Sub Stats
 	}

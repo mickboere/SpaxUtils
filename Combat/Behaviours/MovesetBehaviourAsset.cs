@@ -11,10 +11,12 @@ namespace SpaxUtils
 	{
 		[SerializeField] private List<ActMovePair> moveSet;
 
+		private RuntimeItemData runtimeItemData;
 		private IMovePerformer combatPerformer;
 
-		public void InjectDependencies(IMovePerformer combatPerformer)
+		public void InjectDependencies(RuntimeItemData runtimeItemData, IMovePerformer combatPerformer)
 		{
+			this.runtimeItemData = runtimeItemData;
 			this.combatPerformer = combatPerformer;
 		}
 
@@ -23,7 +25,7 @@ namespace SpaxUtils
 			base.Start();
 			foreach (ActMovePair pair in moveSet)
 			{
-				combatPerformer.AddMove(pair.Act, this, PerformanceState.Inactive | PerformanceState.Finishing | PerformanceState.Completed, pair.Move, pair.Prio);
+				combatPerformer.AddMove(pair.Act, runtimeItemData, PerformanceState.Inactive | PerformanceState.Finishing | PerformanceState.Completed, pair.Move, pair.Prio);
 			}
 		}
 
@@ -32,7 +34,7 @@ namespace SpaxUtils
 			base.Stop();
 			foreach (ActMovePair pair in moveSet)
 			{
-				combatPerformer.RemoveMove(pair.Act, this);
+				combatPerformer.RemoveMove(pair.Act, runtimeItemData);
 			}
 		}
 	}

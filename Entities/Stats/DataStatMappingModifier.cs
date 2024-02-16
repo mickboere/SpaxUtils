@@ -7,14 +7,30 @@ namespace SpaxUtils
 	/// </summary>
 	public class DataStatMappingModifier : FloatModifierBase, IDisposable
 	{
-		public override ModMethod Method => Mapping.Method;
-		public StatMapping Mapping { get; private set; }
-		public RuntimeDataEntry Data { get; private set; }
+		public override ModMethod Method { get; }
+		public RuntimeDataEntry Data { get; }
+		public Operation Operation { get; }
+		public Func<float> GetModValueFunc { get; }
 
-		public DataStatMappingModifier(StatMapping mapping, RuntimeDataEntry data)
+		public DataStatMappingModifier(RuntimeDataEntry data, ModMethod method, Operation operation, Func<float> getModValueFunc)
 		{
-			Mapping = mapping;
 			Data = data;
+			Method = method;
+			Operation = operation;
+			GetModValueFunc = getModValueFunc;
+
+			data.ValueChangedEvent += OnValueChangedEvent;
+		}
+
+		public DataStatMappingModifier(IStatModConfig config, RuntimeDataEntry data)
+		{
+			Data = data;
+			Method = config.Method;
+			Operation = config.Operation;
+			GetModValueFunc = delegate ()
+			{
+				return config.GetModifierValue((float)data.Value);
+			};
 
 			data.ValueChangedEvent += OnValueChangedEvent;
 		}
@@ -29,7 +45,7 @@ namespace SpaxUtils
 
 		public override float Modify(float input)
 		{
-			return FloatOperationModifier.Operate(input, Mapping.Operation, Mapping.GetModifierValue((float)Data.Value));
+			return FloatOperationModifier.Operate(input, Operation, GetModValueFunc());
 		}
 
 		private void OnValueChangedEvent(object value)

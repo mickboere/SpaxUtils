@@ -45,7 +45,7 @@ namespace SpaxUtils
 			GetSkeleton();
 
 			// Apply base mass.
-			if (HasRigidbody && Entity.TryGetStat(EntityStatIdentifiers.MASS, out EntityStat mass))
+			if (HasRigidbody && Entity.TryGetStat(AgentStatIdentifiers.MASS, out EntityStat mass))
 			{
 				mass.BaseValue = BaseMass;
 			}
