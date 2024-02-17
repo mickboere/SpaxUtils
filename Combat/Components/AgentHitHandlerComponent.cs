@@ -6,31 +6,27 @@ namespace SpaxUtils
 	/// <summary>
 	/// Entity component responsible for handling hits coming through in the <see cref="IHittable"/> component.
 	/// </summary>
-	public class AgentHitHandler : EntityComponentBase
+	public class AgentHitHandlerComponent : EntityComponentBase
 	{
-		[SerializeField] private PoseSequenceBlendTree hitBlendTree;
-		[SerializeField] private float maxStunTime = 3f;
-
 		private IAgent agent;
 		private IHittable hittable;
 		private RigidbodyWrapper rigidbodyWrapper;
 		private AnimatorPoser animatorPoser;
 		private CombatSettings combatSettings;
 		private CallbackService callbackService;
+		private IStunHandler stunHandler;
 
 		private EntityStat timescaleStat;
 		private EntityStat health;
 		private EntityStat endurance;
 		private EntityStat defence;
 
-		private HitData lastHit;
-		private TimerClass stunTimer;
-		private FloatOperationModifier stunControlMod;
 		private TimedCurveModifier hitPauseMod;
 
 		public void InjectDependencies(IAgent agent, IHittable hittable,
 			RigidbodyWrapper rigidbodyWrapper, AnimatorPoser animatorPoser,
-			CombatSettings combatSettings, CallbackService callbackService)
+			CombatSettings combatSettings, CallbackService callbackService,
+			IStunHandler stunHandler)
 		{
 			this.agent = agent;
 			this.hittable = hittable;
@@ -38,20 +34,17 @@ namespace SpaxUtils
 			this.animatorPoser = animatorPoser;
 			this.combatSettings = combatSettings;
 			this.callbackService = callbackService;
+			this.stunHandler = stunHandler;
 		}
 
 		protected void OnEnable()
 		{
 			hittable.Subscribe(this, OnHitEvent, -1);
-			stunControlMod = new FloatOperationModifier(ModMethod.Absolute, Operation.Multiply, 1f);
-			rigidbodyWrapper.Control.AddModifier(this, stunControlMod);
 
 			timescaleStat = agent.GetStat(EntityStatIdentifiers.TIMESCALE);
 			health = agent.GetStat(AgentStatIdentifiers.HEALTH);
 			endurance = agent.GetStat(AgentStatIdentifiers.ENDURANCE);
 			defence = agent.GetStat(AgentStatIdentifiers.DEFENCE);
-
-			stunTimer = new TimerClass(null, () => EntityTimeScale, true);
 		}
 
 		protected void OnDisable()
@@ -60,27 +53,8 @@ namespace SpaxUtils
 			rigidbodyWrapper.Control.RemoveModifier(this);
 		}
 
-		protected void Update()
-		{
-			if (!stunTimer.Expired)
-			{
-				PoserStruct instructions = hitBlendTree.GetInstructions(-lastHit.Direction.Localize(rigidbodyWrapper.transform), 0f);
-				animatorPoser.ProvideInstructions(this, PoserLayerConstants.BODY, instructions, 10, stunTimer.Progress.ReverseInOutCubic());
-				stunControlMod.SetValue(stunTimer.Progress.InOutSine());
-				agent.Actor.Blocked = true;
-			}
-			else
-			{
-				animatorPoser.RevokeInstructions(this);
-				stunControlMod.SetValue(1f);
-				agent.Actor.Blocked = false;
-			}
-		}
-
 		private void OnHitEvent(HitData hitData)
 		{
-			lastHit = hitData;
-
 			// Transfer intertia.
 			if (hitData.Hitter.TryGetStat(AgentStatIdentifiers.MASS, out EntityStat hitterMass))
 			{
@@ -114,9 +88,7 @@ namespace SpaxUtils
 				rigidbodyWrapper.AddImpact(hitData.Direction * force, hitData.Mass);
 
 				// Apply stun.
-				// TODO: Should be based on actual stun state that has a minimum duration for low impact forces and a control-detector for big impacts that send the agent flying or sliding away.
-				float stunTime = force * hitData.Mass / rigidbodyWrapper.Mass;
-				stunTimer.Reset(Mathf.Min(stunTime, maxStunTime));
+				stunHandler.EnterStun(hitData);
 			}
 
 			// Damage health.
