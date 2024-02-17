@@ -15,7 +15,7 @@ namespace SpaxUtils
 
 		[Header("Grounded")]
 		[SerializeField] private PoseSequenceBlendTree groundedHitBlendTree;
-		[SerializeField] private float minStunTime = 0.7f;
+		[SerializeField] private float minStunTime = 0.5f;
 		[SerializeField, Tooltip(TT_RECOVERY_THRESH)] private float recoveryThreshold = 2f;
 		[SerializeField, Tooltip(TT_RECOVERED_THRESH)] private float recoveredThreshold = 1f;
 		[Header("Airborne")]

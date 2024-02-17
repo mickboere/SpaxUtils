@@ -35,6 +35,7 @@ namespace SpaxUtils
 		[SerializeField, Tooltip("Grounded amount calculated from raycast exiting the ground.")] private AnimationCurve exitCurve = new AnimationCurve(new Keyframe(0f, 0f), new Keyframe(1f, 1f));
 		[SerializeField, Range(0f, 1f)] private float groundedOvershoot = 0f;
 		[SerializeField] private float checkRadius = 0.1f;
+		[SerializeField] private float clipThreshold = 0.025f;
 
 		[SerializeField, Header("Gizmos")] private bool drawGizmos;
 		[SerializeField, Conditional(nameof(drawGizmos))] private bool drawSpokes;
@@ -125,8 +126,23 @@ namespace SpaxUtils
 
 		private void UpdateLegs(float delta)
 		{
-			if (rigidbodyWrapper.Control < 0.5f)
+			if (rigidbodyWrapper.Control < 0.5f || grounder.Sliding)
 			{
+				foreach (ILeg leg in legs.Legs)
+				{
+					Vector3 dir = leg.Foot.position - leg.Knee.position;
+					float length = dir.magnitude;
+					if (Physics.Raycast(leg.Knee.position, dir, out RaycastHit hit, length, layerMask) &&
+						length - hit.distance > clipThreshold)
+					{
+						leg.UpdateFoot(grounder.Grounded, 1f, true, hit.point, hit);
+					}
+					else
+					{
+						leg.UpdateFoot(grounder.Grounded, 0f, false, leg.TargetPoint, leg.GroundedHit);
+					}
+				}
+
 				return;
 			}
 

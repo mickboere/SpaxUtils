@@ -25,7 +25,6 @@ namespace SpaxUtils
 			[SerializeField] private int legIndex;
 			[SerializeField] private Transform footHelper;
 			[SerializeField] private Transform hint;
-			[SerializeField] private float clipThreshold = 0.025f;
 			[SerializeField] private bool debug;
 
 			private IIKComponent ikComponent;
@@ -45,34 +44,30 @@ namespace SpaxUtils
 				this.rigidbodyWrapper = wrapper;
 			}
 
-			public void UpdateIK(LayerMask layerMask)
+			public void UpdateIK()
 			{
 				float weight = 0f;
 
-				if (rigidbodyWrapper.Control < 0.5f || grounder.Sliding)
-				{
-					Vector3 dir = footHelper.position - Leg.Knee.position;
-					float length = dir.magnitude;
-					if (Physics.Raycast(Leg.Knee.position, dir, out RaycastHit hit, length, layerMask) &&
-						length - hit.distance > clipThreshold)
-					{
-						weight = 1f;
-						Leg.UpdateFoot(false, 1f, true, hit.point, hit);
-					}
-				}
-				else if (grounder.Grounded)
+				if (grounder.Grounded)
 				{
 					float movement = Mathf.Clamp01(rigidbodyWrapper.Speed * 10f).InOutSine();
 					weight = Leg.GroundedAmount * rigidbodyWrapper.Grip * movement;
 				}
-
-				//if (debug)
-				//{
-				//	SpaxDebug.Log($"IK {ikChain}", $"weight{weight:N2}, ground{Leg.GroundedAmount:N2}, grip{wrapper.Grip:N2}, move{Mathf.Clamp01(wrapper.Speed * 10f).InOutSine():N2}");
-				//}
+				else
+				{
+					if(Leg.ValidGround)
+					{
+						weight = 1f;
+					}
+				}
 
 				ikComponent.AddInfluencer(this, ikChain, 0, TargetPosition, weight, TargetRotation * FootRotationOffset, weight);
 				hint.position = HintPosition;
+
+				if (debug)
+				{
+					SpaxDebug.Log($"IK {ikChain}", $"weight{weight:N2}, ground{Leg.GroundedAmount:N2}, grip{rigidbodyWrapper.Grip:N2}, move{Mathf.Clamp01(rigidbodyWrapper.Speed * 10f).InOutSine():N2}");
+				}
 			}
 
 			public void DrawGizmos()
@@ -101,7 +96,6 @@ namespace SpaxUtils
 			}
 		}
 
-		[SerializeField] private LayerMask layerMask;
 		[SerializeField] private List<LegIK> legs;
 
 		private IGrounderComponent grounderComponent;
@@ -130,7 +124,7 @@ namespace SpaxUtils
 
 			foreach (LegIK leg in legs)
 			{
-				leg.UpdateIK(layerMask);
+				leg.UpdateIK();
 			}
 
 			if (grounderFBBIK != null)
