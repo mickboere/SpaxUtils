@@ -131,7 +131,7 @@ namespace SpaxUtils
 				foreach (ILeg leg in legs.Legs)
 				{
 					Vector3 dir = leg.Foot.position - leg.Knee.position;
-					float length = dir.magnitude;
+					float length = dir.magnitude + clipThreshold * 2f;
 					if (Physics.Raycast(leg.Knee.position, dir, out RaycastHit hit, length, layerMask) &&
 						length - hit.distance > clipThreshold)
 					{

@@ -13,6 +13,7 @@ namespace SpaxUtils
 			this.callback = callback;
 
 			stat.ValueChangedEvent += OnStatUpdate;
+			callback(stat);
 		}
 
 		public void Dispose()

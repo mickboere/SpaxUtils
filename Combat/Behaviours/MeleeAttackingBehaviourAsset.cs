@@ -15,19 +15,20 @@ namespace SpaxUtils
 		[SerializeField] private LayerMask hitDetectionMask;
 
 		protected ICombatMove combatMove;
-		private CallbackService callbackService;
-		private TransformLookup transformLookup;
-		private ITargeter targeter;
-		private IAgentMovementHandler movementHandler;
-		private AgentNavigationHandler navigationHandler;
-		private IEntityCollection entityCollection;
-		private CombatSettings combatSettings;
+		protected CallbackService callbackService;
+		protected TransformLookup transformLookup;
+		protected ITargeter targeter;
+		protected IAgentMovementHandler movementHandler;
+		protected AgentNavigationHandler navigationHandler;
+		protected IEntityCollection entityCollection;
+		protected CombatSettings combatSettings;
+		protected RigidbodyWrapper rigidbodyWrapper;
 
 		private EntityStat timescaleStat;
-		private EntityStat massStat;
+		private EntityStat limbMassStat;
 		private EntityStat strengthStat;
-		private EntityStat offenceStat;
-		private EntityStat piercingStat;
+		private EntityStat limbOffenceStat;
+		private EntityStat limbPiercingStat;
 
 		private CombatHitDetector hitDetector;
 		private bool wasPerforming;
@@ -38,7 +39,8 @@ namespace SpaxUtils
 
 		public void InjectDependencies(ICombatMove move, CallbackService callbackService,
 			TransformLookup transformLookup, ITargeter targeter, IAgentMovementHandler movementHandler,
-			AgentNavigationHandler navigationHandler, IEntityCollection entityCollection, CombatSettings combatSettings)
+			AgentNavigationHandler navigationHandler, IEntityCollection entityCollection, CombatSettings combatSettings,
+			RigidbodyWrapper rigidbodyWrapper)
 		{
 			this.combatMove = move;
 			this.callbackService = callbackService;
@@ -48,12 +50,13 @@ namespace SpaxUtils
 			this.navigationHandler = navigationHandler;
 			this.entityCollection = entityCollection;
 			this.combatSettings = combatSettings;
+			this.rigidbodyWrapper = rigidbodyWrapper;
 
 			timescaleStat = Agent.GetStat(EntityStatIdentifiers.TIMESCALE, true, 1f);
-			massStat = Agent.GetStat(AgentStatIdentifiers.MASS.SubStat(combatMove.Limb));
+			limbMassStat = Agent.GetStat(AgentStatIdentifiers.MASS.SubStat(combatMove.Limb));
 			strengthStat = Agent.GetStat(AgentStatIdentifiers.STRENGTH);
-			offenceStat = Agent.GetStat(AgentStatIdentifiers.OFFENCE.SubStat(combatMove.Limb));
-			piercingStat = Agent.GetStat(AgentStatIdentifiers.PIERCING.SubStat(combatMove.Limb));
+			limbOffenceStat = Agent.GetStat(AgentStatIdentifiers.OFFENCE.SubStat(combatMove.Limb));
+			limbPiercingStat = Agent.GetStat(AgentStatIdentifiers.PIERCING.SubStat(combatMove.Limb));
 		}
 
 		public override void Start()
@@ -92,7 +95,7 @@ namespace SpaxUtils
 				// Apply momentum to user after delay.
 				if (!appliedMomentum && !momentumTimer)
 				{
-					RigidbodyWrapper.AddImpactRelative(combatMove.Inertia);
+					RigidbodyWrapper.PushRelative(combatMove.Inertia);
 					appliedMomentum = true;
 				}
 			}
@@ -104,14 +107,14 @@ namespace SpaxUtils
 			if (targeter.Target != null)
 			{
 				// Auto aim to target.
-				movementHandler.SetTargetVelocity((targeter.Target.Center - RigidbodyWrapper.Position).normalized);
+				movementHandler.SetTargetVelocity((targeter.Target.Center - RigidbodyWrapper.Position));
 			}
 			else if (RigidbodyWrapper.TargetVelocity.magnitude <= 1f &&
 				navigationHandler.TryGetClosestTargetable(targetables.Components, false, out ITargetable closest, out float distance) &&
 				distance < autoAimRange)
 			{
 				// Auto aim to closest targetable in range.
-				movementHandler.SetTargetVelocity((closest.Center - RigidbodyWrapper.Position).normalized);
+				movementHandler.SetTargetVelocity((closest.Center - RigidbodyWrapper.Position));
 			}
 			movementHandler.ForceRotation();
 
@@ -145,14 +148,15 @@ namespace SpaxUtils
 				{
 					// Generate hit data.
 					Vector3 inertia = combatMove.Inertia.Look((hittable.Entity.Transform.position - Agent.Transform.position).FlattenY().normalized);
-					float mass = massStat;
+					float mass = limbMassStat;
 					float strength = strengthStat * combatMove.Strength;
-					float offence = offenceStat * combatMove.Offence;
-					float piercing = piercingStat * combatMove.Piercing;
+					float offence = limbOffenceStat * combatMove.Offence;
+					float piercing = limbPiercingStat * combatMove.Piercing;
 
 					HitData hitData = new HitData(
 						hittable,
 						Agent,
+						rigidbodyWrapper.Mass,
 						inertia,
 						hit.Direction,
 						mass,

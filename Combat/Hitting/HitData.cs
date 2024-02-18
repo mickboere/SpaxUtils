@@ -17,17 +17,22 @@ namespace SpaxUtils
 		public IHittable Hittable { get; }
 
 		/// <summary>
-		/// The entity responsible for this hit.
+		/// The entity responsible for initiating this hit.
 		/// </summary>
 		public IEntity Hitter { get; }
 
 		/// <summary>
-		/// The inertia of the hitter.
+		/// The mass if the hitter.
+		/// </summary>
+		public float HitterMass { get; }
+
+		/// <summary>
+		/// The inertia of the hitter in world-space.
 		/// </summary>
 		public Vector3 Inertia { get; }
 
 		/// <summary>
-		/// The normalized swing direction of the hit.
+		/// The normalized inbound direction of the hit in world space.
 		/// </summary>
 		public Vector3 Direction { get; }
 
@@ -70,6 +75,7 @@ namespace SpaxUtils
 		public HitData(
 			IHittable hittable,
 			IEntity hitter,
+			float hitterMass,
 			Vector3 inertia,
 			Vector3 direction,
 			float mass,
@@ -79,6 +85,7 @@ namespace SpaxUtils
 		{
 			Hittable = hittable;
 			Hitter = hitter;
+			HitterMass = hitterMass;
 			Inertia = inertia;
 			Direction = direction;
 			Mass = mass;

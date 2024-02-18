@@ -46,36 +46,36 @@ namespace SpaxUtils
 
 		protected void Update()
 		{
-			foreach (ILeg leg in effects.Keys)
+			foreach (KeyValuePair<ILeg, ParticleSystem> e in effects)
 			{
-				float slip = rigidbodyWrapper.Grip.InQuad().Invert();
-				if (leg.Grounded && slip >= slipThreshold)
+				float slip = rigidbodyWrapper.Grip.Invert().OutQuad();
+				if (e.Key.Grounded && slip >= slipThreshold)
 				{
 					// Orientation.
-					Orient(leg);
+					Orient(e.Key);
 
 					// Settings.
-					var main = effects[leg].main;
+					var main = e.Value.main;
 					main.simulationSpeed = EntityTimeScale;
-					var emission = effects[leg].emission;
+					var emission = e.Value.emission;
 					emission.rateOverTime = Mathf.Lerp(minParticleRate, maxParticleRate, slip);
 
-					if (effects[leg].isStopped)
+					if (e.Value.isStopped)
 					{
 						// Play.
-						effects[leg].Play();
+						e.Value.Play();
 					}
 				}
-				else if (effects[leg].isPlaying)
+				else if (e.Value.isPlaying)
 				{
-					effects[leg].Stop();
+					e.Value.Stop();
 				}
 			}
 		}
 
 		private void OnFootstepEvent(ILeg leg, bool grounded)
 		{
-			if (grounded)
+			if (grounded && leg.ValidGround)
 			{
 				Orient(leg);
 				effects[leg].Emit(stepEmitAmount);

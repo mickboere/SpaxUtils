@@ -75,7 +75,7 @@ namespace SpaxUtils
 
 				// Option could not be found, reset the option if allowed, else add it as an error.
 				optionIndex = 0;
-				if (true)//constDropdownAttribute.ForceOption)
+				if (constDropdownAttribute.ForceOption)
 				{
 					if (!string.IsNullOrEmpty(currentOption))
 					{

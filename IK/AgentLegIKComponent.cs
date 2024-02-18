@@ -55,7 +55,7 @@ namespace SpaxUtils
 				}
 				else
 				{
-					if(Leg.ValidGround)
+					if (Leg.ValidGround)
 					{
 						weight = 1f;
 					}
@@ -130,6 +130,7 @@ namespace SpaxUtils
 			if (grounderFBBIK != null)
 			{
 				grounderFBBIK.solver.heightOffset = grounderComponent.Elevation;
+				grounderFBBIK.weight = grounderComponent.Grounded ? 1f : 0f;
 			}
 		}
 

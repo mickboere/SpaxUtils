@@ -86,14 +86,16 @@ namespace SpaxUtils
 		}
 
 		/// <inheritdoc/>
-		public void ForceRotation()
+		public void ForceRotation(Vector3? direction = null)
 		{
-			if (rigidbodyWrapper.TargetVelocity == Vector3.zero)
+			if (!direction.HasValue && rigidbodyWrapper.TargetVelocity == Vector3.zero || direction.HasValue && direction.Value == Vector3.zero)
 			{
 				return;
 			}
 
-			Entity.GameObject.transform.rotation = Quaternion.LookRotation(rigidbodyWrapper.TargetVelocity.FlattenY());
+			Entity.GameObject.transform.rotation = direction.HasValue ?
+				Quaternion.LookRotation(direction.Value, Entity.GameObject.transform.up) :
+				Quaternion.LookRotation(rigidbodyWrapper.TargetVelocity.FlattenY());
 		}
 
 		private void ApplyMovement()

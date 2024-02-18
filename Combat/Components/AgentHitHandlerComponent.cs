@@ -53,17 +53,18 @@ namespace SpaxUtils
 			rigidbodyWrapper.Control.RemoveModifier(this);
 		}
 
+		/// <summary>
+		/// Invoked when this agent has been hit by an attack.
+		/// </summary>
+		/// <param name="hitData">The incoming <see cref="HitData"/> to process.</param>
 		private void OnHitEvent(HitData hitData)
 		{
 			// Transfer intertia.
-			if (hitData.Hitter.TryGetStat(AgentStatIdentifiers.MASS, out EntityStat hitterMass))
-			{
-				rigidbodyWrapper.AddImpact(hitData.Inertia, hitterMass);
-			}
+			rigidbodyWrapper.Push(hitData.Inertia, hitData.HitterMass);
 
 			// Calculate damage and impact.
 			hitData.Penetration = hitData.Parried ? 0f : hitData.Offence * hitData.Piercing / defence;
-			float impact = hitData.Penetration.InvertClamped().OutCubic();
+			float impact = hitData.Penetration.InvertClamped();
 			float damage = hitData.Parried ? 0f : SpaxFormulas.CalculateDamage(hitData.Offence, defence);
 			float force = hitData.Parried ? 0f : hitData.Strength * impact;
 
@@ -85,7 +86,7 @@ namespace SpaxUtils
 				agent.Actor.TryCancel(true);
 
 				// Transfer Impact.
-				rigidbodyWrapper.AddImpact(hitData.Direction * force, hitData.Mass);
+				rigidbodyWrapper.Push(hitData.Direction * force, hitData.Mass);
 
 				// Apply stun.
 				stunHandler.EnterStun(hitData);

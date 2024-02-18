@@ -16,12 +16,15 @@ namespace SpaxUtils
 
 		private RigidbodyWrapper wrapper;
 		private CallbackService callbackService;
+		private IGrounderComponent grounder;
+
 		private float customDelta;
 
-		public void InjectDependencies(RigidbodyWrapper wrapper, CallbackService callbackService)
+		public void InjectDependencies(RigidbodyWrapper wrapper, CallbackService callbackService, IGrounderComponent grounder)
 		{
 			this.wrapper = wrapper;
 			this.callbackService = callbackService;
+			this.grounder = grounder;
 		}
 
 		protected void OnEnable()
@@ -61,7 +64,7 @@ namespace SpaxUtils
 		{
 			Vector3 dir = wrapper.RelativeAcceleration * sensitivity;
 			Quaternion target = Quaternion.identity;
-			if (dir.magnitude > 0.01f)
+			if (grounder.Grounded && dir.magnitude > 0.01f)
 			{
 				target = Quaternion.Euler(new Vector3(dir.z, 0f, -dir.x)).Clamp(Vector3.up, wrapper.transform.up, maxAngle);
 			}

@@ -32,6 +32,7 @@ namespace SpaxUtils
 			base.Stop();
 
 			hittable.Unsubscribe(this);
+			parries.Clear();
 		}
 
 		private void OnHitEvent(HitData hitData)
@@ -52,8 +53,9 @@ namespace SpaxUtils
 					HitData parryHit = new HitData(
 						parriedHittable,
 						Agent,
+						rigidbodyWrapper.Mass,
 						hitData.Inertia,
-						-hitData.Inertia,
+						-hitData.Inertia.normalized,
 						hitData.Mass,
 						hitData.Strength,
 						0f,

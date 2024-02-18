@@ -55,8 +55,8 @@ namespace SpaxUtils
 		void SetTargetDirection(Vector3 direction);
 
 		/// <summary>
-		/// Force update rotation to face target velocity.
+		/// Force update rotation to face either <paramref name="direction"/> or the target velocity if null.
 		/// </summary>
-		void ForceRotation();
+		void ForceRotation(Vector3? direction = null);
 	}
 }

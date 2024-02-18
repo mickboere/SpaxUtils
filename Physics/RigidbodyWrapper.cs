@@ -105,6 +105,7 @@ namespace SpaxUtils
 
 		[SerializeField] new private Rigidbody rigidbody;
 		[SerializeField] private int accelerationSmoothing = 3;
+		[SerializeField] private float gripScale = 10f;
 
 		private EntityStat timeScale;
 		private StatSubscription massStatSub;
@@ -151,7 +152,6 @@ namespace SpaxUtils
 			Acceleration = velocityDelta;
 			lastVelocity = Velocity;
 
-			//ApplyImpacts();
 			Grip = CalculateGrip();
 
 			// Apply local entity timescale.
@@ -184,13 +184,13 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
-		/// Adds an impact force to the rigidbody.
-		/// As opposed to <see cref="AddForce(Vector3, ForceMode)"/>, an impact will only have
+		/// Adds an push force to the rigidbody.
+		/// As opposed to <see cref="AddForce(Vector3, ForceMode)"/>, a push will only have
 		/// effect on the rigidbody if it is greater than or in opposition to the body's velocity.
 		/// </summary>
 		/// <param name="velocity">Velocity of the incoming impact.</param>
 		/// <param name="mass">Mass of the incoming impact. Leave negative to match rigidbody mass.</param>
-		public void AddImpact(Vector3 velocity, float mass = -1f)
+		public void Push(Vector3 velocity, float mass = -1f)
 		{
 			if (velocity == Vector3.zero)
 			{
@@ -211,7 +211,7 @@ namespace SpaxUtils
 
 			Vector3 diff = (velocity - Velocity);
 			float effect = velocity.normalized.NormalizedDot(diff.normalized);
-			rigidbody.AddForce(diff * effect * mass, ForceMode.Impulse);
+			Velocity += diff * effect * mass / Mass;
 		}
 
 		/// <summary>
@@ -221,9 +221,9 @@ namespace SpaxUtils
 		/// </summary>
 		/// <param name="velocity">Localized velocity of the incoming impact.</param>
 		/// <param name="mass">Mass of the incoming impact. Leave negative to match rigidbody mass.</param>
-		public void AddImpactRelative(Vector3 velocity, float mass = -1f)
+		public void PushRelative(Vector3 velocity, float mass = -1f)
 		{
-			AddImpact(velocity.Globalize(Rigidbody.transform), mass);
+			Push(velocity.Globalize(Rigidbody.transform), mass);
 		}
 
 		#endregion
@@ -253,14 +253,7 @@ namespace SpaxUtils
 		/// <returns>The current grip calculated using the target velocity and current velocity.</returns>
 		public float CalculateGrip()
 		{
-			float grip = TargetVelocity == Vector3.zero || Speed.Approx(0f) ? 1f :
-				Mathf.Clamp01(Rigidbody.velocity.normalized.NormalizedDot(TargetVelocity.normalized) * (Speed / TargetVelocity.magnitude));
-
-			if (grip > 1f)
-			{
-				grip = 1f / grip;
-			}
-
+			float grip = Mathf.Clamp01(Mathf.Abs((Velocity.Multiply(ControlAxis) - TargetVelocity * Control).magnitude) * (1f / gripScale)).ReverseInOutCubic();
 			return grip;
 		}
 
