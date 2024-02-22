@@ -14,10 +14,10 @@ namespace SpaxUtils
 		// TODO: Add mirrored loop mode so that I don't have to define every pose twice.
 		[SerializeField] private bool loop;
 		[SerializeField] private LabeledPoseData globalData;
-		[SerializeField] private List<Pose> sequence;
+		[SerializeField] private List<SequencePose> sequence;
 
 		/// <summary>
-		/// Returns <see cref="Pose"/> at <paramref name="index"/>.
+		/// Returns <see cref="SequencePose"/> at <paramref name="index"/>.
 		/// </summary>
 		public IPose Get(int index)
 		{

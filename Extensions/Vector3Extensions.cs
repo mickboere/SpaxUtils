@@ -116,6 +116,36 @@ namespace SpaxUtils
 		}
 		#endregion In-Line Mirroring
 
+		#region In-Line Multiplying
+
+		/// <summary>
+		/// Handy method to multiply the X axis in-line.
+		/// </summary>
+		public static Vector3 MultX(this Vector3 vector3, float m)
+		{
+			vector3.x *= m;
+			return vector3;
+		}
+
+		/// <summary>
+		/// Handy method to multiply the Y axis in-line.
+		/// </summary>
+		public static Vector3 MultY(this Vector3 vector3, float m)
+		{
+			vector3.y *= m;
+			return vector3;
+		}
+
+		/// <summary>
+		/// Handy method to multiply the Z axis in-line.
+		/// </summary>
+		public static Vector3 MultZ(this Vector3 vector3, float m)
+		{
+			vector3.z *= m;
+			return vector3;
+		}
+		#endregion In-Line Multiplying
+
 		/// <summary>
 		/// Converts a <see cref="Vector3"/> direction to a <see cref="Quaternion"/> rotation.
 		/// </summary>

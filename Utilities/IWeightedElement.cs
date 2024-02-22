@@ -2,6 +2,6 @@
 {
 	public interface IWeightedElement
 	{
-		public float Weight { get; }
+		public float ElementWeight { get; }
 	}
 }

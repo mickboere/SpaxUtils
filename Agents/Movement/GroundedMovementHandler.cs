@@ -64,7 +64,7 @@ namespace SpaxUtils
 		public void SetMovementInput(Vector3 input)
 		{
 			MovementInput = input;
-			SetTargetVelocity(Quaternion.LookRotation(inputAxis) * input * speed);
+			SetTargetVelocity(input == Vector3.zero ? Vector3.zero : (Quaternion.LookRotation(inputAxis) * input * speed));
 		}
 
 		/// <inheritdoc/>

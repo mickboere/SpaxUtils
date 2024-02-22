@@ -11,7 +11,16 @@ namespace SpaxUtils
 	public class GrounderComponent : EntityComponentBase, IGrounderComponent
 	{
 		/// <inheritdoc/>
+		public bool Ground { get; set; } = true;
+
+		/// <inheritdoc/>
 		public bool Grounded { get; private set; }
+
+		/// <inheritdoc/>
+		public float GroundedAmount { get; private set; }
+
+		/// <inheritdoc/>
+		public CompositeFloat Gravity { get; private set; }
 
 		/// <inheritdoc/>
 		public bool Sliding => Grounded && Traction <= slidingThreshold;
@@ -36,7 +45,7 @@ namespace SpaxUtils
 		public Vector3 StepPoint { get; private set; }
 
 		[SerializeField] private LayerMask layerMask;
-		[SerializeField] private float gravity = 9f;
+		[SerializeField] private float gravity = 9.8f;
 		[Header("Grounding")]
 		[SerializeField] private float groundOffset = 1f;
 		[SerializeField] private float groundReach = 0.25f;
@@ -71,6 +80,11 @@ namespace SpaxUtils
 			this.rigidbodyWrapper = rigidbodyWrapper;
 		}
 
+		protected void Awake()
+		{
+			Gravity = new CompositeFloat(gravity);
+		}
+
 		protected void FixedUpdate()
 		{
 			GroundCheck();
@@ -82,10 +96,12 @@ namespace SpaxUtils
 		private void GroundCheck()
 		{
 			Grounded = false;
+			GroundedAmount = 0f;
 			Vector3 origin = rigidbodyWrapper.Position + rigidbodyWrapper.Up * groundOffset;
 			if (Physics.SphereCast(origin, groundRadius, -rigidbodyWrapper.Up, out groundedHit, groundOffset + groundReach, layerMask))
 			{
 				Grounded = true;
+				GroundedAmount = Mathf.Clamp01((groundedHit.distance - groundOffset) / groundReach).Invert();
 				if (debug)
 				{
 					Debug.DrawLine(origin, groundedHit.point, Color.red);
@@ -174,11 +190,11 @@ namespace SpaxUtils
 
 		private void ApplyForces()
 		{
-			if (Grounded)
+			if (Ground && Grounded)
 			{
 				if (Sliding)
 				{
-					Vector3 slidingForce = (Vector3.down * gravity).ProjectOnPlane(TerrainNormal);
+					Vector3 slidingForce = (Vector3.down * Gravity).ProjectOnPlane(TerrainNormal);
 					rigidbodyWrapper.AddForce(slidingForce * SurfaceSlope, ForceMode.Acceleration);
 				}
 				else
@@ -191,7 +207,7 @@ namespace SpaxUtils
 			}
 			else
 			{
-				rigidbodyWrapper.AddForce(Vector3.down * gravity, ForceMode.Acceleration);
+				rigidbodyWrapper.AddForce(Vector3.down * Gravity, ForceMode.Acceleration);
 			}
 		}
 	}

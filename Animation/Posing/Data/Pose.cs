@@ -1,37 +1,33 @@
-﻿using System;
-using UnityEngine;
-using UnityEngine.Serialization;
+﻿using UnityEngine;
 
 namespace SpaxUtils
 {
-	[Serializable]
+	/// <summary>
+	/// Very basic <see cref="IPose"/> implementation for runtime generation.
+	/// </summary>
 	public class Pose : IPose
 	{
-		public AnimationClip Clip => clip;
-		public bool Mirror => mirror;
-		public float Duration => duration;
-		public ILabeledDataProvider Data => data;
+		public AnimationClip Clip { get; }
 
-		public float Weight => Duration;
+		public bool Mirror { get; }
 
-		[SerializeField] private AnimationClip clip;
-		[SerializeField] private bool mirror;
-		[SerializeField] private float duration;
-		[SerializeField] private AnimationCurve transition;
-		[SerializeField] private LabeledPoseData data;
+		public float Duration { get; }
 
-		public Pose(AnimationClip clip, bool mirror, float duration, AnimationCurve transition, LabeledPoseData data)
+		public ILabeledDataProvider Data { get; }
+
+		public float ElementWeight => Duration;
+
+		public Pose(AnimationClip clip, bool mirror = false, float duration = 1f, ILabeledDataProvider data = null)
 		{
-			this.clip = clip;
-			this.mirror = mirror;
-			this.duration = duration;
-			this.transition = transition;
-			this.data = data;
+			Clip = clip;
+			Mirror = mirror;
+			Duration = duration;
+			Data = data;
 		}
 
 		public float EvaluateTransition(float x)
 		{
-			return transition.Evaluate(x);
+			return x;
 		}
 	}
 }

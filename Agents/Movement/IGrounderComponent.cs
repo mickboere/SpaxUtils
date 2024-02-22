@@ -1,14 +1,26 @@
-﻿using System;
-using System.Collections.Generic;
-
-namespace SpaxUtils
+﻿namespace SpaxUtils
 {
 	public interface IGrounderComponent : IEntityComponent
 	{
 		/// <summary>
+		/// Whether this entity should ground itself.
+		/// </summary>
+		bool Ground { get; set; }
+
+		/// <summary>
 		/// Returns true when the entity is touching the ground.
 		/// </summary>
 		bool Grounded { get; }
+
+		/// <summary>
+		/// Grounded percentage: 1 = fully grounded, 0 = ground exceeds reach.
+		/// </summary>
+		float GroundedAmount { get; }
+
+		/// <summary>
+		/// The amount of gravitational force applied to the agent.
+		/// </summary>
+		CompositeFloat Gravity { get; }
 
 		/// <summary>
 		/// Returns true when the entity is unable to move due to too low <see cref="Traction"/>.

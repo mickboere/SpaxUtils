@@ -17,13 +17,13 @@ namespace SpaxUtils
 		/// <returns>The index of the resulting item.</returns>
 		public static int Index<T>(IList<T> weightedList, float value, out float progress) where T : IWeightedElement
 		{
-			float sum = weightedList.Sum((e) => e.Weight) * value;
+			float sum = weightedList.Sum((e) => e.ElementWeight) * value;
 			for (int i = 0; i < weightedList.Count; i++)
 			{
-				sum -= weightedList[i].Weight;
+				sum -= weightedList[i].ElementWeight;
 				if (sum <= 0f)
 				{
-					progress = 1f - Mathf.Abs(sum) / weightedList[i].Weight;
+					progress = 1f - Mathf.Abs(sum) / weightedList[i].ElementWeight;
 					return i;
 				}
 			}
