@@ -6,12 +6,22 @@ namespace SpaxUtils
 	/// Generic interface for a composite value modifier.
 	/// </summary>
 	/// <typeparam name="T">The type of value this modifier can mod.</typeparam>
-	public interface IModifier<T>
+	public interface IModifier<T> : IDisposable
 	{
 		/// <summary>
-		/// If a modifier is marked dirty it will prompt the composite to recalculate.
+		/// Invoked whenever this mod has been changed, prompting a recalculation for composites incorporating this modifier.
 		/// </summary>
-		bool Dirty { get; }
+		event Action RecalculateEvent;
+
+		/// <summary>
+		/// Invoked when the modifier is being disposed of.
+		/// </summary>
+		event Action<IModifier<T>> DisposeEvent;
+
+		/// <summary>
+		/// Whether this mod will always require recalculation, if it changes every frame for example.
+		/// </summary>
+		bool AlwaysRecalculate { get; }
 
 		/// <summary>
 		/// Defines the type of modification.
@@ -32,10 +42,5 @@ namespace SpaxUtils
 		/// (a-b): Subtracts generic <paramref name="b"/> from generic <paramref name="a"/>.
 		/// </summary>
 		T Subtract(T a, T b);
-
-		/// <summary>
-		/// Invoked by the modified composite upon applying this modifier, allowing it to be unmarked as dirty if necessary.
-		/// </summary>
-		void Applied();
 	}
 }

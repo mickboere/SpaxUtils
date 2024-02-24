@@ -20,12 +20,13 @@ namespace SpaxUtils
 			modifierStat.CompositeChangedEvent += OnInputStatChanged;
 		}
 
-		public void Dispose()
+		public override void Dispose()
 		{
 			if (modifierStat != null)
 			{
 				modifierStat.CompositeChangedEvent -= OnInputStatChanged;
 			}
+			base.Dispose();
 		}
 
 		public override float Modify(float input)
@@ -35,7 +36,7 @@ namespace SpaxUtils
 
 		private void OnInputStatChanged(CompositeFloatBase composite)
 		{
-			Dirty = true;
+			Recalculate();
 		}
 	}
 }

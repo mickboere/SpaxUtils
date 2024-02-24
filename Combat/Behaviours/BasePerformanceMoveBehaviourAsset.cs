@@ -69,7 +69,7 @@ namespace SpaxUtils
 		{
 			// Set control from pose weight.
 			float control = 1f - Weight;
-			controlMod.SetValue(controlMod.Value < control ? Mathf.Lerp(controlMod.Value, control, controlWeightSmoothing * Time.deltaTime) : control);
+			controlMod.SetValue(controlMod.Value < control ? Mathf.Lerp(controlMod.Value, control, controlWeightSmoothing * delta) : control);
 		}
 
 		private void OnPoseUpdateEvent(IPerformer performer, PoserStruct pose, float weight)

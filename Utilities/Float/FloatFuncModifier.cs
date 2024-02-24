@@ -8,6 +8,7 @@ namespace SpaxUtils
 	/// </summary>
 	public class FloatFuncModifier : FloatModifierBase
 	{
+		public override bool AlwaysRecalculate => true;
 		public override ModMethod Method => method;
 		public Func<float, float> Func { get; protected set; }
 
@@ -22,11 +23,6 @@ namespace SpaxUtils
 		public override float Modify(float input)
 		{
 			return Func(input);
-		}
-
-		public override void Applied()
-		{
-			// FuncModifer is always dirty.
 		}
 	}
 }

@@ -7,10 +7,22 @@ namespace SpaxUtils
 	/// </summary>
 	public abstract class FloatModifierBase : IModifier<float>
 	{
-		public virtual bool Dirty { get; protected set; } = true;
+		/// <inheritdoc/>
+		public event Action RecalculateEvent;
+
+		/// <inheritdoc/>
+		public event Action<IModifier<float>> DisposeEvent;
+
+		/// <inheritdoc/>
+		public virtual bool AlwaysRecalculate { get; }
 
 		/// <inheritdoc/>
 		public abstract ModMethod Method { get; }
+
+		public virtual void Dispose()
+		{
+			DisposeEvent?.Invoke(this);
+		}
 
 		/// <inheritdoc/>
 		public abstract float Modify(float input);
@@ -27,10 +39,9 @@ namespace SpaxUtils
 			return a - b;
 		}
 
-		/// <inheritdoc/>
-		public virtual void Applied()
+		protected void Recalculate()
 		{
-			Dirty = false;
+			RecalculateEvent?.Invoke();
 		}
 	}
 }

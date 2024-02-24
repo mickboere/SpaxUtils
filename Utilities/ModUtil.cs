@@ -13,7 +13,7 @@ namespace SpaxUtils
 		/// <param name="modifiers">The list of modifiers to be applied to the input.</param>
 		public static T Modify<T>(T input, IEnumerable<IModifier<T>> modifiers)
 		{
-			List<IModifier<T>> sortedModifiers = modifiers.OrderBy((mod) => mod.Method).ToList();
+			var sortedModifiers = modifiers.OrderBy((mod) => mod.Method);
 
 			T baseValue = input;
 			T output = input;
@@ -47,12 +47,10 @@ namespace SpaxUtils
 			{
 				case ModMethod.Apply:
 				case ModMethod.Absolute:
-					modifier.Applied();
 					return modifier.Modify(currentValue);
 				case ModMethod.Auto:
 				case ModMethod.Base:
 				case ModMethod.Additive:
-					modifier.Applied();
 					return ModAdditive(baseValue, currentValue, modifier);
 				default:
 					SpaxDebug.Error($"IModifier<{typeof(T)}> ", $"ModMethod: {modifier.Method} could not be applied.");
@@ -70,7 +68,7 @@ namespace SpaxUtils
 		/// <param name="modifier">The <see cref="IModifier{T}"/> implementation to apply additively to the composite data.</param>
 		public static T ModAdditive<T>(T baseValue, T currentValue, IModifier<T> modifier)
 		{
-			// Performs: current + mod(base) - base
+			// Returns current + mod(base) - base
 			return modifier.Add(currentValue, modifier.Subtract(modifier.Modify(baseValue), baseValue));
 		}
 	}

@@ -50,10 +50,5 @@ namespace SpaxUtils
 			}
 			return value;
 		}
-
-		public CompositeFloat Clone()
-		{
-			return new CompositeFloat(baseValue, new Dictionary<object, IModifier<float>>(modifiers));
-		}
 	}
 }

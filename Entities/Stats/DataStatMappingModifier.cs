@@ -35,12 +35,13 @@ namespace SpaxUtils
 			data.ValueChangedEvent += OnValueChangedEvent;
 		}
 
-		public void Dispose()
+		public override void Dispose()
 		{
 			if (Data != null)
 			{
 				Data.ValueChangedEvent -= OnValueChangedEvent;
 			}
+			base.Dispose();
 		}
 
 		public override float Modify(float input)
@@ -50,7 +51,7 @@ namespace SpaxUtils
 
 		private void OnValueChangedEvent(object value)
 		{
-			Dirty = true;
+			Recalculate();
 		}
 	}
 }

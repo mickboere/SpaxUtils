@@ -8,6 +8,7 @@ namespace SpaxUtils
 	/// </summary>
 	public class TimedCurveModifier : FloatModifierBase, IDisposable
 	{
+		public override bool AlwaysRecalculate => true;
 		public override ModMethod Method => method;
 		public TimerStruct Timer { get; }
 
@@ -25,9 +26,10 @@ namespace SpaxUtils
 			callbackService.UpdateCallback += OnUpdate;
 		}
 
-		public void Dispose()
+		public override void Dispose()
 		{
 			callbackService.UpdateCallback -= OnUpdate;
+			base.Dispose();
 		}
 
 		private void OnUpdate()
@@ -36,15 +38,6 @@ namespace SpaxUtils
 			{
 				Dispose();
 			}
-			else
-			{
-				Dirty = true;
-			}
-		}
-
-		public override void Applied()
-		{
-			// TimedCurveModifier is always dirty.
 		}
 
 		public override float Modify(float input)

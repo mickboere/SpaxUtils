@@ -216,10 +216,5 @@ namespace SpaxUtils
 		{
 			PoseUpdateEvent?.Invoke(performer, pose, weight);
 		}
-
-		//private void OnNewHitDetectedEvent(List<HitScanHitData> newHits)
-		//{
-		//	NewHitDetectedEvent?.Invoke(newHits);
-		//}
 	}
 }

@@ -31,7 +31,7 @@ namespace SpaxUtils
 
 		public float EvaluateTransition(float x)
 		{
-			return transition.Evaluate(x);
+			return Mathf.Clamp01(transition.Evaluate(x));
 		}
 	}
 }
