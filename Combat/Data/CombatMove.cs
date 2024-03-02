@@ -18,7 +18,6 @@ namespace SpaxUtils
 		public float Strength => strength;
 		public float Offence => offence;
 		public float Piercing => piercing;
-		public IList<StatCost> PerformCost => performCost;
 
 		#endregion // Properties
 
@@ -35,6 +34,5 @@ namespace SpaxUtils
 		[SerializeField, Range(0f, 1f), Tooltip("Percentage of user's strength transfered into hit.")] private float strength = 1f;
 		[SerializeField, Range(0f, 1f), Tooltip("Percentage of user's offence transfered into hit.")] private float offence = 1f;
 		[SerializeField, Range(0f, 1f), Tooltip("Percentage of user's piercing transfered into hit.")] private float piercing = 1f;
-		[SerializeField] private List<StatCost> performCost;
 	}
 }

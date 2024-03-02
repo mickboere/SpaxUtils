@@ -78,7 +78,7 @@ namespace SpaxUtils
 			finalPerformer = null;
 
 			// Must be grounded and in control.
-			if (!grounder.Grounded || (State == PerformanceState.Inactive && rigidbodyWrapper.Control < minimumControl))
+			if (!grounder.Grounded || (State == PerformanceState.Inactive && rigidbodyWrapper.Control <= minimumControl))
 			{
 				return false;
 			}
@@ -88,6 +88,21 @@ namespace SpaxUtils
 			if (move == null)
 			{
 				return false;
+			}
+
+			// Stats must exceed costs for move.
+			if (move.PerformCost.Count > 0)
+			{
+				foreach (StatCost statCost in move.PerformCost)
+				{
+					if (Entity.TryGetStat(statCost.Stat, out EntityStat stat))
+					{
+						if (stat.Value < statCost.Cost)
+						{
+							return false;
+						}
+					}
+				}
 			}
 
 			var performer = new MovePerformer(dependencyManager, act, move, agent, EntityTimeScale, callbackService);

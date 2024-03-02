@@ -28,6 +28,7 @@ namespace SpaxUtils
 		public float Release => release;
 		public float TotalDuration => MinDuration + Release;
 		public string PerformSpeedMultiplierStat => performSpeedMultiplier;
+		public IList<StatCost> PerformCost => performCost;
 
 		public float CancelDuration => cancelDuration;
 
@@ -66,6 +67,7 @@ namespace SpaxUtils
 		[SerializeField, Conditional(nameof(hasPerformance), hide: true), Range(0f, 1f), Tooltip(TT_CHARGE_FADEOUT)] private float chargeFadeout = 0.3f;
 		[SerializeField, Tooltip(TT_RELEASE)] private float release = 0.5f;
 		[SerializeField, Conditional(nameof(hasPerformance), hide: true), ConstDropdown(typeof(IStatIdentifierConstants))] private string performSpeedMultiplier = AgentStatIdentifiers.ATTACK_PERFORM_SPEED;
+		[SerializeField] private List<StatCost> performCost;
 
 		/// <inheritdoc/>
 		public PoseTransition Evaluate(float chargeTime, float performTime, out float weight, float cancelTime = 0f)

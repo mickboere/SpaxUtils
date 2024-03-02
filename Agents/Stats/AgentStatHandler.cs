@@ -15,7 +15,7 @@ namespace SpaxUtils
 		private IAgent agent;
 
 		private EntityStat recoveryStat;
-		private FloatFuncModifier recoveryMod;
+		private FloatOperationModifier recoveryMod;
 
 		public void InjectDependencies(IAgent agent)
 		{
@@ -33,7 +33,7 @@ namespace SpaxUtils
 			// Modify recovery stat with control (so that recovery only occurs when agent is in control).
 			if (agent.Body.HasRigidbody && agent.TryGetStat(AgentStatIdentifiers.RECOVERY, out recoveryStat))
 			{
-				recoveryMod = new FloatFuncModifier(ModMethod.Absolute, (f) => f * agent.Body.RigidbodyWrapper.Control);
+				recoveryMod = new FloatOperationModifier(ModMethod.Absolute, Operation.Multiply, 1f);
 				recoveryStat.AddModifier(this, recoveryMod);
 			}
 		}
@@ -55,6 +55,11 @@ namespace SpaxUtils
 
 		protected void Update()
 		{
+			if (recoveryMod != null)
+			{
+				recoveryMod.SetValue(agent.Body.RigidbodyWrapper.Control);
+			}
+
 			// Update state pairs to initiate recovery.
 			// TODO: MUST BE DONE THROUGH BRAIN NODE TO PREVENT RECOVERY DURING DEATH.
 			foreach (PointsStat pointStat in pointsStats)

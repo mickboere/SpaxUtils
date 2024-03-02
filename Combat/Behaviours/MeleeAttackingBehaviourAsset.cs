@@ -126,12 +126,7 @@ namespace SpaxUtils
 				{
 					if (Agent.TryGetStat(statCost.Stat, out EntityStat costStat))
 					{
-						float cost = statCost.Cost;
-						if (statCost.Multiply && Agent.TryGetStat(statCost.Multiplier, out EntityStat multiplier))
-						{
-							cost *= multiplier;
-						}
-						costStat.BaseValue -= cost;
+						costStat.Damage(statCost.Cost);
 					}
 				}
 			}

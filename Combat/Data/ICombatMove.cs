@@ -52,10 +52,5 @@ namespace SpaxUtils
 		float Piercing { get; }
 
 		#endregion
-
-		/// <summary>
-		/// The cost to entity stat(s) for performing this move.
-		/// </summary>
-		IList<StatCost> PerformCost { get; }
 	}
 }
