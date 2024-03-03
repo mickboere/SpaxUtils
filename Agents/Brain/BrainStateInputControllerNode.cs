@@ -17,6 +17,8 @@ namespace SpaxUtils
 		[SerializeField, ConstDropdown(typeof(IInputActionMaps))] private string actionMap;
 		[SerializeField, ConstDropdown(typeof(IInputActions))] private List<string> actions;
 		[SerializeField] private InputActionPhase phase;
+		[SerializeField] private bool eatInput;
+		[SerializeField] private int prio = 0;
 		[SerializeField, ConstDropdown(typeof(IStateIdentifierConstants))] private string nextState;
 
 		private Brain brain;
@@ -36,7 +38,7 @@ namespace SpaxUtils
 			playerInputWrapper.RequestActionMaps(this, 0, actionMap);
 			foreach (string action in actions)
 			{
-				options[action] = new Option(nextState, action, OnInputReceived, playerInputWrapper);
+				options[action] = new Option(nextState, action, OnInputReceived, playerInputWrapper, eatInput, prio);
 				options[action].MakeAvailable();
 			}
 		}

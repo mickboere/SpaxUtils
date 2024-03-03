@@ -30,7 +30,6 @@ namespace SpaxUtils
 			history[key] = (val, timer);
 
 			OnReceived(key, val);
-			ReceivedEvent?.Invoke(key, val);
 
 			if (subscriptions.ContainsKey(key))
 			{
@@ -92,6 +91,9 @@ namespace SpaxUtils
 		/// </summary>
 		/// <param name="key">The variable identifying the message type.</param>
 		/// <param name="value">The variable containing the message.</param>
-		protected virtual void OnReceived(Key key, Val value) { }
+		protected virtual void OnReceived(Key key, Val value)
+		{
+			ReceivedEvent?.Invoke(key, value);
+		}
 	}
 }

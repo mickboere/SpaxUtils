@@ -80,13 +80,15 @@ namespace SpaxUtils
 
 		#endregion
 
-		private Dictionary<string, Dictionary<object, Action<CallbackContext>>> actionSubscriptions = new Dictionary<string, Dictionary<object, Action<CallbackContext>>>();
+		private Dictionary<string, Dictionary<object, (int prio, Func<CallbackContext, bool> callback)>> actionSubscriptions =
+			new Dictionary<string, Dictionary<object, (int prio, Func<CallbackContext, bool> callback)>>();
 		private Dictionary<object, (int prio, string[] maps)> actionMapRequests = new Dictionary<object, (int prio, string[] maps)>();
 
 		private Dictionary<string, InputAction> actionsCache = new Dictionary<string, InputAction>();
 		private Dictionary<string, InputActionMap> actionMapsCache = new Dictionary<string, InputActionMap>();
 
 		private bool switchingActionMaps;
+		private bool ateInput;
 
 		protected void OnEnable()
 		{
@@ -170,16 +172,16 @@ namespace SpaxUtils
 		/// <param name="listener">The subscriber object, used for unsubscribing.</param>
 		/// <param name="inputAction">The name of the <see cref="InputAction"/> you want to subscribe to.</param>
 		/// <param name="callback">The callback that gets invoked when the input action is triggered.</param>
-		public void Subscribe(object listener, string inputAction, Action<CallbackContext> callback)
+		public void Subscribe(object listener, string inputAction, Func<CallbackContext, bool> callback, int prio = 0)
 		{
 			SpaxDebug.Log($"P{PlayerIndex} Subscribed: ", $"[{inputAction}], {listener}", LogType.Notify, Color.blue, gameObject, 2);
 
 			if (!actionSubscriptions.ContainsKey(inputAction))
 			{
-				actionSubscriptions.Add(inputAction, new Dictionary<object, Action<CallbackContext>>());
+				actionSubscriptions.Add(inputAction, new Dictionary<object, (int prio, Func<CallbackContext, bool> callback)>());
 			}
 
-			actionSubscriptions[inputAction][listener] = callback;
+			actionSubscriptions[inputAction][listener] = (prio, callback);
 			GainedSubscriberEvent?.Invoke(listener, inputAction);
 		}
 
@@ -234,19 +236,32 @@ namespace SpaxUtils
 			}
 			LastDevice = context.control.device;
 
+			// Make input edible.
+			ateInput = false;
+
 			// Generic callback.
 			ActionTriggeredEvent?.Invoke(context);
 
 			// InputAction Subscribers.
-			if (actionSubscriptions.ContainsKey(context.action.name))
+			if (!ateInput && actionSubscriptions.ContainsKey(context.action.name))
 			{
 				// Collect callbacks before invoking in case of unsubscription during callback.
-				Action<CallbackContext>[] callbacks = actionSubscriptions[context.action.name].Values.ToArray();
-				foreach (Action<CallbackContext> callback in callbacks)
+				var callbacks = actionSubscriptions[context.action.name].Values.ToList();
+				callbacks.Sort((a, b) => b.prio.CompareTo(a.prio));
+				foreach ((int prio, Func<CallbackContext, bool> callback) callback in callbacks)
 				{
-					callback.Invoke(context);
+					if (callback.callback(context) || ateInput)
+					{
+						// Callback has eaten up the input.
+						break;
+					}
 				}
 			}
+		}
+
+		public void EatInput()
+		{
+			ateInput = true;
 		}
 
 		#endregion

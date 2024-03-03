@@ -1,4 +1,5 @@
 ﻿using System;
+using static UnityEngine.InputSystem.InputAction;
 
 namespace SpaxUtils
 {
@@ -21,19 +22,22 @@ namespace SpaxUtils
 			this.playerInputWrapper = playerInputWrapper;
 
 			playerInputWrapper.RequestActionMaps(this, 0, mapping.ActionMap);
-			option = new Option(mapping.Title, mapping.Input, (c) =>
-			{
-				if (c.started)
+
+			option = new Option(mapping.Title, mapping.Input,
+				delegate (CallbackContext c)
 				{
-					agent.Actor.Send(new Act<bool>(mapping, true));
-					holding = true;
-				}
-				else if (c.canceled)
-				{
-					agent.Actor.Send(new Act<bool>(mapping, false));
-					holding = false;
-				}
-			}, playerInputWrapper);
+					if (c.started)
+					{
+						agent.Actor.Send(NewAct(true));
+						holding = true;
+					}
+					else if (c.canceled)
+					{
+						agent.Actor.Send(NewAct(false));
+						holding = false;
+					}
+				},
+			playerInputWrapper, false, mapping.InputPrio);
 			option.MakeAvailable();
 		}
 
@@ -41,7 +45,7 @@ namespace SpaxUtils
 		{
 			if (mapping.HoldEveryFrame && holding)
 			{
-				agent.Actor.Send(new Act<bool>(mapping, true));
+				agent.Actor.Send(NewAct(true));
 			}
 		}
 
@@ -49,12 +53,17 @@ namespace SpaxUtils
 		{
 			if (holding)
 			{
-				agent.Actor.Send(new Act<bool>(mapping, false));
+				agent.Actor.Send(NewAct(false));
 				holding = false;
 			}
 
 			option.Dispose();
 			playerInputWrapper.CompleteActionMapRequest(this);
+		}
+
+		private Act<bool> NewAct(bool value)
+		{
+			return new Act<bool>(mapping, value);
 		}
 	}
 }

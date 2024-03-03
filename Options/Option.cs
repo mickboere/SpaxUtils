@@ -21,6 +21,8 @@ namespace SpaxUtils
 		public bool Available { get; private set; }
 
 		private readonly bool pickOnInput;
+		private readonly bool eatInput;
+		private readonly int prio;
 		private readonly Action<Option> onPickedCallback;
 		private readonly Action<CallbackContext> onInputCallback;
 
@@ -32,6 +34,8 @@ namespace SpaxUtils
 			Action<Option> onPickedCallback,
 			string inputAction = null,
 			bool pickOnInput = true,
+			bool eatInput = false,
+			int prio = 0,
 			Action<CallbackContext> onInputCallback = null,
 			PlayerInputWrapper playerInputWrapper = null)
 		{
@@ -40,6 +44,8 @@ namespace SpaxUtils
 			this.onPickedCallback = onPickedCallback;
 			InputAction = inputAction;
 			this.pickOnInput = pickOnInput;
+			this.eatInput = eatInput;
+			this.prio = prio;
 			this.onInputCallback = onInputCallback;
 			this.playerInputWrapper = playerInputWrapper;
 		}
@@ -47,16 +53,18 @@ namespace SpaxUtils
 		/// <summary>
 		/// Create a new input-callback-only option.
 		/// </summary>
-		public Option(string title, string inputAction, Action<CallbackContext> onInputCallback, PlayerInputWrapper playerInputWrapper)
+		public Option(string title, string inputAction, Action<CallbackContext> onInputCallback, PlayerInputWrapper playerInputWrapper, bool eatInput = false, int prio = 0)
 		{
 			Title = title;
 			InputAction = inputAction;
 			this.onInputCallback = onInputCallback;
 			this.playerInputWrapper = playerInputWrapper;
+			this.eatInput = eatInput;
+			this.prio = prio;
 
 			Description = "";
-			pickOnInput = false;
 			onPickedCallback = null;
+			pickOnInput = false;
 		}
 
 		public void Dispose()
@@ -92,7 +100,7 @@ namespace SpaxUtils
 			}
 
 			this.playerInputWrapper.Subscribe(this, InputAction,
-				(inputContext) =>
+				delegate (CallbackContext inputContext)
 				{
 					onInputCallback?.Invoke(inputContext);
 					ReceivedInputEvent?.Invoke(inputContext);
@@ -101,7 +109,10 @@ namespace SpaxUtils
 					{
 						Pick();
 					}
-				});
+
+					return eatInput;
+				},
+				prio);
 
 			Available = true;
 			MadeAvailableEvent?.Invoke(this);
