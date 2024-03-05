@@ -13,11 +13,11 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public float MovementSpeed => speed;
 
-		[SerializeField] private float speed = 2.5f;
-		[SerializeField] private float rotationSmoothingSpeed = 20f;
-		[SerializeField] private float controlForce = 2000f;
-		[SerializeField] private float brakeForce = 200f;
-		[SerializeField] private float power = 20f;
+		[SerializeField] private float speed = 4.5f;
+		[SerializeField] private float rotationSmoothingSpeed = 30f;
+		[SerializeField] private float controlForce = 1800f;
+		[SerializeField] private float brakeForce = 900f;
+		[SerializeField] private float power = 40f;
 
 		private RigidbodyWrapper rigidbodyWrapper;
 		private IGrounderComponent grounder;
