@@ -1,4 +1,4 @@
-﻿using SpaxUtils.StateMachine;
+﻿using SpaxUtils.StateMachines;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -59,7 +59,7 @@ namespace SpaxUtils
 		{
 			if (context.phase == phase)
 			{
-				brain.EnterState(nextState);
+				brain.TryTransition(nextState);
 			}
 		}
 	}

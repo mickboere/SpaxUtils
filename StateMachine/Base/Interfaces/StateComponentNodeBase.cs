@@ -1,9 +1,9 @@
 ﻿using UnityEngine;
 
-namespace SpaxUtils.StateMachine
+namespace SpaxUtils.StateMachines
 {
 	public class StateComponentNodeBase : StateMachineNodeBase
 	{
-		[SerializeField, Input(backingValue = ShowBackingValue.Never)] private Connections.StateComponent inConnection;
+		[SerializeField, Input(backingValue = ShowBackingValue.Never)] protected Connections.StateComponent inConnection;
 	}
 }

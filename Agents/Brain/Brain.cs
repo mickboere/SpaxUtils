@@ -1,48 +1,65 @@
-﻿using SpaxUtils.StateMachine;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using SpaxUtils.StateMachines;
 
 namespace SpaxUtils
 {
 	/// <summary>
-	/// Dynamic single layer multi-state machine that does not require a graph asset and does not support flow-transitions.
-	/// Transitions are done by calling <see cref="EnterState(string)"/>, and does not require said state to already exist.
-	/// <see cref="BrainState"/>s can have sub-states and parent states, upon entering a sub-state all of the components in its parent states will also be activated.
+	/// <see cref="StateMachine"/> wrapper that utilizes <see cref="BrainState"/>s for all the states, allowing dynamic restructuring of components and states.
+	/// Transitions are done by calling <see cref="TryTransition(string, ITransition)"/>, if the target state does not exist it will be created automatically.
 	/// </summary>
 	public class Brain : IBrain
 	{
 		/// <inheritdoc/>
-		public string CurrentState => stateMachine.CurrentState.Name;
+		public IState HeadState => stateMachine.HeadState;
 
 		/// <inheritdoc/>
-		public IReadOnlyList<string> StateHierarchy { get; private set; }
+		public IReadOnlyList<IState> StateHierarchy => stateMachine.StateHierarchy;
 
 		private Dictionary<string, BrainState> states;
-		private StateMachineLayer stateMachine;
+		private StateMachine stateMachine;
 		private Dictionary<StateMachineGraph, StateMachineGraph> graphInstances;
 
 		public Brain(
 			IDependencyManager dependencyManager,
 			CallbackService callbackService,
-			string startingState,
-			StateMachineGraph[] graphs = null)
+			string defaultState,
+			IEnumerable<BrainState> states = null,
+			IEnumerable<StateMachineGraph> graphs = null)
 		{
-			states = new Dictionary<string, BrainState>();
-			graphInstances = new Dictionary<StateMachineGraph, StateMachineGraph>();
+			DependencyManager brainDependencies = new DependencyManager(dependencyManager, "Brain");
+			brainDependencies.Bind(this);
+			stateMachine = new StateMachine(brainDependencies, callbackService);
 
-			if (graphs != null && graphs.Length > 0)
+			this.states = new Dictionary<string, BrainState>();
+			if (states != null)
 			{
-				foreach (StateMachineGraph graph in graphs)
+				foreach (BrainState state in states)
 				{
-					AddGraph(graph);
+					AddState(state);
 				}
 			}
 
-			DependencyManager brainDependencies = new DependencyManager(dependencyManager, "Brain");
-			brainDependencies.Bind(this);
-			stateMachine = new StateMachineLayer(brainDependencies, callbackService);
-			EnterState(startingState);
+			graphInstances = new Dictionary<StateMachineGraph, StateMachineGraph>();
+			if (graphs != null)
+			{
+				foreach (StateMachineGraph graph in graphs)
+				{
+					AppendGraph(graph);
+				}
+			}
+
+			if (!string.IsNullOrEmpty(defaultState))
+			{
+				EnsureState(defaultState);
+				stateMachine.SetDefaultState(defaultState);
+				stateMachine.TransitionToDefaultState();
+			}
+			else
+			{
+				SpaxDebug.Error($"Brain's default state is null or empty, this is not allowed.");
+			}
 		}
 
 		public void Dispose()
@@ -59,47 +76,104 @@ namespace SpaxUtils
 			}
 		}
 
+		#region States
+
 		/// <inheritdoc/>
-		public void EnterState(string state)
+		public void AddState(BrainState state)
 		{
-			// If the requested state does not exist it will be created as a Brain should be dynamic.
-			BrainState brainState = EnsureState(state);
+			if (HasState(state.ID))
+			{
+				SpaxDebug.Error("Failed to add BrainState:", $"BrainState with ID \"{state.ID}\" already exists.");
+				return;
+			}
 
-			// Construct state hierarchy.
-			StateHierarchy = brainState.GetStateHierarchy();
-
-			// Enter state.
-			stateMachine.EnterState(brainState);
+			states.Add(state.ID, state);
+			stateMachine.AddState(state);
 		}
 
 		/// <inheritdoc/>
-		public bool IsInState(string state)
+		public bool HasState(string id)
 		{
-			return stateMachine.CurrentState != null && StateHierarchy.Contains(state);
+			return states.ContainsKey(id);
 		}
+
+		/// <inheritdoc/>
+		public bool TryGetState(string id, out BrainState state)
+		{
+			if (states.ContainsKey(id))
+			{
+				state = states[id];
+				return true;
+			}
+
+			state = null;
+			return false;
+		}
+
+		/// <inheritdoc/>
+		public BrainState EnsureState(string id, IState template = null)
+		{
+			if (string.IsNullOrEmpty(id))
+			{
+				SpaxDebug.Error($"Tried to ensure state but the ID is null or empty!");
+				return null;
+			}
+
+			// Retrieve parent state from template parent ID, if any.
+			BrainState state = HasState(id) ? states[id] : null;
+
+			// Ensure existence of state.
+			if (state == null)
+			{
+				// State does not exist yet, create it using the template.
+				BrainState parent = (template == null || template.Parent == null) ? null : EnsureState(template.Parent.ID, template.Parent);
+				state = new BrainState(id, parent, template.DefaultChild == null ? null : template.DefaultChild.ID);
+				states.Add(id, state);
+				stateMachine.AddState(state);
+
+				if (template != null)
+				{
+					foreach (IState child in template.Children.Values)
+					{
+						EnsureState(child.ID, child);
+					}
+				}
+			}
+
+			return state;
+		}
+
+		/// <inheritdoc/>
+		public bool IsStateActive(string id)
+		{
+			return HeadState != null && StateHierarchy.Any((s) => s.ID == id);
+		}
+
+		#endregion States
+
+		#region Transitions
+
+		/// <inheritdoc/>
+		public bool TryTransition(string id, ITransition transition = null)
+		{
+			EnsureState(id);
+			return stateMachine.TryTransition(id, transition);
+		}
+
+		#endregion Transitions
 
 		#region Components
 
 		/// <inheritdoc/>
-		public void AddComponent(string state, IStateComponent component)
+		public bool TryAddComponent(string id, IStateComponent component)
 		{
-			EnsureState(state).TryAddComponent(component);
-			if (IsInState(state))
-			{
-				// Component was added to current state, refresh the state machine layer's components to activate it.
-				stateMachine.RefreshComponents();
-			}
+			return EnsureState(id).TryAddComponent(component);
 		}
 
 		/// <inheritdoc/>
-		public void RemoveComponent(string state, IStateComponent component)
+		public bool TryRemoveComponent(string id, IStateComponent component)
 		{
-			EnsureState(state).TryRemoveComponent(component);
-			if (IsInState(state))
-			{
-				// Component was removed from current state, refresh the state machine layer's components to activate it.
-				stateMachine.RefreshComponents();
-			}
+			return EnsureState(id).TryRemoveComponent(component);
 		}
 
 		#endregion Components
@@ -107,30 +181,28 @@ namespace SpaxUtils
 		#region Graphs
 
 		/// <inheritdoc/>
-		public void AddGraph(StateMachineGraph graph)
+		public void AppendGraph(StateMachineGraph graph)
 		{
 			if (graphInstances.ContainsKey(graph))
 			{
-				SpaxDebug.Error("Graph is already added to brain.", graph.name);
+				SpaxDebug.Error("Graph is already appended to brain.", graph.name);
 				return;
 			}
 
 			// Create instance of graph and add to appendices.
 			graphInstances.Add(graph, (StateMachineGraph)graph.Copy());
 
-			// Go through all BrainStateNodes and add their components to the corresponding BrainStates.
-			List<BrainStateNode> brainStateNodes = graphInstances[graph].GetNodesOfType<BrainStateNode>();
-			foreach (BrainStateNode brainStateNode in brainStateNodes)
+			// Go through all graph states and add their components to the corresponding BrainStates.
+			List<IState> graphStates = graphInstances[graph].GetNodesOfType<IState>();
+			foreach (IState graphState in graphStates)
 			{
-				BrainState state = EnsureState(brainStateNode.Name, brainStateNode);
-				state.TryAddComponents(brainStateNode.GetAllComponents());
+				BrainState brainState = EnsureState(graphState.ID, graphState.Parent);
+				brainState.TryAddComponents(graphState.Components);
 			}
-
-			CheckGraphRefresh(brainStateNodes);
 		}
 
 		/// <inheritdoc/>
-		public void RemoveGraph(StateMachineGraph graph)
+		public void StripGraph(StateMachineGraph graph)
 		{
 			if (!graphInstances.ContainsKey(graph))
 			{
@@ -138,104 +210,19 @@ namespace SpaxUtils
 				return;
 			}
 
-			// Go through all BrainStateNodes in the graph and remove their components from the corresponding BrainStates.
-			List<BrainStateNode> brainStateNodes = graphInstances[graph].GetNodesOfType<BrainStateNode>();
-			foreach (BrainStateNode brainStateNode in brainStateNodes)
+			// Go through all graph states and remove their components from the corresponding BrainStates.
+			List<IState> graphStates = graphInstances[graph].GetNodesOfType<IState>();
+			foreach (IState graphState in graphStates)
 			{
-				List<IStateComponent> components = brainStateNode.GetAllComponents();
-				BrainState brainState = EnsureState(brainStateNode.Name);
-				foreach (IStateComponent component in components)
-				{
-					brainState.TryRemoveComponent(component);
-				}
+				BrainState brainState = EnsureState(graphState.ID);
+				brainState.TryRemoveComponents(graphState.Components);
 			}
 
 			// Destroy graph instance and remove from appendices.
 			UnityEngine.Object.Destroy(graphInstances[graph]);
 			graphInstances.Remove(graph);
-
-			CheckGraphRefresh(brainStateNodes);
-		}
-
-		private void CheckGraphRefresh(IEnumerable<BrainStateNode> brainStateNodes)
-		{
-			if (brainStateNodes.Any((n) => IsInState(n.Name)))
-			{
-				// Active state components have been modified, refresh the statemachine.
-				stateMachine.RefreshComponents();
-			}
 		}
 
 		#endregion Graphs
-
-		#region States
-
-		/// <summary>
-		/// Returns whether the brain currently contains data for a state named <paramref name="state"/>.
-		/// </summary>
-		/// <param name="state"></param>
-		/// <returns></returns>
-		private bool HasState(string state)
-		{
-			return states.ContainsKey(state);
-		}
-
-		/// <summary>
-		/// Ensure a brainstate named <paramref name="state"/> exists.
-		/// </summary>
-		/// <param name="state">The state name to ensure.</param>
-		/// <param name="copyHierarchy">An optional node hierarchy to copy over to this state.</param>
-		/// <returns>A <see cref="BrainState"/> named <paramref name="state"/> and optionally <paramref name="copyHierarchy"/>'s hierarchy (but not components).</returns>
-		private BrainState EnsureState(string state, IBrainState copyHierarchy = null)
-		{
-			if (!HasState(state))
-			{
-				// Add default empty state.
-				states.Add(state, new BrainState(state));
-
-				if (copyHierarchy != null)
-				{
-					// Copy node hierarchy.
-					CopyHierarchy(state, copyHierarchy);
-				}
-			}
-			else if (copyHierarchy != null && copyHierarchy.GetStateHierarchy().Count > states[state].GetStateHierarchy().Count)
-			{
-				// New hierarchy is taller, override the original.
-				CopyHierarchy(state, copyHierarchy);
-			}
-
-			return states[state];
-		}
-
-		/// <summary>
-		/// Copies the hierarchy from <paramref name="fromState"/> over to the state named <paramref name="state"/>.
-		/// </summary>
-		/// <param name="state">The name of the state to copy the hierarchy over to.</param>
-		/// <param name="fromState">The <see cref="BrainStateNode"/> of which to copy the hierarchy.</param>
-		private void CopyHierarchy(string state, IBrainState fromState)
-		{
-			BrainState brainState = EnsureState(state);
-
-			// Ensure parent state, if any.
-			IBrainState parentNode = fromState.GetParentState();
-			if (parentNode != null)
-			{
-				BrainState parentState = EnsureState(parentNode.Name, parentNode);
-				brainState.TrySetParent(parentState, true);
-			}
-
-			// Ensure sub states, if any.
-			List<IBrainState> subNodes = fromState.GetSubStates();
-			if (subNodes != null && subNodes.Count > 0)
-			{
-				foreach (BrainStateNode sub in subNodes)
-				{
-					brainState.TryAddSubState(EnsureState(sub.Name, sub));
-				}
-			}
-		}
-
-		#endregion States
 	}
 }

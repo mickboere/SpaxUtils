@@ -1,6 +1,6 @@
 ﻿using UnityEngine;
 
-namespace SpaxUtils.StateMachine
+namespace SpaxUtils.StateMachines
 {
 	[NodeWidth(300)]
 	public class SpawnPrefabsNode : StateMachineNodeBase

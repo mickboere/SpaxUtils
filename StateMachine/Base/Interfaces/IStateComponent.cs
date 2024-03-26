@@ -1,34 +1,19 @@
-﻿using System;
-using System.Collections.Generic;
-
-namespace SpaxUtils.StateMachine
+﻿namespace SpaxUtils.StateMachines
 {
 	/// <summary>
-	/// State component interface, contains several callbacks relating to the current parent state.
+	/// State component interface, contains several callbacks relating to the current state.
 	/// </summary>
 	public interface IStateComponent
 	{
 		/// <summary>
-		/// The order of execution. Lower means earlier execution.
+		/// Called once before entering a state.
 		/// </summary>
-		int ExecutionOrder { get; }
+		void OnEnteringState();
 
 		/// <summary>
-		/// Defines whether this component should have its state dependencies injected after <see cref="OnPrepare"/>.
+		/// Called every frame while entering the state.
 		/// </summary>
-		bool InjectStateDependencies { get; }
-
-		/// <summary>
-		/// Called before InjectDependencies().
-		/// <see cref="IStateComponent"/>s are not guaranteed to be deleted after use, use this method to reinitialize if necessary.
-		/// </summary>
-		void OnPrepare();
-
-		/// <summary>
-		/// Called after preparing the state, delays the <see cref="OnStateEntered"/> until all <paramref name="onCompleteCallback"/>s have returned.
-		/// </summary>
-		/// <param name="onCompleteCallback">The callback that needs to be called as soon as the entry transition has completed.</param>
-		void OnEnteringState(Action onCompleteCallback);
+		void WhileEnteringState(ITransition transition);
 
 		/// <summary>
 		/// Called when the state containing this component is entered.
@@ -36,24 +21,18 @@ namespace SpaxUtils.StateMachine
 		void OnStateEntered();
 
 		/// <summary>
-		/// Called as a state is being exited, delays the <see cref="OnStateExit"/> as well as next state until all <paramref name="onCompleteCallback"/>s have returned.
+		/// Called once before exiting a state.
 		/// </summary>
-		/// <param name="onCompleteCallback">The callback that needs to be called as soon as the exit transition has completed.</param>
-		void OnExitingState(Action onCompleteCallback);
+		void OnExitingState();
+
+		/// <summary>
+		/// Called every frame while the state is being exited.
+		/// </summary>
+		void WhileExitingState(ITransition transition);
 
 		/// <summary>
 		/// Called when the state containing this node has exited.
 		/// </summary>
 		void OnStateExit();
-
-		/// <summary>
-		/// Called every update frame while the state is active.
-		/// </summary>
-		void OnUpdate();
-
-		/// <summary>
-		/// Returns all of the components connected directly to this component.
-		/// </summary>
-		List<IStateComponent> GetComponents();
 	}
 }

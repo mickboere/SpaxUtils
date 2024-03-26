@@ -6,17 +6,17 @@ namespace SpaxUtils
 	public abstract class IKComponentBase : EntityComponentBase, IIKComponent
 	{
 		/// <summary>
-		/// Dictionary where the Key is string IK chain identifier and Value is <see cref="IKUpdateMode"/> defining the settings for the chain.
+		/// Dictionary where the Key is string IK chain identifier and Value is <see cref="UpdateMode"/> defining the settings for the chain.
 		/// </summary>
-		protected abstract Dictionary<string, IKUpdateMode> Settings { get; set; }
+		protected abstract Dictionary<string, UpdateMode> Settings { get; set; }
 
 		protected Dictionary<string, Dictionary<object, IKInfluencer>> chainInfluencers = new Dictionary<string, Dictionary<object, IKInfluencer>>();
 
 		protected void Update()
 		{
-			foreach (KeyValuePair<string, IKUpdateMode> setting in Settings)
+			foreach (KeyValuePair<string, UpdateMode> setting in Settings)
 			{
-				if (setting.Value == IKUpdateMode.Update)
+				if (setting.Value == UpdateMode.Update)
 				{
 					ApplyInfluencer(setting.Key);
 				}
@@ -25,9 +25,9 @@ namespace SpaxUtils
 
 		protected void LateUpdate()
 		{
-			foreach (KeyValuePair<string, IKUpdateMode> setting in Settings)
+			foreach (KeyValuePair<string, UpdateMode> setting in Settings)
 			{
-				if (setting.Value == IKUpdateMode.LateUpdate)
+				if (setting.Value == UpdateMode.LateUpdate)
 				{
 					ApplyInfluencer(setting.Key);
 				}
@@ -36,9 +36,9 @@ namespace SpaxUtils
 
 		protected void FixedUpdate()
 		{
-			foreach (KeyValuePair<string, IKUpdateMode> setting in Settings)
+			foreach (KeyValuePair<string, UpdateMode> setting in Settings)
 			{
-				if (setting.Value == IKUpdateMode.FixedUpdate)
+				if (setting.Value == UpdateMode.FixedUpdate)
 				{
 					ApplyInfluencer(setting.Key);
 				}

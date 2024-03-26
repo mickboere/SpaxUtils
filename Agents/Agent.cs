@@ -1,4 +1,4 @@
-using SpaxUtils.StateMachine;
+using SpaxUtils.StateMachines;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -57,7 +57,7 @@ namespace SpaxUtils
 			// Create brain if there isn't one.
 			if (Brain == null)
 			{
-				Brain = new Brain(DependencyManager, callbackService, state, brainGraphs);
+				Brain = new Brain(DependencyManager, callbackService, state, null, brainGraphs);
 			}
 		}
 

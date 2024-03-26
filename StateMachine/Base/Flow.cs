@@ -1,11 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace SpaxUtils.StateMachine
+namespace SpaxUtils.StateMachines
 {
 	/// <summary>
 	/// Static multi-layered state machine that requires a <see cref="StateMachineGraph"/> asset to run.
-	/// Transitions are done through <see cref="ITransitionComponent"/>s.
+	/// Transitions are done through <see cref="IStateTransition"/>s.
 	/// </summary>
 	public class Flow : IDisposable
 	{
@@ -18,7 +18,7 @@ namespace SpaxUtils.StateMachine
 		private IHistory history;
 
 		private StateMachineGraph instance;
-		private List<FlowLayer> layers = new List<FlowLayer>();
+		private List<StateMachine> layers = new List<StateMachine>();
 
 		public Flow(StateMachineGraph graph, IDependencyManager dependencyManager, IHistory history)
 		{
@@ -46,10 +46,10 @@ namespace SpaxUtils.StateMachine
 			List<FlowStateNode> startStates = instance.GetStartStates();
 			foreach (FlowStateNode startState in startStates)
 			{
-				FlowLayer layer = new FlowLayer(startState, dependencyManager, dependencyManager.Get<CallbackService>());
+				StateMachine layer = new StateMachine(dependencyManager, dependencyManager.Get<CallbackService>(), instance.GetNodesOfType<IState>(), startState.ID);
 				layers.Add(layer);
+				history.Add(startState.ID);
 				layer.EnteredStateEvent += OnEnteredStateEvent;
-				layer.Start();
 			}
 		}
 
@@ -64,7 +64,7 @@ namespace SpaxUtils.StateMachine
 				return;
 			}
 
-			foreach (FlowLayer layer in layers)
+			foreach (StateMachine layer in layers)
 			{
 				layer.EnteredStateEvent -= OnEnteredStateEvent;
 				layer.Dispose();

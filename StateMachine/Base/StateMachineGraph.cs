@@ -3,7 +3,7 @@ using System.Linq;
 using UnityEngine;
 using XNode;
 
-namespace SpaxUtils.StateMachine
+namespace SpaxUtils.StateMachines
 {
 	/// <summary>
 	/// <see cref="NodeGraph"/> implementation for state machine assets.
@@ -33,14 +33,14 @@ namespace SpaxUtils.StateMachine
 			return startNodes;
 		}
 
-		public List<T> GetNodesOfType<T>() where T : Node
+		public List<T> GetNodesOfType<T>()
 		{
 			List<T> ofType = new List<T>();
 			foreach (Node node in nodes)
 			{
-				if (node is T)
+				if (node is T cast)
 				{
-					ofType.Add((T)node);
+					ofType.Add(cast);
 				}
 			}
 			return ofType;

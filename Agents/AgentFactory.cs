@@ -1,4 +1,4 @@
-﻿using SpaxUtils.StateMachine;
+﻿using SpaxUtils.StateMachines;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -76,7 +76,7 @@ namespace SpaxUtils
 			{
 				foreach (StateMachineGraph brainGraph in brainGraphs)
 				{
-					agent.Brain.AddGraph(brainGraph);
+					agent.Brain.AppendGraph(brainGraph);
 				}
 			}
 

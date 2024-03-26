@@ -1,6 +1,6 @@
 ﻿using UnityEngine;
 
-namespace SpaxUtils.StateMachine
+namespace SpaxUtils.StateMachines
 {
 	/// <summary>
 	/// Node that runs a sub-state-machine.

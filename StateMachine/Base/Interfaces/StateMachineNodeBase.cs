@@ -1,26 +1,21 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
-using System.Text.RegularExpressions;
 using XNode;
 
-namespace SpaxUtils.StateMachine
+namespace SpaxUtils.StateMachines
 {
 	/// <summary>
-	/// Most basic class of statemachine node, contains generic node related methods.
+	/// Abstract <see cref="Node"/> implementation for <see cref="StateMachines"/>.
+	/// Implements <see cref="IStateComponent"/>.
 	/// </summary>
 	public abstract class StateMachineNodeBase : Node, IStateComponent
 	{
-		/// <inheritdoc/>
-		public virtual int ExecutionOrder => 0;
-
-		/// <inheritdoc/>
-		public bool InjectStateDependencies => true;
-
 		/// <summary>
 		/// Name string used in the editor.
 		/// </summary>
-		public virtual string UserFacingName => string.Join(" ", new List<string>(SplitCamelCase(GetType().Name)).Where((n) => n != "Node"));
+		public virtual string UserFacingName => string.Join(" ", new List<string>(GetType().Name.SplitCamelCase()).Where((n) => n != "Node"));
+
+		#region Node Config
 
 		public override object GetValue(NodePort port)
 		{
@@ -33,39 +28,32 @@ namespace SpaxUtils.StateMachine
 			name = UserFacingName;
 		}
 
+		#endregion Node Config
+
 		#region Callbacks
 
 		/// <inheritdoc/>
 		public virtual void OnPrepare() { }
 
 		/// <inheritdoc/>
-		public virtual void OnEnteringState(Action callback)
-		{
-			callback();
-		}
+		public virtual void OnEnteringState() { }
+
+		/// <inheritdoc/>
+		public virtual void WhileEnteringState(ITransition transition) { }
 
 		/// <inheritdoc/>
 		public virtual void OnStateEntered() { }
 
 		/// <inheritdoc/>
-		public virtual void OnExitingState(Action callback)
-		{
-			callback();
-		}
+		public virtual void OnExitingState() { }
+
+		/// <inheritdoc/>
+		public virtual void WhileExitingState(ITransition transition) { }
 
 		/// <inheritdoc/>
 		public virtual void OnStateExit() { }
 
-		/// <inheritdoc/>
-		public virtual void OnUpdate() { }
-
-		#endregion
-
-		/// <inheritdoc/>
-		public List<IStateComponent> GetComponents()
-		{
-			return NodeExtensions.GetAllOutputNodes(this).Cast<IStateComponent>().Where((c) => c is not IState).ToList();
-		}
+		#endregion Callbacks
 
 		#region Connections
 
@@ -101,14 +89,11 @@ namespace SpaxUtils.StateMachine
 			return NodeExtensions.GetOutputNode<T>(this, port);
 		}
 
-		#endregion
+		#endregion Connections
 
-		/// <summary>
-		/// Split <paramref name="source"/> into camel cased words.
-		/// </summary>
-		protected string[] SplitCamelCase(string source)
+		public IReadOnlyCollection<IStateComponent> GetComponents()
 		{
-			return Regex.Split(source, @"(?<!^)(?=[A-Z])");
+			return NodeExtensions.GetAllOutputNodes(this).Cast<IStateComponent>().Where((c) => c is not IState).ToHashSet();
 		}
 	}
 }

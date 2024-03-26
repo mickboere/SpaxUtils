@@ -1,4 +1,4 @@
-﻿namespace SpaxUtils.StateMachine
+﻿namespace SpaxUtils.StateMachines
 {
 	/// <summary>
 	/// Base <see cref="IRule"/> node implementation.

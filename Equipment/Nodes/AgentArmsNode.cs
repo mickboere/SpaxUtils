@@ -1,7 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using SpaxUtils.StateMachine;
+using SpaxUtils.StateMachines;
 using System;
 
 namespace SpaxUtils
@@ -49,16 +49,12 @@ namespace SpaxUtils
 			rigidbodyWrapper.Control.AddModifier(this, controlMod);
 		}
 
-		public override void OnEnteringState(Action callback)
+		public override void OnEnteringState()
 		{
 			if (animateIK && asStateTransition && sheathe != arms.Sheathed)
 			{
 				// Move hand IK target towards sheathe.
-				coroutine = callbackService.StartCoroutine(Animate(reachDuration, false, callback));
-			}
-			else
-			{
-				callback();
+				coroutine = callbackService.StartCoroutine(Animate(reachDuration, false, null));
 			}
 		}
 
@@ -128,7 +124,7 @@ namespace SpaxUtils
 
 		private void OnLateUpdate()
 		{
-			if(!sheathe)
+			if (!sheathe)
 			{
 				if (leftComp != null)
 				{

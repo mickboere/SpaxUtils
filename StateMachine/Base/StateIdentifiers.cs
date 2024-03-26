@@ -1,4 +1,4 @@
-﻿namespace SpaxUtils.StateMachine
+﻿namespace SpaxUtils.StateMachines
 {
 	public class StateIdentifiers : IStateIdentifierConstants
 	{

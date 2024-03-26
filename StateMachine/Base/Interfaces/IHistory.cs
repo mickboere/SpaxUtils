@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace SpaxUtils.StateMachine
+namespace SpaxUtils.StateMachines
 {
 	public interface IHistory
 	{

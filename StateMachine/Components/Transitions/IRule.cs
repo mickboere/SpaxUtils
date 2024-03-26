@@ -1,4 +1,4 @@
-﻿namespace SpaxUtils.StateMachine
+﻿namespace SpaxUtils.StateMachines
 {
 	/// <summary>
 	/// Rule interface containing a "Valid" bool and a "Validity" float amount.
@@ -11,8 +11,8 @@
 		bool Valid { get; }
 
 		/// <summary>
-		/// How valid is this transition to be used?
-		/// Can be useful to determine the correct transition when multiple transitions are valid.
+		/// How valid exactly is this transition? (range depends on context)
+		/// Used to determine the correct transition when multiple transitions are valid.
 		/// </summary>
 		float Validity { get; }
 	}

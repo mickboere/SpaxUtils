@@ -1,6 +1,6 @@
 ﻿using UnityEngine;
 
-namespace SpaxUtils.StateMachine
+namespace SpaxUtils.StateMachines
 {
 	[NodeTint("#FD383D"), NodeWidth(130)]
 	public class ExitStateMachineNode : StateMachineNodeBase

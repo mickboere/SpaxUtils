@@ -1,6 +1,6 @@
 ﻿using UnityEngine;
 
-namespace SpaxUtils.StateMachine
+namespace SpaxUtils.StateMachines
 {
 	/// <summary>
 	/// Basic <see cref="RuledTransitionNodeBase"/> implementation, having an <see cref="Connections.StateComponent"/> in-connection.

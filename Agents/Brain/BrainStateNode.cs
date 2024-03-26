@@ -1,6 +1,7 @@
 ﻿using UnityEngine;
-using SpaxUtils.StateMachine;
+using SpaxUtils.StateMachines;
 using System.Collections.Generic;
+using UnityEngine.Serialization;
 
 namespace SpaxUtils
 {
@@ -8,42 +9,14 @@ namespace SpaxUtils
 	/// <see cref="StateNodeBase"/> implementation for a brain state machine.
 	/// </summary>
 	[NodeTint("#239641"), NodeWidth(225)]
-	public class BrainStateNode : StateNodeBase, IBrainState
+	public class BrainStateNode : StateNodeBase, IState
 	{
-		public override string Name => state;
-		public override string UserFacingName => state;
+		public override string ID => identifier;
 
-		[SerializeField, ConstDropdown(typeof(IStateIdentifierConstants))] private string state;
-		[SerializeField, Output(backingValue = ShowBackingValue.Never, typeConstraint = TypeConstraint.Inherited)] private Connections.State subStates;
-		[SerializeField, Input(backingValue = ShowBackingValue.Never, typeConstraint = TypeConstraint.Inherited, connectionType = ConnectionType.Override)] private Connections.State parentState;
+		public override string UserFacingName => identifier;
 
-		/// <inheritdoc/>
-		public IBrainState GetParentState()
-		{
-			return GetInputNode<IBrainState>(nameof(parentState));
-		}
-
-		/// <inheritdoc/>
-		public List<IBrainState> GetSubStates()
-		{
-			return GetOutputNodes<IBrainState>(nameof(subStates));
-		}
-
-		/// <inheritdoc/>
-		public List<string> GetStateHierarchy()
-		{
-			IBrainState parent = GetParentState();
-
-			// If there is no parent return a new list containing only this state.
-			if (parent == null)
-			{
-				return new List<string>() { Name };
-			}
-
-			// Retrieve the parent's hierarchy and append this state.
-			List<string> hierarchy = parent.GetStateHierarchy();
-			hierarchy.Add(Name);
-			return hierarchy;
-		}
+		[SerializeField, ConstDropdown(typeof(IStateIdentifierConstants)), FormerlySerializedAs("state")] private string identifier;
+		[SerializeField, Output(backingValue = ShowBackingValue.Never, typeConstraint = TypeConstraint.Inherited)] private Connections.State defaultChild;
+		[SerializeField, Output(backingValue = ShowBackingValue.Never, typeConstraint = TypeConstraint.Inherited)] private Connections.State children;
 	}
 }

@@ -6,7 +6,7 @@ namespace SpaxUtils
 	/// <summary>
 	/// Interface for unique item data.
 	/// </summary>
-	public interface IItemData : IUnique
+	public interface IItemData : IIdentifiable
 	{
 		/// <summary>
 		/// The name of this item.

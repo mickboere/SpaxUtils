@@ -294,7 +294,7 @@ namespace SpaxUtils
 			if (typeof(Component).IsAssignableFrom(type))
 			{
 				// IComponentService
-				if (typeof(IComponentService).IsAssignableFrom(type))
+				if (typeof(IServiceComponent).IsAssignableFrom(type))
 				{
 					GameObject dependencyObject = new GameObject(DEPENDENCY_OBJECT_PREFIX + type.Name);
 					GameObject.DontDestroyOnLoad(dependencyObject);

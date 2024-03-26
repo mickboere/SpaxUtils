@@ -1,7 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using SpaxUtils.StateMachine;
+using SpaxUtils.StateMachines;
 
 namespace SpaxUtils
 {
@@ -16,17 +16,20 @@ namespace SpaxUtils
 		private ITargeter targeter;
 		private IEntityCollection entityCollection;
 		private AgentNavigationHandler navigationHandler;
+		private CallbackService callbackService;
 
 		private EntityComponentFilter<ITargetable> targetables;
 
 		public void InjectDependencies(IEntity entity, IActor actor, ITargeter targeter,
-			IEntityCollection entityCollection, AgentNavigationHandler navigationHandler)
+			IEntityCollection entityCollection, AgentNavigationHandler navigationHandler,
+			CallbackService callbackService)
 		{
 			this.entity = entity;
 			this.actor = actor;
 			this.targeter = targeter;
 			this.entityCollection = entityCollection;
 			this.navigationHandler = navigationHandler;
+			this.callbackService = callbackService;
 		}
 
 		public override void OnStateEntered()
@@ -34,6 +37,7 @@ namespace SpaxUtils
 			base.OnStateEntered();
 			actor.Listen<Act<bool>>(this, ActorActs.TARGET, OnTargetAct);
 			targetables = new EntityComponentFilter<ITargetable>(entityCollection, (entity) => entity.Identification.HasAll(targetLabels), (c) => true, entity);
+			callbackService.SubscribeUpdate(UpdateMode.Update, this, OnUpdate);
 		}
 
 		public override void OnStateExit()
@@ -44,9 +48,8 @@ namespace SpaxUtils
 			targetables.Dispose();
 		}
 
-		public override void OnUpdate()
+		private void OnUpdate()
 		{
-			base.OnUpdate();
 			if (targeter.Target != null && navigationHandler.Distance() > maxDistance)
 			{
 				targeter.SetTarget(null);

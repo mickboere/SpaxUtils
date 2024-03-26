@@ -1,4 +1,4 @@
-﻿using SpaxUtils.StateMachine;
+﻿using SpaxUtils.StateMachines;
 using UnityEngine;
 
 namespace SpaxUtils
@@ -38,7 +38,7 @@ namespace SpaxUtils
 
 		private void OnNextState(NextStateMsg msg)
 		{
-			brain.EnterState(nextState);
+			brain.TryTransition(nextState);
 		}
 	}
 }

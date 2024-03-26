@@ -1,6 +1,6 @@
 ﻿using SpaxUtils;
 using UnityEngine;
-using SpaxUtils.StateMachine;
+using SpaxUtils.StateMachines;
 using System;
 using System.Linq;
 

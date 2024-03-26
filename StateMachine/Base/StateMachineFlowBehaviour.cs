@@ -1,6 +1,6 @@
 ﻿using UnityEngine;
 
-namespace SpaxUtils.StateMachine
+namespace SpaxUtils.StateMachines
 {
 	public class StateMachineFlowBehaviour : MonoBehaviour
 	{

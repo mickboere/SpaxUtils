@@ -3,7 +3,7 @@ using System.Linq;
 using UnityEngine;
 using XNode;
 
-namespace SpaxUtils.StateMachine
+namespace SpaxUtils.StateMachines
 {
 	/// <summary>
 	/// StateMachine specific <see cref="Node"/> extensions.

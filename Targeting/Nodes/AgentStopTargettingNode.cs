@@ -1,4 +1,4 @@
-using SpaxUtils.StateMachine;
+using SpaxUtils.StateMachines;
 using UnityEngine;
 
 namespace SpaxUtils

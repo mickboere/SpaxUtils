@@ -1,4 +1,4 @@
-﻿using SpaxUtils.StateMachine;
+﻿using SpaxUtils.StateMachines;
 using System.Collections.Generic;
 using System;
 using System.Linq;
@@ -6,154 +6,154 @@ using System.Linq;
 namespace SpaxUtils
 {
 	/// <summary>
-	/// <see cref="IState"/> implementation for states within a <see cref="Brain"/>.
+	/// <see cref="IState"/> implementation to be used in <see cref="Brain"/>.
 	/// </summary>
-	public class BrainState : IBrainState, IDisposable
+	/// <seealso cref="StateMachines"/>
+	public class BrainState : IState, IDisposable
 	{
-		public string Name => ID;
 		public string ID { get; private set; }
-		public int ExecutionOrder => int.MinValue;
-		public bool InjectStateDependencies => false;
-		public BrainState ParentState { get; private set; }
-		public IReadOnlyList<IBrainState> SubStates => subStates;
+		public bool Active { get; private set; }
+		public IState Parent { get; private set; }
+		public IState DefaultChild => defaultChild != null && children.ContainsKey(defaultChild) ? children[defaultChild] : null;
+		public IReadOnlyDictionary<string, IState> Children => children;
 
-		private List<IStateComponent> components = new List<IStateComponent>();
-		private List<IBrainState> subStates = new List<IBrainState>();
+		public IReadOnlyCollection<IStateComponent> Components => components;
 
-		public BrainState(string stateIdentifier, BrainState parentState = null, IEnumerable<BrainState> subStates = null, IEnumerable<IStateComponent> components = null)
+		private string defaultChild;
+		private Dictionary<string, IState> children;
+		private List<IStateComponent> components;
+
+		private IDependencyManager dependencyManager;
+
+		public BrainState(string id,
+			IState parent = null, string defaultChild = null,
+			IEnumerable<IStateComponent> components = null)
 		{
-			ID = stateIdentifier;
-			ParentState = parentState;
-			if (subStates != null)
+			ID = id;
+			SetParent(parent);
+			this.defaultChild = defaultChild;
+			children = new Dictionary<string, IState>();
+			this.components = new List<IStateComponent>(components);
+		}
+
+		public virtual void Dispose()
+		{
+			SetParent(null);
+		}
+
+		public void InjectDependencies(IDependencyManager dependencyManager)
+		{
+			this.dependencyManager = dependencyManager;
+			foreach (IStateComponent component in components)
 			{
-				this.subStates = new List<IBrainState>(subStates);
-			}
-			if (components != null)
-			{
-				this.components = new List<IStateComponent>(components);
+				dependencyManager.Inject(component);
 			}
 		}
 
-		public void Dispose()
-		{
-			components.Clear();
-		}
+		#region Hierarchy Management
 
-		#region Parenting
-
-		/// <summary>
-		/// Attempt to set the parent of this brainstate.
-		/// </summary>
-		public bool TrySetParent(BrainState parentState, bool overrideCurrent = false)
+		/// <inheritdoc/>
+		public void SetParent(IState parent)
 		{
-			if (ParentState == null || overrideCurrent)
+			if (parent == Parent)
 			{
-				ParentState = parentState;
-
-				if (!ParentState.ContainsSubState(this))
-				{
-					ParentState.TryAddSubState(this);
-				}
-
-				return true;
+				return;
 			}
 
-			return false;
+			Parent?.RemoveChild(ID);
+			Parent = parent;
+			Parent.AddChild(this);
 		}
 
 		/// <inheritdoc/>
-		public IBrainState GetParentState()
+		public void SetDefaultChild(string id)
 		{
-			return ParentState;
+			defaultChild = id;
 		}
 
 		/// <inheritdoc/>
-		public List<string> GetStateHierarchy()
+		public void AddChild(IState child)
 		{
-			// If there is no parent return a new list containing only this state.
-			if (ParentState == null)
+			if (!children.ContainsKey(child.ID))
 			{
-				return new List<string>() { Name };
+				children.Add(child.ID, child);
+				child.SetParent(this);
 			}
+		}
 
-			// Retrieve the parent's hierarchy and append this state.
-			List<string> hierarchy = ParentState.GetStateHierarchy();
-			hierarchy.Add(Name);
-			return hierarchy;
+		/// <inheritdoc/>
+		public void RemoveChild(string child)
+		{
+			if (children.ContainsKey(child))
+			{
+				children[child].SetParent(null);
+				children.Remove(child);
+			}
 		}
 
 		#endregion
 
-		#region Substates
+		#region Callbacks
 
-		/// <summary>
-		/// Attempt to add a sub state to this brainstate.
-		/// </summary>
-		public bool TryAddSubState(BrainState subState)
+		/// <inheritdoc/>
+		public virtual void OnEnteringState()
 		{
-			if (subStates.Contains(subState))
+			foreach (IStateComponent component in components)
 			{
-				return false;
+				component.OnEnteringState();
 			}
-
-			subStates.Add(subState);
-
-			// Force update sub state's parent.
-			if (subState.ParentState != this)
-			{
-				subState.TrySetParent(this, true);
-			}
-
-			return true;
-		}
-
-		/// <summary>
-		/// Attempt to remove a sub state from this brainstate.
-		/// </summary>
-		public bool TryRemoveSubState(BrainState subState)
-		{
-			if (!subStates.Contains(subState))
-			{
-				return false;
-			}
-
-			subStates.Remove(subState);
-			return true;
-		}
-
-		/// <summary>
-		/// Check whether this brainstate contains the given substate.
-		/// </summary>
-		public bool ContainsSubState(BrainState subState, bool indirectly = false)
-		{
-			if (subStates.Contains(subState))
-			{
-				return true;
-			}
-
-			if (indirectly)
-			{
-				foreach (BrainState s in subStates)
-				{
-					if (s.ContainsSubState(subState, indirectly))
-					{
-						return true;
-					}
-				}
-			}
-
-			return false;
 		}
 
 		/// <inheritdoc/>
-		public List<IBrainState> GetSubStates()
+		public virtual void WhileEnteringState(ITransition transition)
 		{
-			return subStates;
+			foreach (IStateComponent component in components)
+			{
+				component.WhileEnteringState(transition);
+			}
+		}
+
+		/// <inheritdoc/>
+		public virtual void OnStateEntered()
+		{
+			Active = true;
+			foreach (IStateComponent component in components)
+			{
+				component.OnStateEntered();
+			}
+		}
+
+		/// <inheritdoc/>
+		public virtual void OnExitingState()
+		{
+			foreach (IStateComponent component in components)
+			{
+				component.OnExitingState();
+			}
+		}
+
+		/// <inheritdoc/>
+		public virtual void WhileExitingState(ITransition transition)
+		{
+			foreach (IStateComponent component in components)
+			{
+				component.WhileExitingState(transition);
+			}
+		}
+
+		/// <inheritdoc/>
+		public virtual void OnStateExit()
+		{
+			Active = false;
+			foreach (IStateComponent component in components)
+			{
+				component.OnStateExit();
+			}
 		}
 
 		#endregion
 
-		#region Components
+		#region Component Management
 
 		/// <summary>
 		/// Try to add a new <see cref="IStateComponent"/> to this state.
@@ -162,9 +162,9 @@ namespace SpaxUtils
 		/// <returns>TRUE if it was able to be added, FALSE if it wasn't.</returns>
 		public bool TryAddComponent(IStateComponent component)
 		{
-			if (component is IState)
+			if (component is IState state)
 			{
-				SpaxDebug.Error("Could not add component to BrainState. ", "State components cannot be of type IState.");
+				SpaxDebug.Error("States cannot be added as components:", $"Tried to add state with ID={state.ID}");
 				return false;
 			}
 
@@ -174,6 +174,12 @@ namespace SpaxUtils
 			}
 
 			components.Add(component);
+			if (Active)
+			{
+				dependencyManager.Inject(component);
+				component.OnEnteringState();
+				component.OnStateEntered();
+			}
 			return true;
 		}
 
@@ -206,43 +212,36 @@ namespace SpaxUtils
 			if (components.Contains(component))
 			{
 				components.Remove(component);
+				if (Active)
+				{
+					component.OnExitingState();
+					component.OnStateExit();
+				}
 				return true;
 			}
 
 			return false;
 		}
 
-		/// <inheritdoc/>
-		public List<IStateComponent> GetComponents()
+		/// <summary>
+		/// Try to remove a collection of <see cref="IStateComponent"/>s from this state.
+		/// </summary>
+		/// <param name="components">The list of <see cref="IStateComponent"/>s to try and remove.</param>
+		/// <returns>TRUE if it all components were successfully removed, FALSE if one or more were not.</returns>
+		public bool TryRemoveComponents(IEnumerable<IStateComponent> components)
 		{
-			return new List<IStateComponent>(components);
+			bool success = true;
+			foreach (IStateComponent component in components)
+			{
+				if (!TryRemoveComponent(component))
+				{
+					success = false;
+				}
+			}
+
+			return success;
 		}
 
-		/// <inheritdoc/>
-		public virtual List<IStateComponent> GetAllComponents()
-		{
-			List<IStateComponent> components = new List<IStateComponent>();
-			components.AddRange(this.GetAllComponentsInParents());
-			components.AddRange(this.GetAllChildComponents());
-			return components;
-		}
-
-		#endregion
-
-		#region Callbacks
-
-		public virtual void OnPrepare() { }
-
-		public virtual void OnEnteringState(Action onCompleteCallback) { onCompleteCallback?.Invoke(); }
-
-		public virtual void OnStateEntered() { }
-
-		public virtual void OnExitingState(Action onCompleteCallback) { onCompleteCallback?.Invoke(); }
-
-		public virtual void OnStateExit() { }
-
-		public virtual void OnUpdate() { }
-
-		#endregion
+		#endregion Component Management
 	}
 }

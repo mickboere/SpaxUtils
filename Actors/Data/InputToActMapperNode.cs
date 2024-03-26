@@ -1,4 +1,4 @@
-﻿using SpaxUtils.StateMachine;
+﻿using SpaxUtils.StateMachines;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -11,13 +11,15 @@ namespace SpaxUtils
 
 		private PlayerInputWrapper playerInputWrapper;
 		private IAgent agent;
+		private CallbackService callbackService;
 
 		private List<InputToActMapper> mappers = new List<InputToActMapper>();
 
-		public void InjectDependencies(PlayerInputWrapper playerInputWrapper, IAgent agent)
+		public void InjectDependencies(PlayerInputWrapper playerInputWrapper, IAgent agent, CallbackService callbackService)
 		{
 			this.playerInputWrapper = playerInputWrapper;
 			this.agent = agent;
+			this.callbackService = callbackService;
 		}
 
 		public override void OnStateEntered()
@@ -28,6 +30,8 @@ namespace SpaxUtils
 			{
 				mappers.Add(new InputToActMapper(mapping, agent, playerInputWrapper));
 			}
+
+			callbackService.SubscribeUpdate(UpdateMode.Update, this, OnUpdate);
 		}
 
 		public override void OnStateExit()
@@ -39,12 +43,12 @@ namespace SpaxUtils
 				mapper.Dispose();
 			}
 			mappers.Clear();
+
+			callbackService.UnsubscribeUpdate(UpdateMode.Update, this);
 		}
 
-		public override void OnUpdate()
+		private void OnUpdate()
 		{
-			base.OnUpdate();
-
 			foreach (InputToActMapper mapper in mappers)
 			{
 				mapper.Update();

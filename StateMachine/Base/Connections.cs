@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace SpaxUtils.StateMachine
+namespace SpaxUtils.StateMachines
 {
 	/// <summary>
 	/// Class containing the different connection types of state machine nodes.

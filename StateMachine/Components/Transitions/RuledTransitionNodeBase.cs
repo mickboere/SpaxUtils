@@ -2,10 +2,10 @@
 using System.Linq;
 using UnityEngine;
 
-namespace SpaxUtils.StateMachine
+namespace SpaxUtils.StateMachines
 {
 	/// <summary>
-	/// <see cref="ITransitionComponent"/> that utilizes <see cref="IRule"/> nodes to determine whether the transition is valid.
+	/// <see cref="IStateTransition"/> that utilizes <see cref="IRule"/> nodes to determine whether the transition is valid.
 	/// Requires all connected <see cref="RuleNodeBase"/> implementations to be valid in order to pass as valid itself.
 	/// </summary>
 	[NodeWidth(140)]

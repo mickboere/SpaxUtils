@@ -1,5 +1,5 @@
 using UnityEngine;
-using SpaxUtils.StateMachine;
+using SpaxUtils.StateMachines;
 using System.Linq;
 
 namespace SpaxUtils
@@ -20,21 +20,34 @@ namespace SpaxUtils
 		private RigidbodyWrapper rigidbodyWrapper;
 		private AnimatorPoser agentPoser;
 		private IAgentMovementHandler agentMovementHandler;
+		private CallbackService callbackService;
 
 		private float fromProgress;
 		private float toProgress;
 
-		public void InjectDependencies(RigidbodyWrapper rigidbodyWrapper, AnimatorPoser agentPoser, IAgentMovementHandler agentMovementHandler)
+		public void InjectDependencies(RigidbodyWrapper rigidbodyWrapper, AnimatorPoser agentPoser,
+			IAgentMovementHandler agentMovementHandler, CallbackService callbackService)
 		{
 			this.rigidbodyWrapper = rigidbodyWrapper;
 			this.agentPoser = agentPoser;
 			this.agentMovementHandler = agentMovementHandler;
+			this.callbackService = callbackService;
 		}
 
-		public override void OnUpdate()
+		public override void OnStateEntered()
 		{
-			base.OnUpdate();
+			base.OnStateEntered();
+			callbackService.SubscribeUpdate(UpdateMode.Update, this, OnUpdate);
+		}
 
+		public override void OnStateExit()
+		{
+			base.OnStateExit();
+			callbackService.UnsubscribeUpdate(UpdateMode.Update, this);
+		}
+
+		private void OnUpdate()
+		{
 			Vector3 blendPosition = rigidbodyWrapper.RelativeVelocity / agentMovementHandler.MovementSpeed * rigidbodyWrapper.Grip;
 			(IPoseSequence from, IPoseSequence to, float interpolation) instructions = movementBlendTree.GetPoseBlend(blendPosition);
 

@@ -9,29 +9,161 @@ namespace SpaxUtils
 	/// Service that gives access to all types of update callbacks, including those of a <see cref="MonoBehaviour"/> like Update, FixedUpdate, LateUpdate, but also has support for callbacks with custom intervals.
 	/// </summary>
 	[DefaultExecutionOrder(-1)]
-	public class CallbackService : MonoBehaviour, IComponentService
+	public class CallbackService : MonoBehaviour, IServiceComponent
 	{
+		/// <summary>
+		/// Unordered FixedUpdate callback.
+		/// </summary>
 		public event Action FixedUpdateCallback;
+
+		/// <summary>
+		/// Unordered Update callback.
+		/// </summary>
 		public event Action UpdateCallback;
+
+		/// <summary>
+		/// Unordered LateUpdate callback.
+		/// </summary>
 		public event Action LateUpdateCallback;
 
 		private Dictionary<int, Dictionary<object, Action>> loops = new Dictionary<int, Dictionary<object, Action>>();
 		private Dictionary<int, Coroutine> coroutines = new Dictionary<int, Coroutine>();
 
+		private List<(Action callback, int order)> orderedFixedUpdateCallbacks = new List<(Action callback, int order)>();
+		private Dictionary<object, int> orderedFixedUpdateIndices = new Dictionary<object, int>();
+		private List<(Action callback, int order)> orderedUpdateCallbacks = new List<(Action callback, int order)>();
+		private Dictionary<object, int> orderedUpdateIndices = new Dictionary<object, int>();
+		private List<(Action callback, int order)> orderedLateUpdateCallbacks = new List<(Action callback, int order)>();
+		private Dictionary<object, int> orderedLateUpdateIndices = new Dictionary<object, int>();
+
 		protected void FixedUpdate()
 		{
+			for (int i = 0; i < orderedFixedUpdateCallbacks.Count; i++)
+			{
+				orderedFixedUpdateCallbacks[i].callback();
+			}
 			FixedUpdateCallback?.Invoke();
 		}
 
 		protected void Update()
 		{
+			for (int i = 0; i < orderedUpdateCallbacks.Count; i++)
+			{
+				orderedUpdateCallbacks[i].callback();
+			}
 			UpdateCallback?.Invoke();
 		}
 
 		protected void LateUpdate()
 		{
+			for (int i = 0; i < orderedLateUpdateCallbacks.Count; i++)
+			{
+				orderedLateUpdateCallbacks[i].callback();
+			}
 			LateUpdateCallback?.Invoke();
 		}
+
+		#region Ordered Callbacks
+
+		public void SubscribeUpdate(UpdateMode updateMode, object subscriber, Action callback, int order = 0)
+		{
+			switch (updateMode)
+			{
+				case UpdateMode.FixedUpdate:
+					Add(orderedFixedUpdateCallbacks, orderedFixedUpdateIndices, subscriber, callback, order);
+					break;
+				case UpdateMode.Update:
+					Add(orderedUpdateCallbacks, orderedUpdateIndices, subscriber, callback, order);
+					break;
+				case UpdateMode.LateUpdate:
+					Add(orderedLateUpdateCallbacks, orderedLateUpdateIndices, subscriber, callback, order);
+					break;
+			}
+
+			void Add(List<(Action callback, int order)> list, Dictionary<object, int> dict, object subscriber, Action callback, int order)
+			{
+				// If empty just add.
+				if (list.Count == 0)
+				{
+					dict[subscriber] = 0;
+					list.Add((callback, order));
+					return;
+				}
+
+				// If highest, add as last.
+				if (order > list[list.Count - 1].order)
+				{
+					dict[subscriber] = list.Count;
+					list.Add((callback, order));
+					return;
+				}
+
+				// Else insert in correct place.
+				for (int i = 0; i < list.Count; i++)
+				{
+					if (order < list[i].order)
+					{
+						list.Insert(i, (callback, order));
+						foreach (KeyValuePair<object, int> kvp in dict)
+						{
+							// Shove dictionary entries by 1.
+							if (kvp.Value >= i)
+							{
+								dict[kvp.Key] = dict[kvp.Key] + 1;
+							}
+						}
+						dict[subscriber] = i;
+						return;
+					}
+				}
+
+				SpaxDebug.Error($"Ordered Update", $"Subscriber could not be added for some reason. sub={subscriber}, order={order}");
+			}
+		}
+
+		public void UnsubscribeUpdate(UpdateMode updateMode, object subscriber)
+		{
+			switch (updateMode)
+			{
+				case UpdateMode.FixedUpdate:
+					RemoveSubscriber(orderedFixedUpdateCallbacks, orderedFixedUpdateIndices, subscriber);
+					break;
+				case UpdateMode.Update:
+					RemoveSubscriber(orderedUpdateCallbacks, orderedUpdateIndices, subscriber);
+					break;
+				case UpdateMode.LateUpdate:
+					RemoveSubscriber(orderedLateUpdateCallbacks, orderedLateUpdateIndices, subscriber);
+					break;
+			}
+		}
+
+		public void UnsubscribeUpdates(object subscriber)
+		{
+			RemoveSubscriber(orderedFixedUpdateCallbacks, orderedFixedUpdateIndices, subscriber);
+			RemoveSubscriber(orderedUpdateCallbacks, orderedUpdateIndices, subscriber);
+			RemoveSubscriber(orderedLateUpdateCallbacks, orderedLateUpdateIndices, subscriber);
+		}
+
+		private void RemoveSubscriber(List<(Action callback, int order)> list, Dictionary<object, int> dict, object subscriber)
+		{
+			if (dict.ContainsKey(subscriber))
+			{
+				int index = dict[subscriber];
+				list.RemoveAt(index);
+				dict.Remove(subscriber);
+				foreach (KeyValuePair<object, int> kvp in dict)
+				{
+					// Shove dictionary entries back by 1.
+					if (kvp.Value > index)
+					{
+						dict[kvp.Key] = dict[kvp.Key] - 1;
+					}
+				}
+
+			}
+		}
+
+		#endregion Ordered Callbacks
 
 		#region Custom Update Loops
 

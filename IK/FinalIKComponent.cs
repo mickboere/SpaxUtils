@@ -12,12 +12,12 @@ namespace SpaxUtils
 		public class Chain
 		{
 			public string Identifier => identifier;
-			public IKUpdateMode UpdateMode => updateMode;
+			public UpdateMode UpdateMode => updateMode;
 			public Transform TipBone => tipBone;
 			public Transform Target => target;
 
 			[SerializeField, ConstDropdown(typeof(IIKChainConstants))] private string identifier;
-			[SerializeField] private IKUpdateMode updateMode;
+			[SerializeField] private UpdateMode updateMode;
 			[SerializeField] private Transform tipBone;
 			[SerializeField] private Transform target;
 		}
@@ -28,7 +28,7 @@ namespace SpaxUtils
 		public float LeftElbowHintWeight { get { return fullBodyIK.solver.leftArmChain.bendConstraint.weight; } set { fullBodyIK.solver.leftArmChain.bendConstraint.weight = value; } }
 		public float RightElbowHintWeight { get { return fullBodyIK.solver.rightArmChain.bendConstraint.weight; } set { fullBodyIK.solver.rightArmChain.bendConstraint.weight = value; } }
 
-		protected override Dictionary<string, IKUpdateMode> Settings { get; set; }
+		protected override Dictionary<string, UpdateMode> Settings { get; set; }
 
 		[SerializeField] protected FullBodyBipedIK fullBodyIK;
 		[SerializeField] protected LookAtIK lookAtIk;
@@ -46,7 +46,7 @@ namespace SpaxUtils
 				lookAtIk = GetComponentInChildren<LookAtIK>();
 			}
 
-			Settings = new Dictionary<string, IKUpdateMode>();
+			Settings = new Dictionary<string, UpdateMode>();
 			foreach (Chain chain in chains)
 			{
 				Settings[chain.Identifier] = chain.UpdateMode;

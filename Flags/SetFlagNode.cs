@@ -1,5 +1,5 @@
 ﻿using UnityEngine;
-using SpaxUtils.StateMachine;
+using SpaxUtils.StateMachines;
 
 namespace SpaxUtils
 {

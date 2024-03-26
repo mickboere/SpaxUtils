@@ -3,9 +3,9 @@
 namespace SpaxUtils
 {
 	/// <summary>
-	/// Interface for <see cref="IUnique"/> data of any type.
+	/// Interface for <see cref="IIdentifiable"/> data of any type.
 	/// </summary>
-	public interface ILabeledData : IUnique
+	public interface ILabeledData : IIdentifiable
 	{
 		object Value { get; set; }
 		Type ValueType { get; }

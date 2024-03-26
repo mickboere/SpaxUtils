@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 
 namespace SpaxUtils
 {
@@ -77,6 +78,14 @@ namespace SpaxUtils
 		public static string Tag(this string s, string tag, string value)
 		{
 			return $"<{tag}={value}>" + s + $"</{tag}>";
+		}
+
+		/// <summary>
+		/// Split <paramref name="s"/> into camel cased words.
+		/// </summary>
+		public static string[] SplitCamelCase(this string s)
+		{
+			return Regex.Split(s, @"(?<!^)(?=[A-Z])");
 		}
 
 		/// <summary>
