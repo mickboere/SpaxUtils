@@ -127,7 +127,7 @@ namespace SpaxUtils
 			{
 				// State does not exist yet, create it using the template.
 				BrainState parent = (template == null || template.Parent == null) ? null : EnsureState(template.Parent.ID, template.Parent);
-				state = new BrainState(id, parent, template.DefaultChild == null ? null : template.DefaultChild.ID);
+				state = new BrainState(id, parent, (template == null || template.DefaultChild == null) ? null : template.DefaultChild.ID);
 				states.Add(id, state);
 				stateMachine.AddState(state);
 

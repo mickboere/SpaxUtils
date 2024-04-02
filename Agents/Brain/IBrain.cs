@@ -60,7 +60,9 @@ namespace SpaxUtils
 		/// <param name="id">The ID of the state to transition to.</param>
 		/// <param name="transition">The intermediary transition object to use.</param>
 		/// <returns>Whether the transition was successfully initiated.</returns>
-		bool TryTransition(string id, ITransition transition);
+		bool TryTransition(string id, ITransition transition = null);
+
+		#region Components
 
 		/// <summary>
 		/// Adds the <paramref name="component"/> to the <paramref name="id"/> to receive <see cref="IStateComponent"/> callbacks when the state is active.
@@ -76,6 +78,10 @@ namespace SpaxUtils
 		/// <param name="component">The component to remove.</param>
 		bool TryRemoveComponent(string id, IStateComponent component);
 
+		#endregion Components
+
+		#region Graphs
+
 		/// <summary>
 		/// Will append the <paramref name="graph"/> data to this brain, copying its components and adding them to the appropriate <see cref="BrainState"/>s.
 		/// </summary>
@@ -87,5 +93,7 @@ namespace SpaxUtils
 		/// </summary>
 		/// <param name="graph">The <see cref="StateMachineGraph"/> to remove the data of.</param>
 		void StripGraph(StateMachineGraph graph);
+
+		#endregion Graphs
 	}
 }

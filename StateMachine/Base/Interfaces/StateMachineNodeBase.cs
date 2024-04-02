@@ -33,9 +33,6 @@ namespace SpaxUtils.StateMachines
 		#region Callbacks
 
 		/// <inheritdoc/>
-		public virtual void OnPrepare() { }
-
-		/// <inheritdoc/>
 		public virtual void OnEnteringState() { }
 
 		/// <inheritdoc/>
@@ -58,42 +55,42 @@ namespace SpaxUtils.StateMachines
 		#region Connections
 
 		/// <summary>
-		/// Maps to <see cref="NodeExtensions.GetInputNodes{T}(Node, string){T}(StateMachineNodeBase, string)"/>.
+		/// Maps to <see cref="XNodeExtensions.GetInputNodes{T}(Node, string){T}(StateMachineNodeBase, string)"/>.
 		/// </summary>
 		public List<T> GetInputNodes<T>(string port) where T : class
 		{
-			return NodeExtensions.GetInputNodes<T>(this, port);
+			return XNodeExtensions.GetInputNodes<T>(this, port);
 		}
 
 		/// <summary>
-		/// Maps to <see cref="NodeExtensions.GetInputNode{T}(Node, string){T}(StateMachineNodeBase, string)"/>.
+		/// Maps to <see cref="XNodeExtensions.GetInputNode{T}(Node, string){T}(StateMachineNodeBase, string)"/>.
 		/// </summary>
 		public T GetInputNode<T>(string port) where T : class
 		{
-			return NodeExtensions.GetInputNode<T>(this, port);
+			return XNodeExtensions.GetInputNode<T>(this, port);
 		}
 
 		/// <summary>
-		/// Maps to <see cref="NodeExtensions.GetOutputNodes{T}(StateMachineNodeBase, string)"/>.
+		/// Maps to <see cref="XNodeExtensions.GetOutputNodes{T}(StateMachineNodeBase, string)"/>.
 		/// </summary>
 		public List<T> GetOutputNodes<T>(string port) where T : class
 		{
-			return NodeExtensions.GetOutputNodes<T>(this, port);
+			return XNodeExtensions.GetOutputNodes<T>(this, port);
 		}
 
 		/// <summary>
-		/// Maps to <see cref="NodeExtensions.GetOutputNode{T}(StateMachineNodeBase, string)"/>.
+		/// Maps to <see cref="XNodeExtensions.GetOutputNode{T}(StateMachineNodeBase, string)"/>.
 		/// </summary>
 		public T GetOutputNode<T>(string port) where T : class
 		{
-			return NodeExtensions.GetOutputNode<T>(this, port);
+			return XNodeExtensions.GetOutputNode<T>(this, port);
 		}
 
 		#endregion Connections
 
 		public IReadOnlyCollection<IStateComponent> GetComponents()
 		{
-			return NodeExtensions.GetAllOutputNodes(this).Cast<IStateComponent>().Where((c) => c is not IState).ToHashSet();
+			return XNodeExtensions.GetAllOutputNodes(this).Cast<IStateComponent>().Where((c) => c is not IState).ToHashSet();
 		}
 	}
 }

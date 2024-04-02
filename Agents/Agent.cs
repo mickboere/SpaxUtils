@@ -39,7 +39,8 @@ namespace SpaxUtils
 			return dependencies;
 		}
 
-		public void InjectDependencies(IAgentBody body, ITargetable targetableComponent, ITargeter targeterComponent,
+		public void InjectDependencies(
+			IAgentBody body, ITargetable targetableComponent, ITargeter targeterComponent,
 			IPerformer[] performers, CallbackService callbackService)
 		{
 			Body = body;

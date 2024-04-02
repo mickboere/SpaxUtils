@@ -24,15 +24,15 @@ namespace SpiritAxis
 		private bool valid;
 		private string[] nodeIDs;
 
-		public override void OnPrepare()
-		{
-			base.OnPrepare();
-			nodeIDs = nodes.Select((node) => node.ID).ToArray();
-		}
-
 		public void InjectDependencies(IHistory history)
 		{
 			this.history = history;
+		}
+
+		public override void OnEnteringState()
+		{
+			base.OnEnteringState();
+			nodeIDs = nodes.Select((node) => node.ID).ToArray();
 		}
 
 		public override void OnStateEntered()

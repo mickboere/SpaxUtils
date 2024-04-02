@@ -54,6 +54,15 @@ namespace SpaxUtils.StateMachines
 		protected void Awake()
 		{
 			Parent = GetInputNode<IState>(nameof(inConnection));
+			_components = GetComponents().ToList();
+		}
+
+		public void InjectDependencies(IDependencyManager dependencyManager)
+		{
+			foreach (IStateComponent component in _components)
+			{
+				dependencyManager.Inject(component);
+			}
 		}
 
 		#region Callbacks
@@ -61,7 +70,6 @@ namespace SpaxUtils.StateMachines
 		/// <inheritdoc/>
 		public override void OnEnteringState()
 		{
-			_components = GetComponents().ToList();
 			foreach (IStateComponent component in _components)
 			{
 				component.OnEnteringState();
@@ -173,7 +181,7 @@ namespace SpaxUtils.StateMachines
 
 		public IReadOnlyCollection<IState> GetChildren()
 		{
-			return NodeExtensions.GetAllOutputNodes(this).Cast<IState>().Where((c) => c is not IState).ToHashSet();
+			return XNodeExtensions.GetAllOutputNodes(this).Cast<IState>().Where((c) => c is not IState).ToHashSet();
 		}
 	}
 }

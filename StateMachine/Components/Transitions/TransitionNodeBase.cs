@@ -3,30 +3,19 @@
 namespace SpaxUtils.StateMachines
 {
 	/// <summary>
-	/// Base implementation of <see cref="IStateTransition"/>. Contains basic getters regarding node transitions.
+	/// Base implementation of <see cref="IStateTransition"/>. Contains basic getters regarding state transitions.
 	/// </summary>
 	[NodeTint("#685535")]
 	public abstract class TransitionNodeBase : StateMachineNodeBase, IStateTransition
 	{
-		/// <inheritdoc/>
 		public abstract bool Valid { get; }
-		/// <inheritdoc/>
 		public abstract float Validity { get; }
-
-		public string NextState => throw new System.NotImplementedException();
-
-		public float EntryProgress => throw new System.NotImplementedException();
-
-		public float ExitProgress => throw new System.NotImplementedException();
-
-		public bool Completed => throw new System.NotImplementedException();
+		public virtual string NextState => GetOutputNode<FlowStateNode>(nameof(outConnection)).ID;
+		public virtual float EntryProgress => 1f;
+		public virtual float ExitProgress => 1f - EntryProgress;
+		public virtual bool Completed => true;
 
 		[SerializeField, Output(backingValue = ShowBackingValue.Never, connectionType = ConnectionType.Override, typeConstraint = TypeConstraint.Inherited)] protected Connections.State outConnection;
-
-		public FlowStateNode GetNextState()
-		{
-			return GetOutputNode<FlowStateNode>(nameof(outConnection));
-		}
 
 		public void Dispose()
 		{

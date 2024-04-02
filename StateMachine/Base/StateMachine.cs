@@ -29,7 +29,7 @@ namespace SpaxUtils.StateMachines
 		/// <summary>
 		/// The uppermost active state in the <see cref="StateHierarchy"/>.
 		/// </summary>
-		public IState HeadState => StateHierarchy[StateHierarchy.Count - 1];
+		public IState HeadState => StateHierarchy.Count > 0 ? StateHierarchy[StateHierarchy.Count - 1] : null;
 
 		/// <summary>
 		/// The currently active transition, if any.
@@ -61,9 +61,12 @@ namespace SpaxUtils.StateMachines
 			this.callbackService = callbackService;
 
 			this.states = new Dictionary<string, IState>();
-			foreach (IState state in states)
+			if (states != null)
 			{
-				this.states.Add(state.ID, state);
+				foreach (IState state in states)
+				{
+					this.states.Add(state.ID, state);
+				}
 			}
 
 			callbackService.SubscribeUpdate(UpdateMode.Update, this, OnUpdate, 99999);
@@ -93,7 +96,7 @@ namespace SpaxUtils.StateMachines
 			if (!states.ContainsKey(state.ID))
 			{
 				states.Add(state.ID, state);
-				if (retransition)
+				if (retransition && HeadState != null)
 				{
 					TransitionImmediately(HeadState.ID);
 				}
@@ -144,15 +147,15 @@ namespace SpaxUtils.StateMachines
 		/// <param name="state">The ID of the <see cref="IState"/> to transition to.</param>
 		public void TransitionImmediately(string state)
 		{
-			CancelTransition();
-
-			if (states.ContainsKey(state))
+			if (!states.ContainsKey(state))
 			{
-				PrepareState(states[state]);
-				EnterState(states[state]);
+				SpaxDebug.Error($"State with ID \"{state}\" could not be found.", $"Collection: [\"{string.Join("\", \"", states.Keys)}\"]");
+				return;
 			}
 
-			SpaxDebug.Error($"State with ID \"{state}\" could not be found.");
+			CancelTransition();
+			PrepareState(states[state]);
+			EnterState(states[state]);
 		}
 
 		/// <summary>
@@ -219,10 +222,13 @@ namespace SpaxUtils.StateMachines
 
 		private void DisposeTransition()
 		{
-			callbackService.StopCoroutine(stateTransitionCoroutine);
-			stateTransitionCoroutine = null;
+			if (stateTransitionCoroutine != null)
+			{
+				callbackService.StopCoroutine(stateTransitionCoroutine);
+				stateTransitionCoroutine = null;
+			}
 
-			CurrentTransition.Dispose();
+			CurrentTransition?.Dispose();
 			CurrentTransition = null;
 
 			newHierarchy = null;
@@ -236,24 +242,20 @@ namespace SpaxUtils.StateMachines
 			exiting = hierarchy.Except(newHierarchy).ToList();
 			entering = newHierarchy.Except(exiting).ToList();
 
-			foreach (IState state in newHierarchy)
-			{
-				dependencyManager.Inject(state);
-			}
-		}
-
-		private IEnumerator StartTransition(IState toState, ITransition transition)
-		{
-			CurrentTransition = transition;
-
 			foreach (IState state in exiting)
 			{
 				state.OnExitingState();
 			}
 			foreach (IState state in entering)
 			{
+				dependencyManager.Inject(state);
 				state.OnEnteringState();
 			}
+		}
+
+		private IEnumerator StartTransition(IState toState, ITransition transition)
+		{
+			CurrentTransition = transition;
 
 			while (!transition.Completed)
 			{

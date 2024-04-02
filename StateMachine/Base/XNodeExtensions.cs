@@ -8,7 +8,7 @@ namespace SpaxUtils.StateMachines
 	/// <summary>
 	/// StateMachine specific <see cref="Node"/> extensions.
 	/// </summary>
-	public static class NodeExtensions
+	public static class XNodeExtensions
 	{
 		/// <summary>
 		/// Gets all of the nodes connected to the specified input port.
@@ -55,7 +55,7 @@ namespace SpaxUtils.StateMachines
 			}
 			else
 			{
-				Debug.LogError($"Connected node could not be cast to target type. Typeof: {input.GetType()}", current);
+				Debug.LogWarning($"Connected node could not be cast to target type. Typeof: {input.GetType()}", current);
 				return null;
 			}
 		}

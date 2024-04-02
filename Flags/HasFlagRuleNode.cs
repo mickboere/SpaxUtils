@@ -20,16 +20,15 @@ namespace SpaxUtils
 		private FlagService flagsService;
 		private bool valid;
 
-		public override void OnPrepare()
-		{
-			base.OnPrepare();
-
-			valid = false;
-		}
-
 		public void InjectDependencies(FlagService flagsService)
 		{
 			this.flagsService = flagsService;
+		}
+
+		public override void OnEnteringState()
+		{
+			base.OnEnteringState();
+			valid = false;
 		}
 
 		public override void OnStateEntered()

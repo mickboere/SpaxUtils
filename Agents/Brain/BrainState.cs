@@ -33,7 +33,7 @@ namespace SpaxUtils
 			SetParent(parent);
 			this.defaultChild = defaultChild;
 			children = new Dictionary<string, IState>();
-			this.components = new List<IStateComponent>(components);
+			this.components = components == null ? new List<IStateComponent>() : new List<IStateComponent>(components);
 		}
 
 		public virtual void Dispose()

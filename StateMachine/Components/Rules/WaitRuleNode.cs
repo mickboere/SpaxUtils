@@ -19,15 +19,15 @@ namespace SpaxUtils.StateMachines
 		private bool valid;
 		private CallbackService callbackService;
 
-		public override void OnPrepare()
-		{
-			base.OnPrepare();
-			valid = false;
-		}
-
 		public void InjectDependencies(CallbackService callbackService)
 		{
 			this.callbackService = callbackService;
+		}
+
+		public override void OnEnteringState()
+		{
+			base.OnEnteringState();
+			valid = false;
 		}
 
 		public override void OnStateEntered()

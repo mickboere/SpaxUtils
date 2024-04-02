@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 namespace SpaxUtils
@@ -91,7 +92,7 @@ namespace SpaxUtils
 				}
 
 				// If highest, add as last.
-				if (order > list[list.Count - 1].order)
+				if (order >= list[list.Count - 1].order)
 				{
 					dict[subscriber] = list.Count;
 					list.Add((callback, order));
@@ -104,12 +105,14 @@ namespace SpaxUtils
 					if (order < list[i].order)
 					{
 						list.Insert(i, (callback, order));
-						foreach (KeyValuePair<object, int> kvp in dict)
+						// Shift dictionary entries by 1.
+						object[] keys = dict.Keys.ToArray();
+						foreach (object key in keys)
 						{
-							// Shove dictionary entries by 1.
-							if (kvp.Value >= i)
+							int val = dict[key];
+							if (val >= i)
 							{
-								dict[kvp.Key] = dict[kvp.Key] + 1;
+								dict[key] = val + 1;
 							}
 						}
 						dict[subscriber] = i;

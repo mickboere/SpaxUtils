@@ -17,9 +17,9 @@ namespace SpaxUtils.StateMachines
 		[SerializeField, Output(backingValue = ShowBackingValue.Never, typeConstraint = TypeConstraint.Inherited)] protected Connections.Rule rules;
 		protected List<IRule> ruleNodes;
 
-		public override void OnPrepare()
+		public override void OnEnteringState()
 		{
-			base.OnPrepare();
+			base.OnEnteringState();
 			ruleNodes = GetOutputNodes<IRule>(nameof(rules));
 		}
 
