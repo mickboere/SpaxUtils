@@ -91,14 +91,14 @@ namespace SpaxUtils.StateMachines
 
 		#region States
 
-		public void AddState(IState state, bool retransition = true)
+		public void AddState(IState state, bool reload = true)
 		{
 			if (!states.ContainsKey(state.ID))
 			{
 				states.Add(state.ID, state);
-				if (retransition && HeadState != null)
+				if (reload)
 				{
-					TransitionImmediately(HeadState.ID);
+					Reload();
 				}
 				return;
 			}
@@ -118,6 +118,21 @@ namespace SpaxUtils.StateMachines
 		#endregion States
 
 		#region Transitions
+
+		/// <summary>
+		/// Will re-transition to the current <see cref="HeadState"/>, <see cref="defaultState"/> if null.
+		/// </summary>
+		public void Reload()
+		{
+			if (HeadState != null)
+			{
+				TransitionImmediately(HeadState.ID);
+			}
+			else if (defaultState != null)
+			{
+				TransitionToDefaultState();
+			}
+		}
 
 		/// <summary>
 		/// Registers a new <see cref="IStateTransition"/>, allowing the StateMachine to automatically enter it if its conditions are met.
@@ -240,7 +255,7 @@ namespace SpaxUtils.StateMachines
 		{
 			newHierarchy = toState.CollectActiveHierarchyRecursively();
 			exiting = hierarchy.Except(newHierarchy).ToList();
-			entering = newHierarchy.Except(exiting).ToList();
+			entering = newHierarchy.Except(hierarchy).ToList();
 
 			foreach (IState state in exiting)
 			{

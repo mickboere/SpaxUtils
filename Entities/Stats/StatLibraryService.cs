@@ -124,7 +124,7 @@ namespace SpaxUtils
 		{
 			if (!TryGet(identifier, out IStatConfiguration configuration))
 			{
-				SpaxDebug.Warning("Could not find stat configuration for stat:", identifier);
+				SpaxDebug.Warning("Could not find configuration for stat:", identifier);
 			}
 
 			return configuration;

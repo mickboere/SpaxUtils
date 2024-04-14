@@ -74,10 +74,7 @@ namespace SpaxUtils
 			Agent agent = rootGo.GetComponent<Agent>();
 			if (brainGraphs != null && brainGraphs.Count > 0)
 			{
-				foreach (StateMachineGraph brainGraph in brainGraphs)
-				{
-					agent.Brain.AppendGraph(brainGraph);
-				}
+				agent.AddBrainGraphs(brainGraphs);
 			}
 
 			// Activate Agent and return.

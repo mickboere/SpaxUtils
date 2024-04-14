@@ -55,7 +55,6 @@ namespace SpaxUtils.StateMachines
 			}
 			else
 			{
-				Debug.LogWarning($"Connected node could not be cast to target type. Typeof: {input.GetType()}", current);
 				return null;
 			}
 		}

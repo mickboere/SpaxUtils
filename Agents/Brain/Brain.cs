@@ -129,7 +129,7 @@ namespace SpaxUtils
 				BrainState parent = (template == null || template.Parent == null) ? null : EnsureState(template.Parent.ID, template.Parent);
 				state = new BrainState(id, parent, (template == null || template.DefaultChild == null) ? null : template.DefaultChild.ID);
 				states.Add(id, state);
-				stateMachine.AddState(state);
+				stateMachine.AddState(state, false);
 
 				if (template != null)
 				{
@@ -196,9 +196,11 @@ namespace SpaxUtils
 			List<IState> graphStates = graphInstances[graph].GetNodesOfType<IState>();
 			foreach (IState graphState in graphStates)
 			{
-				BrainState brainState = EnsureState(graphState.ID, graphState.Parent);
+				BrainState brainState = EnsureState(graphState.ID, graphState);
 				brainState.TryAddComponents(graphState.Components);
 			}
+
+			//stateMachine.Reload();
 		}
 
 		/// <inheritdoc/>

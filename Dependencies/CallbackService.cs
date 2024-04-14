@@ -154,15 +154,17 @@ namespace SpaxUtils
 				int index = dict[subscriber];
 				list.RemoveAt(index);
 				dict.Remove(subscriber);
-				foreach (KeyValuePair<object, int> kvp in dict)
+
+				// Shove dictionary entries back by 1.
+				object[] keys = dict.Keys.ToArray();
+				foreach (object key in keys)
 				{
-					// Shove dictionary entries back by 1.
-					if (kvp.Value > index)
+					int val = dict[key];
+					if (val > index)
 					{
-						dict[kvp.Key] = dict[kvp.Key] - 1;
+						dict[key] = val - 1;
 					}
 				}
-
 			}
 		}
 

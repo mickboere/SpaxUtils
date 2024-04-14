@@ -8,7 +8,7 @@ namespace SpaxUtils
 	/// <summary>
 	/// Base implementation for an <see cref="IEntity"/>, wraps around Unity's GameObject.
 	/// </summary>
-	[DefaultExecutionOrder(-1000)]
+	[DefaultExecutionOrder(-9999)]
 	public class Entity : MonoBehaviour, IEntity
 	{
 		public const string ID_NAME = "Name";
@@ -226,7 +226,7 @@ namespace SpaxUtils
 			else if (createDataIfNull)
 			{
 				// Data does not exist, create it along with the stat.
-				IStatConfiguration setting = statLibrary.Get(identifier);
+				statLibrary.TryGet(identifier, out IStatConfiguration setting);
 				RuntimeDataEntry data = new RuntimeDataEntry(identifier, setting == null ? defaultValueIfUndefined : setting.DefaultValue);
 				RuntimeData.TryAdd(data);
 				EntityStat stat = new EntityStat(data, null,

@@ -12,11 +12,12 @@ namespace SpaxUtils
 	public class BrainStateNode : StateNodeBase, IState
 	{
 		public override string ID => identifier;
-
 		public override string UserFacingName => identifier;
+		protected override string defaultChildIdentifier => hasChildren ? defaultChild : null;
 
 		[SerializeField, ConstDropdown(typeof(IStateIdentifierConstants)), FormerlySerializedAs("state")] private string identifier;
-		[SerializeField, Output(backingValue = ShowBackingValue.Never, typeConstraint = TypeConstraint.Inherited)] private Connections.State defaultChild;
+		[SerializeField] private bool hasChildren;
+		[SerializeField, Conditional(nameof(hasChildren), hide: true), ConstDropdown(typeof(IStateIdentifierConstants))] private string defaultChild;
 		[SerializeField, Output(backingValue = ShowBackingValue.Never, typeConstraint = TypeConstraint.Inherited)] private Connections.State children;
 	}
 }

@@ -1,6 +1,4 @@
 using SpaxUtils.StateMachines;
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
 namespace SpaxUtils
@@ -29,13 +27,13 @@ namespace SpaxUtils
 		public override void OnStateEntered()
 		{
 			base.OnStateEntered();
-			callbackService.FixedUpdateCallback += OnFixedUpdateCallback;
+			callbackService.SubscribeUpdate(UpdateMode.FixedUpdate, this, OnFixedUpdateCallback);
 		}
 
 		public override void OnStateExit()
 		{
 			base.OnStateExit();
-			callbackService.FixedUpdateCallback -= OnFixedUpdateCallback;
+			callbackService.UnsubscribeUpdate(UpdateMode.FixedUpdate, this);
 			surveyorComponent.ResetSurveyor();
 		}
 

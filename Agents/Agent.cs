@@ -29,7 +29,9 @@ namespace SpaxUtils
 		protected override string GameObjectNamePrefix => "[Agent]";
 
 		[SerializeField, ConstDropdown(typeof(IStateIdentifierConstants))] private string state;
-		[SerializeField] private StateMachineGraph[] brainGraphs;
+		[SerializeField] private List<StateMachineGraph> brainGraphs;
+
+		private CallbackService callbackService;
 
 		/// <inheritdoc/>
 		public Dictionary<object, object> RetrieveDependencies()
@@ -46,6 +48,7 @@ namespace SpaxUtils
 			Body = body;
 			Targetable = targetableComponent;
 			Targeter = targeterComponent;
+			this.callbackService = callbackService;
 
 			foreach (IPerformer performer in performers)
 			{
@@ -54,17 +57,37 @@ namespace SpaxUtils
 					Actor.AddPerformer(performer);
 				}
 			}
+		}
 
-			// Create brain if there isn't one.
-			if (Brain == null)
-			{
-				Brain = new Brain(DependencyManager, callbackService, state, null, brainGraphs);
-			}
+		protected override void Awake()
+		{
+			base.Awake();
+
+			// Initialize brain.
+			Brain = new Brain(DependencyManager, callbackService, state, null, brainGraphs);
 		}
 
 		protected void OnDestroy()
 		{
 			((Actor)Actor).Dispose();
+			Brain.Dispose();
+		}
+
+		public void AddBrainGraphs(IEnumerable<StateMachineGraph> graphs)
+		{
+			if (Brain != null)
+			{
+				SpaxDebug.Error("Brain graphs cannot be added to Agent because the Brain has already been initialized.", "Use Brain.AppendGraph() instead.");
+				return;
+			}
+
+			foreach (StateMachineGraph graph in graphs)
+			{
+				if (!brainGraphs.Contains(graph))
+				{
+					brainGraphs.Add(graph);
+				}
+			}
 		}
 	}
 }

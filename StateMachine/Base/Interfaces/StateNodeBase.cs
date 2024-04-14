@@ -15,8 +15,8 @@ namespace SpaxUtils.StateMachines
 		public bool Active { get; private set; }
 		public IState Parent { get; protected set; }
 
-		public IState DefaultChild => string.IsNullOrEmpty(_defaultChild) ? null : Children[_defaultChild];
-		private string _defaultChild;
+		public IState DefaultChild => string.IsNullOrEmpty(defaultChildIdentifier) ? null : Children[defaultChildIdentifier];
+		protected virtual string defaultChildIdentifier { get; private set; }
 
 		public IReadOnlyDictionary<string, IState> Children
 		{
@@ -132,7 +132,7 @@ namespace SpaxUtils.StateMachines
 
 		public void SetDefaultChild(string id)
 		{
-			_defaultChild = id;
+			defaultChildIdentifier = id;
 		}
 
 		public void AddChild(IState child)
@@ -181,7 +181,7 @@ namespace SpaxUtils.StateMachines
 
 		public IReadOnlyCollection<IState> GetChildren()
 		{
-			return XNodeExtensions.GetAllOutputNodes(this).Cast<IState>().Where((c) => c is not IState).ToHashSet();
+			return XNodeExtensions.GetAllOutputNodes(this).Where((c) => c is IState).Cast<IState>().ToHashSet();
 		}
 	}
 }

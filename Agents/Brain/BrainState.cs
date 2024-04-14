@@ -60,9 +60,10 @@ namespace SpaxUtils
 				return;
 			}
 
-			Parent?.RemoveChild(ID);
+			IState previousParent = Parent;
 			Parent = parent;
-			Parent.AddChild(this);
+			previousParent?.RemoveChild(ID);
+			Parent?.AddChild(this);
 		}
 
 		/// <inheritdoc/>
