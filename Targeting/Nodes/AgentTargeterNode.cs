@@ -46,6 +46,7 @@ namespace SpaxUtils
 			actor.StopListening(this);
 			targeter.SetTarget(null);
 			targetables.Dispose();
+			callbackService.UnsubscribeUpdate(UpdateMode.Update, this);
 		}
 
 		private void OnUpdate()
@@ -64,7 +65,7 @@ namespace SpaxUtils
 				{
 					targeter.SetTarget(null);
 				}
-				else if (navigationHandler.TryGetClosestTargetable(targetables.Components, true, out ITargetable closest, out float distance) && distance < maxDistance)
+				else if (navigationHandler.TryGetClosestTargetable(targetables.Components, false, out ITargetable closest, out float distance) && distance < maxDistance)
 				{
 					// TODO: raycast?
 					targeter.SetTarget(closest);

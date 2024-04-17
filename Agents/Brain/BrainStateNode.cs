@@ -13,7 +13,7 @@ namespace SpaxUtils
 	{
 		public override string ID => identifier;
 		public override string UserFacingName => identifier;
-		protected override string defaultChildIdentifier => hasChildren ? defaultChild : null;
+		protected override string _defaultChild => hasChildren ? defaultChild : null;
 
 		[SerializeField, ConstDropdown(typeof(IStateIdentifierConstants)), FormerlySerializedAs("state")] private string identifier;
 		[SerializeField] private bool hasChildren;

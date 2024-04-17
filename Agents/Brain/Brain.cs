@@ -11,6 +11,8 @@ namespace SpaxUtils
 	/// </summary>
 	public class Brain : IBrain
 	{
+		public event Action<IState> EnteredStateEvent;
+
 		/// <inheritdoc/>
 		public IState HeadState => stateMachine.HeadState;
 
@@ -31,6 +33,7 @@ namespace SpaxUtils
 			DependencyManager brainDependencies = new DependencyManager(dependencyManager, "Brain");
 			brainDependencies.Bind(this);
 			stateMachine = new StateMachine(brainDependencies, callbackService);
+			stateMachine.EnteredStateEvent += OnEnteredStateEvent;
 
 			this.states = new Dictionary<string, BrainState>();
 			if (states != null)
@@ -54,7 +57,6 @@ namespace SpaxUtils
 			{
 				EnsureState(defaultState);
 				stateMachine.SetDefaultState(defaultState);
-				stateMachine.TransitionToDefaultState();
 			}
 			else
 			{
@@ -74,6 +76,12 @@ namespace SpaxUtils
 				// Destroy all graph instances.
 				UnityEngine.Object.Destroy(item.Value);
 			}
+		}
+
+		/// <inheritdoc/>
+		public void Start()
+		{
+			stateMachine.TransitionToDefaultState();
 		}
 
 		#region States
@@ -190,17 +198,20 @@ namespace SpaxUtils
 			}
 
 			// Create instance of graph and add to appendices.
-			graphInstances.Add(graph, (StateMachineGraph)graph.Copy());
+			StateMachineGraph instance = (StateMachineGraph)graph.Copy();
+			graphInstances.Add(graph, instance);
+
+			SpaxDebug.Notify($"[{GetHashCode()}] Graph instantiation success!", $"({graph.name})\n" +
+				$"Instanced:\n\t-{string.Join("\n\t-", instance.nodes.Select((n) => $"[{n.GetHashCode()}] {n.GetType().FullName}"))}\n\n" +
+				$"Prefab:\n\t-{string.Join("\n\t-", graph.nodes.Select((n) => $"[{n.GetHashCode()}] {n.GetType().FullName}"))}");
 
 			// Go through all graph states and add their components to the corresponding BrainStates.
-			List<IState> graphStates = graphInstances[graph].GetNodesOfType<IState>();
+			List<IState> graphStates = instance.GetNodesOfType<IState>();
 			foreach (IState graphState in graphStates)
 			{
 				BrainState brainState = EnsureState(graphState.ID, graphState);
 				brainState.TryAddComponents(graphState.Components);
 			}
-
-			//stateMachine.Reload();
 		}
 
 		/// <inheritdoc/>
@@ -226,5 +237,10 @@ namespace SpaxUtils
 		}
 
 		#endregion Graphs
+
+		private void OnEnteredStateEvent(IState state)
+		{
+			EnteredStateEvent?.Invoke(state);
+		}
 	}
 }

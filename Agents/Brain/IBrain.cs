@@ -9,6 +9,8 @@ namespace SpaxUtils
 	/// </summary>
 	public interface IBrain : IDisposable
 	{
+		event Action<IState> EnteredStateEvent;
+
 		/// <summary>
 		/// All active states leading up to the <see cref="HeadState"/>.
 		/// </summary>
@@ -18,6 +20,11 @@ namespace SpaxUtils
 		/// The currently active head-state.
 		/// </summary>
 		IState HeadState { get; }
+
+		/// <summary>
+		/// Order the brain to enter its initial state.
+		/// </summary>
+		void Start();
 
 		/// <summary>
 		/// Adds a new <see cref="BrainState"/> to the brain.

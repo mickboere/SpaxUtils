@@ -65,6 +65,8 @@ namespace SpaxUtils
 
 			// Initialize brain.
 			Brain = new Brain(DependencyManager, callbackService, state, null, brainGraphs);
+			Brain.EnteredStateEvent += OnEnteredStateEvent;
+			Brain.Start();
 		}
 
 		protected void OnDestroy()
@@ -73,7 +75,11 @@ namespace SpaxUtils
 			Brain.Dispose();
 		}
 
-		public void AddBrainGraphs(IEnumerable<StateMachineGraph> graphs)
+		/// <summary>
+		/// Will store <paramref name="graphs"/> during initialization to inject them during the Brain's creation.
+		/// </summary>
+		/// <param name="graphs">The <see cref="StateMachineGraph"/>(s) to initialize the brain with.</param>
+		public void AddInitialBrainGraphs(IEnumerable<StateMachineGraph> graphs)
 		{
 			if (Brain != null)
 			{
@@ -88,6 +94,13 @@ namespace SpaxUtils
 					brainGraphs.Add(graph);
 				}
 			}
+		}
+
+		private void OnEnteredStateEvent(IState state)
+		{
+			this.state = state.ID;
+
+			SpaxDebug.Notify($"[{Identification.Name}]", $"OnEnteredStateEvent({string.Join(", ", Brain.StateHierarchy.Select(s => s.ID))})");
 		}
 	}
 }

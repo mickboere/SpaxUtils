@@ -13,32 +13,17 @@ namespace SpaxUtils.StateMachines
 	{
 		public virtual string ID => id;
 		public bool Active { get; private set; }
-		public IState Parent { get; protected set; }
 
-		public IState DefaultChild => string.IsNullOrEmpty(defaultChildIdentifier) ? null : Children[defaultChildIdentifier];
-		protected virtual string defaultChildIdentifier { get; private set; }
+		public IState Parent => _parent ?? GetInputNode<IState>(nameof(inConnection));
+		private IState _parent;
 
-		public IReadOnlyDictionary<string, IState> Children
-		{
-			get
-			{
-				EnsureChildren();
-				return _children;
-			}
-		}
+		public IState DefaultChild => string.IsNullOrEmpty(_defaultChild) ? null : Children[_defaultChild];
+		protected virtual string _defaultChild { get; private set; }
+
+		public IReadOnlyDictionary<string, IState> Children => _children ?? GetChildren().ToDictionary((s) => s.ID);
 		private Dictionary<string, IState> _children;
 
-		public IReadOnlyCollection<IStateComponent> Components
-		{
-			get
-			{
-				if (_components == null)
-				{
-					_components = GetComponents();
-				}
-				return _components;
-			}
-		}
+		public IReadOnlyCollection<IStateComponent> Components => _components ?? GetComponents();
 		private IReadOnlyCollection<IStateComponent> _components;
 
 		[SerializeField, HideInInspector] private string id;
@@ -51,14 +36,12 @@ namespace SpaxUtils.StateMachines
 			base.Init();
 		}
 
-		protected void Awake()
-		{
-			Parent = GetInputNode<IState>(nameof(inConnection));
-			_components = GetComponents().ToList();
-		}
-
 		public void InjectDependencies(IDependencyManager dependencyManager)
 		{
+			_parent = GetInputNode<IState>(nameof(inConnection));
+			_children = GetChildren().ToDictionary((s) => s.ID);
+			_components = GetComponents().ToList();
+
 			foreach (IStateComponent component in _components)
 			{
 				dependencyManager.Inject(component);
@@ -127,38 +110,22 @@ namespace SpaxUtils.StateMachines
 
 		public void SetParent(IState parent)
 		{
-			Parent = parent;
+			SpaxDebug.Error("Nodes are not dynamic.", "Could not set parent.");
 		}
 
 		public void SetDefaultChild(string id)
 		{
-			defaultChildIdentifier = id;
+			_defaultChild = id;
 		}
 
 		public void AddChild(IState child)
 		{
-			EnsureChildren();
-			if (!_children.ContainsKey(child.ID))
-			{
-				_children.Add(child.ID, child);
-			}
+			SpaxDebug.Error("Nodes are not dynamic.", "Could not set add child.");
 		}
 
 		public void RemoveChild(string id)
 		{
-			EnsureChildren();
-			if (_children.ContainsKey(id))
-			{
-				_children.Remove(id);
-			}
-		}
-
-		private void EnsureChildren()
-		{
-			if (_children == null)
-			{
-				_children = GetChildren().ToDictionary((s) => s.ID);
-			}
+			SpaxDebug.Error("Nodes are not dynamic.", "Could not remove child.");
 		}
 
 		private void EnsureUniqueId()

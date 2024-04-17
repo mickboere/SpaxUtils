@@ -91,6 +91,13 @@ namespace SpaxUtils
 					return;
 				}
 
+				// Prevent duplicates.
+				if(dict.ContainsKey(subscriber))
+				{
+					SpaxDebug.Error($"Duplicate subscription!", $"Subscriber of type {subscriber.GetType().FullName} is already subscribed.");
+					return;
+				}
+
 				// If highest, add as last.
 				if (order >= list[list.Count - 1].order)
 				{
@@ -105,6 +112,7 @@ namespace SpaxUtils
 					if (order < list[i].order)
 					{
 						list.Insert(i, (callback, order));
+
 						// Shift dictionary entries by 1.
 						object[] keys = dict.Keys.ToArray();
 						foreach (object key in keys)
@@ -116,6 +124,7 @@ namespace SpaxUtils
 							}
 						}
 						dict[subscriber] = i;
+
 						return;
 					}
 				}

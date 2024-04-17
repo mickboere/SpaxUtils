@@ -59,8 +59,9 @@ namespace SpaxUtils.StateMachines
 			this.dependencyManager = new DependencyManager(dependencyManager, "StateMachineLayer");
 			this.dependencyManager.Bind(this);
 			this.callbackService = callbackService;
-
 			this.states = new Dictionary<string, IState>();
+			this.defaultState = defaultState;
+
 			if (states != null)
 			{
 				foreach (IState state in states)
@@ -70,12 +71,6 @@ namespace SpaxUtils.StateMachines
 			}
 
 			callbackService.SubscribeUpdate(UpdateMode.Update, this, OnUpdate, 99999);
-
-			this.defaultState = defaultState;
-			if (defaultState != null)
-			{
-				TransitionToDefaultState();
-			}
 		}
 
 		public void Dispose()
@@ -91,6 +86,17 @@ namespace SpaxUtils.StateMachines
 
 		#region States
 
+		/// <summary>
+		/// Changes the default (starting) state of the state machine.
+		/// </summary>
+		public void SetDefaultState(string defaultState)
+		{
+			this.defaultState = defaultState;
+		}
+
+		/// <summary>
+		/// Adds a new state to the statemachine.
+		/// </summary>
 		public void AddState(IState state, bool reload = true)
 		{
 			if (!states.ContainsKey(state.ID))
@@ -106,6 +112,10 @@ namespace SpaxUtils.StateMachines
 			SpaxDebug.Error("Error while adding state:", $"State with ID \"{state.ID}\" already exists.");
 		}
 
+		/// <summary>
+		/// Adds numeral new states to the statemachine.
+		/// </summary>
+		/// <param name="states"></param>
 		public void AddStates(IEnumerable<IState> states)
 		{
 			foreach (IState state in states)
@@ -118,6 +128,20 @@ namespace SpaxUtils.StateMachines
 		#endregion States
 
 		#region Transitions
+
+		/// <summary>
+		/// Will have the state machine transition back to the default state.
+		/// </summary>
+		public void TransitionToDefaultState(ITransition transition = null)
+		{
+			if (string.IsNullOrEmpty(defaultState))
+			{
+				SpaxDebug.Error("StateMachine does not have a default state defined.");
+				return;
+			}
+
+			TryTransition(defaultState, transition);
+		}
 
 		/// <summary>
 		/// Will re-transition to the current <see cref="HeadState"/>, <see cref="defaultState"/> if null.
@@ -213,28 +237,6 @@ namespace SpaxUtils.StateMachines
 			}
 		}
 
-		/// <summary>
-		/// Changes the default (starting) state of the state machine.
-		/// </summary>
-		public void SetDefaultState(string defaultState)
-		{
-			this.defaultState = defaultState;
-		}
-
-		/// <summary>
-		/// Will have the state machine transition back to the default state.
-		/// </summary>
-		public void TransitionToDefaultState(ITransition transition = null)
-		{
-			if (string.IsNullOrEmpty(defaultState))
-			{
-				SpaxDebug.Error("StateMachine does not have a default state defined.");
-				return;
-			}
-
-			TryTransition(defaultState, transition);
-		}
-
 		private void DisposeTransition()
 		{
 			if (stateTransitionCoroutine != null)
@@ -284,6 +286,7 @@ namespace SpaxUtils.StateMachines
 				}
 				yield return null;
 			}
+			// TODO: Add safety timer in case transition for some reason never completes.
 
 			EnterState(toState);
 		}

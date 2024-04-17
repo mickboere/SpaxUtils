@@ -50,6 +50,7 @@ namespace SpaxUtils.StateMachines
 				layers.Add(layer);
 				history.Add(startState.ID);
 				layer.EnteredStateEvent += OnEnteredStateEvent;
+				layer.TransitionToDefaultState();
 			}
 		}
 
