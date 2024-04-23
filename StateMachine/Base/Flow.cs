@@ -5,7 +5,7 @@ namespace SpaxUtils.StateMachines
 {
 	/// <summary>
 	/// Static multi-layered state machine that requires a <see cref="StateMachineGraph"/> asset to run.
-	/// Transitions are done through <see cref="IStateTransition"/>s.
+	/// Transitions are generally done through <see cref="IStateTransition"/> (nodes).
 	/// </summary>
 	public class Flow : IDisposable
 	{

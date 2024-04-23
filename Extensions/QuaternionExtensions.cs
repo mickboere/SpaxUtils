@@ -48,7 +48,7 @@ namespace SpaxUtils
 			float angle = Vector3.Angle(quaternion * Vector3.forward, axis);
 			if (angle > absoluteMaxAngle)
 			{
-				quaternion = Quaternion.Lerp(quaternion, Quaternion.LookRotation(axis), 1f - (maxAngle / angle));
+				quaternion = Quaternion.Lerp(quaternion, Quaternion.LookRotation(axis), 1f - (absoluteMaxAngle / angle));
 			}
 			else if (angle > maxAngle)
 			{

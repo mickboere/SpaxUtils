@@ -20,13 +20,13 @@ namespace SpaxUtils.StateMachines
 		public IState DefaultChild => string.IsNullOrEmpty(_defaultChild) ? null : Children[_defaultChild];
 		protected virtual string _defaultChild { get; private set; }
 
-		public IReadOnlyDictionary<string, IState> Children => _children ?? GetChildren().ToDictionary((s) => s.ID);
+		public IReadOnlyDictionary<string, IState> Children => _children ?? GetAllChildStates().ToDictionary((s) => s.ID);
 		private Dictionary<string, IState> _children;
 
 		public IReadOnlyCollection<IStateComponent> Components => _components ?? GetComponents();
 		private IReadOnlyCollection<IStateComponent> _components;
 
-		[SerializeField, HideInInspector] private string id;
+		[SerializeField, ReadOnly] private string id;
 		[SerializeField, Input(backingValue = ShowBackingValue.Never)] private Connections.State inConnection;
 		[SerializeField, Output(backingValue = ShowBackingValue.Never, typeConstraint = TypeConstraint.Inherited)] private Connections.StateComponent components;
 
@@ -39,7 +39,7 @@ namespace SpaxUtils.StateMachines
 		public void InjectDependencies(IDependencyManager dependencyManager)
 		{
 			_parent = GetInputNode<IState>(nameof(inConnection));
-			_children = GetChildren().ToDictionary((s) => s.ID);
+			_children = GetAllChildStates().ToDictionary((s) => s.ID);
 			_components = GetComponents().ToList();
 
 			foreach (IStateComponent component in _components)
@@ -53,6 +53,7 @@ namespace SpaxUtils.StateMachines
 		/// <inheritdoc/>
 		public override void OnEnteringState()
 		{
+			base.OnEnteringState();
 			foreach (IStateComponent component in _components)
 			{
 				component.OnEnteringState();
@@ -62,6 +63,7 @@ namespace SpaxUtils.StateMachines
 		/// <inheritdoc/>
 		public override void WhileEnteringState(ITransition transition)
 		{
+			base.WhileEnteringState(transition);
 			foreach (IStateComponent component in _components)
 			{
 				component.WhileEnteringState(transition);
@@ -71,6 +73,7 @@ namespace SpaxUtils.StateMachines
 		/// <inheritdoc/>
 		public override void OnStateEntered()
 		{
+			base.OnStateEntered();
 			Active = true;
 			foreach (IStateComponent component in _components)
 			{
@@ -81,6 +84,7 @@ namespace SpaxUtils.StateMachines
 		/// <inheritdoc/>
 		public override void OnExitingState()
 		{
+			base.OnExitingState();
 			foreach (IStateComponent component in _components)
 			{
 				component.OnExitingState();
@@ -90,6 +94,7 @@ namespace SpaxUtils.StateMachines
 		/// <inheritdoc/>
 		public override void WhileExitingState(ITransition transition)
 		{
+			base.WhileExitingState(transition);
 			foreach (IStateComponent component in _components)
 			{
 				component.WhileExitingState(transition);
@@ -99,6 +104,7 @@ namespace SpaxUtils.StateMachines
 		/// <inheritdoc/>
 		public override void OnStateExit()
 		{
+			base.OnStateExit();
 			Active = false;
 			foreach (IStateComponent component in _components)
 			{
@@ -146,7 +152,7 @@ namespace SpaxUtils.StateMachines
 			}
 		}
 
-		public IReadOnlyCollection<IState> GetChildren()
+		public IReadOnlyCollection<IState> GetAllChildStates()
 		{
 			return XNodeExtensions.GetAllOutputNodes(this).Where((c) => c is IState).Cast<IState>().ToHashSet();
 		}

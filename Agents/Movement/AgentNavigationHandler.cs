@@ -92,7 +92,7 @@ namespace SpaxUtils
 		/// <summary>
 		/// Returns the closest <see cref="ITargetable"/>.
 		/// </summary>
-		public bool TryGetClosestTargetable(IEnumerable<ITargetable> targetables, bool navMesh, out ITargetable closest, out float distance)
+		public bool TryGetClosestTarget(IEnumerable<ITargetable> targetables, out ITargetable closest, out float distance)
 		{
 			closest = null;
 			distance = float.MaxValue;
@@ -104,7 +104,9 @@ namespace SpaxUtils
 					continue;
 				}
 
-				float d = Distance(navMesh, targetable.Position);
+				// Utilize Look-direction. For player: camera direction. For NPC: facing direction.
+
+				float d = Distance(false, targetable.Position);
 				if (d < distance)
 				{
 					closest = targetable;
@@ -115,6 +117,9 @@ namespace SpaxUtils
 			return closest != null;
 		}
 
+		/// <summary>
+		/// Returns whether the target lies within <paramref name="range"/>.
+		/// </summary>
 		public bool IsInRange(float range, bool navMesh, Vector3? target = null)
 		{
 			return range > Distance(navMesh, target);

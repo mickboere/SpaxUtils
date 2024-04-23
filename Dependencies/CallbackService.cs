@@ -37,29 +37,49 @@ namespace SpaxUtils
 		private List<(Action callback, int order)> orderedLateUpdateCallbacks = new List<(Action callback, int order)>();
 		private Dictionary<object, int> orderedLateUpdateIndices = new Dictionary<object, int>();
 
+		private bool unsubscribed;
+
 		protected void FixedUpdate()
 		{
+			unsubscribed = false;
 			for (int i = 0; i < orderedFixedUpdateCallbacks.Count; i++)
 			{
 				orderedFixedUpdateCallbacks[i].callback();
+				if (unsubscribed)
+				{
+					i--;
+					unsubscribed = false;
+				}
 			}
 			FixedUpdateCallback?.Invoke();
 		}
 
 		protected void Update()
 		{
+			unsubscribed = false;
 			for (int i = 0; i < orderedUpdateCallbacks.Count; i++)
 			{
 				orderedUpdateCallbacks[i].callback();
+				if (unsubscribed)
+				{
+					i--;
+					unsubscribed = false;
+				}
 			}
 			UpdateCallback?.Invoke();
 		}
 
 		protected void LateUpdate()
 		{
+			unsubscribed = false;
 			for (int i = 0; i < orderedLateUpdateCallbacks.Count; i++)
 			{
 				orderedLateUpdateCallbacks[i].callback();
+				if (unsubscribed)
+				{
+					i--;
+					unsubscribed = false;
+				}
 			}
 			LateUpdateCallback?.Invoke();
 		}
@@ -92,7 +112,7 @@ namespace SpaxUtils
 				}
 
 				// Prevent duplicates.
-				if(dict.ContainsKey(subscriber))
+				if (dict.ContainsKey(subscriber))
 				{
 					SpaxDebug.Error($"Duplicate subscription!", $"Subscriber of type {subscriber.GetType().FullName} is already subscribed.");
 					return;
@@ -174,6 +194,8 @@ namespace SpaxUtils
 						dict[key] = val - 1;
 					}
 				}
+
+				unsubscribed = true;
 			}
 		}
 

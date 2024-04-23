@@ -65,7 +65,7 @@ namespace SpaxUtils
 				{
 					targeter.SetTarget(null);
 				}
-				else if (navigationHandler.TryGetClosestTargetable(targetables.Components, false, out ITargetable closest, out float distance) && distance < maxDistance)
+				else if (navigationHandler.TryGetClosestTarget(targetables.Components, out ITargetable closest, out float distance) && distance < maxDistance)
 				{
 					// TODO: raycast?
 					targeter.SetTarget(closest);

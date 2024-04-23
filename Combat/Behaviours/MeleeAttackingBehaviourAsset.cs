@@ -110,7 +110,7 @@ namespace SpaxUtils
 				movementHandler.SetTargetVelocity((targeter.Target.Center - RigidbodyWrapper.Position));
 			}
 			else if (RigidbodyWrapper.TargetVelocity.magnitude <= 1f &&
-				navigationHandler.TryGetClosestTargetable(targetables.Components, false, out ITargetable closest, out float distance) &&
+				navigationHandler.TryGetClosestTarget(targetables.Components, out ITargetable closest, out float distance) &&
 				distance < autoAimRange)
 			{
 				// Auto aim to closest targetable in range.
