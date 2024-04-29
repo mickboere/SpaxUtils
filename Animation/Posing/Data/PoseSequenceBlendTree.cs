@@ -25,10 +25,14 @@ namespace SpaxUtils
 		// TODO: Create new method for proper directional blending with more than 2 sequences.
 		public (IPoseSequence from, IPoseSequence to, float interpolation) GetPoseBlend(Vector3 position)
 		{
-			if (blendTree.Count < 2)
+			if (blendTree.Count < 1)
 			{
-				SpaxDebug.Error($"PoserBlendTree requires at least 2 pose sequences.");
+				SpaxDebug.Error($"PoserBlendTree requires at least 1 pose sequences.");
 				return default;
+			}
+			if (blendTree.Count == 1)
+			{
+				return (blendTree[0].Sequence, blendTree[0].Sequence, 1f);
 			}
 
 			float closestDistance = float.MaxValue;

@@ -11,32 +11,32 @@ namespace SpaxUtils
 		[SerializeField, ConstDropdown(typeof(IIdentificationLabels))] private string[] targetLabels;
 		[SerializeField] private float maxDistance;
 
-		private IEntity entity;
+		private IAgent agent;
 		private IActor actor;
-		private ITargeter targeter;
 		private IEntityCollection entityCollection;
 		private AgentNavigationHandler navigationHandler;
 		private CallbackService callbackService;
+		private IAgentMovementHandler movementHandler;
 
 		private EntityComponentFilter<ITargetable> targetables;
 
-		public void InjectDependencies(IEntity entity, IActor actor, ITargeter targeter,
+		public void InjectDependencies(IAgent agent, IActor actor,
 			IEntityCollection entityCollection, AgentNavigationHandler navigationHandler,
-			CallbackService callbackService)
+			CallbackService callbackService, IAgentMovementHandler movementHandler)
 		{
-			this.entity = entity;
+			this.agent = agent;
 			this.actor = actor;
-			this.targeter = targeter;
 			this.entityCollection = entityCollection;
 			this.navigationHandler = navigationHandler;
 			this.callbackService = callbackService;
+			this.movementHandler = movementHandler;
 		}
 
 		public override void OnStateEntered()
 		{
 			base.OnStateEntered();
 			actor.Listen<Act<bool>>(this, ActorActs.TARGET, OnTargetAct);
-			targetables = new EntityComponentFilter<ITargetable>(entityCollection, (entity) => entity.Identification.HasAll(targetLabels), (c) => true, entity);
+			targetables = new EntityComponentFilter<ITargetable>(entityCollection, (agent) => agent.Identification.HasAll(targetLabels), (c) => true, agent);
 			callbackService.SubscribeUpdate(UpdateMode.Update, this, OnUpdate);
 		}
 
@@ -44,16 +44,17 @@ namespace SpaxUtils
 		{
 			base.OnStateExit();
 			actor.StopListening(this);
-			targeter.SetTarget(null);
+			agent.Targeter.SetTarget(null);
 			targetables.Dispose();
 			callbackService.UnsubscribeUpdate(UpdateMode.Update, this);
+			movementHandler.LockRotation = false;
 		}
 
 		private void OnUpdate()
 		{
-			if (targeter.Target != null && navigationHandler.Distance() > maxDistance)
+			if (agent.Targeter.Target != null && navigationHandler.Distance() > maxDistance)
 			{
-				targeter.SetTarget(null);
+				agent.Targeter.SetTarget(null);
 			}
 		}
 
@@ -61,14 +62,14 @@ namespace SpaxUtils
 		{
 			if (act.Value)
 			{
-				if (targeter.Target != null)
+				if (agent.Targeter.Target != null)
 				{
-					targeter.SetTarget(null);
+					agent.Targeter.SetTarget(null);
 				}
 				else if (navigationHandler.TryGetClosestTarget(targetables.Components, out ITargetable closest, out float distance) && distance < maxDistance)
 				{
 					// TODO: raycast?
-					targeter.SetTarget(closest);
+					agent.Targeter.SetTarget(closest);
 				}
 			}
 		}

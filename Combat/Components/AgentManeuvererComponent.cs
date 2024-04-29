@@ -53,7 +53,8 @@ namespace SpaxUtils
 			if (maneuvering)
 			{
 				rigidbodyWrapper.ApplyMovement(controlForce, brakeForce, power, true);
-				animatorPoser.ProvideInstructions(this, PoserLayerConstants.BODY, leanPose.GetInstructions(movementHandler.MovementInput, 0f), 20);
+				Vector3 input = rigidbodyWrapper.RelativeVelocity;
+				animatorPoser.ProvideInstructions(this, PoserLayerConstants.BODY, leanPose.GetInstructions(input, 0f), 20);
 			}
 		}
 

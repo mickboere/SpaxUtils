@@ -13,6 +13,7 @@ namespace SpaxUtils
 		bool HasRigidbody { get; }
 		RigidbodyWrapper RigidbodyWrapper { get; }
 		float BaseMass { get; }
+		float BaseSpeed { get; }
 
 		bool HasAnimator { get; }
 		AnimatorWrapper AnimatorWrapper { get; }

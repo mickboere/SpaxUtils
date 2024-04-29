@@ -11,9 +11,10 @@ namespace SpaxUtils
 		public float Effect { get; private set; }
 		public float Stride { get; private set; }
 		public float Circumference { get; private set; }
+		public float Spacing { get; set; }
+		public float DefaultSpacing => defaultSpacing;
 
 		[Header("Surveyor")]
-		[SerializeField] private float defaultSpeed = 4f;
 		[SerializeField] private float strideLength = 1f;
 		[SerializeField] private float minStride = 0.3f;
 		[SerializeField] private float maxStride = 1.3f;
@@ -22,6 +23,7 @@ namespace SpaxUtils
 		[SerializeField] private float surveyLength = 1.3f;
 		[SerializeField] private float maxReach = 1.5f;
 		[SerializeField] private Vector3 surveyOriginOffset;
+		[SerializeField] private float defaultSpacing = 0.4f;
 		[SerializeField, Range(0f, 1f)] private float surveyOriginCOMInfluence = 0.5f;
 		[SerializeField, Range(0f, 2f)] private float surveyOriginVelocityInfluence = 0.5f;
 		[SerializeField] private float maxFootingAngle = 75f;
@@ -61,6 +63,7 @@ namespace SpaxUtils
 		public void ResetSurveyor()
 		{
 			progress = 0f;
+			Spacing = defaultSpacing;
 			foreach (ILeg leg in legs.Legs)
 			{
 				leg.UpdateFoot(false, 0f, false, default, default);
@@ -80,7 +83,7 @@ namespace SpaxUtils
 				return;
 			}
 
-			Effect = velocity / defaultSpeed;
+			Effect = velocity / body.BaseSpeed;
 
 			// Mobility Influence
 			Effect *= Mathf.Lerp(1f, grounder.Mobility, mobilityStrideInfluence);
@@ -119,7 +122,7 @@ namespace SpaxUtils
 		{
 			float z = Mathf.Cos(progress * Mathf.PI);
 			float y = Mathf.Sin(-progress * Mathf.PI);
-			Vector3 dir = transform.rotation * (new Vector3(0f, y, z).normalized * Stride);
+			Vector3 dir = (rigidbodyWrapper.TargetVelocity == Vector3.zero ? transform.rotation : Quaternion.LookRotation(rigidbodyWrapper.TargetVelocity)) * (new Vector3(0f, y, z).normalized * Stride);
 			origin = transform.position + transform.rotation * (surveyOriginOffset + (Vector3.up * Stride));
 			return dir;
 		}
@@ -151,8 +154,8 @@ namespace SpaxUtils
 				float progress = GetProgress(leg.WalkCycleOffset);
 				Vector3 direction = GetSurveyorSpoke(progress, out Vector3 origin);
 
-				// Move origin sideways to match thigh.
-				origin += (leg.Thigh.position - origin).Localize(transform).FlattenYZ().Globalize(transform);
+				// Adjust spacing.
+				origin += body.SkeletonRootBone.rotation * leg.Offset.normalized * Spacing * body.Scale * 0.5f;
 
 				// Move origin forwards to meet center of mass.
 				origin += (body.Center - origin).Localize(transform).FlattenXY().Globalize(transform) * surveyOriginCOMInfluence;
@@ -213,7 +216,7 @@ namespace SpaxUtils
 				//	return true;
 				//}
 
-				Debug.DrawRay(origin, -rigidbodyWrapper.Up * surveyLength * body.Scale, Color.red, 1f);
+				//Debug.DrawRay(origin, -rigidbodyWrapper.Up * surveyLength * body.Scale, Color.red, 1f);
 
 				if (Physics.Raycast(origin, -rigidbodyWrapper.Up, out RaycastHit hit, surveyLength * body.Scale, layerMask))
 				{
@@ -255,7 +258,7 @@ namespace SpaxUtils
 						Gizmos.color = Color.red;
 						Gizmos.DrawLine(leg.CastOrigin, leg.GroundedHit.point);
 						Gizmos.DrawSphere(leg.CastOrigin, 0.05f);
-						Gizmos.DrawSphere(leg.CastOrigin + leg.GroundedHit.point, 0.05f);
+						Gizmos.DrawSphere(leg.GroundedHit.point, 0.05f);
 					}
 					else
 					{

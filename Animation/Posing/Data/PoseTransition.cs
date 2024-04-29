@@ -40,16 +40,19 @@ namespace SpaxUtils
 
 		public bool TryEvaluateFloat(string identifier, float defaultIfNull, out float result)
 		{
-			bool aSuccess = FromPose.Data.TryGetFloat(identifier, defaultIfNull, out float a);
+			float a = defaultIfNull;
+			float b = defaultIfNull;
+
+			bool aSuccess = FromPose != null && FromPose.Data.TryGetFloat(identifier, defaultIfNull, out a);
 			if (!aSuccess)
 			{
-				aSuccess = AdditionalFromPoseData.TryGetFloat(identifier, defaultIfNull, out a);
+				aSuccess = AdditionalFromPoseData != null && AdditionalFromPoseData.TryGetFloat(identifier, defaultIfNull, out a);
 			}
 
-			bool bSuccess = ToPose.Data.TryGetFloat(identifier, defaultIfNull, out float b);
+			bool bSuccess = ToPose != null && ToPose.Data.TryGetFloat(identifier, defaultIfNull, out b);
 			if (!bSuccess)
 			{
-				AdditionalToPoseData.TryGetFloat(identifier, defaultIfNull, out b);
+				bSuccess = AdditionalToPoseData != null && AdditionalToPoseData.TryGetFloat(identifier, defaultIfNull, out b);
 			}
 
 			result = Mathf.Lerp(a, b, Progress);

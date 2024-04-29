@@ -10,12 +10,17 @@ namespace SpaxUtils
 		Vector3 MovementInput { get; }
 
 		/// <summary>
-		/// The default movement speed in meters per second.
+		/// The base movement speed in meters per second.
 		/// </summary>
 		float MovementSpeed { get; }
 
 		/// <summary>
-		/// Sets the default movement speed used when input is provided.
+		/// Whether the agent's rotation should be locked, preventing it from automatically pointing in the movement direction.
+		/// </summary>
+		bool LockRotation { get; set; }
+
+		/// <summary>
+		/// Sets the base movement speed used when input is provided.
 		/// </summary>
 		/// <param name="speed">The movement speed in m/s.</param>
 		void SetMovementSpeed(float speed);

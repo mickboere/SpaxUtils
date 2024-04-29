@@ -13,6 +13,9 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public float MovementSpeed => speed;
 
+		/// <inheritdoc/>
+		public bool LockRotation { get; set; }
+
 		[SerializeField] private float speed = 4.5f;
 		[SerializeField] private float rotationSmoothingSpeed = 30f;
 		[SerializeField] private float controlForce = 1800f;
@@ -33,7 +36,7 @@ namespace SpaxUtils
 
 		protected void OnEnable()
 		{
-			targetDirection = Transform.forward;
+			SetTargetDirection(Transform.forward);
 		}
 
 		protected void FixedUpdate()
@@ -108,11 +111,14 @@ namespace SpaxUtils
 				// TODO: Allow for sliding control & overhaul sliding altogether.
 			}
 
-			SetTargetDirection(
+			if (!LockRotation)
+			{
+				SetTargetDirection(
 				Vector3.Lerp(
 					Vector3.Lerp(Transform.forward, rigidbodyWrapper.Velocity, MovementInput.magnitude.Clamp01()),
 					rigidbodyWrapper.TargetVelocity,
 					rigidbodyWrapper.Grip));
+			}
 		}
 
 		private void ApplyRotation()

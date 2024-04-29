@@ -11,6 +11,7 @@ namespace SpaxUtils
 		public bool HasRigidbody => RigidbodyWrapper != null;
 		public RigidbodyWrapper RigidbodyWrapper => RefComponentRelative(ref rigidbodyWrapper);
 		public float BaseMass => baseMass;
+		public float BaseSpeed => baseSpeed;
 
 		public bool HasAnimator => AnimatorWrapper != null && AnimatorWrapper.Animator != null;
 		public AnimatorWrapper AnimatorWrapper => RefComponentRelative(ref animatorWrapper);
@@ -24,6 +25,7 @@ namespace SpaxUtils
 		[SerializeField] private float scale = 1f;
 		[SerializeField] private RigidbodyWrapper rigidbodyWrapper;
 		[SerializeField] private float baseMass = 100f;
+		[SerializeField] private float baseSpeed = 4f;
 		[SerializeField] private AnimatorWrapper animatorWrapper;
 		[SerializeField] private Transform skeletonRootBone;
 		[SerializeField] private Transform head;

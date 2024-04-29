@@ -18,6 +18,11 @@ namespace SpaxUtils
 		Transform Foot { get; }
 
 		/// <summary>
+		/// The leg's offset from the body's centre.
+		/// </summary>
+		Vector3 Offset { get; }
+
+		/// <summary>
 		/// The total length of this leg.
 		/// </summary>
 		float Length { get; }
