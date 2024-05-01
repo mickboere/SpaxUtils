@@ -8,7 +8,7 @@ namespace SpaxUtils
 	/// Behaviour that adjust the Agent's stats while guarding.
 	/// </summary>
 	[CreateAssetMenu(fileName = "Behaviour_Guarding", menuName = "ScriptableObjects/Combat/GuardingBehaviourAsset")]
-	public class GuardingBehaviourAsset : BasePerformanceMoveBehaviourAsset
+	public class GuardingBehaviourAsset : BaseCombatMoveBehaviourAsset
 	{
 		private EntityStat defenceStat;
 		private EntityStat guardStat;

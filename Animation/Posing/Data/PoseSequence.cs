@@ -5,7 +5,7 @@ using UnityEngine;
 namespace SpaxUtils
 {
 	[CreateAssetMenu(fileName = "PoseSequence", menuName = "ScriptableObjects/Animation/PoseSequence")]
-	public class PoseSequence : ScriptableObject, IPoseSequence
+	public class PoseSequence : PosingData, IPoseSequence
 	{
 		public int PoseCount => sequence.Count;
 		public float TotalDuration => sequence.Sum((p) => p.Duration);
@@ -16,19 +16,13 @@ namespace SpaxUtils
 		[SerializeField] private LabeledPoseData globalData;
 		[SerializeField] private List<SequencePose> sequence;
 
-		/// <summary>
-		/// Returns <see cref="SequencePose"/> at <paramref name="index"/>.
-		/// </summary>
+		/// <inheritdoc/>
 		public IPose Get(int index)
 		{
 			return sequence[index];
 		}
 
-		/// <summary>
-		/// Samples the pose for <paramref name="time"/>.
-		/// </summary>
-		/// <param name="time">The amount of time into the total duration of the sequence.</param>
-		/// <returns>A <see cref="PoseTransition"/> object containing the target poses and their data.</returns>
+		/// <inheritdoc/>
 		public PoseTransition Evaluate(float time)
 		{
 			float duration = TotalDuration;
@@ -37,6 +31,17 @@ namespace SpaxUtils
 			IPose fromPose = Get(index - 1 < 0 ? PoseCount - 1 : index - 1);
 			IPose toPose = Get(index);
 			return new PoseTransition(fromPose, toPose, progress, globalData, globalData);
+		}
+
+		public override IPoserInstructions GetInstructions(float time)
+		{
+			return new PoserInstructions(Evaluate(time));
+		}
+
+		public override IPoserInstructions GetInstructions(float time, Vector3 position)
+		{
+			// Position is not supported for sequences.
+			return GetInstructions(time);
 		}
 	}
 }

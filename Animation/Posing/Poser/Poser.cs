@@ -5,15 +5,15 @@ using UnityEngine;
 namespace SpaxUtils
 {
 	/// <summary>
-	/// Main <see cref="IPoser"/> class implementation that provides many options for defining a 4-way pose blend.
+	/// Main <see cref="IPoserInstructions"/> class implementation that provides many options for defining a 4-way pose blend.
 	/// </summary>
-	public class Poser : IPoser, IDisposable
+	public class Poser : IPoserInstructions, IDisposable
 	{
 		/// <inheritdoc/>
-		public PoseInstructions[] Instructions => new PoseInstructions[]
+		public PoseInstruction[] Instructions => new PoseInstruction[]
 		{
-			new PoseInstructions(From, 1f - Interpolation),
-			new PoseInstructions(To, Interpolation)
+			new PoseInstruction(From, 1f - Interpolation),
+			new PoseInstruction(To, Interpolation)
 		};
 
 		public PoserSettings Settings { get; }

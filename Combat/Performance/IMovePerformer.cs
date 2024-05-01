@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 
 namespace SpaxUtils
 {
@@ -9,11 +8,6 @@ namespace SpaxUtils
 	public interface IMovePerformer : IPerformer
 	{
 		/// <summary>
-		/// Invoked whenever the desired agent-pose has been updated.
-		/// </summary>
-		event Action<IPerformer, PoserStruct, float> PoseUpdateEvent;
-
-		/// <summary>
 		/// The <see cref="IPerformanceMove"/> currently being performed.
 		/// </summary>
 		IPerformanceMove Move { get; }
@@ -22,6 +16,16 @@ namespace SpaxUtils
 		/// The amount of time this combat performance has spent charging.
 		/// </summary>
 		float Charge { get; }
+
+		/// <summary>
+		/// Whether this move has been canceled.
+		/// </summary>
+		bool Canceled { get; }
+
+		/// <summary>
+		/// The amount of time since this move has been canceled.
+		/// </summary>
+		float CancelTime { get; }
 
 		/// <summary>
 		/// Adds an <see cref="IPerformanceMove"/> to be performed upon <paramref name="act"/>.

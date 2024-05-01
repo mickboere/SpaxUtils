@@ -54,7 +54,7 @@ namespace SpaxUtils
 			{
 				rigidbodyWrapper.ApplyMovement(controlForce, brakeForce, power, true);
 				Vector3 input = rigidbodyWrapper.RelativeVelocity;
-				animatorPoser.ProvideInstructions(this, PoserLayerConstants.BODY, leanPose.GetInstructions(input, 0f), 20);
+				animatorPoser.ProvideInstructions(this, PoserLayerConstants.BODY, leanPose.GetInstructions(0f, input), 20);
 			}
 		}
 

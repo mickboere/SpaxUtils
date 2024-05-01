@@ -5,16 +5,23 @@ using UnityEngine;
 namespace SpaxUtils
 {
 	[CreateAssetMenu(fileName = "PoseSequenceBlendTree", menuName = "ScriptableObjects/Animation/PoseSequenceBlendTree")]
-	public class PoseSequenceBlendTree : ScriptableObject
+	public class PoseSequenceBlendTree : PosingData
 	{
 		[SerializeField] private List<PoseBlendTreeSequence> blendTree;
 
-		public PoserStruct GetInstructions(Vector3 position, float time)
+		/// <inheritdoc/>
+		public override IPoserInstructions GetInstructions(float time)
+		{
+			return GetInstructions(time, Vector3.zero);
+		}
+
+		/// <inheritdoc/>
+		public override IPoserInstructions GetInstructions(float time, Vector3 position)
 		{
 			var instructions = GetPoseBlend(position);
 			PoseTransition a = instructions.from.Evaluate(time);
 			PoseTransition b = instructions.to.Evaluate(time);
-			return new PoserStruct(a, b, instructions.interpolation);
+			return new PoserInstructions(a, b, instructions.interpolation);
 		}
 
 		public (IPoseSequence from, IPoseSequence to, float interpolation) GetPoseBlend(Vector2 position)

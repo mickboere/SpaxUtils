@@ -12,7 +12,6 @@ namespace SpaxUtils
 	{
 		public event Action<IPerformer> PerformanceUpdateEvent;
 		public event Action<IPerformer> PerformanceCompletedEvent;
-		public event Action<IPerformer, PoserStruct, float> PoseUpdateEvent;
 
 		#region IPerformer Properties
 
@@ -27,6 +26,8 @@ namespace SpaxUtils
 
 		public IPerformanceMove Move { get; private set; }
 		public float Charge { get; private set; }
+		public bool Canceled { get; private set; }
+		public float CancelTime { get; private set; }
 
 		#endregion IMovePerformer Properties
 
@@ -37,8 +38,6 @@ namespace SpaxUtils
 
 		private List<BehaviourAsset> behaviours;
 		private bool released;
-		private bool canceled;
-		private float cancelTime;
 
 		public MovePerformer(IDependencyManager dependencyManager, IAct act,
 			IPerformanceMove move, IAgent agent, EntityStat entityTimeScale,
@@ -116,7 +115,7 @@ namespace SpaxUtils
 			if (force || State == PerformanceState.Preparing)
 			{
 				// Delay setting state to "Finishing" to prevent state change during Followup Move.
-				canceled = true;
+				Canceled = true;
 				return true;
 			}
 			else
@@ -137,13 +136,13 @@ namespace SpaxUtils
 
 		private void Update()
 		{
-			if (canceled)
+			if (Canceled)
 			{
 				State = PerformanceState.Finishing;
 
-				cancelTime += Time.deltaTime * entityTimeScale;
+				CancelTime += Time.deltaTime * entityTimeScale;
 
-				if (cancelTime >= Move.CancelDuration)
+				if (CancelTime >= Move.CancelDuration)
 				{
 					// Completed cancel fadeout.
 					State = PerformanceState.Completed;
@@ -183,9 +182,6 @@ namespace SpaxUtils
 					}
 				}
 			}
-
-			PoseTransition pose = Move.Evaluate(Charge, RunTime, out float weight, cancelTime);
-			PoseUpdateEvent?.Invoke(this, new PoserStruct(new PoseInstructions(pose, 1f)), weight);
 
 			UpdateBehaviours();
 

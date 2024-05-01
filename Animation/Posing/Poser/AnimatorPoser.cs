@@ -11,7 +11,7 @@ namespace SpaxUtils
 	/// https://github.com/mickboere/SpaxUtils/blob/master/Animation/Posing/Poser/AnimatorPoser.cs
 	public class AnimatorPoser : MonoBehaviour, IDependency
 	{
-		public IPoser Control { get; private set; }
+		public IPoserInstructions Control { get; private set; }
 
 		[SerializeField] private PoserComponentSettings settings;
 		[SerializeField] private RuntimeAnimatorController animatorController;
@@ -19,10 +19,10 @@ namespace SpaxUtils
 
 		private AnimatorWrapper animatorWrapper;
 		private CallbackService callbackService;
-		private Dictionary<string, (Poser main, Dictionary<object, (IPoser instructions, int prio, float weight)> providers)> layers;
+		private Dictionary<string, (Poser main, Dictionary<object, (IPoserInstructions instructions, int prio, float weight)> providers)> layers;
 		private AnimatorOverrideController overrideController;
 		private AnimationClipOverrides overrides;
-		private Dictionary<string, IPoser> posers;
+		private Dictionary<string, IPoserInstructions> posers;
 
 		public void InjectDependencies(AnimatorWrapper animatorWrapper, CallbackService callbackService)
 		{
@@ -74,7 +74,7 @@ namespace SpaxUtils
 		/// </summary>
 		/// <param name="layer">The posing layer to retrieve the instructions from.</param>
 		/// <returns>The current complete posing instructions for <paramref name="layer"/>.</returns>
-		public IPoser GetPose(string layer)
+		public IPoserInstructions GetPose(string layer)
 		{
 			if (!ValidateRequest(layer))
 			{
@@ -94,10 +94,10 @@ namespace SpaxUtils
 		/// </summary>
 		/// <param name="provider">Object used to identify the instructions' provider, required for revoking instructions.</param>
 		/// <param name="layer">The posing layer to provide the instructions for.</param>
-		/// <param name="instructions"><see cref="IPoser"/> implementation defining a desired pose blend.</param>
+		/// <param name="instructions"><see cref="IPoserInstructions"/> implementation defining a desired pose blend.</param>
 		/// <param name="prio">The priority of these instructions, higher is more important.</param>
 		/// <param name="weight">The weight of these instructions clamped between 0 and 1, higher weight is more important.</param>
-		public void ProvideInstructions(object provider, string layer, IPoser instructions, int prio = 0, float weight = 1f)
+		public void ProvideInstructions(object provider, string layer, IPoserInstructions instructions, int prio = 0, float weight = 1f)
 		{
 			if (!ValidateRequest(layer))
 			{
@@ -115,14 +115,14 @@ namespace SpaxUtils
 		/// <param name="pose">The desired pose blend instructions.</param>
 		/// <param name="prio">The priority of these instructions, higher is more important.</param>
 		/// <param name="weight">The weight of these instructions clamped between 0 and 1, higher weight is more important.</param>
-		public void ProvideInstructions(object provider, string layer, PoseInstructions pose, int prio = 0, float weight = 1f)
+		public void ProvideInstructions(object provider, string layer, PoseInstruction pose, int prio = 0, float weight = 1f)
 		{
 			if (!ValidateRequest(layer))
 			{
 				return;
 			}
 
-			layers[layer].providers[provider] = (new PoserStruct(pose), prio, weight);
+			layers[layer].providers[provider] = (new PoserInstructions(pose), prio, weight);
 		}
 
 		/// <summary>
@@ -140,7 +140,7 @@ namespace SpaxUtils
 				return;
 			}
 
-			layers[layer].providers[provider] = (new PoserStruct(new PoseInstructions(pose, 1f)), prio, weight);
+			layers[layer].providers[provider] = (new PoserInstructions(new PoseInstruction(pose, 1f)), prio, weight);
 		}
 
 		/// <summary>
@@ -149,7 +149,7 @@ namespace SpaxUtils
 		/// <param name="provider">The object the instructions were provided with.</param>
 		public void RevokeInstructions(object provider)
 		{
-			foreach ((Poser main, Dictionary<object, (IPoser instructions, int prio, float weight)> providers) layer in layers.Values)
+			foreach ((Poser main, Dictionary<object, (IPoserInstructions instructions, int prio, float weight)> providers) layer in layers.Values)
 			{
 				if (layer.providers.ContainsKey(provider))
 				{
@@ -160,7 +160,7 @@ namespace SpaxUtils
 
 		private void UpdateAnimatorPose()
 		{
-			foreach ((Poser main, Dictionary<object, (IPoser instructions, int prio, float weight)> providers) layer in layers.Values)
+			foreach ((Poser main, Dictionary<object, (IPoserInstructions instructions, int prio, float weight)> providers) layer in layers.Values)
 			{
 				PoserSettings settings = layer.main.Settings;
 				Control = GetControl(layer.main, layer.providers.Values);
@@ -197,16 +197,16 @@ namespace SpaxUtils
 			}
 		}
 
-		private IPoser GetControl(Poser main, IEnumerable<(IPoser poser, int prio, float weight)> posers)
+		private IPoserInstructions GetControl(Poser main, IEnumerable<(IPoserInstructions poser, int prio, float weight)> posers)
 		{
-			List<(IPoser poser, int prio, float weight)> collection = new List<(IPoser poser, int prio, float weight)>();
+			List<(IPoserInstructions poser, int prio, float weight)> collection = new List<(IPoserInstructions poser, int prio, float weight)>();
 			collection.Add((main, 0, 1f));
 			collection.AddRange(posers);
 			collection = collection.OrderByDescending((e) => e.weight).OrderByDescending((e) => e.prio).ToList();
 
 			int topPrio = collection[0].prio;
 			float totalWeight = 0f;
-			List<PoseInstructions> instructions = new List<PoseInstructions>();
+			List<PoseInstruction> instructions = new List<PoseInstruction>();
 			for (int i = 0; i < collection.Count; i++)
 			{
 				for (int j = 0; j < collection[i].poser.Instructions.Length; j++)
@@ -230,7 +230,7 @@ namespace SpaxUtils
 
 					totalWeight += weight;
 
-					instructions.Add(new PoseInstructions(collection[i].poser.Instructions[j].Transition, weight));
+					instructions.Add(new PoseInstruction(collection[i].poser.Instructions[j].Transition, weight));
 
 					if (instructions.Count == main.Settings.MaxInstructions)
 					{
@@ -242,11 +242,11 @@ namespace SpaxUtils
 			// Instructions must always contain the max amount, add emptys if necessary.
 			for (int i = 0; i < main.Settings.MaxInstructions - instructions.Count; i++)
 			{
-				instructions.Add(new PoseInstructions(main.To, 0f));
+				instructions.Add(new PoseInstruction(main.To, 0f));
 			}
 
 		Maxed:
-			return new PoserStruct(instructions, true);
+			return new PoserInstructions(instructions, true);
 		}
 
 		#region Management
@@ -273,12 +273,12 @@ namespace SpaxUtils
 			Cleanup();
 
 			// Set up posers.
-			layers = new Dictionary<string, (Poser main, Dictionary<object, (IPoser instructions, int prio, float weight)> providers)>();
+			layers = new Dictionary<string, (Poser main, Dictionary<object, (IPoserInstructions instructions, int prio, float weight)> providers)>();
 			foreach (PoserSettings setting in settings.PosersSettings)
 			{
-				layers.Add(setting.Layer, (new Poser(callbackService, setting), new Dictionary<object, (IPoser instructions, int prio, float weight)>()));
+				layers.Add(setting.Layer, (new Poser(callbackService, setting), new Dictionary<object, (IPoserInstructions instructions, int prio, float weight)>()));
 			}
-			posers = new Dictionary<string, IPoser>();
+			posers = new Dictionary<string, IPoserInstructions>();
 
 			// Set up animator controller.
 			overrideController = new AnimatorOverrideController(animatorController);

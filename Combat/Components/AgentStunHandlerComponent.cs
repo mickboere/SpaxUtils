@@ -144,7 +144,7 @@ namespace SpaxUtils
 		{
 			float stunAmount = Mathf.Max(stunTimer.Progress.Invert(), Mathf.InverseLerp(recoveredThreshold, recoveryThreshold, rigidbodyWrapper.Speed));
 
-			PoserStruct instructions = hitBlendTree.GetInstructions(-stunHit.Direction.Localize(rigidbodyWrapper.transform), 0f);
+			IPoserInstructions instructions = hitBlendTree.GetInstructions(0f, -stunHit.Direction.Localize(rigidbodyWrapper.transform));
 			animatorPoser.ProvideInstructions(this, PoserLayerConstants.BODY, instructions, 10, stunAmount);
 			armsMod.SetValue(stunAmount.Invert());
 
@@ -181,7 +181,7 @@ namespace SpaxUtils
 			PoseTransition fallingPose = new PoseTransition(crashPose, fallPose, crashTimer.HasValue ? crashTimer.Value.Progress : 1f);
 			float fallAmount = Mathf.Max(crashTimer.HasValue ? crashTimer.Value.Progress.Invert() : 0f, Mathf.InverseLerp(blastThreshold, fallThreshold, rigidbodyWrapper.Speed));
 			float blend = grounder.Grounded && !crashTimer.HasValue ? 0f : fallAmount;
-			PoserStruct pose = new PoserStruct(blastedPose, fallingPose, blend);
+			PoserInstructions pose = new PoserInstructions(blastedPose, fallingPose, blend);
 
 			float stunWeight = 1f;
 			if (getUpTimer.HasValue)

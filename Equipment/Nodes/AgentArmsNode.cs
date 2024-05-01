@@ -15,6 +15,7 @@ namespace SpaxUtils
 
 		[SerializeField] private bool sheathe;
 		[SerializeField] private bool animateIK;
+		[SerializeField] private bool animateControl;
 		[SerializeField, Conditional(nameof(animateIK))] private int ikPriority;
 		[SerializeField, Conditional(nameof(animateIK))] private bool asStateTransition;
 		[SerializeField, Conditional(nameof(animateIK))] private float reachDuration = 0.5f;
@@ -45,12 +46,16 @@ namespace SpaxUtils
 			this.equipment = equipment;
 
 			entityTimeScale = entity.GetStat(EntityStatIdentifiers.TIMESCALE, false);
-			controlMod = new FloatOperationModifier(ModMethod.Absolute, Operation.Multiply, 1f);
-			rigidbodyWrapper.Control.AddModifier(this, controlMod);
 		}
 
 		public override void OnEnteringState()
 		{
+			if (animateControl)
+			{
+				controlMod = new FloatOperationModifier(ModMethod.Absolute, Operation.Multiply, 1f);
+				rigidbodyWrapper.Control.AddModifier(this, controlMod);
+			}
+
 			if (animateIK && asStateTransition && sheathe != arms.Sheathed)
 			{
 				// Move hand IK target towards sheathe.
@@ -112,7 +117,12 @@ namespace SpaxUtils
 			}
 			ik.RemoveInfluencer(this, IKChainConstants.LEFT_ARM);
 			ik.RemoveInfluencer(this, IKChainConstants.RIGHT_ARM);
-			rigidbodyWrapper.Control.RemoveModifier(this);
+
+			if (animateControl)
+			{
+				rigidbodyWrapper.Control.RemoveModifier(this);
+				controlMod.Dispose();
+			}
 
 			leftEquip = null;
 			leftComp = null;
@@ -143,7 +153,7 @@ namespace SpaxUtils
 			while (t)
 			{
 				float p = invert ? t.Progress.ReverseInOutCubic() : t.Progress.InOutCubic();
-				controlMod.SetValue(p.Invert());
+				controlMod?.SetValue(p.Invert());
 				if (arms.LeftVisual != null)
 				{
 					var orientation = GetSheathingOrientation(true);

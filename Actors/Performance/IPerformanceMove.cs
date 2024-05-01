@@ -18,7 +18,13 @@ namespace SpaxUtils
 		string Description { get; }
 
 		/// <summary>
+		/// Asset containing evaluatable pose data to be utilized by the lead-behaviour.
+		/// </summary>
+		PosingData PosingData { get; }
+
+		/// <summary>
 		/// <see cref="BehaviourAsset"/>s to instantiate during performance.
+		/// The behaviour assets are responsible for physically acting out all performance data.
 		/// </summary>
 		IReadOnlyList<BehaviourAsset> Behaviour { get; }
 
@@ -73,6 +79,11 @@ namespace SpaxUtils
 		float MinDuration { get; }
 
 		/// <summary>
+		/// Duration of transition from charge pose to performing pose, relative to MinDuration.
+		/// </summary>
+		float ChargeFadeout { get; }
+
+		/// <summary>
 		/// Pose fadeout time after RunTime exeeds the minimum duration.
 		/// </summary>
 		float Release { get; }
@@ -99,15 +110,5 @@ namespace SpaxUtils
 		/// Time it takes for the performance to fade away after canceling.
 		/// </summary>
 		float CancelDuration { get; }
-
-		/// <summary>
-		/// Evaluates the combat move at <paramref name="chargeTime"/> seconds of charge and <paramref name="performTime"/> seconds of performance.
-		/// </summary>
-		/// <param name="chargeTime">The amount of seconds of charge.</param>
-		/// <param name="performTime">The amount of seconds of performance.</param>
-		/// <param name="weight">The resulting effective weight of the complete pose blend.</param>
-		/// <param name="cancelTime">If the move has been canceled, how long has it been canceled for?</param>
-		/// <returns><see cref="PoseTransition"/> resulting from the evaluation.</returns>
-		PoseTransition Evaluate(float chargeTime, float performTime, out float weight, float cancelTime = 0f);
 	}
 }

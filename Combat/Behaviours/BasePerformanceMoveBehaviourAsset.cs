@@ -15,8 +15,10 @@ namespace SpaxUtils
 		protected IPerformanceMove Move { get; private set; }
 		protected RigidbodyWrapper RigidbodyWrapper { get; private set; }
 		protected AgentArmsComponent Arms { get; private set; }
+		protected AnimatorPoser Poser { get; private set; }
 
 		protected PerformanceState State => Performer.State;
+		protected IPoserInstructions PoserInstructions { get; private set; }
 		protected float Weight { get; private set; }
 
 		[SerializeField] private float controlWeightSmoothing = 6f;
@@ -26,13 +28,15 @@ namespace SpaxUtils
 
 		public void InjectDependencies(IAgent agent,
 			IMovePerformer performer, IPerformanceMove move,
-			RigidbodyWrapper rigidbodyWrapper, AgentArmsComponent arms)
+			RigidbodyWrapper rigidbodyWrapper, AgentArmsComponent arms,
+			AnimatorPoser poser)
 		{
 			Agent = agent;
 			Performer = performer;
 			Move = move;
 			RigidbodyWrapper = rigidbodyWrapper;
 			Arms = arms;
+			Poser = poser;
 		}
 
 		public override void Start()
@@ -46,9 +50,6 @@ namespace SpaxUtils
 			{
 				Arms.Weight.AddModifier(this, controlMod);
 			}
-
-			// Retrieve pose updates to set control weight.
-			Performer.PoseUpdateEvent += OnPoseUpdateEvent;
 		}
 
 		public override void Stop()
@@ -62,19 +63,21 @@ namespace SpaxUtils
 				Arms.Weight.RemoveModifier(this);
 			}
 
-			Performer.PoseUpdateEvent -= OnPoseUpdateEvent;
+			Poser.RevokeInstructions(this);
 		}
 
 		public virtual void CustomUpdate(float delta)
 		{
+			PoserInstructions = Evaluate(out float weight);
+			Weight = weight;
+
+			Poser.ProvideInstructions(this, PoserLayerConstants.BODY, PoserInstructions, 1, Weight);
+
 			// Set control from pose weight.
 			float control = 1f - Weight;
 			controlMod.SetValue(controlMod.Value < control ? Mathf.Lerp(controlMod.Value, control, controlWeightSmoothing * delta) : control);
 		}
 
-		private void OnPoseUpdateEvent(IPerformer performer, PoserStruct pose, float weight)
-		{
-			this.Weight = weight;
-		}
+		protected abstract IPoserInstructions Evaluate(out float weight);
 	}
 }

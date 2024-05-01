@@ -4,7 +4,7 @@ using UnityEngine;
 namespace SpaxUtils
 {
 	/// <summary>
-	/// Configurable <see cref="IPerformanceMove"/> asset that can be evaluated to return poses.
+	/// Configurable asset containing all data required to act out a performance move.
 	/// </summary>
 	[CreateAssetMenu(fileName = "CombatMove", menuName = "ScriptableObjects/PerformanceMove")]
 	public class PerformanceMove : ScriptableObject, IPerformanceMove
@@ -14,6 +14,7 @@ namespace SpaxUtils
 		public string Name => string.IsNullOrWhiteSpace(name) ? base.name : name;
 		public string Description => description;
 
+		public PosingData PosingData => posingData;
 		public IReadOnlyList<BehaviourAsset> Behaviour => behaviour;
 		public IReadOnlyList<MoveFollowUp> FollowUps => followUps;
 
@@ -25,6 +26,7 @@ namespace SpaxUtils
 
 		public bool HasPerformance => hasPerformance;
 		public float MinDuration => HasPerformance ? minDuration : 0f;
+		public float ChargeFadeout => chargeFadeout;
 		public float Release => release;
 		public float TotalDuration => MinDuration + Release;
 		public string PerformSpeedMultiplierStat => performSpeedMultiplier;
@@ -49,7 +51,7 @@ namespace SpaxUtils
 		[SerializeField, TextArea] private string description;
 
 		[Header("Data")]
-		[SerializeField] private PoseSequence sequence;
+		[SerializeField] private PosingData posingData;
 		[SerializeField, Expandable] private List<BehaviourAsset> behaviour;
 		[SerializeField] private List<MoveFollowUp> followUps;
 		[SerializeField] private float cancelDuration = 0.25f;
@@ -68,20 +70,6 @@ namespace SpaxUtils
 		[SerializeField, Tooltip(TT_RELEASE)] private float release = 0.5f;
 		[SerializeField, Conditional(nameof(hasPerformance), hide: true), ConstDropdown(typeof(IStatIdentifierConstants))] private string performSpeedMultiplier = AgentStatIdentifiers.ATTACK_PERFORM_SPEED;
 		[SerializeField] private List<StatCost> performCost;
-
-		/// <inheritdoc/>
-		public PoseTransition Evaluate(float chargeTime, float performTime, out float weight, float cancelTime = 0f)
-		{
-			// Charging.
-			IPose chargePose = sequence.Get(0);
-			float chargeWeight = chargePose.EvaluateTransition(Mathf.Clamp01(chargeTime / MaxCharge));
-
-			// Performing.
-			float performanceWeight = HasPerformance ? Mathf.Clamp01(performTime / (MinDuration * chargeFadeout)).InOutSine() : Mathf.Sign(performTime);
-			weight = Mathf.Lerp(chargeWeight, 1f - Mathf.Clamp01((performTime - MinDuration) / Release).InOutSine(), performanceWeight).Lerp(0f, cancelTime / CancelDuration);
-
-			return sequence.Evaluate(HasPerformance ? performTime : 0f);
-		}
 
 		public override string ToString()
 		{

@@ -13,7 +13,6 @@ namespace SpaxUtils
 	{
 		public event Action<IPerformer> PerformanceUpdateEvent;
 		public event Action<IPerformer> PerformanceCompletedEvent;
-		public event Action<IPerformer, PoserStruct, float> PoseUpdateEvent;
 
 		public int Priority => 0;
 		public IAct Act => MainPerformer != null ? MainPerformer.Act : null;
@@ -22,6 +21,8 @@ namespace SpaxUtils
 
 		public IPerformanceMove Move => MainPerformer != null ? MainPerformer.Move : null;
 		public float Charge => MainPerformer != null ? MainPerformer.Charge : 0f;
+		public bool Canceled => MainPerformer != null ? MainPerformer.Canceled : false;
+		public float CancelTime => MainPerformer != null ? MainPerformer.CancelTime : 0f;
 
 		private MovePerformer MainPerformer => helpers.Count > 0 ? helpers[helpers.Count - 1] : null;
 
@@ -108,7 +109,6 @@ namespace SpaxUtils
 			var performer = new MovePerformer(dependencyManager, act, move, agent, EntityTimeScale, callbackService);
 			performer.PerformanceUpdateEvent += OnPerformanceUpdateEvent;
 			performer.PerformanceCompletedEvent += OnPerformanceCompletedEvent;
-			performer.PoseUpdateEvent += OnPoseUpdateEvent;
 			finalPerformer = performer;
 			helpers.Add(performer);
 			AddFollowUpMoves(performer, move);
@@ -225,11 +225,6 @@ namespace SpaxUtils
 			PerformanceCompletedEvent?.Invoke(performer);
 
 			helper.Dispose();
-		}
-
-		private void OnPoseUpdateEvent(IPerformer performer, PoserStruct pose, float weight)
-		{
-			PoseUpdateEvent?.Invoke(performer, pose, weight);
 		}
 	}
 }
