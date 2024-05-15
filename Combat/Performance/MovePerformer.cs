@@ -17,7 +17,7 @@ namespace SpaxUtils
 
 		public int Priority => 0;
 		public IAct Act { get; }
-		public PerformanceState State { get; private set; }
+		public PerformanceState State { get; set; }
 		public float RunTime { get; private set; }
 
 		#endregion IPerformer Properties
@@ -136,29 +136,17 @@ namespace SpaxUtils
 
 		private void Update()
 		{
-			if (Canceled)
-			{
-				State = PerformanceState.Finishing;
-
-				CancelTime += Time.deltaTime * entityTimeScale;
-
-				if (CancelTime >= Move.CancelDuration)
-				{
-					// Completed cancel fadeout.
-					State = PerformanceState.Completed;
-				}
-			}
-			else
+			if (!Canceled)
 			{
 				EntityStat speedMult = State == PerformanceState.Preparing ? agent.GetStat(Move.ChargeSpeedMultiplierStat) : agent.GetStat(Move.PerformSpeedMultiplierStat);
 				float delta = Time.deltaTime * (speedMult ?? 1f) * entityTimeScale;
 
 				if (State == PerformanceState.Preparing)
 				{
-					// Preparing.
+					// Preparing (charging).
 					Charge += delta;
 
-					if (released && Charge >= Move.MinCharge)
+					if (Charge >= Move.MinCharge && released)
 					{
 						// Finished charging.
 						State = PerformanceState.Performing;
@@ -180,6 +168,18 @@ namespace SpaxUtils
 						// Finishing
 						State = PerformanceState.Finishing;
 					}
+				}
+			}
+			else
+			{
+				State = PerformanceState.Finishing;
+
+				CancelTime += Time.deltaTime * entityTimeScale;
+
+				if (CancelTime >= Move.CancelDuration)
+				{
+					// Completed cancel fadeout.
+					State = PerformanceState.Completed;
 				}
 			}
 

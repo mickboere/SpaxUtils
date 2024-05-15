@@ -5,62 +5,54 @@ namespace SpaxUtils
 	public interface IAgentMovementHandler : IEntityComponent
 	{
 		/// <summary>
-		/// The current movement input (normalized is standard).
+		/// The forward axis in relation to the <see cref="MovementInput"/>.
 		/// </summary>
-		Vector3 MovementInput { get; }
+		Vector3 InputAxis { get; set; }
 
 		/// <summary>
-		/// The base movement speed in meters per second.
+		/// The current movement input (normalized is standard).
 		/// </summary>
-		float MovementSpeed { get; }
+		Vector3 MovementInput { get; set; }
+
+		/// <summary>
+		/// The agent's desired global forward direction.
+		/// </summary>
+		Vector3 TargetDirection { get; set; }
+
+		/// <summary>
+		/// Movement speed input length is equal 1 (m/s).
+		/// </summary>
+		float MovementSpeed { get; set; }
+
+		/// <summary>
+		/// Base rotation speed in degrees per second.
+		/// </summary>
+		float RotationSpeed { get; set; }
 
 		/// <summary>
 		/// Whether the agent's rotation should be locked, preventing it from automatically pointing in the movement direction.
 		/// </summary>
 		bool LockRotation { get; set; }
 
-		/// <summary>
-		/// Sets the base movement speed used when input is provided.
-		/// </summary>
-		/// <param name="speed">The movement speed in m/s.</param>
-		void SetMovementSpeed(float speed);
 
 		/// <summary>
-		/// Sets the default rotation speed.
+		/// Update agent's velocity to match target velocity.
 		/// </summary>
-		/// <param name="speed">The rotation speed in degrees per second.</param>
-		void SetRotationSpeed(float speed);
+		/// <param name="delta">The delta time between movement updates.</param>
+		/// <param name="targetVelocity">The desired velocity to try and reach each update (<see cref="RigidbodyWrapper.TargetVelocity"/> if null).</param>
+		/// <param name="ignoreControl">Whether to ignore <see cref="RigidbodyWrapper.Control"/>.</param>
+		void UpdateMovement(float delta, Vector3? targetVelocity = null, bool ignoreControl = false);
 
 		/// <summary>
-		/// Moves the <see cref="IAgent"/> in <paramref name="input"/> direction in local space, X being sideways, Y being forwards / backwards.
+		/// Update rotation to face target direction.
 		/// </summary>
-		/// <param name="input">Input direction in local space.</param>
-		void SetMovementInput(Vector2 input);
+		/// <param name="delta">The delta time between rotation updates.</param>
+		/// <param name="direction">The desired facing diration (<see cref="RigidbodyWrapper.TargetVelocity"/> if null).</param>
+		/// <param name="ignoreControl">Whether to ignore <see cref="RigidbodyWrapper.Control"/>.</param>
+		void UpdateRotation(float delta, Vector3? direction = null, bool ignoreControl = false);
 
 		/// <summary>
-		/// Moves the <see cref="IAgent"/> in <paramref name="input"/> direction in local space.
-		/// </summary>
-		/// <param name="input">Input direction in local space.</param>
-		void SetMovementInput(Vector3 input);
-
-		/// <summary>
-		/// Request the <see cref="IAgent"/> to move in <paramref name="velocity"/> direction in world space.
-		/// </summary>
-		/// <param name="velocity">The target velocity of this agent.</param>
-		void SetTargetVelocity(Vector3 velocity);
-
-		/// <summary>
-		/// Changes the axis to which the Movement Input is relative to.
-		/// </summary>
-		void SetInputAxis(Vector3 direction);
-
-		/// <summary>
-		/// Rotates the forward direction of the <see cref="IAgent"/> towards <paramref name="direction"/>.
-		/// </summary>
-		void SetTargetDirection(Vector3 direction);
-
-		/// <summary>
-		/// Force update rotation to face either <paramref name="direction"/> or the target velocity if null.
+		/// Force update rotation to directly face either <paramref name="direction"/> or else the RigidbodyWrapper's target velocity.
 		/// </summary>
 		void ForceRotation(Vector3? direction = null);
 	}

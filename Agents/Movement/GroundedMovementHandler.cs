@@ -8,13 +8,50 @@ namespace SpaxUtils
 	public class GroundedMovementHandler : EntityComponentBase, IAgentMovementHandler
 	{
 		/// <inheritdoc/>
-		public Vector3 MovementInput { get; private set; }
+		public Vector3 InputAxis
+		{
+			get { return _inputAxis; }
+			set
+			{
+				_inputAxis = value.FlattenY();
+			}
+		}
+		private Vector3 _inputAxis;
 
 		/// <inheritdoc/>
-		public float MovementSpeed => speed;
+		public Vector3 MovementInput
+		{
+			get { return _movementInput; }
+			set
+			{
+				_movementInput = value;
+				rigidbodyWrapper.TargetVelocity = value == Vector3.zero ? Vector3.zero : (Quaternion.LookRotation(InputAxis) * value * speed);
+			}
+		}
+		private Vector3 _movementInput;
+
+		/// <inheritdoc/>
+		public Vector3 TargetDirection
+		{
+			get
+			{
+				return _forwardDirection;
+			}
+			set
+			{
+				_forwardDirection = value == Vector3.zero ? Transform.forward : value.FlattenY().normalized;
+			}
+		}
+		private Vector3 _forwardDirection;
+
+		/// <inheritdoc/>
+		public float MovementSpeed { get { return speed; } set { speed = value; } }
 
 		/// <inheritdoc/>
 		public bool LockRotation { get; set; }
+
+		/// <inheritdoc/>
+		public float RotationSpeed { get; set; }
 
 		[SerializeField] private float speed = 4.5f;
 		[SerializeField] private float rotationSmoothingSpeed = 30f;
@@ -25,9 +62,6 @@ namespace SpaxUtils
 		private RigidbodyWrapper rigidbodyWrapper;
 		private IGrounderComponent grounder;
 
-		private Vector3 targetDirection;
-		private Vector3 inputAxis;
-
 		public void InjectDependencies(RigidbodyWrapper rigidbodyWrapper, IGrounderComponent grounder)
 		{
 			this.rigidbodyWrapper = rigidbodyWrapper;
@@ -36,62 +70,66 @@ namespace SpaxUtils
 
 		protected void OnEnable()
 		{
-			SetTargetDirection(Transform.forward);
+			TargetDirection = Transform.forward;
 		}
 
 		protected void FixedUpdate()
 		{
-			ApplyMovement();
-			ApplyRotation();
+			UpdateMovement(Time.fixedDeltaTime);
+			UpdateRotation(Time.fixedDeltaTime);
 		}
 
 		/// <inheritdoc/>
-		public void SetMovementSpeed(float speed)
+		public void UpdateMovement(float delta, Vector3? targetVelocity = null, bool ignoreControl = false)
 		{
-			this.speed = speed;
+			rigidbodyWrapper.ControlAxis = Vector3.one.FlattenY();
+
+			if (!grounder.Sliding)
+			{
+				rigidbodyWrapper.ApplyMovement(targetVelocity.HasValue ? targetVelocity.Value : rigidbodyWrapper.TargetVelocity,
+					controlForce, brakeForce, power, ignoreControl, grounder.Mobility);
+			}
+			// TODO: Allow for sliding control & overhaul sliding altogether.
+
+			if (!LockRotation)
+			{
+				TargetDirection = Vector3.Lerp(
+					Vector3.Lerp(Transform.forward, rigidbodyWrapper.Velocity, MovementInput.magnitude.Clamp01()),
+					rigidbodyWrapper.TargetVelocity,
+					rigidbodyWrapper.Grip);
+			}
 		}
 
 		/// <inheritdoc/>
-		public void SetRotationSpeed(float speed)
+		public void UpdateRotation(float delta, Vector3? direction = null, bool ignoreControl = false)
 		{
-			this.speed = speed;
-		}
+			float t = delta * EntityTimeScale * (ignoreControl ? 1f : rigidbodyWrapper.Control);
+			Vector3 d = direction.HasValue ? direction.Value == Vector3.zero ? TargetDirection : direction.Value : TargetDirection;
 
-		/// <inheritdoc/>
-		public void SetMovementInput(Vector2 input)
-		{
-			SetMovementInput(new Vector3(input.x, 0f, input.y));
-		}
-
-		/// <inheritdoc/>
-		public void SetMovementInput(Vector3 input)
-		{
-			MovementInput = input;
-			SetTargetVelocity(input == Vector3.zero ? Vector3.zero : (Quaternion.LookRotation(inputAxis) * input * speed));
-		}
-
-		/// <inheritdoc/>
-		public void SetTargetVelocity(Vector3 velocity)
-		{
-			rigidbodyWrapper.TargetVelocity = velocity;
-		}
-
-		/// <inheritdoc/>
-		public void SetInputAxis(Vector3 axis)
-		{
-			inputAxis = axis.FlattenY().normalized;
-		}
-
-		/// <inheritdoc/>
-		public void SetTargetDirection(Vector3 direction)
-		{
-			targetDirection = direction == Vector3.zero ? rigidbodyWrapper.Forward : direction.FlattenY().normalized;
+			if (d == Vector3.zero)
+			{
+				if (rigidbodyWrapper.Velocity.FlattenY() != Vector3.zero)
+				{
+					rigidbodyWrapper.Rotation = Quaternion.Lerp(
+						rigidbodyWrapper.Rotation,
+						Quaternion.LookRotation(rigidbodyWrapper.Velocity.FlattenY()),
+						rotationSmoothingSpeed * t);
+				}
+			}
+			else
+			{
+				rigidbodyWrapper.Rotation = Quaternion.Lerp(
+					rigidbodyWrapper.Rotation,
+					Quaternion.LookRotation(d),
+					rotationSmoothingSpeed * t);
+			}
 		}
 
 		/// <inheritdoc/>
 		public void ForceRotation(Vector3? direction = null)
 		{
-			if (!direction.HasValue && rigidbodyWrapper.TargetVelocity == Vector3.zero || direction.HasValue && direction.Value == Vector3.zero)
+			if (!direction.HasValue && rigidbodyWrapper.TargetVelocity == Vector3.zero ||
+				direction.HasValue && direction.Value == Vector3.zero)
 			{
 				return;
 			}
@@ -99,42 +137,6 @@ namespace SpaxUtils
 			Entity.GameObject.transform.rotation = direction.HasValue ?
 				Quaternion.LookRotation(direction.Value, Entity.GameObject.transform.up) :
 				Quaternion.LookRotation(rigidbodyWrapper.TargetVelocity.FlattenY());
-		}
-
-		private void ApplyMovement()
-		{
-			rigidbodyWrapper.ControlAxis = Vector3.one.FlattenY();
-
-			if (!grounder.Sliding)
-			{
-				rigidbodyWrapper.ApplyMovement(controlForce, brakeForce, power, false, grounder.Mobility);
-				// TODO: Allow for sliding control & overhaul sliding altogether.
-			}
-
-			if (!LockRotation)
-			{
-				SetTargetDirection(
-				Vector3.Lerp(
-					Vector3.Lerp(Transform.forward, rigidbodyWrapper.Velocity, MovementInput.magnitude.Clamp01()),
-					rigidbodyWrapper.TargetVelocity,
-					rigidbodyWrapper.Grip));
-			}
-		}
-
-		private void ApplyRotation()
-		{
-			if (targetDirection == Vector3.zero)
-			{
-				if (rigidbodyWrapper.Velocity.FlattenY() != Vector3.zero)
-				{
-					rigidbodyWrapper.Rotation = Quaternion.Lerp(rigidbodyWrapper.Rotation, Quaternion.LookRotation(rigidbodyWrapper.Velocity.FlattenY()),
-						rotationSmoothingSpeed * Time.fixedDeltaTime * EntityTimeScale * rigidbodyWrapper.Control);
-				}
-				return;
-			}
-
-			rigidbodyWrapper.Rotation = Quaternion.Lerp(rigidbodyWrapper.Rotation, Quaternion.LookRotation(targetDirection),
-				rotationSmoothingSpeed * Time.fixedDeltaTime * EntityTimeScale * rigidbodyWrapper.Control);
 		}
 	}
 }

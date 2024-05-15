@@ -29,6 +29,7 @@ namespace SpaxUtils
 		private EntityStat strengthStat;
 		private EntityStat limbOffenceStat;
 		private EntityStat limbPiercingStat;
+		private EntityStat massStat;
 
 		private CombatHitDetector hitDetector;
 		private bool wasPerforming;
@@ -57,6 +58,7 @@ namespace SpaxUtils
 			strengthStat = Agent.GetStat(AgentStatIdentifiers.STRENGTH);
 			limbOffenceStat = Agent.GetStat(AgentStatIdentifiers.OFFENCE.SubStat(combatMove.Limb));
 			limbPiercingStat = Agent.GetStat(AgentStatIdentifiers.PIERCING.SubStat(combatMove.Limb));
+			massStat = Agent.GetStat(AgentStatIdentifiers.MASS);
 		}
 
 		public override void Start()
@@ -78,6 +80,17 @@ namespace SpaxUtils
 		public override void CustomUpdate(float delta)
 		{
 			base.CustomUpdate(delta);
+
+			if (Performer.State == PerformanceState.Preparing && Performer.Charge > Move.MinCharge)
+			{
+				// Drain charge stat.
+				float staticCharge = Performer.Charge - Move.MinCharge;
+				ApplyStatCost(Move.ChargeCost, staticCharge * delta, out bool drained);
+				if (drained)
+				{
+					Performer.TryPerform();
+				}
+			}
 
 			if (Performer.State == PerformanceState.Performing)
 			{
@@ -103,33 +116,24 @@ namespace SpaxUtils
 
 		protected void OnFirstFrameOfPerformance()
 		{
-			// Aiming.
+			// AIMING:
 			if (targeter.Target != null)
 			{
 				// Auto aim to target.
-				movementHandler.SetTargetVelocity((targeter.Target.Center - RigidbodyWrapper.Position));
+				rigidbodyWrapper.TargetVelocity = targeter.Target.Center - RigidbodyWrapper.Position;
 			}
 			else if (RigidbodyWrapper.TargetVelocity.magnitude <= 1f &&
 				navigationHandler.TryGetClosestTarget(targetables.Components, out ITargetable closest, out float distance) &&
 				distance < autoAimRange)
 			{
 				// Auto aim to closest targetable in range.
-				movementHandler.SetTargetVelocity((closest.Center - RigidbodyWrapper.Position));
+				rigidbodyWrapper.TargetVelocity = closest.Center - RigidbodyWrapper.Position;
 			}
 			movementHandler.ForceRotation();
 
-			// Stats.
-			if (combatMove.PerformCost.Count > 0)
-			{
-				// Performance cost.
-				foreach (StatCost statCost in combatMove.PerformCost)
-				{
-					if (Agent.TryGetStat(statCost.Stat, out EntityStat costStat))
-					{
-						costStat.Damage(statCost.Cost);
-					}
-				}
-			}
+			// STAT COST:
+			ApplyStatCost(Move.PerformCost, massStat, out bool drained);
+			// TODO?: If drained enter either tire or overheat state.
 
 			momentumTimer = new TimerStruct(combatMove.ForceDelay);
 			appliedMomentum = false;

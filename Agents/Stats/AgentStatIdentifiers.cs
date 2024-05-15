@@ -5,6 +5,11 @@
 	/// </summary>
 	public class AgentStatIdentifiers : IStatIdentifierConstants
 	{
+		/// <summary>
+		/// Default stat to show at the very top to make it clear a stat has not been selected yet.
+		/// </summary>
+		public const string NULL = "<NULL>";
+
 		// < Attributes >
 		// Attributes are measured in EXP and converted to LEVELS.
 		// Each Attribute maps to one or more STATS.
@@ -94,10 +99,12 @@
 		public const string STRENGTH = BODY_STAT + "Strength"; // Force output.
 
 		// Light
+		public const string STATIC = BODY_STAT + "Static"; // Amount of available charge.
 		public const string ATTACK_CHARGE_SPEED = BODY_STAT + "Attack_Charge_Speed";
 		public const string ATTACK_PERFORM_SPEED = BODY_STAT + "Attack_Perform_Speed";
 
 		// Air
+		public const string STAMINA = BODY_STAT + "Stamina";
 		public const string MOVEMENT_SPEED = BODY_STAT + "Movement_Speed";
 
 		// Faeth

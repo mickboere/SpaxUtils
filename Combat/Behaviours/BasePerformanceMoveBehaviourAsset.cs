@@ -78,6 +78,17 @@ namespace SpaxUtils
 			controlMod.SetValue(controlMod.Value < control ? Mathf.Lerp(controlMod.Value, control, controlWeightSmoothing * delta) : control);
 		}
 
+		protected virtual void ApplyStatCost(StatCost cost, float delta, out bool drained)
+		{
+			drained = false;
+			if (Agent.TryGetStat(cost.Stat, out EntityStat costStat))
+			{
+				// Damage unclamped, because performance's are active and will simply overdraw cost from "recoverable" (reservoir) stat.
+				costStat.Damage(cost.Cost * delta, false, out bool d);
+				drained = d || drained;
+			}
+		}
+
 		protected abstract IPoserInstructions Evaluate(out float weight);
 	}
 }

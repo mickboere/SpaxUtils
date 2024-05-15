@@ -91,19 +91,11 @@ namespace SpaxUtils
 				return false;
 			}
 
-			// Stats must exceed costs for move.
-			if (move.PerformCost.Count > 0)
+			// Utilized stats must exceed 0.
+			// Note: stats don't have to exceed costs since they will overdraw from the "recoverable" stat.
+			if (!ValidateStat(move.ChargeCost) || !ValidateStat(move.PerformCost))
 			{
-				foreach (StatCost statCost in move.PerformCost)
-				{
-					if (Entity.TryGetStat(statCost.Stat, out EntityStat stat))
-					{
-						if (stat.Value < statCost.Cost)
-						{
-							return false;
-						}
-					}
-				}
+				return false;
 			}
 
 			var performer = new MovePerformer(dependencyManager, act, move, agent, EntityTimeScale, callbackService);
@@ -113,6 +105,18 @@ namespace SpaxUtils
 			helpers.Add(performer);
 			AddFollowUpMoves(performer, move);
 			return true;
+
+			bool ValidateStat(StatCost cost)
+			{
+				if (Entity.TryGetStat(cost.Stat, out EntityStat stat))
+				{
+					if (stat.Value <= Mathf.Epsilon)
+					{
+						return false;
+					}
+				}
+				return true;
+			}
 		}
 
 		/// <inheritdoc/>

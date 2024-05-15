@@ -79,7 +79,7 @@ namespace SpaxUtils
 			timescaleStat.AddModifier(this, hitPauseMod);
 
 			// Damage endurance.
-			endurance.Damage(force, out bool stunned);
+			endurance.Damage(force, true, out bool stunned);
 			if (stunned)
 			{
 				// Stunned.
@@ -93,7 +93,7 @@ namespace SpaxUtils
 			}
 
 			// Damage health.
-			health.Damage(damage, out bool dead);
+			health.Damage(damage, true, out bool dead);
 			if (dead)
 			{
 				// TODO: Die! Should be applied after impact and stun have been processed.

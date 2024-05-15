@@ -23,6 +23,7 @@ namespace SpaxUtils
 		public float MaxCharge => maxCharge;
 		public bool RequireMinCharge => requireMinCharge;
 		public string ChargeSpeedMultiplierStat => chargeSpeedMultiplier;
+		public StatCost ChargeCost => chargeCost;
 
 		public bool HasPerformance => hasPerformance;
 		public float MinDuration => HasPerformance ? minDuration : 0f;
@@ -30,7 +31,7 @@ namespace SpaxUtils
 		public float Release => release;
 		public float TotalDuration => MinDuration + Release;
 		public string PerformSpeedMultiplierStat => performSpeedMultiplier;
-		public IList<StatCost> PerformCost => performCost;
+		public StatCost PerformCost => performCost;
 
 		public float CancelDuration => cancelDuration;
 
@@ -43,33 +44,34 @@ namespace SpaxUtils
 		private const string TT_MAX_CHARGE = "Maximum charging extent in seconds.";
 		private const string TT_MIN_DURATION = "Minimum performing duration of this move.";
 		private const string TT_CHARGE_FADEOUT = "Duration of transition from charge pose to performing pose, relative to MinDuration.";
-		private const string TT_RELEASE = "Interuptable sustain / fadeout time after the minimum duration.";
+		private const string TT_RELEASE = "Interuptable sustain / fadeout time after a successful performance.";
 
 		#endregion Tooltips
 
 		[SerializeField] new private string name;
 		[SerializeField, TextArea] private string description;
 
-		[Header("Data")]
+		[Header("DATA")]
 		[SerializeField] private PosingData posingData;
 		[SerializeField, Expandable] private List<BehaviourAsset> behaviour;
 		[SerializeField] private List<MoveFollowUp> followUps;
 		[SerializeField] private float cancelDuration = 0.25f;
+		[SerializeField, Tooltip(TT_RELEASE)] private float release = 0.5f;
 
-		[Header("Preparation")]
+		[Header("CHARGING")]
 		[SerializeField] private bool hasCharge;
 		[SerializeField, Conditional(nameof(hasCharge), hide: true), Tooltip(TT_MIN_CHARGE)] private float minCharge = 0.3f;
 		[SerializeField, Conditional(nameof(hasCharge), hide: true), Tooltip(TT_MAX_CHARGE)] private float maxCharge = 1f;
 		[SerializeField, Conditional(nameof(hasCharge), hide: true), Tooltip(TT_REQUIRE_MIN_CHARGE)] private bool requireMinCharge;
 		[SerializeField, Conditional(nameof(hasCharge), hide: true), ConstDropdown(typeof(IStatIdentifierConstants))] private string chargeSpeedMultiplier = AgentStatIdentifiers.ATTACK_CHARGE_SPEED;
+		[SerializeField] private StatCost chargeCost;
 
-		[Header("Performance")]
+		[Header("PERFORMANCE")]
 		[SerializeField] private bool hasPerformance;
 		[SerializeField, Conditional(nameof(hasPerformance), hide: true), Tooltip(TT_MIN_DURATION)] private float minDuration = 0.4f;
 		[SerializeField, Conditional(nameof(hasPerformance), hide: true), Range(0f, 1f), Tooltip(TT_CHARGE_FADEOUT)] private float chargeFadeout = 0.3f;
-		[SerializeField, Tooltip(TT_RELEASE)] private float release = 0.5f;
 		[SerializeField, Conditional(nameof(hasPerformance), hide: true), ConstDropdown(typeof(IStatIdentifierConstants))] private string performSpeedMultiplier = AgentStatIdentifiers.ATTACK_PERFORM_SPEED;
-		[SerializeField] private List<StatCost> performCost;
+		[SerializeField] private StatCost performCost;
 
 		public override string ToString()
 		{

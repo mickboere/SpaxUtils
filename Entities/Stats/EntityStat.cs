@@ -30,17 +30,23 @@ namespace SpaxUtils
 			}
 		}
 
+		private IEntity entity;
 		private RuntimeDataEntry data;
+
 		private float? minValue;
 		private float? maxValue;
 		private DecimalMethod decimals;
 
-		public EntityStat(RuntimeDataEntry data,
+		private EntityStat damageMultiplier;
+
+		public EntityStat(IEntity entity, RuntimeDataEntry data,
 			Dictionary<object, IModifier<float>> modifiers = null,
 			float? minValue = null, float? maxValue = null,
 			DecimalMethod decimals = DecimalMethod.Decimal) : base(modifiers)
 		{
+			this.entity = entity;
 			this.data = data;
+
 			this.minValue = minValue;
 			this.maxValue = maxValue;
 			this.decimals = decimals;
@@ -80,22 +86,40 @@ namespace SpaxUtils
 			base.Dispose();
 		}
 
-		public void Damage(float damage)
+		public void Damage(float damage, bool clamp = true, bool applyMultiplier = true)
 		{
-			BaseValue = Mathf.Max(0f, BaseValue - damage);
+			if (applyMultiplier)
+			{
+				damageMultiplier = damageMultiplier ?? entity?.GetStat(Identifier.SubStat(AgentStatIdentifiers.SUB_COST));
+				damage *= damageMultiplier ?? 1f;
+			}
+
+			BaseValue = clamp ? Mathf.Max(0f, BaseValue - damage) : BaseValue - damage;
 		}
 
-		public void Damage(float damage, out bool drained)
+		public void Damage(float damage, bool clamp, out bool drained, bool applyMultiplier = true)
 		{
+			if (applyMultiplier)
+			{
+				damageMultiplier = damageMultiplier ?? entity?.GetStat(Identifier.SubStat(AgentStatIdentifiers.SUB_COST));
+				damage *= damageMultiplier ?? 1f;
+			}
+
 			drained = damage > BaseValue;
-			Damage(damage);
+			Damage(damage, clamp, false);
 		}
 
-		public void Damage(float damage, out bool drained, out float excess)
+		public void Damage(float damage, bool clamp, out bool drained, out float excess, bool applyMultiplier = true)
 		{
+			if (applyMultiplier)
+			{
+				damageMultiplier = damageMultiplier ?? entity?.GetStat(Identifier.SubStat(AgentStatIdentifiers.SUB_COST));
+				damage *= damageMultiplier ?? 1f;
+			}
+
 			excess = Mathf.Abs(Mathf.Min(0, BaseValue - damage));
 			drained = excess > 0;
-			Damage(damage);
+			Damage(damage, clamp, false);
 		}
 
 		private void OnDataValueChanged(object newValue)

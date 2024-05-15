@@ -10,18 +10,15 @@ namespace SpaxUtils
 	/// </summary>
 	public class AgentNavigationHandler : EntityComponentBase, IDependency
 	{
-		// TODO: Figure out per-entity what distance type to use (suspended = true, grounded = false)
-		// OR: Make it non-binary, meaning Y is flattened more as the height-difference increases.
-
 		private IAgent agent;
-		private IAgentMovementHandler agentMovementHandler;
+		private IAgentMovementHandler movementHandler;
 
 		public void InjectDependencies(
 			Agent agentEntity,
 			IAgentMovementHandler agentMovementHandler)
 		{
 			this.agent = agentEntity;
-			this.agentMovementHandler = agentMovementHandler;
+			this.movementHandler = agentMovementHandler;
 		}
 
 		/// <summary>
@@ -38,7 +35,7 @@ namespace SpaxUtils
 
 			if (IsInRange(range, navMesh, targetPosition))
 			{
-				agentMovementHandler.SetMovementInput(Vector2.zero);
+				movementHandler.MovementInput = Vector3.zero;
 				return true;
 			}
 			else if (navMesh)
@@ -50,9 +47,9 @@ namespace SpaxUtils
 				// Get direction to target position.
 				Vector3 direction = Direction(targetPosition);
 				// Set direction as target movement direction.
-				agentMovementHandler.SetInputAxis(direction);
+				movementHandler.InputAxis = direction;
 				// Order NPC to move forwards towards target direction.
-				agentMovementHandler.SetMovementInput(Vector2.up * speed);
+				movementHandler.MovementInput = Vector3.forward * speed;
 			}
 
 			return false;
@@ -65,7 +62,7 @@ namespace SpaxUtils
 		public void RotateTowardsTarget(Vector3? target = null)
 		{
 			Vector3 targetPosition = GetTargetPosition(target);
-			agentMovementHandler.SetTargetDirection(Direction(targetPosition));
+			movementHandler.TargetDirection = Direction(targetPosition);
 		}
 
 		/// <summary>

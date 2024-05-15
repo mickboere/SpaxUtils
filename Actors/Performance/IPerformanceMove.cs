@@ -62,6 +62,11 @@ namespace SpaxUtils
 		/// </summary>
 		string ChargeSpeedMultiplierStat { get; }
 
+		/// <summary>
+		/// The stat-cost drained for charging this move.
+		/// </summary>
+		StatCost ChargeCost { get; }
+
 		#endregion Charge
 
 		#region Performance
@@ -100,9 +105,9 @@ namespace SpaxUtils
 		string PerformSpeedMultiplierStat { get; }
 
 		/// <summary>
-		/// The cost to entity stat(s) for performing this move.
+		/// The stat-cost drained for performing this move.
 		/// </summary>
-		IList<StatCost> PerformCost { get; }
+		StatCost PerformCost { get; }
 
 		#endregion Performance
 

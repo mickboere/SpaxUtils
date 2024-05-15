@@ -2,6 +2,9 @@ namespace SpaxUtils
 {
 	public interface IStatIdentifierConstants : ILabeledDataIdentifiers
 	{
-		const string STATS = "STATS/";
+		/// <summary>
+		/// Category for all Stats.
+		/// </summary>
+		protected const string STATS = "STATS/";
 	}
 }

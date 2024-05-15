@@ -87,14 +87,7 @@ namespace SpaxUtils
 			{
 				// Current cannot exceed Max.
 				current.BaseValue = max;
-				// Return here as this change will have reinvoked the callback.
-				return;
-			}
-			else if (current < 0)
-			{
-				// Current cannot go lower than 0.
-				current.BaseValue = 0f;
-				// Return here as this change will have reinvoked the callback.
+				// Return here as this change will have reinvoked this callback.
 				return;
 			}
 
@@ -104,7 +97,17 @@ namespace SpaxUtils
 				lastDamage = lastCurrent - current;
 				if (isRecoverable)
 				{
-					recoverable.BaseValue -= lastDamage * frailty;
+					if(frailty != null)
+					{
+						// Subtract frailty damage from recoverable.
+						recoverable.BaseValue -= lastDamage * frailty;
+					}
+					
+					if (current < 0)
+					{
+						// Substract overdraw damage from recoverable.
+						recoverable.BaseValue -= Mathf.Abs(current);
+					}
 				}
 
 				// TODO: Make timer rely on entity timescale.

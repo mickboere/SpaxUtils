@@ -209,7 +209,7 @@ namespace SpaxUtils
 				if (entry.Value is float)
 				{
 					IStatConfiguration setting = statLibrary.Get(identifier);
-					EntityStat stat = new EntityStat(entry, null,
+					EntityStat stat = new EntityStat(this, entry, null,
 						setting != null ? setting.HasMinValue ? setting.MinValue : null : null,
 						setting != null ? setting.HasMaxValue ? setting.MaxValue : null : null,
 						setting != null ? setting.Decimals : DecimalMethod.Decimal);
@@ -229,7 +229,7 @@ namespace SpaxUtils
 				statLibrary.TryGet(identifier, out IStatConfiguration setting);
 				RuntimeDataEntry data = new RuntimeDataEntry(identifier, setting == null ? defaultValueIfUndefined : setting.DefaultValue);
 				RuntimeData.TryAdd(data);
-				EntityStat stat = new EntityStat(data, null,
+				EntityStat stat = new EntityStat(this, data, null,
 						setting != null ? setting.HasMinValue ? setting.MinValue : null : null,
 						setting != null ? setting.HasMaxValue ? setting.MaxValue : null : null,
 						setting != null ? setting.Decimals : DecimalMethod.Decimal);
