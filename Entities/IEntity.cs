@@ -92,6 +92,11 @@ namespace SpaxUtils
 		/// <returns>Whether an <see cref="EntityStat"/> exists with ID <paramref name="identifier"/>.</returns>
 		bool TryGetStat(string identifier, out EntityStat stat);
 
+		/// <summary>
+		/// Will try to retrieve stat from <paramref name="cost"/> and damage it by <paramref name="cost"/> * <paramref name="delta"/>.
+		/// </summary>
+		bool TryApplyStatCost(StatCost cost, float delta, out bool drained);
+
 		#endregion
 
 		#region Components

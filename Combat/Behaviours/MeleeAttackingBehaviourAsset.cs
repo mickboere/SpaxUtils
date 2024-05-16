@@ -85,7 +85,7 @@ namespace SpaxUtils
 			{
 				// Drain charge stat.
 				float staticCharge = Performer.Charge - Move.MinCharge;
-				ApplyStatCost(Move.ChargeCost, staticCharge * delta, out bool drained);
+				Agent.TryApplyStatCost(Move.ChargeCost, staticCharge * delta, out bool drained);
 				if (drained)
 				{
 					Performer.TryPerform();
@@ -132,7 +132,7 @@ namespace SpaxUtils
 			movementHandler.ForceRotation();
 
 			// STAT COST:
-			ApplyStatCost(Move.PerformCost, massStat, out bool drained);
+			Agent.TryApplyStatCost(Move.PerformCost, massStat, out bool drained);
 			// TODO?: If drained enter either tire or overheat state.
 
 			momentumTimer = new TimerStruct(combatMove.ForceDelay);

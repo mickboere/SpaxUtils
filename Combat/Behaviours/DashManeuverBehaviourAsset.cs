@@ -47,7 +47,7 @@ namespace SpaxUtils
 			if (State == PerformanceState.Preparing)
 			{
 				// Drain charge stat.
-				ApplyStatCost(Move.ChargeCost, (massStat * RigidbodyWrapper.Speed + massStat * RigidbodyWrapper.Acceleration.magnitude) * delta, out bool drained);
+				Agent.TryApplyStatCost(Move.ChargeCost, (massStat * RigidbodyWrapper.Speed + massStat * RigidbodyWrapper.Acceleration.magnitude) * delta, out bool drained);
 				if (drained)
 				{
 					Performer.TryPerform();

@@ -241,6 +241,20 @@ namespace SpaxUtils
 		}
 
 		/// <inheritdoc/>
+		public bool TryApplyStatCost(StatCost cost, float delta, out bool drained)
+		{
+			drained = false;
+			if (TryGetStat(cost.Stat, out EntityStat costStat))
+			{
+				// Damage unclamped, because performance's are active and will simply overdraw cost from "recoverable" (reservoir) stat.
+				costStat.Damage(cost.Cost * delta, false, out bool d);
+				drained = d || drained;
+				return true;
+			}
+			return false;
+		}
+
+		/// <inheritdoc/>
 		public virtual bool TryGetStat(string identifier, out EntityStat stat)
 		{
 			stat = GetStat(identifier);

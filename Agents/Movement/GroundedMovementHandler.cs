@@ -24,8 +24,11 @@ namespace SpaxUtils
 			get { return _movementInput; }
 			set
 			{
-				_movementInput = value;
-				rigidbodyWrapper.TargetVelocity = value == Vector3.zero ? Vector3.zero : (Quaternion.LookRotation(InputAxis) * value * speed);
+				_movementInput = Entity.TryGetStat(sprintCost.Stat, out EntityStat cost) ?
+					(cost > 0f || value == Vector3.zero ? value : value.ClampMagnitude(tiredInputLimiter)) :
+					value;
+				Vector3 realValue = Quaternion.LookRotation(InputAxis) * _movementInput * speed;
+				rigidbodyWrapper.TargetVelocity = _movementInput == Vector3.zero ? Vector3.zero : realValue;
 			}
 		}
 		private Vector3 _movementInput;
@@ -58,6 +61,8 @@ namespace SpaxUtils
 		[SerializeField] private float controlForce = 1800f;
 		[SerializeField] private float brakeForce = 900f;
 		[SerializeField] private float power = 40f;
+		[SerializeField] private StatCost sprintCost;
+		[SerializeField] private float tiredInputLimiter = 0.666f;
 
 		private RigidbodyWrapper rigidbodyWrapper;
 		private IGrounderComponent grounder;
@@ -70,6 +75,7 @@ namespace SpaxUtils
 
 		protected void OnEnable()
 		{
+			InputAxis = Transform.forward;
 			TargetDirection = Transform.forward;
 		}
 
@@ -88,6 +94,11 @@ namespace SpaxUtils
 			{
 				rigidbodyWrapper.ApplyMovement(targetVelocity.HasValue ? targetVelocity.Value : rigidbodyWrapper.TargetVelocity,
 					controlForce, brakeForce, power, ignoreControl, grounder.Mobility);
+
+				if (MovementInput.magnitude > 1.001f)
+				{
+					Entity.TryApplyStatCost(sprintCost, rigidbodyWrapper.Speed * rigidbodyWrapper.Mass * (MovementInput.magnitude - 1f) * delta, out bool drained);
+				}
 			}
 			// TODO: Allow for sliding control & overhaul sliding altogether.
 
