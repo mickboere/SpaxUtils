@@ -132,7 +132,7 @@ namespace SpaxUtils
 			movementHandler.ForceRotation();
 
 			// STAT COST:
-			Agent.TryApplyStatCost(Move.PerformCost, massStat, out bool drained);
+			Agent.TryApplyStatCost(Move.PerformCost, (massStat - limbMassStat) * 0.5f + limbMassStat * 2f, out bool drained);
 			// TODO?: If drained enter either tire or overheat state.
 
 			momentumTimer = new TimerStruct(combatMove.ForceDelay);

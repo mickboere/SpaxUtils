@@ -30,7 +30,7 @@ namespace SpaxUtils
 			if (callbackService != null)
 			{
 				this.callbackService = callbackService;
-				callbackService.UpdateCallback += OnUpdateCallback;
+				callbackService.SubscribeUpdate(UpdateMode.Update, this, OnUpdateCallback, -9999);
 			}
 		}
 
@@ -56,7 +56,7 @@ namespace SpaxUtils
 		{
 			if (callbackService != null)
 			{
-				callbackService.UpdateCallback -= OnUpdateCallback;
+				callbackService.UnsubscribeUpdate(UpdateMode.Update, this);
 			}
 		}
 
@@ -78,14 +78,24 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
+		/// Resets the timer to 0.
+		/// </summary>
+		public TimerClass Reset()
+		{
+			Time = 0f;
+			return this;
+		}
+
+		/// <summary>
 		/// Resets the timer.
 		/// </summary>
 		/// <param name="duration">Expiration time of the timer. Leave null to remove duration for an infinite timer.</param>
 		/// <param name="time"></param>
-		public void Reset(float? duration = null, float time = 0f)
+		public TimerClass Reset(float? duration, float time = 0f)
 		{
 			Duration = duration;
 			Time = time;
+			return this;
 		}
 
 		private void OnUpdateCallback()

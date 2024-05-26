@@ -31,7 +31,10 @@ namespace SpaxUtils
 			base.Start();
 			callbackService.SubscribeUpdate(UpdateMode.FixedUpdate, this, OnFixedUpdate);
 
-			RigidbodyWrapper.Push(Quaternion.LookRotation(movementHandler.InputAxis) * movementHandler.MovementInput * dashSpeed);
+			Vector3 startVelocity = movementHandler.MovementInput == Vector3.zero ?
+				RigidbodyWrapper.Forward * dashSpeed :
+				Quaternion.LookRotation(movementHandler.InputAxis) * movementHandler.MovementInput.normalized * dashSpeed;
+			RigidbodyWrapper.Push(startVelocity);
 		}
 
 		public override void Stop()
@@ -50,6 +53,7 @@ namespace SpaxUtils
 				Agent.TryApplyStatCost(Move.ChargeCost, (massStat * RigidbodyWrapper.Speed + massStat * RigidbodyWrapper.Acceleration.magnitude) * delta, out bool drained);
 				if (drained)
 				{
+					// Exit dash.
 					Performer.TryPerform();
 				}
 			}
@@ -68,6 +72,13 @@ namespace SpaxUtils
 
 		private void OnFixedUpdate()
 		{
+			if (RigidbodyWrapper.Speed < 0.1f)
+			{
+				// Exit dash.
+				Performer.TryPerform();
+				return;
+			}
+
 			Vector3 velocity = Quaternion.LookRotation(movementHandler.InputAxis) * movementHandler.MovementInput * glideSpeed;
 			RigidbodyWrapper.ApplyMovement(velocity, controlForce, brakeForce, power, true);
 			movementHandler.UpdateRotation(Time.fixedDeltaTime, null, true);

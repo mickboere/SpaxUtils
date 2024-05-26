@@ -12,13 +12,15 @@ namespace SpaxUtils
 		[SerializeField, ConstDropdown(typeof(IStatIdentifierConstants))] private string stat;
 		[SerializeField] private bool isRecoverable;
 		[SerializeField] private bool hasRecovery;
+		[SerializeField] private float overdraw;
 
-		private string maxStat;
-		private string recoverableStat;
-		private string frailtyStat;
-		private string recoveryStat;
-		private string recoveryDelayStat;
+		private string maxId;
+		private string recoverableId;
+		private string frailtyId;
+		private string recoveryId;
+		private string recoveryDelayId;
 
+		private EntityStat timescale;
 		private EntityStat current;
 		private EntityStat max;
 		private EntityStat recoverable;
@@ -29,39 +31,41 @@ namespace SpaxUtils
 		private float lastCurrent;
 		private float lastDamage;
 
-		private TimerStruct recoveryTimer;
+		private TimerClass recoveryTimer;
 
 		public void Initialize(IEntity entity)
 		{
-			maxStat = stat.SubStat(AgentStatIdentifiers.SUB_MAX);
-			recoverableStat = stat.SubStat(AgentStatIdentifiers.SUB_RECOVERABLE);
-			frailtyStat = stat.SubStat(AgentStatIdentifiers.SUB_FRAILTY);
-			recoveryStat = stat.SubStat(AgentStatIdentifiers.SUB_RECOVERY);
-			recoveryDelayStat = stat.SubStat(AgentStatIdentifiers.SUB_RECOVERY_DELAY);
+			maxId = stat.SubStat(AgentStatIdentifiers.SUB_MAX);
+			recoverableId = stat.SubStat(AgentStatIdentifiers.SUB_RECOVERABLE);
+			frailtyId = stat.SubStat(AgentStatIdentifiers.SUB_FRAILTY);
+			recoveryId = stat.SubStat(AgentStatIdentifiers.SUB_RECOVERY);
+			recoveryDelayId = stat.SubStat(AgentStatIdentifiers.SUB_RECOVERY_DELAY);
+
+			timescale = entity.GetStat(EntityStatIdentifiers.TIMESCALE, true, 1f);
 
 			current = entity.GetStat(stat, true);
 			current.ValueChangedEvent += OnCurrentChangedEvent;
 			lastCurrent = current;
 
-			max = entity.GetStat(maxStat, true);
+			max = entity.GetStat(maxId, true);
 			max.ValueChangedEvent += OnMaxChangedEvent;
 
 			if (isRecoverable)
 			{
-				recoverable = entity.GetStat(recoverableStat, true);
+				recoverable = entity.GetStat(recoverableId, true);
 				recoverable.ValueChangedEvent += OnRecoverableChangedEvent;
-				frailty = entity.GetStat(frailtyStat);
+				frailty = entity.GetStat(frailtyId);
 			}
 			if (hasRecovery)
 			{
-				recovery = entity.GetStat(recoveryStat, true);
-				recoveryDelay = entity.GetStat(recoveryDelayStat, true);
+				recovery = entity.GetStat(recoveryId, true);
+				recoveryDelay = entity.GetStat(recoveryDelayId, true);
 			}
 		}
 
 		public void Update(float delta)
 		{
-			if (hasRecovery && !recoveryTimer)
+			if (hasRecovery && (recoveryTimer == null || recoveryTimer.Expired))
 			{
 				if (isRecoverable)
 				{
@@ -83,10 +87,12 @@ namespace SpaxUtils
 
 		private void OnCurrentChangedEvent()
 		{
+			float current = this.current.BaseValue;
+
 			if (current > max)
 			{
 				// Current cannot exceed Max.
-				current.BaseValue = max;
+				this.current.BaseValue = max;
 				// Return here as this change will have reinvoked this callback.
 				return;
 			}
@@ -97,21 +103,29 @@ namespace SpaxUtils
 				lastDamage = lastCurrent - current;
 				if (isRecoverable)
 				{
-					if(frailty != null)
+					if (frailty != null)
 					{
 						// Subtract frailty damage from recoverable.
 						recoverable.BaseValue -= lastDamage * frailty;
 					}
-					
+
 					if (current < 0)
 					{
 						// Substract overdraw damage from recoverable.
-						recoverable.BaseValue -= Mathf.Abs(current);
+						if (lastCurrent < 0)
+						{
+							recoverable.BaseValue -= lastDamage * overdraw;
+						}
+						else
+						{
+							recoverable.BaseValue -= Mathf.Abs(current) * overdraw;
+						}
 					}
 				}
 
 				// TODO: Make timer rely on entity timescale.
-				recoveryTimer = new TimerStruct(recoveryDelay);
+				float duration = current < Mathf.Epsilon ? recoveryDelay * 2f : recoveryDelay;
+				recoveryTimer = recoveryTimer?.Reset(duration) ?? new TimerClass(duration, () => timescale, true);
 			}
 			else if (isRecoverable)
 			{
