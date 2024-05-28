@@ -35,5 +35,20 @@ namespace SpaxUtils
 
 			defenceStat.RemoveModifier(this);
 		}
+
+		public override void CustomUpdate(float delta)
+		{
+			base.CustomUpdate(delta);
+
+			if (Performer.State == PerformanceState.Preparing)
+			{
+				// Drain charge stat.
+				Agent.TryApplyStatCost(Move.ChargeCost, delta, out bool drained);
+				if (drained)
+				{
+					Performer.TryPerform();
+				}
+			}
+		}
 	}
 }

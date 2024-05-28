@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -6,6 +7,9 @@ namespace SpaxUtils
 {
 	public class AgentStunHandlerComponent : EntityComponentBase, IStunHandler
 	{
+		public event Action EnteredStunEvent;
+		public event Action ExitedStunEvent;
+
 		public bool Stunned { get; private set; }
 
 		#region Tooltips
@@ -125,6 +129,8 @@ namespace SpaxUtils
 			{
 				airborneTimer = new TimerStruct(minAirborneLength);
 			}
+
+			EnteredStunEvent?.Invoke();
 		}
 
 		public void ExitStun()
@@ -138,6 +144,8 @@ namespace SpaxUtils
 			gravityMod.SetValue(1f);
 
 			agent.Actor.Blocked = false;
+
+			ExitedStunEvent?.Invoke();
 		}
 
 		private void UpdateGroundedStun()

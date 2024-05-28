@@ -84,8 +84,7 @@ namespace SpaxUtils
 			if (Performer.State == PerformanceState.Preparing && Performer.Charge > Move.MinCharge)
 			{
 				// Drain charge stat.
-				float staticCharge = Performer.Charge - Move.MinCharge;
-				Agent.TryApplyStatCost(Move.ChargeCost, staticCharge * delta, out bool drained);
+				Agent.TryApplyStatCost(Move.ChargeCost, delta, out bool drained);
 				if (drained)
 				{
 					Performer.TryPerform();

@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using SpaxUtils.StateMachines;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace SpaxUtils
@@ -8,6 +9,8 @@ namespace SpaxUtils
 	/// </summary>
 	public class AgentHitHandlerComponent : EntityComponentBase
 	{
+		[SerializeField] private float deathDuration = 0.5f;
+
 		private IAgent agent;
 		private IHittable hittable;
 		private RigidbodyWrapper rigidbodyWrapper;
@@ -97,7 +100,23 @@ namespace SpaxUtils
 			if (dead)
 			{
 				// TODO: Die! Should be applied after impact and stun have been processed.
+				if (stunHandler.Stunned)
+				{
+					stunHandler.ExitedStunEvent += Die;
+				}
+				else
+				{
+					Die();
+				}
 			}
+		}
+
+		private void Die()
+		{
+			stunHandler.ExitedStunEvent -= Die;
+			rigidbodyWrapper.TargetVelocity = Vector3.zero;
+			rigidbodyWrapper.Velocity = Vector3.zero;
+			agent.Die(new TimedStateTransition(deathDuration));
 		}
 	}
 }

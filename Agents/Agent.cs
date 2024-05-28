@@ -26,6 +26,9 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public ITargeter Targeter { get; private set; }
 
+		/// <inheritdoc/>
+		public bool Dead => Brain.IsStateActive(StateIdentifiers.DEAD);
+
 		protected override string GameObjectNamePrefix => "[Agent]";
 
 		[SerializeField, ConstDropdown(typeof(IStateIdentifierConstants))] private string state;
@@ -73,6 +76,15 @@ namespace SpaxUtils
 		{
 			((Actor)Actor).Dispose();
 			Brain.Dispose();
+		}
+
+		/// <inheritdoc/>
+		public void Die(ITransition transition = null)
+		{
+			if (!Dead)
+			{
+				Brain.TryTransition(StateIdentifiers.DEAD, transition);
+			}
 		}
 
 		/// <summary>

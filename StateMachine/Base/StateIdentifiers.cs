@@ -6,5 +6,6 @@
 		public const string ACTIVE = "Active";
 		public const string PASSIVE = "Passive";
 		public const string COMBAT = "Combat";
+		public const string DEAD = "Dead";
 	}
 }

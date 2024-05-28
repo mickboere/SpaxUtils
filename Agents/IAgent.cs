@@ -5,9 +5,8 @@ using System.Collections.Generic;
 namespace SpaxUtils
 {
 	/// <summary>
-	/// Root <see cref="IEntity"/> implementation for free agents which can act, think, target and be targeted.
+	/// Advanced <see cref="IEntity"/> implementation for free agents which have a body that can act, think, die, target and be targeted.
 	/// Input has to be routed through the <see cref="Actor"/> as <see cref="IAct"/>s, which can be observed and reacted to.
-	/// Other <see cref="IEntity"/>s can attach themselves to this entity to provide additional data and functionality.
 	/// </summary>
 	public interface IAgent : IEntity
 	{
@@ -38,6 +37,16 @@ namespace SpaxUtils
 		/// </summary>
 		ITargeter Targeter { get; }
 
+		/// <summary>
+		/// Whether this agent is currently dead.
+		/// </summary>
+		bool Dead { get; }
+
 		#endregion
+
+		/// <summary>
+		/// Kills the agent, having it enter the "dead" state.
+		/// </summary>
+		void Die(ITransition transition = null);
 	}
 }
