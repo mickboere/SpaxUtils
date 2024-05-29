@@ -11,6 +11,9 @@ namespace SpaxUtils
 	/// </summary>
 	public class Agent : Entity, IAgent, IDependencyProvider
 	{
+		public event Action DiedEvent;
+		public event Action RevivedEvent;
+
 		/// <inheritdoc/>
 		public IActor Actor { get; } = new Actor();
 
@@ -83,7 +86,23 @@ namespace SpaxUtils
 		{
 			if (!Dead)
 			{
-				Brain.TryTransition(StateIdentifiers.DEAD, transition);
+				Actor.TryCancel(true);
+				if (Brain.TryTransition(StateIdentifiers.DEAD, transition))
+				{
+					DiedEvent?.Invoke();
+				}
+			}
+		}
+
+		/// <inheritdoc/>
+		public void Revive(ITransition transition = null)
+		{
+			if (Dead)
+			{
+				if (Brain.TryTransition(StateIdentifiers.ACTIVE, transition))
+				{
+					RevivedEvent?.Invoke();
+				}
 			}
 		}
 

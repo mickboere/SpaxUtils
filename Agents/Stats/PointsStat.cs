@@ -124,7 +124,7 @@ namespace SpaxUtils
 				}
 
 				// TODO: Make timer rely on entity timescale.
-				float duration = current < Mathf.Epsilon ? recoveryDelay * 2f : recoveryDelay;
+				float duration = current < Mathf.Epsilon ? recoveryDelay * 1.5f : recoveryDelay;
 				recoveryTimer = recoveryTimer?.Reset(duration) ?? new TimerClass(duration, () => timescale, true);
 			}
 			else if (isRecoverable)

@@ -114,8 +114,6 @@ namespace SpaxUtils
 		private void Die()
 		{
 			stunHandler.ExitedStunEvent -= Die;
-			rigidbodyWrapper.TargetVelocity = Vector3.zero;
-			rigidbodyWrapper.Velocity = Vector3.zero;
 			agent.Die(new TimedStateTransition(deathDuration));
 		}
 	}

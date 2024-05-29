@@ -10,7 +10,7 @@ namespace SpaxUtils
 	public class HittableEntityComponent : EntityComponentBase, IHittable
 	{
 		/// <inheritdoc/>
-		public bool Hittable => hittable;
+		public bool Hittable { get { return hittable; } set { hittable = value; } }
 
 		[SerializeField] private bool hittable = true;
 

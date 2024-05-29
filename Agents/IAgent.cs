@@ -10,6 +10,16 @@ namespace SpaxUtils
 	/// </summary>
 	public interface IAgent : IEntity
 	{
+		/// <summary>
+		/// Invoked once the agent has died.
+		/// </summary>
+		event Action DiedEvent;
+
+		/// <summary>
+		/// Invoked once the agent has revived.
+		/// </summary>
+		event Action RevivedEvent;
+
 		#region Properties
 
 		/// <summary>
@@ -48,5 +58,10 @@ namespace SpaxUtils
 		/// Kills the agent, having it enter the "dead" state.
 		/// </summary>
 		void Die(ITransition transition = null);
+
+		/// <summary>
+		/// Revives the agent, having it exit the "dead" state.
+		/// </summary>
+		void Revive(ITransition transition = null);
 	}
 }

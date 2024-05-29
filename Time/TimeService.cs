@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace SpaxUtils
@@ -64,6 +65,7 @@ namespace SpaxUtils
 		private CallbackService callbackService;
 
 		private float originalTimeScale;
+		private List<object> pauseBlockers = new List<object>();
 
 		// TODO: Load time values from currently loaded profile (saving/loading data is also TODO)
 		public TimeService(CallbackService callbackService)
@@ -108,7 +110,7 @@ namespace SpaxUtils
 		/// <returns></returns>
 		public bool TryPause(bool pause)
 		{
-			if (Paused != pause)
+			if (Paused != pause && pauseBlockers.Count == 0)
 			{
 				Paused = pause;
 
@@ -126,6 +128,22 @@ namespace SpaxUtils
 			}
 
 			return false;
+		}
+
+		public void AddPauseBlocker(object blocker)
+		{
+			if (!pauseBlockers.Contains(blocker))
+			{
+				pauseBlockers.Add(blocker);
+			}
+		}
+
+		public void RemovePauseBlocker(object blocker)
+		{
+			if (pauseBlockers.Contains(blocker))
+			{
+				pauseBlockers.Remove(blocker);
+			}
 		}
 
 		private void Update()
