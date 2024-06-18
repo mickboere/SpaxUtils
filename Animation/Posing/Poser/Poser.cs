@@ -103,6 +103,14 @@ namespace SpaxUtils
 			Pose(transitionPose);
 		}
 
+		/// <summary>
+		/// Will use only [0] and [1].
+		/// </summary>
+		public void Pose(IPoserInstructions instructions)
+		{
+			Pose(instructions.Instructions[0].Transition, instructions.Instructions[1].Transition, instructions.Instructions[1].Weight);
+		}
+
 		public void PoseNormalized(PoseSequence sequence, float progress)
 		{
 			Pose(sequence, sequence.TotalDuration * progress);

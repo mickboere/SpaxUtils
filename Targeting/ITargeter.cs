@@ -23,6 +23,11 @@ namespace SpaxUtils
 		/// </summary>
 		ITargetable Target { get; }
 
+		/// <summary>
+		/// Whether this targeter currently has a target.
+		/// </summary>
+		bool Targeting { get; }
+
 		#endregion Properties
 
 		#region Methods

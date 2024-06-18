@@ -21,6 +21,9 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public ITargetable Target { get; private set; }
 
+		/// <inheritdoc/>
+		public bool Targeting => Target != null;
+
 		#endregion Properties
 
 		#region Methods

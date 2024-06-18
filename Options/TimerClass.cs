@@ -19,7 +19,11 @@ namespace SpaxUtils
 		private float _timescale = 1f;
 		private Func<float> TimescaleFunc { get; set; }
 
-		public float Progress => Duration.HasValue ? Time / Duration.Value : 1f;
+		public float Progress
+		{
+			get { return Duration.HasValue ? Time / Duration.Value : 1f; }
+			set { if (Duration.HasValue) { Time = Duration.Value * value; } }
+		}
 		public bool Expired => Duration.HasValue ? Time >= Duration.Value : true;
 
 		private CallbackService callbackService;

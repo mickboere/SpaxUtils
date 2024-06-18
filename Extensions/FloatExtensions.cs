@@ -48,7 +48,7 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
-		/// Returns 1 - <paramref name="f"/> clamped between 0 and 1.
+		/// Clamps <paramref name="f"/> between 0 and 1 and returns it inverted.
 		/// </summary>
 		public static float InvertClamped(this float f)
 		{
