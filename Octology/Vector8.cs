@@ -2,6 +2,10 @@ using System;
 
 namespace SpaxUtils
 {
+	/// <summary>
+	/// Data struct containing 8 float members, each defining a direction. Also known as an "Octon".
+	/// </summary>
+	[Serializable]
 	public struct Vector8
 	{
 		public float N, NE, E, SE, S, SW, W, NW;

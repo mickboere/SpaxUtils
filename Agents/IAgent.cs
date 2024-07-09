@@ -23,27 +23,27 @@ namespace SpaxUtils
 		#region Properties
 
 		/// <summary>
-		/// The <see cref="IActor"/> of this agent. Allows one to perform and observe <see cref="IAct"/>s.
+		/// The action performer of this agent. See <see cref="IActor"/>.
 		/// </summary>
 		IActor Actor { get; }
 
 		/// <summary>
-		/// The <see cref="IBrain"/> of this agent.
+		/// The state machine of this agent. See <see cref="IBrain"/>.
 		/// </summary>
 		IBrain Brain { get; }
 
 		/// <summary>
-		/// The <see cref="IAgentBody"/> of this agent.
+		/// The body of this agent. See <see cref="IAgentBody"/>.
 		/// </summary>
 		IAgentBody Body { get; }
 
 		/// <summary>
-		/// The <see cref="ITargetable"/> to use when targeting this agent.
+		/// The targetable component of this agent. See <see cref="ITargetable"/>.
 		/// </summary>
 		ITargetable Targetable { get; }
 
 		/// <summary>
-		/// The <see cref="ITargeter"/> to use when requesting the objective of this agent.
+		/// The targeter of this agent. See <see cref="ITargeter"/>.
 		/// </summary>
 		ITargeter Targeter { get; }
 

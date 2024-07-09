@@ -7,7 +7,7 @@ namespace SpaxUtils
 	/// Each element has their own characteristics and dynamics with other elements.
 	/// </summary>
 	[Serializable]
-	public class ElementProfile
+	public class ElementOcton
 	{
 		/// <summary>
 		/// The underlying <see cref="SpaxUtils.Vector8"/> this class wraps around.
@@ -70,7 +70,7 @@ namespace SpaxUtils
 		/// </summary>
 		public float Daeth { get { return Vector8.NW; } set { Vector8.NW = value; } }
 
-		public ElementProfile(float fire, float light, float air, float faeth, float water, float nature, float earth, float daeth)
+		public ElementOcton(float fire, float light, float air, float faeth, float water, float nature, float earth, float daeth)
 		{
 			this.Fire = fire;
 			this.Light = light;
@@ -82,21 +82,26 @@ namespace SpaxUtils
 			this.Daeth = daeth;
 		}
 
-		/// <summary>
-		/// Returns a Vector8 with the calculated effectiveness of each element when paired against their opposite element.
-		/// </summary>
-		public Vector8 GetEffectiveness()
+		public static implicit operator Vector8(ElementOcton octon)
 		{
-			return new Vector8(
-				CalculateEffectiveness(Fire, Water),
-				CalculateEffectiveness(Light, Nature),
-				CalculateEffectiveness(Air, Earth),
-				CalculateEffectiveness(Faeth, Daeth),
-				CalculateEffectiveness(Water, Fire),
-				CalculateEffectiveness(Nature, Light),
-				CalculateEffectiveness(Earth, Air),
-				CalculateEffectiveness(Daeth, Faeth));
+			return octon.Vector8;
 		}
+
+		/// <summary>
+		/// Returns a new Vector8 with the calculated effectiveness of each element when paired against their opposite element.
+		/// </summary>
+		//public static Vector8 GetEffectiveness(this Vector8 vector)
+		//{
+		//	return new Vector8(
+		//		CalculateEffectiveness(vector.N, vector.S),
+		//		CalculateEffectiveness(Light, Nature),
+		//		CalculateEffectiveness(Air, Earth),
+		//		CalculateEffectiveness(Faeth, Daeth),
+		//		CalculateEffectiveness(Water, Fire),
+		//		CalculateEffectiveness(Nature, Light),
+		//		CalculateEffectiveness(Earth, Air),
+		//		CalculateEffectiveness(Daeth, Faeth));
+		//}
 
 		public static float CalculateEffectiveness(float a, float b)
 		{
