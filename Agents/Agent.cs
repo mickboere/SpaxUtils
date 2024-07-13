@@ -21,6 +21,9 @@ namespace SpaxUtils
 		public IBrain Brain { get; private set; }
 
 		/// <inheritdoc/>
+		public IMind Mind { get; private set; }
+
+		/// <inheritdoc/>
 		public IAgentBody Body { get; private set; }
 
 		/// <inheritdoc/>

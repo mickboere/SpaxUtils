@@ -7,8 +7,10 @@ namespace SpaxUtils
 	/// Class that behaves as a <see cref="Vector8"/>, assigning an <see cref="EntityStat"/> to each member.
 	/// </summary>
 	[Serializable]
-	public class StatOcton
+	public class StatOcton : IOcton
 	{
+		public Vector8 Vector8 => this;
+
 		public EntityStat N { get; private set; }
 		[SerializeField, ConstDropdown(typeof(IStatIdentifierConstants))] private string north;
 		public EntityStat NE { get; private set; }

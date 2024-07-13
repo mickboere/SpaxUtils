@@ -10,6 +10,6 @@ namespace SpaxUtils
 	/// </summary>
 	public interface IMind
 	{
-
+		
 	}
 }

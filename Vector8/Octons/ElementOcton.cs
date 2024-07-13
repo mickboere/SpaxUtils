@@ -1,85 +1,83 @@
 ﻿using System;
+using UnityEngine;
 
 namespace SpaxUtils
 {
 	/// <summary>
-	/// Class that wraps around a <see cref="Vector8"/>, assigning an element to each member.
+	/// Class that wraps around a <see cref="SpaxUtils.Vector8"/>, assigning an element to each member.
 	/// Each element has their own characteristics and dynamics with other elements.
 	/// </summary>
 	[Serializable]
-	public class ElementOcton
+	public class ElementOcton : IOcton
 	{
-		/// <summary>
-		/// The underlying <see cref="SpaxUtils.Vector8"/> this class wraps around.
-		/// </summary>
-		public Vector8 Vector8;
+		public Vector8 Vector8 => new Vector8(fire, light, air, faeth, water, nature, earth, daeth);
 
 		/// <summary>
 		/// Lies between Daeth and Light, opposite of Water.
 		/// Masculine head, strong.
 		/// Emotion of Anger, motivation is Action, manifests in Energy.
 		/// </summary>
-		public float Fire { get { return Vector8.N; } set { Vector8.N = value; } }
+		[SerializeField] private float fire;
 
 		/// <summary>
 		/// Lies between Fire and Air, opposite of Nature.
 		/// Masculine tip into Feminine root; smart.
 		/// Emotion of Anticipation, motivation is Continuation, manifests in Current.
 		/// </summary>
-		public float Light { get { return Vector8.NE; } set { Vector8.NE = value; } }
+		[SerializeField] private float light;
 
 		/// <summary>
 		/// Lies between Light and Daeth, opposite of Earth.
 		/// Feminine base; soft.
 		/// Emotion of Happiness, motivation is Giving, manifests in Ether.
 		/// </summary>
-		public float Air { get { return Vector8.E; } set { Vector8.E = value; } }
+		[SerializeField] private float air;
 
 		/// <summary>
 		/// Lies between Air and Water, opposite of Daeth.
 		/// Feminine limb; bound.
 		/// Emotion of Acceptance, motivation is Proximity, manifests in Spirit.
 		/// </summary>
-		public float Faeth { get { return Vector8.SE; } set { Vector8.SE = value; } }
+		[SerializeField] private float faeth;
 
 		/// <summary>
 		/// Lies between Daeth and Nature, opposite of Fire.
 		/// Feminine head; liquid.
 		/// Emotion of Fear, motivation is Thought, manifests in Flow.
 		/// </summary>
-		public float Water { get { return Vector8.S; } set { Vector8.S = value; } }
+		[SerializeField] private float water;
 
 		/// <summary>
 		/// Lies between Water and Earth, opposite of Light.
 		/// Feminine tip into Masculine root; growth.
 		/// Emotion of Surprise, motivation is Newness, manifests in Essence.
 		/// </summary>
-		public float Nature { get { return Vector8.SW; } set { Vector8.SW = value; } }
+		[SerializeField] private float nature;
 
 		/// <summary>
 		/// Lies between Nature and Daeth, oppposite of Air.
 		/// Masculine base, solid.
 		/// Emotion of Sadness, motivation is Getting, manifests in Matter.
 		/// </summary>
-		public float Earth { get { return Vector8.W; } set { Vector8.W = value; } }
+		[SerializeField] private float earth;
 
 		/// <summary>
 		/// Lies between Earth and Fire, opposite of Daeth.
 		/// Masculine limb, sharp.
 		/// Emotion of Disgust, motivation is Distance, manifests in Space.
 		/// </summary>
-		public float Daeth { get { return Vector8.NW; } set { Vector8.NW = value; } }
+		[SerializeField] private float daeth;
 
 		public ElementOcton(float fire, float light, float air, float faeth, float water, float nature, float earth, float daeth)
 		{
-			this.Fire = fire;
-			this.Light = light;
-			this.Air = air;
-			this.Faeth = faeth;
-			this.Water = water;
-			this.Nature = nature;
-			this.Earth = earth;
-			this.Daeth = daeth;
+			this.fire = fire;
+			this.light = light;
+			this.air = air;
+			this.faeth = faeth;
+			this.water = water;
+			this.nature = nature;
+			this.earth = earth;
+			this.daeth = daeth;
 		}
 
 		public static implicit operator Vector8(ElementOcton octon)
@@ -110,7 +108,7 @@ namespace SpaxUtils
 
 		public override string ToString()
 		{
-			return $"(Fire={Fire}, Light={Light}, Air={Air}, Faeth={Faeth}, Water={Water}, Nature={Nature}, Earth={Earth}, Daeth={Daeth})";
+			return $"(Fire={fire}, Light={light}, Air={air}, Faeth={faeth}, Water={water}, Nature={nature}, Earth={earth}, Daeth={daeth})";
 		}
 	}
 }

@@ -33,6 +33,11 @@ namespace SpaxUtils
 		IBrain Brain { get; }
 
 		/// <summary>
+		/// The desire manager of this agent, controls the <see cref="Brain"/>'s state when active.
+		/// </summary>
+		IMind Mind { get; }
+
+		/// <summary>
 		/// The body of this agent. See <see cref="IAgentBody"/>.
 		/// </summary>
 		IAgentBody Body { get; }
