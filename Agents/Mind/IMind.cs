@@ -23,42 +23,77 @@ namespace SpaxUtils
 		event Action OnMindUpdatedEvent;
 
 		/// <summary>
-		/// Activates the mind to allow it to process emotions and act upon them.
+		/// Whether the mind is currently active and running.
+		/// </summary>
+		bool Active { get; }
+
+		/// <summary>
+		/// The mind's personality profile responsible for simulation weights.
+		/// </summary>
+		Vector8 Personality { get; }
+
+		/// <summary>
+		/// The motivation profile that is currently the strongest and the entity responsible for it.
+		/// </summary>
+		(Vector8 stimuli, IEntity source) Motivation { get; }
+
+		/// <summary>
+		/// Activates the mind to allow it to process stimuli and act upon them.
 		/// </summary>
 		/// <param name="reset">Whether the mind's emotions should be reset before activating.</param>
 		void Activate(bool reset);
 
 		/// <summary>
-		/// Deactivates the mind to prevent it from processing emotions and acting upon them.
+		/// Deactivates the mind to prevent it from processing stimuli and acting upon them.
 		/// </summary>
 		void Deactivate();
 
 		/// <summary>
-		/// Updates the mind to process its emotions.
+		/// Updates the mind to process its stimuli.
 		/// </summary>
 		/// <param name="delta">The time in seconds between updates.</param>
 		void Update(float delta);
+
+		#region Stimulation
 
 		/// <summary>
 		/// Stimulates the mind to spur its emotions.
 		/// </summary>
 		/// <param name="stimulation">The stimulation to apply.</param>
-		/// <param name="source">The entity responsible for this stimulation, if any.</param>
-		void Stimulate(Vector8 stimulation, IEntity source = null);
+		/// <param name="source">The entity responsible for this stimulation.</param>
+		void Stimulate(Vector8 stimulation, IEntity source);
 
 		/// <summary>
 		/// Satisfies to mind to calm its emotions.
 		/// </summary>
 		/// <param name="satisfaction">The satisfaction to apply.</param>
-		/// <param name="source">The entity responsible for this satisfaction, if any.</param>
-		void Satisfy(Vector8 satisfaction, IEntity source = null);
+		/// <param name="source">The entity responsible for this satisfaction.</param>
+		void Satisfy(Vector8 satisfaction, IEntity source);
+
+		#endregion
+
+		#region Behaviour
 
 		/// <summary>
-		/// Return the current highest motivation and the entity responsible for it, if any.
+		/// Adds a single new executable behaviour.
 		/// </summary>
-		/// <param name="index"></param>
-		/// <param name="source"></param>
-		/// <returns></returns>
-		Vector8 GetMotivation(out int index, out IEntity source);
+		void AddBehaviour(IAEMOIBehaviour behaviour);
+
+		/// <summary>
+		/// Adds a collection of new executable behaviours.
+		/// </summary>
+		void AddBehaviours(IEnumerable<IAEMOIBehaviour> behaviours);
+
+		/// <summary>
+		/// Removes a single behaviour from the collection.
+		/// </summary>
+		void RemoveBehaviour(IAEMOIBehaviour behaviour);
+
+		/// <summary>
+		/// Removes a collection of behaviours from the collection.
+		/// </summary>
+		void RemoveBehaviours(IEnumerable<IAEMOIBehaviour> behaviours);
+
+		#endregion
 	}
 }

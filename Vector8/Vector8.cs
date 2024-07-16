@@ -55,6 +55,10 @@ namespace SpaxUtils
 			NW = array[7];
 		}
 
+		/// <summary>
+		/// Get the positions of all members arranged in a circle.
+		/// </summary>
+		/// <returns>An array of <see cref="Vector2"/> positions.</returns>
 		public Vector2[] GetPositions2D()
 		{
 			return new Vector2[8]
@@ -70,6 +74,10 @@ namespace SpaxUtils
 			};
 		}
 
+		/// <summary>
+		/// Get the positions of all members arranged in a circle.
+		/// </summary>
+		/// <returns>An array of <see cref="Vector3"/> positions where Z is 0.</returns>
 		public Vector3[] GetPositions3D()
 		{
 			return new Vector3[8]
@@ -85,6 +93,11 @@ namespace SpaxUtils
 			};
 		}
 
+		/// <summary>
+		/// Returns the value of the highest of the 8 members.
+		/// </summary>
+		/// <param name="index">The index of the highest member.</param>
+		/// <returns>The value of the highest of the 8 members.</returns>
 		public float GetMax(out int index)
 		{
 			float max = 0f;
@@ -172,6 +185,48 @@ namespace SpaxUtils
 					return Mathf.Min(b, a + t);
 				}
 			}
+		}
+
+		/// <summary>
+		/// Clamps the members of <paramref name="v"/> between <paramref name="min"/> and <paramref name="max"/>.
+		/// </summary>
+		public static Vector8 Clamp(Vector8 v, float min, float max)
+		{
+			return new Vector8(
+				Mathf.Clamp(v.N, min, max),
+				Mathf.Clamp(v.NE, min, max),
+				Mathf.Clamp(v.E, min, max),
+				Mathf.Clamp(v.SE, min, max),
+				Mathf.Clamp(v.S, min, max),
+				Mathf.Clamp(v.SW, min, max),
+				Mathf.Clamp(v.W, min, max),
+				Mathf.Clamp(v.NW, min, max));
+		}
+
+		/// <summary>
+		/// Clamps the members of <paramref name="v"/> between 0 and 1.
+		/// </summary>
+		public static Vector8 Clamp01(Vector8 v)
+		{
+			return new Vector8(
+				Mathf.Clamp01(v.N),
+				Mathf.Clamp01(v.NE),
+				Mathf.Clamp01(v.E),
+				Mathf.Clamp01(v.SE),
+				Mathf.Clamp01(v.S),
+				Mathf.Clamp01(v.SW),
+				Mathf.Clamp01(v.W),
+				Mathf.Clamp01(v.NW));
+		}
+
+		/// <summary>
+		/// Scales all of <paramref name="v"/>'s members proportionally so that its highest member never exceeds 1.
+		/// Does NOT make it so that the total length of the vector is 1!
+		/// </summary>
+		public static Vector8 Normalize(Vector8 v)
+		{
+			float m = 1f / v.Max;
+			return v * m;
 		}
 
 		/// <summary>
@@ -379,6 +434,38 @@ namespace SpaxUtils
 				a.SW / b,
 				a.W / b,
 				a.NW / b);
+		}
+
+		/// <summary>
+		/// Returns whether all members of <paramref name="a"/> exceed their counterparts in <paramref name="b"/>.
+		/// </summary>
+		public static bool operator >(Vector8 a, Vector8 b)
+		{
+			return
+				a.N > b.N &&
+				a.NE > b.NE &&
+				a.E > b.E &&
+				a.SE > b.SE &&
+				a.S > b.S &&
+				a.SW > b.SW &&
+				a.W > b.W &&
+				a.NW > b.NW;
+		}
+
+		/// <summary>
+		/// Returns whether all members of <paramref name="a"/> are smaller than their counterparts in <paramref name="b"/>.
+		/// </summary>
+		public static bool operator <(Vector8 a, Vector8 b)
+		{
+			return
+				a.N < b.N &&
+				a.NE < b.NE &&
+				a.E < b.E &&
+				a.SE < b.SE &&
+				a.S < b.S &&
+				a.SW < b.SW &&
+				a.W < b.W &&
+				a.NW < b.NW;
 		}
 
 		#endregion Operators

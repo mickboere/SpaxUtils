@@ -53,11 +53,11 @@
 		public const string DEFENSIVE = MIND_ATTRIBUTE + "Defensive"; // Earth -> Likeliness to guard
 		public const string IMPASSIVE = MIND_ATTRIBUTE + "Impassive"; // Daeth -> Likeliness to hostility
 		public const string AGGRESSIVE = MIND_ATTRIBUTE + "Aggressive"; // Fire -> Likeliness to attack
-		public const string OBSERVATIVE = MIND_ATTRIBUTE + "Observative"; // Light -> Likeliness to anticipate
+		public const string PERCEPTIVE = MIND_ATTRIBUTE + "Perceptive"; // Light -> Likeliness to anticipate
 		public const string EVASIVE = MIND_ATTRIBUTE + "Evasive"; // Air -> Likeliness to evade
 		public const string SUPPORTIVE = MIND_ATTRIBUTE + "Supportive"; // Faeth -> Likeliness to support
 		public const string APPREHENSIVE = MIND_ATTRIBUTE + "Apprehensive"; // Water -> Likeliness to keep distance
-		public const string IMPULSIVE = MIND_ATTRIBUTE + "Impulsive"; // Nature -> Likeliness to try at random
+		public const string INTUITIVE = MIND_ATTRIBUTE + "Intuitive"; // Nature -> Likeliness to seek advantage
 		#endregion
 
 		// Soul Attributes

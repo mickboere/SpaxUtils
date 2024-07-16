@@ -38,22 +38,11 @@ namespace SpaxUtils
 		private void OnUpdate(float delta)
 		{
 			UpdateMind(delta);
-			ExecuteBehaviour();
 		}
 
 		private void UpdateMind(float delta)
 		{
 			agent.Mind.Update(delta);
-		}
-
-		private void ExecuteBehaviour()
-		{
-			// Gather the Mind's motivation and execute the most relevant behaviour.
-			Vector8 motivation = agent.Mind.GetMotivation(out int index, out IEntity source);
-			if (source != null)
-			{
-				targeter.SetTarget(source.GetEntityComponent<ITargetable>());
-			}
 		}
 	}
 }
