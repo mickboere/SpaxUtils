@@ -5,9 +5,9 @@ using UnityEngine;
 namespace SpaxUtils
 {
 	/// <summary>
-	/// <see cref="ISpottingComponent"/> with configurable eyes.
+	/// <see cref="IVisionComponent"/> implementation with configurable eyes.
 	/// </summary>
-	public class VisionComponent : EntityComponentBase, ISpottingComponent
+	public class VisionComponent : EntityComponentBase, IVisionComponent
 	{
 		[Serializable]
 		public class Eye
@@ -30,6 +30,8 @@ namespace SpaxUtils
 			[SerializeField] private bool raycast;
 			[SerializeField] private LayerMask layerMask;
 		}
+
+		public float Range => eyes[0].Range;
 
 		[SerializeField] private List<Eye> eyes;
 		[SerializeField] private bool debug;

@@ -19,10 +19,8 @@
 		// Body Attributes
 		#region Body Attributes
 		private const string BODY_ATTRIBUTE = ATTRIBUTES + "BODY/";
-
 		public const string BODY_EXPERIENCE = BODY_ATTRIBUTE + "Body_Experience"; // All atributes combined.
 		public const string BODY_LEVEL = BODY_ATTRIBUTE + "Body_Level"; // All attribute levels combined.
-
 		// Earth
 		public const string TENACITY = BODY_ATTRIBUTE + "Tenacity";
 		public const string TENACITY_LEVEL = BODY_ATTRIBUTE + "Tenacity_Level";
@@ -49,16 +47,27 @@
 		public const string VITALITY_LEVEL = BODY_ATTRIBUTE + "Vitality_Level";
 		#endregion Body Attributes
 
+		// Mind Attributes
+		#region Mind Attributes
+		private const string MIND_ATTRIBUTE = ATTRIBUTES + "MIND/";
+		public const string DEFENSIVE = MIND_ATTRIBUTE + "Defensive"; // Earth -> Likeliness to guard
+		public const string IMPASSIVE = MIND_ATTRIBUTE + "Impassive"; // Daeth -> Likeliness to hostility
+		public const string AGGRESSIVE = MIND_ATTRIBUTE + "Aggressive"; // Fire -> Likeliness to attack
+		public const string OBSERVATIVE = MIND_ATTRIBUTE + "Observative"; // Light -> Likeliness to anticipate
+		public const string EVASIVE = MIND_ATTRIBUTE + "Evasive"; // Air -> Likeliness to evade
+		public const string SUPPORTIVE = MIND_ATTRIBUTE + "Supportive"; // Faeth -> Likeliness to support
+		public const string APPREHENSIVE = MIND_ATTRIBUTE + "Apprehensive"; // Water -> Likeliness to keep distance
+		public const string IMPULSIVE = MIND_ATTRIBUTE + "Impulsive"; // Nature -> Likeliness to try at random
+		#endregion
+
 		// Soul Attributes
 		#region Soul Attributes
 		private const string SOUL_ATTRIBUTE = ATTRIBUTES + "SOUL/";
-
 		public const string SPIRIT = SOUL_ATTRIBUTE + "Spirit"; // Spendable soul experience points.
 		public const string VIRTUE = SOUL_ATTRIBUTE + "Virtue"; // Total amount of virtuous spirit gained.
 		public const string SIN = SOUL_ATTRIBUTE + "Sin"; // Total amount of sinful spirit gained.
-
 		public const string SOUL_LEVEL = SOUL_ATTRIBUTE + "Soul_Level"; // All soul attributes combined.
-
+		// Attributes
 		public const string GRAVITY = SOUL_ATTRIBUTE + "Gravity"; // Make heavy
 		public const string AVIDITY = SOUL_ATTRIBUTE + "Avidity"; // Experience gain
 		public const string INTENSITY = SOUL_ATTRIBUTE + "Intensity"; // Magic Power

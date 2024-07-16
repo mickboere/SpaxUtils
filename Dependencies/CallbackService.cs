@@ -27,7 +27,7 @@ namespace SpaxUtils
 		/// </summary>
 		public event Action LateUpdateCallback;
 
-		private Dictionary<int, Dictionary<object, Action>> loops = new Dictionary<int, Dictionary<object, Action>>();
+		private Dictionary<int, Dictionary<object, Action<float>>> loops = new Dictionary<int, Dictionary<object, Action<float>>>();
 		private Dictionary<int, Coroutine> coroutines = new Dictionary<int, Coroutine>();
 
 		private List<(Action callback, int order)> orderedFixedUpdateCallbacks = new List<(Action callback, int order)>();
@@ -208,8 +208,8 @@ namespace SpaxUtils
 		/// </summary>
 		/// <param name="listener">The listener object, used to unsubscribe from the callback.</param>
 		/// <param name="seconds">The interval between callbacks in seconds.</param>
-		/// <param name="callback">The method to invoke every callback.</param>
-		public void AddCustom(object listener, float seconds, Action callback)
+		/// <param name="callback">The method to invoke every callback. The float parameter is the actual delta time between invocations.</param>
+		public void AddCustom(object listener, float seconds, Action<float> callback)
 		{
 			AddCustom(listener, ToMilliseconds(seconds), callback);
 		}
@@ -219,12 +219,12 @@ namespace SpaxUtils
 		/// </summary>
 		/// <param name="listener">The listener object, used to unsubscribe from the callback.</param>
 		/// <param name="milliseconds">The interval between callbacks in milliseconds.</param>
-		/// <param name="callback">The method to invoke every callback.</param>
-		public void AddCustom(object listener, int milliseconds, Action callback)
+		/// <param name="callback">The method to invoke every callback. The float parameter is the actual delta time between invocations.</param>
+		public void AddCustom(object listener, int milliseconds, Action<float> callback)
 		{
 			if (!loops.ContainsKey(milliseconds))
 			{
-				loops.Add(milliseconds, new Dictionary<object, Action>());
+				loops.Add(milliseconds, new Dictionary<object, Action<float>>());
 			}
 
 			loops[milliseconds][listener] = callback;
@@ -272,7 +272,7 @@ namespace SpaxUtils
 		/// <param name="listener"></param>
 		public void RemoveCustom(object listener)
 		{
-			foreach (KeyValuePair<int, Dictionary<object, Action>> loop in loops)
+			foreach (KeyValuePair<int, Dictionary<object, Action<float>>> loop in loops)
 			{
 				if (loop.Value.ContainsKey(listener))
 				{
@@ -283,17 +283,20 @@ namespace SpaxUtils
 
 		private IEnumerator StartCustomUpdateLoop(int milliseconds)
 		{
-			float seconds = milliseconds / 1000f;
+			float time = milliseconds / 1000f;
+			float last = Time.unscaledTime;
 			float timer = 0f;
 			while (true)
 			{
 				yield return null;
-				if (timer > seconds)
+				while (timer > time)
 				{
-					timer -= seconds;
-					foreach (KeyValuePair<object, Action> callback in loops[milliseconds])
+					timer -= time;
+					float delta = Time.unscaledTime - last;
+					last = Time.unscaledTime;
+					foreach (KeyValuePair<object, Action<float>> callback in loops[milliseconds])
 					{
-						callback.Value.Invoke();
+						callback.Value.Invoke(delta);
 					}
 				}
 				timer += Time.unscaledDeltaTime;

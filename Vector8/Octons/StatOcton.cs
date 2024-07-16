@@ -64,20 +64,25 @@ namespace SpaxUtils
 			Initialize(entity);
 		}
 
+		public StatOcton(IEntity entity, StatOcton copy)
+			: this(entity, copy.north, copy.northEast, copy.east, copy.southEast, copy.south, copy.southWest, copy.west, copy.northWest)
+		{
+		}
+
 		/// <summary>
 		/// Initialize an existing <see cref="StatOcton"/> by retrieving the defined stats from <paramref name="entity"/>.
 		/// </summary>
 		/// <param name="entity">The entity to initialize the octon with.</param>
 		public void Initialize(IEntity entity)
 		{
-			N = entity.GetStat(north);
-			NE = entity.GetStat(northEast);
-			E = entity.GetStat(east);
-			SE = entity.GetStat(southEast);
-			S = entity.GetStat(south);
-			SW = entity.GetStat(southWest);
-			W = entity.GetStat(west);
-			NW = entity.GetStat(northWest);
+			N = entity.GetStat(north, true, 1f);
+			NE = entity.GetStat(northEast, true, 1f);
+			E = entity.GetStat(east, true, 1f);
+			SE = entity.GetStat(southEast, true, 1f);
+			S = entity.GetStat(south, true, 1f);
+			SW = entity.GetStat(southWest, true, 1f);
+			W = entity.GetStat(west, true, 1f);
+			NW = entity.GetStat(northWest, true, 1f);
 		}
 
 		/// <summary>

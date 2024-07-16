@@ -50,7 +50,7 @@ namespace SpaxUtils
 		{
 			if (frameRate <= 0)
 			{
-				UpdateAnimatorPose();
+				UpdateAnimatorPose(Time.deltaTime);
 			}
 		}
 
@@ -158,7 +158,7 @@ namespace SpaxUtils
 			}
 		}
 
-		private void UpdateAnimatorPose()
+		private void UpdateAnimatorPose(float delta)
 		{
 			foreach ((Poser main, Dictionary<object, (IPoserInstructions instructions, int prio, float weight)> providers) layer in layers.Values)
 			{

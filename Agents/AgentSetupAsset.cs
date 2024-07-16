@@ -47,6 +47,6 @@ namespace SpaxUtils
 		[SerializeField] private AgentBodyComponent body;
 		[SerializeField] private List<StateMachineGraph> brainGraphs;
 		[SerializeField] private List<GameObject> children;
-		[SerializeField] private List<AgentDependencyAssetBase> dependencies;
+		[SerializeField] private List<ScriptableObject> dependencies;
 	}
 }

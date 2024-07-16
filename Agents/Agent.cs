@@ -41,6 +41,7 @@ namespace SpaxUtils
 		[SerializeField] private List<StateMachineGraph> brainGraphs;
 
 		private CallbackService callbackService;
+		private AEMOISettings aemoiSettings;
 
 		/// <inheritdoc/>
 		public Dictionary<object, object> RetrieveDependencies()
@@ -52,12 +53,13 @@ namespace SpaxUtils
 
 		public void InjectDependencies(
 			IAgentBody body, ITargetable targetableComponent, ITargeter targeterComponent,
-			IPerformer[] performers, CallbackService callbackService)
+			IPerformer[] performers, CallbackService callbackService, AEMOISettings aemoiSettings)
 		{
 			Body = body;
 			Targetable = targetableComponent;
 			Targeter = targeterComponent;
 			this.callbackService = callbackService;
+			this.aemoiSettings = aemoiSettings;
 
 			foreach (IPerformer performer in performers)
 			{
@@ -71,6 +73,9 @@ namespace SpaxUtils
 		protected override void Awake()
 		{
 			base.Awake();
+
+			// Create Mind.
+			Mind = new AEMOI(aemoiSettings, new StatOcton(this, aemoiSettings.Personality));
 
 			// Initialize brain.
 			Brain = new Brain(DependencyManager, callbackService, state, null, brainGraphs);

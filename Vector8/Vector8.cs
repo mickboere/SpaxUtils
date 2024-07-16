@@ -85,6 +85,21 @@ namespace SpaxUtils
 			};
 		}
 
+		public float GetMax(out int index)
+		{
+			float max = 0f;
+			index = -1;
+			for (int i = 0; i < 8; i++)
+			{
+				if (this[i] > max)
+				{
+					max = this[i];
+					index = i;
+				}
+			}
+			return max;
+		}
+
 		#region Static Functions
 
 		/// <summary>
@@ -292,6 +307,14 @@ namespace SpaxUtils
 				a.SW - b.SW,
 				a.W - b.W,
 				a.NW - b.NW);
+		}
+
+		/// <summary>
+		/// Operand negative operator for <see cref="Vector8"/> <paramref name="a"/>.
+		/// </summary>
+		public static Vector8 operator -(Vector8 a)
+		{
+			return new Vector8(-a.N, -a.NE, -a.E, -a.SE, -a.S, -a.SW, -a.W, -a.NW);
 		}
 
 		/// <summary>

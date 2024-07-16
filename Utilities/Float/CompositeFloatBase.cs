@@ -234,6 +234,10 @@ namespace SpaxUtils
 		/// </summary>
 		public static implicit operator float(CompositeFloatBase composite)
 		{
+			if (composite == null)
+			{
+				throw new ArgumentNullException("", "Composite is null and could therefore not be converted to a float.");
+			}
 			return composite.Value;
 		}
 	}
