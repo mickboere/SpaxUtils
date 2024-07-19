@@ -35,7 +35,7 @@ namespace SpaxUtils
 		/// <summary>
 		/// The motivation profile that is currently the strongest and the entity responsible for it.
 		/// </summary>
-		(Vector8 stimuli, IEntity source) Motivation { get; }
+		(Vector8 motivation, IEntity target) Motivation { get; }
 
 		/// <summary>
 		/// Activates the mind to allow it to process stimuli and act upon them.
@@ -77,22 +77,22 @@ namespace SpaxUtils
 		/// <summary>
 		/// Adds a single new executable behaviour.
 		/// </summary>
-		void AddBehaviour(IAEMOIBehaviour behaviour);
+		void AddBehaviour(IMindBehaviour behaviour);
 
 		/// <summary>
 		/// Adds a collection of new executable behaviours.
 		/// </summary>
-		void AddBehaviours(IEnumerable<IAEMOIBehaviour> behaviours);
+		void AddBehaviours(IEnumerable<IMindBehaviour> behaviours);
 
 		/// <summary>
 		/// Removes a single behaviour from the collection.
 		/// </summary>
-		void RemoveBehaviour(IAEMOIBehaviour behaviour);
+		void RemoveBehaviour(IMindBehaviour behaviour);
 
 		/// <summary>
 		/// Removes a collection of behaviours from the collection.
 		/// </summary>
-		void RemoveBehaviours(IEnumerable<IAEMOIBehaviour> behaviours);
+		void RemoveBehaviours(IEnumerable<IMindBehaviour> behaviours);
 
 		#endregion
 	}

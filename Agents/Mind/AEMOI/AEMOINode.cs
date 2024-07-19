@@ -7,10 +7,13 @@ namespace SpaxUtils
 	public class AEMOINode : StateComponentNodeBase
 	{
 		[SerializeField, Tooltip("Update rate in milliseconds.")] private int updateRate = 100;
+		[SerializeField] private List<AEMOIBehaviourAsset> behaviours;
 
 		private IAgent agent;
 		private CallbackService callbackService;
 		private ITargeter targeter;
+
+		private List<AEMOIBehaviourAsset> behaviourInstances;
 
 		public void InjectDependencies(IAgent agent, CallbackService callbackService, ITargeter targeter)
 		{
@@ -23,6 +26,15 @@ namespace SpaxUtils
 		{
 			base.OnStateEntered();
 
+			if (behaviourInstances == null)
+			{
+				foreach (AEMOIBehaviourAsset asset in behaviours)
+				{
+					behaviourInstances.Add(Instantiate(asset));
+				}
+			}
+
+			agent.Mind.AddBehaviours(behaviourInstances);
 			agent.Mind.Activate(true);
 			callbackService.AddCustom(this, updateRate, OnUpdate);
 		}
@@ -32,6 +44,7 @@ namespace SpaxUtils
 			base.OnStateExit();
 
 			agent.Mind.Deactivate();
+			agent.Mind.RemoveBehaviours(behaviourInstances);
 			callbackService.RemoveCustom(this);
 		}
 

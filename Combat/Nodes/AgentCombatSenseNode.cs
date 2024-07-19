@@ -59,6 +59,8 @@ namespace SpaxUtils
 				hostiles.AddRange(enemyIdentificationData.EnemyLabels);
 			}
 
+			SpaxDebug.Log($"{hostiles.Count} hostiles", $"enemyIdentificationData={(enemyIdentificationData == null ? "null" : $"present: ({enemyIdentificationData.EnemyLabels.Count})")}");
+
 			targetables = new EntityComponentFilter<ITargetable>(
 				entityCollection,
 				(entity) => entity.Identification.HasAny(hostiles) || hostiles.Contains(entity.Identification.ID),
@@ -88,10 +90,11 @@ namespace SpaxUtils
 			List<ITargetable> visible = vision.Spot(targetables.Components);
 			foreach (ITargetable inView in visible)
 			{
-				EnemyData data = null;
+				EnemyData data;
 				if (!enemies.ContainsKey(inView))
 				{
-					enemies.Add(inView, new EnemyData(inView.Entity));
+					data = new EnemyData(inView.Entity);
+					enemies.Add(inView, data);
 				}
 				else
 				{
@@ -120,6 +123,8 @@ namespace SpaxUtils
 				Vector8 stim = new Vector8();
 				stim.NW = Mathf.InverseLerp(vision.Range, vision.Range * threatRange, enemy.Distance); // Hostility
 				stim.N = Mathf.InverseLerp(vision.Range * threatRange, vision.Range * engageRange, enemy.Distance); // Anger
+
+				SpaxDebug.Log($"Stimulate ({enemy.Entity.Identification.Name}):", stim.ToStringShort());
 
 				agent.Mind.Stimulate(stim * delta, enemy.Entity);
 			}

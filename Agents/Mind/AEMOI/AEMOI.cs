@@ -24,21 +24,21 @@ namespace SpaxUtils
 		public Vector8 Personality => personality.Vector8;
 
 		/// <inheritdoc/>
-		public (Vector8 stimuli, IEntity source) Motivation { get; private set; }
+		public (Vector8 motivation, IEntity target) Motivation { get; private set; }
 
 		private AEMOISettings settings;
 		private IOcton personality;
-		private List<IAEMOIBehaviour> behaviours;
+		private List<IMindBehaviour> behaviours;
 
-		private IAEMOIBehaviour activeBehaviour;
+		private IMindBehaviour activeBehaviour;
 
 		private Dictionary<IEntity, Vector8> stimuli = new Dictionary<IEntity, Vector8>();
 
-		public AEMOI(AEMOISettings settings, IOcton personality, IEnumerable<IAEMOIBehaviour> behaviours = null)
+		public AEMOI(AEMOISettings settings, IOcton personality, IEnumerable<IMindBehaviour> behaviours = null)
 		{
 			this.settings = settings;
 			this.personality = personality;
-			this.behaviours = behaviours == null ? new List<IAEMOIBehaviour>() : new List<IAEMOIBehaviour>(behaviours);
+			this.behaviours = behaviours == null ? new List<IMindBehaviour>() : new List<IMindBehaviour>(behaviours);
 		}
 
 		#region Activity
@@ -67,6 +67,8 @@ namespace SpaxUtils
 				return; // Already inactive.
 			}
 
+			StopBehaviour();
+
 			Active = false;
 		}
 
@@ -77,10 +79,10 @@ namespace SpaxUtils
 			OnMindUpdateEvent?.Invoke(delta);
 
 			// Simulate stimuli according to Personality and dampen them to limit buildup.
-			foreach (KeyValuePair<IEntity, Vector8> kvp in stimuli)
+			List<IEntity> sources = new List<IEntity>(stimuli.Keys);
+			foreach (IEntity source in sources)
 			{
-				stimuli[kvp.Key] = kvp.Value.Simulate(Vector8.Zero, Personality, settings.EmotionSimulation * delta);
-				stimuli[kvp.Key] = kvp.Value.Lerp(Vector8.Zero, settings.EmotionDamping * delta);
+				stimuli[source] = stimuli[source].Simulate(Vector8.Zero, Personality, settings.EmotionSimulation * delta).Lerp(Vector8.Zero, settings.EmotionDamping * delta);
 			}
 
 			// Set the current highest motivation.
@@ -100,7 +102,14 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public void Stimulate(Vector8 stimulation, IEntity source)
 		{
-			stimuli[source] = (stimuli[source] + stimulation * Personality).Clamp(0f, 100f); // TODO: 100 is a magic number, requires testing to see actual useful value bounds.
+			if (!stimuli.ContainsKey(source))
+			{
+				stimuli.Add(source, (stimulation * Personality).Clamp(0f, 100f)); // TODO: 100 is a magic number, requires testing to see actual useful value bounds.
+			}
+			else
+			{
+				stimuli[source] = (stimuli[source] + stimulation * Personality).Clamp(0f, 100f);
+			}
 		}
 
 		/// <inheritdoc/>
@@ -115,7 +124,7 @@ namespace SpaxUtils
 
 		#region Behaviour Management
 		/// <inheritdoc/>
-		public void AddBehaviour(IAEMOIBehaviour behaviour)
+		public void AddBehaviour(IMindBehaviour behaviour)
 		{
 			if (!behaviours.Contains(behaviour))
 			{
@@ -124,16 +133,16 @@ namespace SpaxUtils
 		}
 
 		/// <inheritdoc/>
-		public void AddBehaviours(IEnumerable<IAEMOIBehaviour> behaviours)
+		public void AddBehaviours(IEnumerable<IMindBehaviour> behaviours)
 		{
-			foreach (IAEMOIBehaviour behaviour in behaviours)
+			foreach (IMindBehaviour behaviour in behaviours)
 			{
 				AddBehaviour(behaviour);
 			}
 		}
 
 		/// <inheritdoc/>
-		public void RemoveBehaviour(IAEMOIBehaviour behaviour)
+		public void RemoveBehaviour(IMindBehaviour behaviour)
 		{
 			if (behaviours.Contains(behaviour))
 			{
@@ -142,9 +151,9 @@ namespace SpaxUtils
 		}
 
 		/// <inheritdoc/>
-		public void RemoveBehaviours(IEnumerable<IAEMOIBehaviour> behaviours)
+		public void RemoveBehaviours(IEnumerable<IMindBehaviour> behaviours)
 		{
-			foreach (IAEMOIBehaviour behaviour in behaviours)
+			foreach (IMindBehaviour behaviour in behaviours)
 			{
 				RemoveBehaviour(behaviour);
 			}
@@ -154,34 +163,24 @@ namespace SpaxUtils
 		private void ReassessBehaviour()
 		{
 			// If the current behaviour isn't interruptable at the moment, don't even bother.
-			if (!activeBehaviour.Interuptable)
+			if (activeBehaviour != null && !activeBehaviour.Interuptable)
 			{
 				return;
 			}
 
-			IAEMOIBehaviour closest = null;
+			IMindBehaviour closest = null;
 			float closestDistance = float.MaxValue;
-			foreach (IAEMOIBehaviour behaviour in behaviours)
+			foreach (IMindBehaviour behaviour in behaviours)
 			{
-				if (behaviour.Valid(Motivation.stimuli, Motivation.source, out float distance) && distance < closestDistance)
+				if (behaviour.Valid(Motivation.motivation, Motivation.target, out float distance) && distance < closestDistance)
 				{
 					closest = behaviour;
 					closestDistance = distance;
 				}
 			}
 
-			if (closest == null)
+			if (closest == null || closest == activeBehaviour)
 			{
-				return;
-			}
-
-			if (closest == activeBehaviour)
-			{
-				if (Motivation.source != activeBehaviour.Target)
-				{
-					// The closest behaviour is already active but the target doesn't match, re-initialize it.
-					activeBehaviour.Initialize(Motivation.source);
-				}
 				return;
 			}
 
@@ -198,10 +197,13 @@ namespace SpaxUtils
 			}
 
 			activeBehaviour.Stop();
+			activeBehaviour = null;
 		}
 
-		private void StartBehaviour(IAEMOIBehaviour behaviour)
+		private void StartBehaviour(IMindBehaviour behaviour)
 		{
+			activeBehaviour = behaviour;
+			behaviour.Start();
 		}
 
 		#endregion Behaviour

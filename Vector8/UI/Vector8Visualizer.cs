@@ -10,7 +10,7 @@ namespace SpaxUtils
 	{
 		[SerializeField] private Vector8 vector8;
 		[SerializeField] private float scale = 1f;
-		[SerializeField] private bool clamp;
+		[SerializeField] private bool normalize;
 
 		private RectTransform rectTransform;
 		private LineRenderer lineRenderer;
@@ -33,12 +33,12 @@ namespace SpaxUtils
 			}
 		}
 
-		public void Visualize(Vector8 vector8)
+		public void Visualize(Vector8 v)
 		{
-			this.vector8 = vector8;
+			vector8 = normalize ? v.Normalize() : v;
 
 			Vector3[] positions = vector8.GetPositions3D();
-			float s = 0.5f * scale * (clamp ? 1f / vector8.Max : 1f);
+			float s = 0.5f * scale;
 			for (int i = 0; i < positions.Length; i++)
 			{
 				positions[i].x *= rectTransform.rect.size.x * s;
