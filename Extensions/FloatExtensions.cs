@@ -80,7 +80,7 @@ namespace SpaxUtils
 		/// <param name="fromA">The previous minimum value.</param>
 		/// <param name="fromB">The previous maximum value.</param>
 		/// <returns></returns>
-		public static float Range(this float f, float a, float b, float fromA = 0f, float fromB = 1f)
+		public static float Remap(this float f, float a, float b, float fromA = 0f, float fromB = 1f)
 		{
 			return Mathf.Lerp(a, b, Mathf.InverseLerp(fromA, fromB, f));
 		}

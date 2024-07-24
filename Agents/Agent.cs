@@ -75,7 +75,7 @@ namespace SpaxUtils
 			base.Awake();
 
 			// Create AEMOI mind instance.
-			Mind = new AEMOI(aemoiSettings, new StatOcton(this, aemoiSettings.Personality));
+			Mind = new AEMOI(DependencyManager, aemoiSettings, new StatOcton(this, aemoiSettings.Personality, Vector8.Half));
 
 			// Initialize brain.
 			Brain = new Brain(DependencyManager, callbackService, state, null, brainGraphs);

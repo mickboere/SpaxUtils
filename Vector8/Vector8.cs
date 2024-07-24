@@ -14,6 +14,7 @@ namespace SpaxUtils
 		#region Static Values
 		public static Vector8 Zero => new Vector8(0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f);
 		public static Vector8 One => new Vector8(1f, 1f, 1f, 1f, 1f, 1f, 1f, 1f);
+		public static Vector8 Half => new Vector8(0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f);
 
 		public static Vector8 North => new Vector8(1f, 0f, 0f, 0f, 0f, 0f, 0f, 0f);
 		public static Vector8 NorthEast => new Vector8(0f, 1f, 0f, 0f, 0f, 0f, 0f, 0f);
@@ -225,8 +226,36 @@ namespace SpaxUtils
 		/// </summary>
 		public static Vector8 Normalize(Vector8 v)
 		{
+			if (v.Max <= 0f)
+			{
+				return v;
+			}
 			float m = 1f / v.Max;
 			return v * m;
+		}
+
+		/// <summary>
+		/// Makes all of <paramref name="v"/>'s members absolute values (turns all negatives into positives).
+		/// </summary>
+		public static Vector8 Absolute(Vector8 v)
+		{
+			return new Vector8(
+				Mathf.Abs(v.N),
+				Mathf.Abs(v.NE),
+				Mathf.Abs(v.E),
+				Mathf.Abs(v.SE),
+				Mathf.Abs(v.S),
+				Mathf.Abs(v.SW),
+				Mathf.Abs(v.W),
+				Mathf.Abs(v.NW));
+		}
+
+		/// <summary>
+		/// Returns the total distance between vectors <paramref name="a"/> and <paramref name="b"/>.
+		/// </summary>
+		public static float Distance(Vector8 a, Vector8 b)
+		{
+			return (b - a).Absolute().Sum;
 		}
 
 		/// <summary>

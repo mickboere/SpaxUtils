@@ -28,6 +28,7 @@ namespace SpaxUtils
 
 			if (behaviourInstances == null)
 			{
+				behaviourInstances = new List<AEMOIBehaviourAsset>();
 				foreach (AEMOIBehaviourAsset asset in behaviours)
 				{
 					behaviourInstances.Add(Instantiate(asset));

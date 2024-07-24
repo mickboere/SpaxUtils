@@ -26,6 +26,7 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public (Vector8 motivation, IEntity target) Motivation { get; private set; }
 
+		private IDependencyManager dependencyManager;
 		private AEMOISettings settings;
 		private IOcton personality;
 		private List<IMindBehaviour> behaviours;
@@ -34,8 +35,9 @@ namespace SpaxUtils
 
 		private Dictionary<IEntity, Vector8> stimuli = new Dictionary<IEntity, Vector8>();
 
-		public AEMOI(AEMOISettings settings, IOcton personality, IEnumerable<IMindBehaviour> behaviours = null)
+		public AEMOI(IDependencyManager dependencyManager, AEMOISettings settings, IOcton personality, IEnumerable<IMindBehaviour> behaviours = null)
 		{
+			this.dependencyManager = dependencyManager;
 			this.settings = settings;
 			this.personality = personality;
 			this.behaviours = behaviours == null ? new List<IMindBehaviour>() : new List<IMindBehaviour>(behaviours);
@@ -93,6 +95,8 @@ namespace SpaxUtils
 
 			// Mind has been updated.
 			OnMindUpdatedEvent?.Invoke();
+
+			//SpaxDebug.Log($"Motivation", Motivation.motivation.ToStringShort());
 		}
 
 		#endregion Activity
@@ -129,6 +133,7 @@ namespace SpaxUtils
 			if (!behaviours.Contains(behaviour))
 			{
 				behaviours.Add(behaviour);
+				dependencyManager.Inject(behaviour);
 			}
 		}
 
@@ -162,30 +167,32 @@ namespace SpaxUtils
 
 		private void ReassessBehaviour()
 		{
-			// If the current behaviour isn't interruptable at the moment, don't even bother.
+			// If the current behaviour isn't interruptable, don't even bother.
 			if (activeBehaviour != null && !activeBehaviour.Interuptable)
 			{
 				return;
 			}
 
-			IMindBehaviour closest = null;
-			float closestDistance = float.MaxValue;
+			IMindBehaviour match = null;
+			float closest = float.MaxValue;
 			foreach (IMindBehaviour behaviour in behaviours)
 			{
-				if (behaviour.Valid(Motivation.motivation, Motivation.target, out float distance) && distance < closestDistance)
+				if (behaviour.Valid(Motivation.motivation, Motivation.target, out float distance) && // Ensure behaviour is valid.
+					(match == null || behaviour.Priority > match.Priority || // If priority exceeds current match, set new match.
+					(behaviour.Priority == match.Priority && distance < closest))) // If priority matches current match, set match to closest one.
 				{
-					closest = behaviour;
-					closestDistance = distance;
+					match = behaviour;
+					closest = distance;
 				}
 			}
 
-			if (closest == null || closest == activeBehaviour)
+			if (match == null || match == activeBehaviour)
 			{
 				return;
 			}
 
 			StopBehaviour();
-			StartBehaviour(closest);
+			StartBehaviour(match);
 		}
 
 		private void StopBehaviour()

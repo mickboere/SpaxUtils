@@ -8,17 +8,18 @@ namespace SpaxUtils
 	/// <summary>
 	/// Agent component that handles NPC movement and navigation.
 	/// </summary>
+	[DefaultExecutionOrder(29)]
 	public class AgentNavigationHandler : EntityComponentBase, IDependency
 	{
 		private IAgent agent;
 		private IAgentMovementHandler movementHandler;
 
 		public void InjectDependencies(
-			Agent agentEntity,
-			IAgentMovementHandler agentMovementHandler)
+			Agent agent,
+			IAgentMovementHandler movementHandler)
 		{
-			this.agent = agentEntity;
-			this.movementHandler = agentMovementHandler;
+			this.agent = agent;
+			this.movementHandler = movementHandler;
 		}
 
 		/// <summary>
@@ -35,7 +36,7 @@ namespace SpaxUtils
 
 			if (IsInRange(range, navMesh, targetPosition))
 			{
-				movementHandler.MovementInput = Vector3.zero;
+				movementHandler.MovementInputRaw = Vector3.zero;
 				return true;
 			}
 			else if (navMesh)
@@ -49,7 +50,7 @@ namespace SpaxUtils
 				// Set direction as target movement direction.
 				movementHandler.InputAxis = direction;
 				// Order NPC to move forwards towards target direction.
-				movementHandler.MovementInput = Vector3.forward * speed;
+				movementHandler.MovementInputRaw = Vector3.forward * speed;
 			}
 
 			return false;

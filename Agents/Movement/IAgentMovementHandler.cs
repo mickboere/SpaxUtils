@@ -5,22 +5,27 @@ namespace SpaxUtils
 	public interface IAgentMovementHandler : IEntityComponent
 	{
 		/// <summary>
-		/// The forward axis in relation to the <see cref="MovementInput"/>.
+		/// The forward axis in relation to the <see cref="MovementInputRaw"/>.
 		/// </summary>
 		Vector3 InputAxis { get; set; }
 
 		/// <summary>
-		/// The current movement input (normalized is standard).
+		/// The current movement input. Can be set externally at any point to alter the Agent's desired movement.
 		/// </summary>
-		Vector3 MovementInput { get; set; }
+		Vector3 MovementInputRaw { get; set; }
 
 		/// <summary>
-		/// The agent's desired global forward direction.
+		/// The current smoothed-out movement input. Get-only, updated once every fixed update using <see cref="MovementInputRaw"/>.
+		/// </summary>
+		Vector3 MovementInputSmooth { get; }
+
+		/// <summary>
+		/// The agent's desired forward direction.
 		/// </summary>
 		Vector3 TargetDirection { get; set; }
 
 		/// <summary>
-		/// Movement speed input length is equal 1 (m/s).
+		/// Movement speed (m/s) when input length is equal 1.
 		/// </summary>
 		float MovementSpeed { get; set; }
 
@@ -33,7 +38,6 @@ namespace SpaxUtils
 		/// Whether the agent's rotation should be locked, preventing it from automatically pointing in the movement direction.
 		/// </summary>
 		bool LockRotation { get; set; }
-
 
 		/// <summary>
 		/// Update agent's velocity to match target velocity.

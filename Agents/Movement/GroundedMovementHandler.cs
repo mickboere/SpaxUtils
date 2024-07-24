@@ -13,25 +13,16 @@ namespace SpaxUtils
 			get { return _inputAxis; }
 			set
 			{
-				_inputAxis = value.FlattenY();
+				_inputAxis = value.FlattenY().normalized;
 			}
 		}
 		private Vector3 _inputAxis;
 
 		/// <inheritdoc/>
-		public Vector3 MovementInput
-		{
-			get { return _movementInput; }
-			set
-			{
-				_movementInput = Entity.TryGetStat(sprintCost.Stat, out EntityStat cost) ?
-					(cost > 0f || value == Vector3.zero ? value : value.ClampMagnitude(tiredInputLimiter)) :
-					value;
-				Vector3 realValue = Quaternion.LookRotation(InputAxis) * _movementInput * speed;
-				rigidbodyWrapper.TargetVelocity = _movementInput == Vector3.zero ? Vector3.zero : realValue;
-			}
-		}
-		private Vector3 _movementInput;
+		public Vector3 MovementInputRaw { get; set; }
+
+		/// <inheritdoc/>
+		public Vector3 MovementInputSmooth { get; private set; }
 
 		/// <inheritdoc/>
 		public Vector3 TargetDirection
@@ -66,46 +57,72 @@ namespace SpaxUtils
 
 		private RigidbodyWrapper rigidbodyWrapper;
 		private IGrounderComponent grounder;
+		private MovementInputSettings inputSettings;
+		private MovementInputHelper inputHelper;
 
-		public void InjectDependencies(RigidbodyWrapper rigidbodyWrapper, IGrounderComponent grounder)
+		public void InjectDependencies(RigidbodyWrapper rigidbodyWrapper, IGrounderComponent grounder, MovementInputSettings inputSettings)
 		{
 			this.rigidbodyWrapper = rigidbodyWrapper;
 			this.grounder = grounder;
+			this.inputSettings = inputSettings;
 		}
 
 		protected void OnEnable()
 		{
+			inputHelper = new MovementInputHelper(inputSettings);
 			InputAxis = Transform.forward;
 			TargetDirection = Transform.forward;
 		}
 
+		protected void OnDisable()
+		{
+			inputHelper.Dispose();
+		}
+
 		protected void FixedUpdate()
 		{
-			UpdateMovement(Time.fixedDeltaTime);
-			UpdateRotation(Time.fixedDeltaTime);
+			UpdateMovement(Time.fixedDeltaTime * EntityTimeScale);
+			UpdateRotation(Time.fixedDeltaTime * EntityTimeScale);
 		}
 
 		/// <inheritdoc/>
 		public void UpdateMovement(float delta, Vector3? targetVelocity = null, bool ignoreControl = false)
 		{
+			// Grounded movement does not utilize Y axis.
 			rigidbodyWrapper.ControlAxis = Vector3.one.FlattenY();
+
+			// Calculate appropriate input value according to stats.
+			Vector3 input = Entity.TryGetStat(sprintCost.Stat, out EntityStat cost) ?
+					(cost > 0f || MovementInputRaw == Vector3.zero ? MovementInputRaw : MovementInputRaw.ClampMagnitude(tiredInputLimiter)) :
+					MovementInputRaw;
+			// Update smooth input value.
+			MovementInputSmooth = inputHelper.Update(input, delta);
+
+			if (!targetVelocity.HasValue)
+			{
+				// Calculate target velocity from current input.
+				rigidbodyWrapper.TargetVelocity = MovementInputRaw == Vector3.zero ? Vector3.zero : Quaternion.LookRotation(InputAxis) * MovementInputSmooth * speed;
+			}
 
 			if (!grounder.Sliding)
 			{
 				rigidbodyWrapper.ApplyMovement(targetVelocity.HasValue ? targetVelocity.Value : rigidbodyWrapper.TargetVelocity,
 					controlForce, brakeForce, power, ignoreControl, grounder.Mobility);
 
-				if (MovementInput.magnitude > 1.001f)
+				if (MovementInputRaw.magnitude > 1.01f)
 				{
-					Entity.TryApplyStatCost(sprintCost, rigidbodyWrapper.Speed * rigidbodyWrapper.Mass * (MovementInput.magnitude - 1f) * delta, out bool drained);
+					Entity.TryApplyStatCost(sprintCost, rigidbodyWrapper.Speed * rigidbodyWrapper.Mass * (MovementInputRaw.magnitude - 1f) * delta, out bool drained);
 				}
 			}
+			//else
+			//{
 			// TODO: Allow for sliding control & overhaul sliding altogether.
+			//}
 
 			if (!LockRotation)
 			{
 				TargetDirection = Vector3.Lerp(
-					Vector3.Lerp(Transform.forward, rigidbodyWrapper.Velocity, MovementInput.magnitude.Clamp01()),
+					Vector3.Lerp(Transform.forward, rigidbodyWrapper.Velocity, MovementInputRaw.magnitude.Clamp01()),
 					rigidbodyWrapper.TargetVelocity,
 					rigidbodyWrapper.Grip);
 			}
@@ -114,7 +131,7 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public void UpdateRotation(float delta, Vector3? direction = null, bool ignoreControl = false)
 		{
-			float t = delta * EntityTimeScale * (ignoreControl ? 1f : rigidbodyWrapper.Control);
+			float t = delta * (ignoreControl ? 1f : rigidbodyWrapper.Control);
 			Vector3 d = direction.HasValue ? direction.Value == Vector3.zero ? TargetDirection : direction.Value : TargetDirection;
 
 			if (d == Vector3.zero)

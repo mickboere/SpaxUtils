@@ -70,6 +70,23 @@
 		}
 
 		/// <summary>
+		/// Makes all of <paramref name="v"/>'s members absolute values (turns all negatives into positives).
+		/// </summary>
+		public static Vector8 Absolute(this Vector8 v)
+		{
+			v = Vector8.Absolute(v);
+			return v;
+		}
+
+		/// <summary>
+		/// Returns the total distance between vectors <paramref name="a"/> and <paramref name="b"/>.
+		/// </summary>
+		public static float Distance(this Vector8 a, Vector8 b)
+		{
+			return Vector8.Distance(a, b);
+		}
+
+		/// <summary>
 		/// Perform a "fluid" simulation on Vector8 <paramref name="v"/> where each member flows into its neighbours' weights <paramref name="w"/> multiplied by <paramref name="t"/>.
 		/// </summary>
 		/// <param name="v">The vector to perform the simulation on.</param>

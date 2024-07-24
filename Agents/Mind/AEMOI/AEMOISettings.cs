@@ -2,7 +2,7 @@
 
 namespace SpaxUtils
 {
-	[CreateAssetMenu(fileName = "AEMOI Settings", menuName = "ScriptableObjects/AEMOI Settings")]
+	[CreateAssetMenu(fileName = "AEMOISettings", menuName = "AEMOI/AEMOI Settings")]
 	public class AEMOISettings : ScriptableObject
 	{
 		public float EmotionSimulation = 1f;

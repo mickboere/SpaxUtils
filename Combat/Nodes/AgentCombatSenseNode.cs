@@ -23,7 +23,7 @@ namespace SpaxUtils
 			}
 		}
 
-		[SerializeField, Range(0f, 1f)] private float threatRange = 0.8f;
+		[SerializeField, Range(0f, 1f)] private float hostileRange = 0.8f;
 		[SerializeField, Range(0f, 1f)] private float engageRange = 0.6f;
 		[SerializeField] private float forgetTime = 10f;
 
@@ -59,7 +59,7 @@ namespace SpaxUtils
 				hostiles.AddRange(enemyIdentificationData.EnemyLabels);
 			}
 
-			SpaxDebug.Log($"{hostiles.Count} hostiles", $"enemyIdentificationData={(enemyIdentificationData == null ? "null" : $"present: ({enemyIdentificationData.EnemyLabels.Count})")}");
+			//SpaxDebug.Log($"{hostiles.Count} hostiles", $"enemyIdentificationData={(enemyIdentificationData == null ? "null" : $"present: ({enemyIdentificationData.EnemyLabels.Count})")}");
 
 			targetables = new EntityComponentFilter<ITargetable>(
 				entityCollection,
@@ -121,10 +121,10 @@ namespace SpaxUtils
 			foreach (EnemyData enemy in enemies.Values)
 			{
 				Vector8 stim = new Vector8();
-				stim.NW = Mathf.InverseLerp(vision.Range, vision.Range * threatRange, enemy.Distance); // Hostility
-				stim.N = Mathf.InverseLerp(vision.Range * threatRange, vision.Range * engageRange, enemy.Distance); // Anger
+				stim.NW = Mathf.InverseLerp(vision.Range, vision.Range * hostileRange, enemy.Distance); // Hostility
+				stim.N = Mathf.InverseLerp(vision.Range * hostileRange, vision.Range * engageRange, enemy.Distance); // Anger
 
-				SpaxDebug.Log($"Stimulate ({enemy.Entity.Identification.Name}):", stim.ToStringShort());
+				//SpaxDebug.Log($"Stimulate ({enemy.Entity.Identification.Name}):", stim.ToStringShort());
 
 				agent.Mind.Stimulate(stim * delta, enemy.Entity);
 			}
