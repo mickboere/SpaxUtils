@@ -44,7 +44,7 @@ namespace SpaxUtils
 			if (State == PerformanceState.Performing)
 			{
 				// Successful Parry.
-				hitData.Parried = true;
+				hitData.Result_Parried = true;
 				parries.Add(hitData.Hitter);
 
 				if (hitData.Hitter.TryGetEntityComponent<IHittable>(out IHittable parriedHittable))

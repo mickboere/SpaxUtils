@@ -61,14 +61,24 @@ namespace SpaxUtils
 		#region Return
 
 		/// <summary>
-		/// Return data defining whether this hit has been parried.
+		/// Return data defining whether this hit was parried by the receiver.
 		/// </summary>
-		public bool Parried { get; set; }
+		public bool Result_Parried { get; set; }
 
 		/// <summary>
-		/// Return data defining percentage of offensive penetration,
+		/// Return data defining total percentage of offensive penetration dealt to receiver.
 		/// </summary>
-		public float Penetration { get; set; } = 0f;
+		public float Result_Penetration { get; set; }
+
+		/// <summary>
+		/// Return data defining total amount of damage dealt to receiver.
+		/// </summary>
+		public float Result_Damage { get; set; }
+
+		/// <summary>
+		/// Return data defining total amount of force transfered to receiver.
+		/// </summary>
+		public float Result_Force { get; set; }
 
 		#endregion Return
 

@@ -1,5 +1,6 @@
 using SpaxUtils.StateMachines;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace SpaxUtils
 {
@@ -13,10 +14,11 @@ namespace SpaxUtils
 
 		protected IAgent Agent { get; private set; }
 		protected IMind Mind => Agent.Mind;
+		protected EntityStat EntityTimescale;
 		protected CallbackService CallbackService { get; private set; }
 
 		[SerializeField] protected int priority;
-		[SerializeField] protected Vector8 motivation;
+		[SerializeField, FormerlySerializedAs("motivation")] protected Vector8 trigger;
 		[SerializeField, HideInInspector] protected bool requireState;
 		[SerializeField, Conditional(nameof(requireState), drawToggle: true), ConstDropdown(typeof(IStateIdentifierConstants))] protected string brainState;
 
@@ -24,17 +26,26 @@ namespace SpaxUtils
 		{
 			Agent = agent;
 			CallbackService = callbackService;
+			EntityTimescale = Agent.GetStat(EntityStatIdentifiers.TIMESCALE, true, 1f);
 		}
 
-		public virtual bool Valid(Vector8 motivation, IEntity target, out float distance)
+		public virtual bool Valid(Vector8 motivation, IEntity target, out float strength)
 		{
-			if (motivation > this.motivation)
+			strength = 0f;
+
+			if (motivation > trigger)
 			{
-				distance = motivation.Distance(this.motivation);
+				// Calculate strength by summing all motivation members that exceed the minimum trigger motivation.
+				for (int i = 0; i < 8; i++)
+				{
+					if (!trigger[i].Approx(0))
+					{
+						strength += motivation[i] - trigger[i]; // No need to Absolute() because motivation exceeds trigger.
+					}
+				}
 				return true;
 			}
 
-			distance = float.MaxValue;
 			return false;
 		}
 

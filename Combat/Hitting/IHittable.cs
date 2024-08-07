@@ -10,7 +10,7 @@ namespace SpaxUtils
 		/// <summary>
 		/// Returns whether this entity is able to be hit, or if its invinvible.
 		/// </summary>
-		bool Hittable { get; set; }
+		bool IsHittable { get; set; }
 
 		/// <summary>
 		/// Attempt to hit this hittable entity.

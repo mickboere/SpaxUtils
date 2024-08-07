@@ -12,10 +12,13 @@ namespace SpaxUtils
 	public class AEMOI : IMind
 	{
 		/// <inheritdoc/>
-		public event Action<float> OnMindUpdateEvent;
+		public event Action<float> UpdateEvent;
 
 		/// <inheritdoc/>
-		public event Action OnMindUpdatedEvent;
+		public event Action MotivatedEvent;
+
+		/// <inheritdoc/>
+		public event Action UpdatedEvent;
 
 		/// <inheritdoc/>
 		public bool Active { get; private set; }
@@ -78,7 +81,7 @@ namespace SpaxUtils
 		public void Update(float delta)
 		{
 			// Gather senses.
-			OnMindUpdateEvent?.Invoke(delta);
+			UpdateEvent?.Invoke(delta);
 
 			// Simulate stimuli according to Personality and dampen them to limit buildup.
 			List<IEntity> sources = new List<IEntity>(stimuli.Keys);
@@ -89,12 +92,13 @@ namespace SpaxUtils
 
 			// Set the current highest motivation.
 			Motivation = GetMotivation();
+			MotivatedEvent?.Invoke();
 
 			// Check whether the current behaviour can/needs to be switched.
 			ReassessBehaviour();
 
 			// Mind has been updated.
-			OnMindUpdatedEvent?.Invoke();
+			UpdatedEvent?.Invoke();
 
 			//SpaxDebug.Log($"Motivation", Motivation.motivation.ToStringShort());
 		}
@@ -174,15 +178,15 @@ namespace SpaxUtils
 			}
 
 			IMindBehaviour match = null;
-			float closest = float.MaxValue;
+			float strongest = float.MaxValue;
 			foreach (IMindBehaviour behaviour in behaviours)
 			{
-				if (behaviour.Valid(Motivation.motivation, Motivation.target, out float distance) && // Ensure behaviour is valid.
-					(match == null || behaviour.Priority > match.Priority || // If priority exceeds current match, set new match.
-					(behaviour.Priority == match.Priority && distance < closest))) // If priority matches current match, set match to closest one.
+				if (behaviour.Valid(Motivation.motivation, Motivation.target, out float strength) && // Ensure behaviour is valid.
+					(match == null || behaviour.Priority > match.Priority || // If priority exceeds current, set new match.
+					(behaviour.Priority == match.Priority && strength > strongest))) // If priority matches current, set match to strongest.
 				{
 					match = behaviour;
-					closest = distance;
+					strongest = strength;
 				}
 			}
 
@@ -226,7 +230,7 @@ namespace SpaxUtils
 
 			foreach (KeyValuePair<IEntity, Vector8> kvp in stimuli)
 			{
-				float max = kvp.Value.GetMax(out int i);
+				float max = kvp.Value.Highest(out int i);
 				if (max > highest)
 				{
 					motivation = kvp.Value;

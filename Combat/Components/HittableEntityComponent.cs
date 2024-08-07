@@ -10,7 +10,7 @@ namespace SpaxUtils
 	public class HittableEntityComponent : EntityComponentBase, IHittable
 	{
 		/// <inheritdoc/>
-		public bool Hittable { get { return hittable; } set { hittable = value; } }
+		public bool IsHittable { get { return hittable; } set { hittable = value; } }
 
 		[SerializeField] private bool hittable = true;
 
@@ -20,7 +20,7 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public bool Hit(HitData hitData)
 		{
-			if (Hittable)
+			if (IsHittable)
 			{
 				for (int i = 0; i < subscribers.Count; i++)
 				{
@@ -28,7 +28,7 @@ namespace SpaxUtils
 				}
 			}
 
-			return Hittable;
+			return IsHittable;
 		}
 
 		/// <inheritdoc/>

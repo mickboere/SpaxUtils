@@ -10,7 +10,7 @@ namespace SpaxUtils
 	/// </summary>
 	public class AgentStatHandler : EntityComponentBase
 	{
-		[SerializeField, FormerlySerializedAs("multiStats")] private List<PointsStat> pointsStats;
+		[SerializeField] private List<PointsStat> pointsStats;
 
 		private IAgent agent;
 

@@ -28,10 +28,6 @@ namespace SpaxUtils
 
 		public float N, NE, E, SE, S, SW, W, NW;
 
-		public float Min => Mathf.Min(N, NE, E, SE, S, SW, W, NW);
-		public float Max => Mathf.Max(N, NE, E, SE, S, SW, W, NW);
-		public float Sum => N + NE + E + SE + S + SW + W + NW;
-
 		public Vector8(float north, float northEast, float east, float southEast, float south, float southWest, float west, float northWest)
 		{
 			N = north;
@@ -56,65 +52,139 @@ namespace SpaxUtils
 			NW = array[7];
 		}
 
-		/// <summary>
-		/// Get the positions of all members arranged in a circle.
-		/// </summary>
-		/// <returns>An array of <see cref="Vector2"/> positions.</returns>
-		public Vector2[] GetPositions2D()
-		{
-			return new Vector2[8]
-			{
-				new Vector2(0f, N),
-				new Vector2(NE, NE) * DIAGONAL,
-				new Vector2(E, 0f),
-				new Vector2(SE, -SE) * DIAGONAL,
-				new Vector2(0f, -S),
-				new Vector2(-SW, -SW) * DIAGONAL,
-				new Vector2(-W, 0f),
-				new Vector2(-NW, NW) * DIAGONAL
-			};
-		}
+		#region Public Functions
 
 		/// <summary>
-		/// Get the positions of all members arranged in a circle.
+		/// Returns the smallest value of all members.
 		/// </summary>
-		/// <returns>An array of <see cref="Vector3"/> positions where Z is 0.</returns>
-		public Vector3[] GetPositions3D()
-		{
-			return new Vector3[8]
-			{
-				new Vector2(0f, N),
-				new Vector2(NE, NE) * DIAGONAL,
-				new Vector2(E, 0f),
-				new Vector2(SE, -SE) * DIAGONAL,
-				new Vector2(0f, -S),
-				new Vector2(-SW, -SW) * DIAGONAL,
-				new Vector2(-W, 0f),
-				new Vector2(-NW, NW) * DIAGONAL
-			};
-		}
+		public float Min() => Min(this);
+
+		/// <summary>
+		/// Returns the highest value of all members.
+		/// </summary>
+		/// <returns></returns>
+		public float Max() => Max(this);
+
+		/// <summary>
+		/// Returns the sum of all members.
+		/// </summary>
+		public float Sum() => Sum(this);
 
 		/// <summary>
 		/// Returns the value of the highest of the 8 members.
 		/// </summary>
 		/// <param name="index">The index of the highest member.</param>
 		/// <returns>The value of the highest of the 8 members.</returns>
-		public float GetMax(out int index)
+		public float Highest(out int index) => Highest(this, out index);
+
+		/// <summary>
+		/// Linearly interpolates to <paramref name="b"/> by <paramref name="t"/>.
+		/// </summary>
+		public Vector8 Lerp(Vector8 b, float t) => Lerp(this, b, t);
+
+		/// <summary>
+		/// Linearly interpolates to <paramref name="b"/> by <paramref name="t"/>, clamping <paramref name="t"/> bewteen 0 and 1.
+		/// </summary>
+		public Vector8 LerpClamped(Vector8 b, float t) => LerpClamped(this, b, t);
+
+		/// <summary>
+		/// Shifts member values clockwise by <paramref name="amount"/> members.
+		/// </summary>
+		/// <param name="amount">The amount of members to rotate by (8 is a full rotation).</param>
+		/// <returns>This Vector8 rotated by <paramref name="amount"/> members.</returns>
+		public Vector8 Rotate(int amount) => Rotate(this, amount);
+
+		/// <summary>
+		/// Travels to <paramref name="b"/> taking steps of <paramref name="t"/>, never exceeding <paramref name="b"/>.
+		/// </summary>
+		public Vector8 Travel(Vector8 b, float t) => Travel(this, b, t);
+
+		/// <summary>
+		/// Clamps the member values between <paramref name="min"/> and <paramref name="max"/>.
+		/// </summary>
+		public Vector8 Clamp(float min, float max) => Clamp(this, min, max);
+
+		/// <summary>
+		/// Clamps the members values between 0 and 1.
+		/// </summary>
+		public Vector8 Clamp01() => Clamp01(this);
+
+		/// <summary>
+		/// Scales all members values proportionally so that its highest member never exceeds 1.
+		/// Does NOT make it so that the total length of the vector is 1!
+		/// </summary>
+		public Vector8 Normalize() => Normalize(this);
+
+		/// <summary>
+		/// Turns all member values into absolute values (turns all negatives into positives).
+		/// </summary>
+		public Vector8 Absolute() => Absolute(this);
+
+		/// <summary>
+		/// Returns the total distance to <paramref name="b"/> (sum of all member distances).
+		/// </summary>
+		public float Distance(Vector8 b) => Distance(this, b);
+
+		/// <summary>
+		/// Perform a "fluid" simulation where each member flows into its neighbours' weights <paramref name="w"/> multiplied by <paramref name="t"/>.
+		/// </summary>
+		/// <param name="r">The rest position of the simulation.</param>
+		/// <param name="w">The vector containing the simulation weights.</param>
+		/// <param name="t">The "timestep".</param>
+		/// <returns><paramref name="v"/> with a flow simulation applied.</returns>
+		public Vector8 Simulate(Vector8 r, Vector8 w, float t) => Simulate(this, r, w, t);
+
+		/// <summary>
+		/// Get the positions of all members arranged in a circle.
+		/// </summary>
+		/// <returns>An array of <see cref="Vector2"/> positions.</returns>
+		public Vector2[] GetPositions2D() => GetPositions2D(this);
+
+		/// <summary>
+		/// Get the positions of all members arranged in a circle.
+		/// </summary>
+		/// <returns>An array of <see cref="Vector3"/> positions where Z is 0.</returns>
+		public Vector3[] GetPositions3D() => GetPositions3D(this);
+
+		#endregion Public Functions
+
+		#region Static Functions
+
+		/// <summary>
+		/// Returns the smallest value of all members.
+		/// </summary>
+		public static float Min(Vector8 v) => Mathf.Min(v.N, v.NE, v.E, v.SE, v.S, v.SW, v.W, v.NW);
+
+		/// <summary>
+		/// Returns the highest value of all members.
+		/// </summary>
+		/// <returns></returns>
+		public static float Max(Vector8 v) => Mathf.Max(v.N, v.NE, v.E, v.SE, v.S, v.SW, v.W, v.NW);
+
+		/// <summary>
+		/// Returns the sum of all members.
+		/// </summary>
+		public static float Sum(Vector8 v) => v.N + v.NE + v.E + v.SE + v.S + v.SW + v.W + v.NW;
+
+		/// <summary>
+		/// Returns the value of the highest of the 8 members.
+		/// </summary>
+		/// <param name="index">The index of the highest member.</param>
+		/// <returns>The value of the highest of the 8 members.</returns>
+		public static float Highest(Vector8 v, out int index)
 		{
 			float max = 0f;
 			index = -1;
 			for (int i = 0; i < 8; i++)
 			{
-				if (this[i] > max)
+				if (v[i] > max)
 				{
-					max = this[i];
+					max = v[i];
 					index = i;
 				}
 			}
 			return max;
 		}
-
-		#region Static Functions
 
 		/// <summary>
 		/// Linearly interpolates between <paramref name="a"/> and <paramref name="b"/> by <paramref name="t"/>.
@@ -226,11 +296,11 @@ namespace SpaxUtils
 		/// </summary>
 		public static Vector8 Normalize(Vector8 v)
 		{
-			if (v.Max <= 0f)
+			if (v.Max() <= 0f)
 			{
 				return v;
 			}
-			float m = 1f / v.Max;
+			float m = 1f / v.Max();
 			return v * m;
 		}
 
@@ -255,7 +325,7 @@ namespace SpaxUtils
 		/// </summary>
 		public static float Distance(Vector8 a, Vector8 b)
 		{
-			return (b - a).Absolute().Sum;
+			return (b - a).Absolute().Sum();
 		}
 
 		/// <summary>
@@ -293,6 +363,44 @@ namespace SpaxUtils
 				int r = x % m;
 				return r < 0 ? r + m : r;
 			}
+		}
+
+		/// <summary>
+		/// Get the positions of all members arranged in a circle.
+		/// </summary>
+		/// <returns>An array of <see cref="Vector2"/> positions.</returns>
+		public static Vector2[] GetPositions2D(Vector8 v)
+		{
+			return new Vector2[8]
+			{
+				new Vector2(0f, v.N),
+				new Vector2(v.NE, v.NE) * DIAGONAL,
+				new Vector2(v.E, 0f),
+				new Vector2(v.SE, -v.SE) * DIAGONAL,
+				new Vector2(0f, -v.S),
+				new Vector2(-v.SW, -v.SW) * DIAGONAL,
+				new Vector2(-v.W, 0f),
+				new Vector2(-v.NW, v.NW) * DIAGONAL
+			};
+		}
+
+		/// <summary>
+		/// Get the positions of all members arranged in a circle.
+		/// </summary>
+		/// <returns>An array of <see cref="Vector3"/> positions where Z is 0.</returns>
+		public static Vector3[] GetPositions3D(Vector8 v)
+		{
+			return new Vector3[8]
+			{
+				new Vector2(0f, v.N),
+				new Vector2(v.NE, v.NE) * DIAGONAL,
+				new Vector2(v.E, 0f),
+				new Vector2(v.SE, -v.SE) * DIAGONAL,
+				new Vector2(0f, -v.S),
+				new Vector2(-v.SW, -v.SW) * DIAGONAL,
+				new Vector2(-v.W, 0f),
+				new Vector2(-v.NW, v.NW) * DIAGONAL
+			};
 		}
 
 		#endregion

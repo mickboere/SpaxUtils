@@ -23,6 +23,7 @@ namespace SpaxUtils
 		protected IEntityCollection entityCollection;
 		protected CombatSettings combatSettings;
 		protected RigidbodyWrapper rigidbodyWrapper;
+		protected ICommunicationChannel comms;
 
 		private EntityStat timescaleStat;
 		private EntityStat limbMassStat;
@@ -41,7 +42,7 @@ namespace SpaxUtils
 		public void InjectDependencies(ICombatMove move, CallbackService callbackService,
 			TransformLookup transformLookup, ITargeter targeter, IAgentMovementHandler movementHandler,
 			AgentNavigationHandler navigationHandler, IEntityCollection entityCollection, CombatSettings combatSettings,
-			RigidbodyWrapper rigidbodyWrapper)
+			RigidbodyWrapper rigidbodyWrapper, ICommunicationChannel communicationChannel)
 		{
 			this.combatMove = move;
 			this.callbackService = callbackService;
@@ -52,6 +53,7 @@ namespace SpaxUtils
 			this.entityCollection = entityCollection;
 			this.combatSettings = combatSettings;
 			this.rigidbodyWrapper = rigidbodyWrapper;
+			this.comms = communicationChannel;
 
 			timescaleStat = Agent.GetStat(EntityStatIdentifiers.TIMESCALE, true, 1f);
 			limbMassStat = Agent.GetStat(AgentStatIdentifiers.MASS.SubStat(combatMove.Limb));
@@ -173,12 +175,12 @@ namespace SpaxUtils
 			// Send hit and apply return data.
 			if (hittable.Hit(hitData))
 			{
-				if (hitData.Parried)
+				if (hitData.Result_Parried)
 				{
 					Performer.TryCancel(true);
 				}
 
-				float hitPause = combatSettings.MaxHitPause * hitData.Penetration.InvertClamped();
+				float hitPause = combatSettings.MaxHitPause * hitData.Result_Penetration.InvertClamped();
 				if (hitPauseMod == null || hitPause > hitPauseMod.Timer.Remaining)
 				{
 					// Apply hit-pause.
@@ -191,6 +193,8 @@ namespace SpaxUtils
 					timescaleStat.RemoveModifier(this);
 					timescaleStat.AddModifier(this, hitPauseMod);
 				}
+
+				comms.Send(hitData);
 			}
 		}
 	}

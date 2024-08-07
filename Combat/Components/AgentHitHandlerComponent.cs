@@ -66,10 +66,10 @@ namespace SpaxUtils
 			rigidbodyWrapper.Push(hitData.Inertia, hitData.HitterMass);
 
 			// Calculate damage and impact.
-			hitData.Penetration = hitData.Parried ? 0f : hitData.Offence * hitData.Piercing / defence;
-			float impact = hitData.Penetration.InvertClamped();
-			float damage = hitData.Parried ? 0f : SpaxFormulas.CalculateDamage(hitData.Offence, defence);
-			float force = hitData.Parried ? 0f : hitData.Strength * impact;
+			hitData.Result_Penetration = hitData.Result_Parried ? 0f : hitData.Offence * hitData.Piercing / defence;
+			float impact = hitData.Result_Penetration.InvertClamped();
+			hitData.Result_Damage = hitData.Result_Parried ? 0f : SpaxFormulas.CalculateDamage(hitData.Offence, defence);
+			hitData.Result_Force = hitData.Result_Parried ? 0f : hitData.Strength * impact;
 
 			// Apply hit-pause.
 			hitPauseMod?.Dispose();
@@ -82,24 +82,23 @@ namespace SpaxUtils
 			timescaleStat.AddModifier(this, hitPauseMod);
 
 			// Damage endurance.
-			endurance.Damage(force, true, out bool stunned);
+			endurance.Damage(hitData.Result_Force, true, out bool stunned);
 			if (stunned)
 			{
-				// Stunned.
+				// Stun.
 				agent.Actor.TryCancel(true);
 
 				// Transfer Impact.
-				rigidbodyWrapper.Push(hitData.Direction * force, hitData.Mass);
+				rigidbodyWrapper.Push(hitData.Direction * hitData.Result_Force, hitData.Mass);
 
 				// Apply stun.
 				stunHandler.EnterStun(hitData);
 			}
 
 			// Damage health.
-			health.Damage(damage, true, out bool dead);
+			health.Damage(hitData.Result_Damage, true, out bool dead);
 			if (dead)
 			{
-				// TODO: Die! Should be applied after impact and stun have been processed.
 				if (stunHandler.Stunned)
 				{
 					stunHandler.ExitedStunEvent += Die;
