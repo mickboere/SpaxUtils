@@ -93,7 +93,7 @@ namespace SpaxUtils
 
 			// Utilized stats must exceed 0.
 			// Note: stats don't have to exceed costs since they will overdraw from the "recoverable" stat.
-			if (!ValidateStat(move.ChargeCost) || !ValidateStat(move.PerformCost))
+			if ((move.HasCharge && !ValidateStat(move.ChargeCost)) || (move.HasPerformance && !ValidateStat(move.PerformCost)))
 			{
 				return false;
 			}
@@ -108,7 +108,7 @@ namespace SpaxUtils
 
 			bool ValidateStat(StatCost cost)
 			{
-				if (Entity.TryGetStat(cost.Stat, out EntityStat stat))
+				if (!string.IsNullOrEmpty(cost.Stat) && Entity.TryGetStat(cost.Stat, out EntityStat stat))
 				{
 					if (stat.Value <= Mathf.Epsilon)
 					{

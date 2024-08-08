@@ -61,7 +61,7 @@ namespace SpaxUtils
 			// Check if we should add EMPTY to the list of options.
 			if (includeEmpty)
 			{
-				// Since the lists need to show "<EMPTY>" instead of "" as an option, we add the visuals here and
+				// Since the lists need to show "<NULL>" instead of "" as an option, we add the visuals here and
 				// replace the later selected option with the actual EMPTY string.
 				fullAdressConsts.Insert(0, constDropdownAttribute.EmptyOption);
 				noAdressConsts.Insert(0, constDropdownAttribute.EmptyOption);

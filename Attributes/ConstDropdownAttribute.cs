@@ -9,6 +9,7 @@ namespace SpaxUtils
 	public class ConstDropdownAttribute : PropertyAttribute
 	{
 		public const char ADRESS_SEPARATOR = '/';
+		public const string EMPTY_OPTION = "<NULL>";
 
 		/// <summary>
 		/// The max distance to allow a rename.
@@ -66,7 +67,7 @@ namespace SpaxUtils
 			bool showAdress = false,
 			bool storeAdress = false,
 			bool forceOption = false,
-			string emptyOption = "<EMPTY>",
+			string emptyOption = EMPTY_OPTION,
 			string filter = null)
 		{
 			Collections = new Type[] { collection };
