@@ -6,10 +6,13 @@ using UnityEngine.Serialization;
 namespace SpaxUtils
 {
 	/// <summary>
-	/// Component handling all generic agent-related stats.
+	/// Component handling an agent's grouped stat data.
 	/// </summary>
 	public class AgentStatHandler : EntityComponentBase
 	{
+		public StatOcton StatPoints => pointStatOcton;
+
+		[SerializeField] private StatOcton pointStatOcton;
 		[SerializeField] private List<PointsStat> pointsStats;
 
 		private IAgent agent;
@@ -29,6 +32,10 @@ namespace SpaxUtils
 			{
 				pointStat.Initialize(agent);
 			}
+
+			// Initialize point stat octon.
+			// This octon gives easy access to relevant stat data for other classes.
+			pointStatOcton.Initialize(agent);
 
 			// Modify recovery stat with control (so that recovery only occurs when agent is in control).
 			if (agent.Body.HasRigidbody && agent.TryGetStat(AgentStatIdentifiers.RECOVERY, out recoveryStat))

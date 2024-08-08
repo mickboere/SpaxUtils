@@ -12,21 +12,21 @@ namespace SpaxUtils
 		public Vector8 Vector8 => this;
 
 		public EntityStat N { get; private set; }
-		[SerializeField, ConstDropdown(typeof(IStatIdentifierConstants))] private string north;
+		[SerializeField, ConstDropdown(typeof(IStatIdentifierConstants), includeEmpty: true)] private string north;
 		public EntityStat NE { get; private set; }
-		[SerializeField, ConstDropdown(typeof(IStatIdentifierConstants))] private string northEast;
+		[SerializeField, ConstDropdown(typeof(IStatIdentifierConstants), includeEmpty: true)] private string northEast;
 		public EntityStat E { get; private set; }
-		[SerializeField, ConstDropdown(typeof(IStatIdentifierConstants))] private string east;
+		[SerializeField, ConstDropdown(typeof(IStatIdentifierConstants), includeEmpty: true)] private string east;
 		public EntityStat SE { get; private set; }
-		[SerializeField, ConstDropdown(typeof(IStatIdentifierConstants))] private string southEast;
+		[SerializeField, ConstDropdown(typeof(IStatIdentifierConstants), includeEmpty: true)] private string southEast;
 		public EntityStat S { get; private set; }
-		[SerializeField, ConstDropdown(typeof(IStatIdentifierConstants))] private string south;
+		[SerializeField, ConstDropdown(typeof(IStatIdentifierConstants), includeEmpty: true)] private string south;
 		public EntityStat SW { get; private set; }
-		[SerializeField, ConstDropdown(typeof(IStatIdentifierConstants))] private string southWest;
+		[SerializeField, ConstDropdown(typeof(IStatIdentifierConstants), includeEmpty: true)] private string southWest;
 		public EntityStat W { get; private set; }
-		[SerializeField, ConstDropdown(typeof(IStatIdentifierConstants))] private string west;
+		[SerializeField, ConstDropdown(typeof(IStatIdentifierConstants), includeEmpty: true)] private string west;
 		public EntityStat NW { get; private set; }
-		[SerializeField, ConstDropdown(typeof(IStatIdentifierConstants))] private string northWest;
+		[SerializeField, ConstDropdown(typeof(IStatIdentifierConstants), includeEmpty: true)] private string northWest;
 
 		public StatOcton(EntityStat north, EntityStat northEast, EntityStat east, EntityStat southEast,
 			EntityStat south, EntityStat southWest, EntityStat west, EntityStat northWest)
@@ -67,6 +67,15 @@ namespace SpaxUtils
 		public StatOcton(IEntity entity, StatOcton copy, Vector8 defaultValues)
 			: this(entity, copy.north, copy.northEast, copy.east, copy.southEast, copy.south, copy.southWest, copy.west, copy.northWest, defaultValues)
 		{
+		}
+
+		/// <summary>
+		/// Initialize an existing <see cref="StatOcton"/> by retrieving the defined stats from <paramref name="entity"/>.
+		/// </summary>
+		/// <param name="entity">The entity to initialize the octon with.</param>
+		public void Initialize(IEntity entity)
+		{
+			Initialize(entity, Vector8.Zero);
 		}
 
 		/// <summary>

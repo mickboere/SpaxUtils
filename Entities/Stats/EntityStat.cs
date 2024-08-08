@@ -122,6 +122,14 @@ namespace SpaxUtils
 			Damage(damage, clamp, false);
 		}
 
+		/// <summary>
+		/// Returns the percentile of this stat compared to its max sub-stat.
+		/// </summary>
+		public float Percentile()
+		{
+			return Value / entity.GetStat(Identifier.SubStat("Max"));
+		}
+
 		private void OnDataValueChanged(object newValue)
 		{
 			ValueChanged();

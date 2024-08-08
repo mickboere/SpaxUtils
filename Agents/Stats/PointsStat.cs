@@ -14,12 +14,6 @@ namespace SpaxUtils
 		[SerializeField] private bool hasRecovery;
 		[SerializeField] private float overdraw;
 
-		private string maxId;
-		private string recoverableId;
-		private string frailtyId;
-		private string recoveryId;
-		private string recoveryDelayId;
-
 		private EntityStat timescale;
 		private EntityStat current;
 		private EntityStat max;
@@ -35,11 +29,11 @@ namespace SpaxUtils
 
 		public void Initialize(IEntity entity)
 		{
-			maxId = stat.SubStat(AgentStatIdentifiers.SUB_MAX);
-			recoverableId = stat.SubStat(AgentStatIdentifiers.SUB_RECOVERABLE);
-			frailtyId = stat.SubStat(AgentStatIdentifiers.SUB_FRAILTY);
-			recoveryId = stat.SubStat(AgentStatIdentifiers.SUB_RECOVERY);
-			recoveryDelayId = stat.SubStat(AgentStatIdentifiers.SUB_RECOVERY_DELAY);
+			string maxId = stat.SubStat(AgentStatIdentifiers.SUB_MAX);
+			string recoverableId = stat.SubStat(AgentStatIdentifiers.SUB_RECOVERABLE);
+			string frailtyId = stat.SubStat(AgentStatIdentifiers.SUB_FRAILTY);
+			string recoveryId = stat.SubStat(AgentStatIdentifiers.SUB_RECOVERY);
+			string recoveryDelayId = stat.SubStat(AgentStatIdentifiers.SUB_RECOVERY_DELAY);
 
 			timescale = entity.GetStat(EntityStatIdentifiers.TIMESCALE, true, 1f);
 
@@ -123,7 +117,6 @@ namespace SpaxUtils
 					}
 				}
 
-				// TODO: Make timer rely on entity timescale.
 				float duration = current < Mathf.Epsilon ? recoveryDelay * 1.5f : recoveryDelay;
 				recoveryTimer = recoveryTimer?.Reset(duration) ?? new TimerClass(duration, () => timescale, true);
 			}

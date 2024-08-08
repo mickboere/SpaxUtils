@@ -5,11 +5,6 @@
 	/// </summary>
 	public class AgentStatIdentifiers : IStatIdentifierConstants
 	{
-		/// <summary>
-		/// Default stat to show at the very top to make it clear a stat has not been selected yet.
-		/// </summary>
-		public const string NULL = "<NULL>";
-
 		// < Attributes >
 		// Attributes are measured in EXP and converted to LEVELS.
 		// Each Attribute maps to one or more STATS.

@@ -57,6 +57,7 @@ namespace SpaxUtils
 			agent.Mind.MotivatedEvent += OnMindMotivatedEvent;
 			hittable.Subscribe(this, OnReceivedHitEvent, -2);
 			comms.Listen<HitData>(this, OnSentHitEvent);
+			agent.Actor.PerformanceUpdateEvent += OnPerformanceUpdateEvent;
 
 			List<string> hostiles = agent.GetDataValue<List<string>>(AIDataIdentifiers.HOSTILES);
 			if (hostiles == null)
@@ -85,6 +86,7 @@ namespace SpaxUtils
 			agent.Mind.MotivatedEvent -= OnMindMotivatedEvent;
 			hittable.Unsubscribe(this);
 			comms.StopListening(this);
+			agent.Actor.PerformanceUpdateEvent -= OnPerformanceUpdateEvent;
 
 			targetables.Dispose();
 		}
@@ -130,6 +132,22 @@ namespace SpaxUtils
 			// Process vertically to satisfy both Anger and Fear.
 			Vector8 satisfaction = new Vector8(1f, 0f, 0f, 0f, 1f, 0f, 0f, 0f);
 			agent.Mind.Satisfy(satisfaction, hitData.Hittable.Entity);
+		}
+
+		private static readonly List<string> ATTACK_ACTS = new List<string>() { ActorActs.ATTACK_LIGHT, ActorActs.ATTACK_HEAVY }; // TODO: Temp solution.
+		private void OnPerformanceUpdateEvent(IPerformer performer)
+		{
+			if (ATTACK_ACTS.Contains(performer.Act.Title) &&
+				performer.State == PerformanceState.Performing &&
+				performer.RunTime.Approx(0f) &&
+				performer is IMovePerformer movePerformer)
+			{
+				SpaxDebug.Log($"Satisfy Anger", $"{movePerformer.Charge}");
+				// Invoked when the agent performs an attack.
+				// Process satisfies Anger towards current target by the charge amount.
+				Vector8 satisfaction = new Vector8(movePerformer.Charge, 0f, 0f, 0f, 0f, 0f, 0f, 0f);
+				agent.Mind.Satisfy(satisfaction, agent.Targeter.Target.Entity);
+			}
 		}
 
 		private void GatherEnemyData()

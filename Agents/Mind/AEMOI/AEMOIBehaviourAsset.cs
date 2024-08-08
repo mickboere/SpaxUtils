@@ -40,7 +40,7 @@ namespace SpaxUtils
 				{
 					if (!trigger[i].Approx(0))
 					{
-						strength += motivation[i] - trigger[i]; // No need to Absolute() because motivation exceeds trigger.
+						strength += motivation[i] + trigger[i];
 					}
 				}
 				return true;

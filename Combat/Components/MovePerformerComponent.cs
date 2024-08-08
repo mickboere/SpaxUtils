@@ -9,7 +9,7 @@ namespace SpaxUtils
 	/// Agent component that is able to execute an <see cref="IPerformanceMove"/> of which the progression is broadcast through events.
 	/// This component does not actually apply anything on an agent-level, for that see <see cref="ActorPerformanceControllerNode"/>.
 	/// </summary>
-	public class MovePerformerComponent : EntityComponentBase, IMovePerformer
+	public class MovePerformerComponent : EntityComponentBase, IMovePerformanceHandler
 	{
 		public event Action<IPerformer> PerformanceUpdateEvent;
 		public event Action<IPerformer> PerformanceCompletedEvent;
@@ -24,6 +24,8 @@ namespace SpaxUtils
 		public bool Canceled => MainPerformer != null ? MainPerformer.Canceled : false;
 		public float CancelTime => MainPerformer != null ? MainPerformer.CancelTime : 0f;
 
+		public IReadOnlyDictionary<string, IPerformanceMove> Moveset => moveset;
+
 		private MovePerformer MainPerformer => helpers.Count > 0 ? helpers[helpers.Count - 1] : null;
 
 		[SerializeField] private List<ActMovePair> unarmedMoves;
@@ -37,6 +39,9 @@ namespace SpaxUtils
 
 		private Dictionary<string, Dictionary<object, (PerformanceState state, IPerformanceMove move, int prio)>> moves =
 			new Dictionary<string, Dictionary<object, (PerformanceState state, IPerformanceMove move, int prio)>>();
+		private Dictionary<string, IPerformanceMove> moveset;
+		private bool updateMoveset = true;
+		private PerformanceState lastState = PerformanceState.Inactive;
 		private List<MovePerformer> helpers = new List<MovePerformer>();
 
 		public void InjectDependencies(IDependencyManager dependencyManager, IAgent agent,
@@ -52,10 +57,13 @@ namespace SpaxUtils
 		protected void Start()
 		{
 			// Add default unarmed moves.
+			updateMoveset = false;
 			foreach (ActMovePair pair in unarmedMoves)
 			{
 				AddMove(pair.Act, this, PerformanceState.Inactive | PerformanceState.Finishing | PerformanceState.Completed, pair.Move, pair.Prio);
 			}
+			updateMoveset = true;
+			UpdateMoveset();
 		}
 
 		protected void OnDisable()
@@ -66,6 +74,8 @@ namespace SpaxUtils
 			}
 			helpers.Clear();
 		}
+
+		#region Performance
 
 		/// <inheritdoc/>
 		public bool SupportsAct(string act)
@@ -85,11 +95,11 @@ namespace SpaxUtils
 			}
 
 			// Must have a supported move.
-			IPerformanceMove move = GetMove(act.Title);
-			if (move == null)
+			if (!Moveset.ContainsKey(act.Title))
 			{
 				return false;
 			}
+			IPerformanceMove move = Moveset[act.Title];
 
 			// Utilized stats must exceed 0.
 			// Note: stats don't have to exceed costs since they will overdraw from the "recoverable" stat.
@@ -136,6 +146,8 @@ namespace SpaxUtils
 			return MainPerformer == null ? false : MainPerformer.TryCancel(force);
 		}
 
+		#endregion Performance
+
 		#region Move Management
 
 		/// <inheritdoc/>
@@ -154,6 +166,11 @@ namespace SpaxUtils
 
 			// Set move prio.
 			moves[act][context] = (state, move, prio);
+
+			if (updateMoveset)
+			{
+				UpdateMoveset();
+			}
 		}
 
 		/// <inheritdoc/>
@@ -167,45 +184,55 @@ namespace SpaxUtils
 			{
 				moves.Remove(act);
 			}
-		}
 
-		/// <summary>
-		/// Returns highest prio move for <paramref name="act"/>.
-		/// </summary>
-		private IPerformanceMove GetMove(string act)
-		{
-			if (!moves.ContainsKey(act))
+			if (updateMoveset)
 			{
-				return null;
+				UpdateMoveset();
 			}
-
-			(PerformanceState state, IPerformanceMove move, int prio)? top = null;
-
-			foreach (KeyValuePair<object, (PerformanceState state, IPerformanceMove move, int prio)> entry in moves[act])
-			{
-				if (entry.Value.state.HasFlag(State) && (top == null || entry.Value.prio > top.Value.prio))
-				{
-					top = entry.Value;
-				}
-			}
-
-			return top.HasValue ? top.Value.move : null;
 		}
 
 		private void AddFollowUpMoves(IPerformer performer, IPerformanceMove move)
 		{
+			updateMoveset = false;
 			foreach (MoveFollowUp followUp in move.FollowUps)
 			{
 				AddMove(followUp.Act, performer, followUp.State, followUp.Move, followUp.Prio);
 			}
+			updateMoveset = true;
+			UpdateMoveset();
 		}
 
 		private void RemoveFollowUpMoves(IPerformer performer)
 		{
+			updateMoveset = false;
 			string[] acts = moves.Keys.ToArray();
 			foreach (string act in acts)
 			{
 				RemoveMove(act, performer);
+			}
+			updateMoveset = true;
+			UpdateMoveset();
+		}
+
+		private void UpdateMoveset()
+		{
+			// Collect all the currently available highest-priority moves.
+			// Must be updated with each change in either performance state or available moves.
+			moveset = new Dictionary<string, IPerformanceMove>();
+			foreach (string act in moves.Keys)
+			{
+				(PerformanceState state, IPerformanceMove move, int prio)? top = null;
+				foreach (KeyValuePair<object, (PerformanceState state, IPerformanceMove move, int prio)> entry in moves[act])
+				{
+					if (entry.Value.state.HasFlag(State) && (top == null || entry.Value.prio > top.Value.prio))
+					{
+						top = entry.Value;
+					}
+				}
+				if (top.HasValue)
+				{
+					moveset.Add(act, top.Value.move);
+				}
 			}
 		}
 
@@ -213,6 +240,11 @@ namespace SpaxUtils
 
 		private void OnPerformanceUpdateEvent(IPerformer performer)
 		{
+			if (State != lastState)
+			{
+				lastState = State;
+				UpdateMoveset();
+			}
 			PerformanceUpdateEvent?.Invoke(performer);
 		}
 

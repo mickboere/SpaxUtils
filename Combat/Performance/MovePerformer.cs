@@ -124,16 +124,6 @@ namespace SpaxUtils
 			}
 		}
 
-		public void AddMove(string act, object owner, PerformanceState state, IPerformanceMove move, int prio)
-		{
-			SpaxDebug.Error("MovePerformer does not support multiple moves.");
-		}
-
-		public void RemoveMove(string act, object owner)
-		{
-			SpaxDebug.Error("MovePerformer does not support multiple moves.");
-		}
-
 		private void Update()
 		{
 			if (!Canceled)
@@ -150,10 +140,14 @@ namespace SpaxUtils
 					{
 						// Finished charging.
 						State = PerformanceState.Performing;
+						// Substract delta from Runtime so that it's set to 0 later, making first frame of performance easy to check.
+						//RunTime -= delta;
 					}
 				}
 				// No else statement here to prevent frame delay.
-				if (State != PerformanceState.Preparing)
+				//if (State != PerformanceState.Preparing)
+				// Do ELSE because then if runtime is 0 but state is performing we know its the first frame of performance :)
+				else
 				{
 					// Performing.
 					RunTime += delta;
