@@ -12,7 +12,7 @@ namespace SpaxUtils
 	public class AEMOI : IMind
 	{
 		/// <inheritdoc/>
-		public event Action<float> UpdateEvent;
+		public event Action<float> UpdatingEvent;
 
 		/// <inheritdoc/>
 		public event Action MotivatedEvent;
@@ -81,7 +81,7 @@ namespace SpaxUtils
 		public void Update(float delta)
 		{
 			// Gather senses.
-			UpdateEvent?.Invoke(delta);
+			UpdatingEvent?.Invoke(delta);
 
 			// Simulate stimuli according to Personality and dampen them to limit buildup.
 			List<IEntity> sources = new List<IEntity>(stimuli.Keys);
@@ -225,7 +225,7 @@ namespace SpaxUtils
 		private (Vector8 stimuli, IEntity source) GetMotivation()
 		{
 			Vector8 motivation = Vector8.Zero;
-			IEntity source = null;
+			IEntity target = null;
 			float highest = 0f;
 
 			foreach (KeyValuePair<IEntity, Vector8> kvp in stimuli)
@@ -235,11 +235,11 @@ namespace SpaxUtils
 				{
 					motivation = kvp.Value;
 					highest = max;
-					source = kvp.Key;
+					target = kvp.Key;
 				}
 			}
 
-			return (motivation, source);
+			return (motivation, target);
 		}
 	}
 }

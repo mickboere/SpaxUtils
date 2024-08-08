@@ -15,7 +15,7 @@ namespace SpaxUtils
 		/// Called once when the mind is updated, requesting all senses to call <see cref="Stimulate(Vector8, IEntity)"/>.
 		/// The float value is the time delta between updates.
 		/// </summary>
-		event Action<float> UpdateEvent;
+		event Action<float> UpdatingEvent;
 
 		/// <summary>
 		/// Called once while updating the mind after the agent's motivation has settled.

@@ -1,25 +1,46 @@
 ﻿using SpaxUtils.StateMachines;
-using System;
 using System.Collections.Generic;
 using UnityEngine;
+using System.Linq;
 
 namespace SpaxUtils
 {
 	public static class AgentFactory
 	{
-		public static Agent Create(IAgentSetup setup, IDependencyManager dependencyManager)
+		public static Agent Create(IAgentSetup setup, IDependencyManager dependencyManager,
+			IEnumerable<string> labels = null,
+			IEnumerable<StateMachineGraph> brainGraphs = null,
+			IEnumerable<GameObject> children = null,
+			IEnumerable<object> dependencies = null)
 		{
-			return Create(setup.Identification, setup.Frame, setup.Body, dependencyManager, Vector3.zero, Quaternion.identity, setup.BrainGraphs, setup.Children, setup.Dependencies);
+			return Create(setup.Identification, setup.Frame, setup.Body, dependencyManager, Vector3.zero, Quaternion.identity, labels,
+				brainGraphs == null ? setup.BrainGraphs : setup.BrainGraphs.Union(brainGraphs),
+				children == null ? setup.Children : setup.Children.Union(children),
+				dependencies == null ? setup.Dependencies : setup.Dependencies.Union(dependencies));
 		}
 
-		public static Agent Create(IAgentSetup setup, IDependencyManager dependencyManager, Vector3 position)
+		public static Agent Create(IAgentSetup setup, IDependencyManager dependencyManager, Vector3 position,
+			IEnumerable<string> labels = null,
+			IEnumerable<StateMachineGraph> brainGraphs = null,
+			IEnumerable<GameObject> children = null,
+			IEnumerable<object> dependencies = null)
 		{
-			return Create(setup.Identification, setup.Frame, setup.Body, dependencyManager, position, Quaternion.identity, setup.BrainGraphs, setup.Children, setup.Dependencies);
+			return Create(setup.Identification, setup.Frame, setup.Body, dependencyManager, position, Quaternion.identity, labels,
+				brainGraphs == null ? setup.BrainGraphs : setup.BrainGraphs.Union(brainGraphs),
+				children == null ? setup.Children : setup.Children.Union(children),
+				dependencies == null ? setup.Dependencies : setup.Dependencies.Union(dependencies));
 		}
 
-		public static Agent Create(IAgentSetup setup, IDependencyManager dependencyManager, Vector3 position, Quaternion rotation)
+		public static Agent Create(IAgentSetup setup, IDependencyManager dependencyManager, Vector3 position, Quaternion rotation,
+			IEnumerable<string> labels = null,
+			IEnumerable<StateMachineGraph> brainGraphs = null,
+			IEnumerable<GameObject> children = null,
+			IEnumerable<object> dependencies = null)
 		{
-			return Create(setup.Identification, setup.Frame, setup.Body, dependencyManager, position, rotation, setup.BrainGraphs, setup.Children, setup.Dependencies);
+			return Create(setup.Identification, setup.Frame, setup.Body, dependencyManager, position, rotation, labels,
+				brainGraphs == null ? setup.BrainGraphs : setup.BrainGraphs.Union(brainGraphs),
+				children == null ? setup.Children : setup.Children.Union(children),
+				dependencies == null ? setup.Dependencies : setup.Dependencies.Union(dependencies));
 		}
 
 		public static Agent Create(
@@ -29,9 +50,10 @@ namespace SpaxUtils
 			IDependencyManager dependencyManager,
 			Vector3 position,
 			Quaternion rotation,
-			ICollection<StateMachineGraph> brainGraphs = null,
-			ICollection<GameObject> children = null,
-			ICollection<object> dependencies = null)
+			IEnumerable<string> labels = null,
+			IEnumerable<StateMachineGraph> brainGraphs = null,
+			IEnumerable<GameObject> children = null,
+			IEnumerable<object> dependencies = null)
 		{
 			if (!dependencyManager.TryGetBinding(typeof(ICommunicationChannel), typeof(ICommunicationChannel), false, out _))
 			{
@@ -54,6 +76,14 @@ namespace SpaxUtils
 				}
 			}
 
+			// Set up identity.
+			Agent agent = rootGo.GetComponent<Agent>();
+			identification = new Identification(identification, agent);
+			if (labels != null)
+			{
+				identification.Add(labels);
+			}
+
 			// Bind all dependencies.
 			dependencyManager.Bind(identification);
 			if (dependencies != null)
@@ -71,8 +101,7 @@ namespace SpaxUtils
 			DependencyUtils.Inject(rootGo, dependencyManager, includeChildren: true, bindComponents: false);
 
 			// Initialize the brain.
-			Agent agent = rootGo.GetComponent<Agent>();
-			if (brainGraphs != null && brainGraphs.Count > 0)
+			if (brainGraphs != null)
 			{
 				agent.AddInitialBrainGraphs(brainGraphs);
 			}
@@ -80,6 +109,22 @@ namespace SpaxUtils
 			// Activate Agent and return.
 			rootGo.SetActive(true);
 			return agent;
+		}
+
+		private static List<object> CombineDependencies(ICollection<object> a, ICollection<object> b)
+		{
+			List<object> dependencies = new List<object>(a);
+			if (b.Count > 0)
+			{
+				foreach (var item in b)
+				{
+					if (!dependencies.Contains(item))
+					{
+						dependencies.Add(item);
+					}
+				}
+			}
+			return dependencies;
 		}
 	}
 }

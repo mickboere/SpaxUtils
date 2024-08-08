@@ -219,6 +219,7 @@ namespace SpaxUtils
 			if (!keyDupe)
 			{
 				BindUnchecked(key, value);
+				return true;
 			}
 
 			bool providerDupe = false;
@@ -230,16 +231,20 @@ namespace SpaxUtils
 				if (!providerDupe)
 				{
 					BindUnchecked(bindingKeyProvider.BindingKey, value);
+					return true;
 				}
 			}
 
 			if (keyDupe && providerDupe)
 			{
-				SpaxDebug.Error(IdentifierPrefix + "Could not bind dependency.", $"The existing bindings contained both a key/type dupe and provider dupe. Key: '{key}', Value: '{value}', ProviderKey: {providerKey}");
+				SpaxDebug.Error(IdentifierPrefix + "Could not bind dependency.",
+					$"The existing bindings contain both a key/type dupe and provider dupe. Key: '{key}', Value: '{value}', Existing Value: '{bindings[key]}', ProviderKey: '{providerKey}'");
 				return false;
 			}
 
-			return true;
+			SpaxDebug.Error(IdentifierPrefix + "Could not bind dependency.",
+				$"The existing bindings contain a duplicate key. Key: '{key}', Value: '{value}', Existing Value: '{bindings[key]}', ProviderKey: '{providerKey}'");
+			return false;
 		}
 
 		/// <inheritdoc/>

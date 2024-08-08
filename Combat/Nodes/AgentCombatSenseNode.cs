@@ -32,14 +32,14 @@ namespace SpaxUtils
 		private IVisionComponent vision;
 		private IHittable hittable;
 		private ICommunicationChannel comms;
-		private EnemyIdentificationData enemyIdentificationData;
+		private EnemyIdentificationData[] enemyIdentificationData;
 
 		private EntityComponentFilter<ITargetable> targetables;
 		private Dictionary<ITargetable, EnemyData> enemies = new Dictionary<ITargetable, EnemyData>();
 
 		public void InjectDependencies(IAgent agent, IEntityCollection entityCollection, IVisionComponent vision,
 			IHittable hittable, ICommunicationChannel comms,
-			[Optional] EnemyIdentificationData enemyIdentificationData)
+			EnemyIdentificationData[] enemyIdentificationData)
 		{
 			this.agent = agent;
 			this.entityCollection = entityCollection;
@@ -53,7 +53,7 @@ namespace SpaxUtils
 		{
 			base.OnStateEntered();
 
-			agent.Mind.UpdateEvent += OnMindUpdateEvent;
+			agent.Mind.UpdatingEvent += OnMindUpdatingEvent;
 			agent.Mind.MotivatedEvent += OnMindMotivatedEvent;
 			hittable.Subscribe(this, OnReceivedHitEvent, -2);
 			comms.Listen<HitData>(this, OnSentHitEvent);
@@ -66,7 +66,10 @@ namespace SpaxUtils
 			}
 			if (enemyIdentificationData != null)
 			{
-				hostiles.AddRange(enemyIdentificationData.EnemyLabels);
+				foreach (EnemyIdentificationData eid in enemyIdentificationData)
+				{
+					hostiles.AddRange(eid.EnemyLabels);
+				}
 			}
 
 			targetables = new EntityComponentFilter<ITargetable>(
@@ -82,7 +85,7 @@ namespace SpaxUtils
 		{
 			base.OnStateExit();
 
-			agent.Mind.UpdateEvent -= OnMindUpdateEvent;
+			agent.Mind.UpdatingEvent -= OnMindUpdatingEvent;
 			agent.Mind.MotivatedEvent -= OnMindMotivatedEvent;
 			hittable.Unsubscribe(this);
 			comms.StopListening(this);
@@ -91,7 +94,7 @@ namespace SpaxUtils
 			targetables.Dispose();
 		}
 
-		private void OnMindUpdateEvent(float delta)
+		private void OnMindUpdatingEvent(float delta)
 		{
 			// Invoked when the mind begins updating.
 			GatherEnemyData();
@@ -101,18 +104,14 @@ namespace SpaxUtils
 		private void OnMindMotivatedEvent()
 		{
 			// Invoked when the mind's motivation has settled.
-
-			// Set target to the entity responsible for the mind's motivation.
-			if (agent.Targeter.Target != agent.Mind.Motivation.target)
+			if (agent.Mind.Motivation.target != null)
 			{
-				if (agent.Mind.Motivation.target != null)
-				{
-					agent.Targeter.SetTarget(agent.Mind.Motivation.target.GetEntityComponent<ITargetable>());
-				}
-				else
-				{
-					agent.Targeter.SetTarget(null);
-				}
+				// Set target to the entity responsible for the mind's motivation.
+				agent.Targeter.SetTarget(agent.Mind.Motivation.target.GetEntityComponent<ITargetable>());
+			}
+			else
+			{
+				agent.Targeter.SetTarget(null);
 			}
 		}
 
@@ -142,7 +141,7 @@ namespace SpaxUtils
 				performer.RunTime.Approx(0f) &&
 				performer is IMovePerformer movePerformer)
 			{
-				SpaxDebug.Log($"Satisfy Anger", $"{movePerformer.Charge}");
+				//SpaxDebug.Log($"Satisfy Anger", $"{movePerformer.Charge}");
 				// Invoked when the agent performs an attack.
 				// Process satisfies Anger towards current target by the charge amount.
 				Vector8 satisfaction = new Vector8(movePerformer.Charge, 0f, 0f, 0f, 0f, 0f, 0f, 0f);

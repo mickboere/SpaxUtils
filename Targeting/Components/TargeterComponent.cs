@@ -73,13 +73,14 @@ namespace SpaxUtils
 				targetable = null;
 			}
 
-			ITargetable previous = Target;
+			if (Target == targetable)
+			{
+				return;
+			}
+
 			AddTarget(targetable);
 			Target = targetable;
-			if (Target != previous)
-			{
-				TargetChangedEvent?.Invoke(Target);
-			}
+			TargetChangedEvent?.Invoke(Target);
 		}
 
 		#endregion Methods
