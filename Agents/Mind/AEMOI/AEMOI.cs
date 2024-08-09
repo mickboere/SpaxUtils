@@ -27,6 +27,9 @@ namespace SpaxUtils
 		public Vector8 Personality => personality.Vector8;
 
 		/// <inheritdoc/>
+		public IReadOnlyDictionary<IEntity, Vector8> Stimuli => stimuli;
+
+		/// <inheritdoc/>
 		public (Vector8 motivation, IEntity target) Motivation { get; private set; }
 
 		private IAgent agent;
@@ -85,11 +88,11 @@ namespace SpaxUtils
 			// Gather senses.
 			UpdatingEvent?.Invoke(delta);
 
-			// Dampen stimuli to limit buildup.
+			// Disperse and dampen stimuli to limit buildup.
 			List<IEntity> sources = new List<IEntity>(stimuli.Keys);
 			foreach (IEntity source in sources)
 			{
-				stimuli[source] = stimuli[source].Lerp(Vector8.Zero, settings.EmotionDamping * delta);
+				stimuli[source] = stimuli[source].Disperse(Vector8.Zero, personality.Vector8, settings.EmotionDispersion * delta).Lerp(Vector8.Zero, settings.EmotionDamping * delta);
 			}
 
 			// Set the current highest motivation.
@@ -184,7 +187,7 @@ namespace SpaxUtils
 			foreach (IMindBehaviour behaviour in behaviours)
 			{
 				if (behaviour.Valid(Motivation.motivation, Motivation.target, out float strength) && // Ensure behaviour is valid.
-					(match == null || behaviour.Priority > match.Priority || // If priority exceeds current, set new match.
+					(match == null || behaviour.Priority > match.Priority || // If first match or priority exceeds current, set new match.
 					(behaviour.Priority == match.Priority && strength > strongest))) // If priority matches current, set match to strongest.
 				{
 					match = behaviour;

@@ -38,6 +38,11 @@ namespace SpaxUtils
 		Vector8 Personality { get; }
 
 		/// <summary>
+		/// Collection of active stimuli being processed and the entities responsible for them.
+		/// </summary>
+		IReadOnlyDictionary<IEntity, Vector8> Stimuli { get; }
+
+		/// <summary>
 		/// The motivation profile that is currently the strongest and the entity responsible for it.
 		/// </summary>
 		(Vector8 motivation, IEntity target) Motivation { get; }

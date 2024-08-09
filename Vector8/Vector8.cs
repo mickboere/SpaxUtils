@@ -126,13 +126,13 @@ namespace SpaxUtils
 		public float Distance(Vector8 b) => Distance(this, b);
 
 		/// <summary>
-		/// Perform a "fluid" simulation where each member flows into its neighbours' weights <paramref name="w"/> multiplied by <paramref name="t"/>.
+		/// Disperses the member values into their neighbours using <paramref name="w"/> as weights multiplied by <paramref name="t"/>.
 		/// </summary>
 		/// <param name="r">The rest position of the simulation.</param>
 		/// <param name="w">The vector containing the simulation weights.</param>
 		/// <param name="t">The "timestep".</param>
 		/// <returns><paramref name="v"/> with a flow simulation applied.</returns>
-		public Vector8 Simulate(Vector8 r, Vector8 w, float t) => Simulate(this, r, w, t);
+		public Vector8 Disperse(Vector8 r, Vector8 w, float t) => Disperse(this, r, w, t);
 
 		/// <summary>
 		/// Get the positions of all members arranged in a circle.
@@ -329,14 +329,14 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
-		/// Perform a "fluid" simulation on Vector8 <paramref name="v"/> where each member flows into its neighbours' weights <paramref name="w"/> multiplied by <paramref name="t"/>.
+		/// Disperses members of <paramref name="v"/> into their neighbours using <paramref name="w"/> as weights, multiplied by <paramref name="t"/>.
 		/// </summary>
 		/// <param name="v">The vector to perform the simulation on.</param>
 		/// <param name="r">The rest position of the simulation.</param>
 		/// <param name="w">The vector containing the simulation weights.</param>
 		/// <param name="t">The "timestep".</param>
 		/// <returns><paramref name="v"/> with a flow simulation applied.</returns>
-		public static Vector8 Simulate(Vector8 v, Vector8 r, Vector8 w, float t)
+		public static Vector8 Disperse(Vector8 v, Vector8 r, Vector8 w, float t)
 		{
 			Vector8 s = v;
 			int iP, iN;

@@ -4,6 +4,7 @@ using UnityEngine;
 
 namespace SpaxUtils
 {
+	[NodeWidth(300)]
 	public class AEMOINode : StateComponentNodeBase
 	{
 		[SerializeField, Tooltip("Update rate in milliseconds.")] private int updateRate = 100;

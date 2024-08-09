@@ -64,11 +64,35 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
+		/// Returns <paramref name="f"/> clamped between <paramref name="min"/> and <paramref name="max"/>.
+		/// </summary>
+		public static float Clamp(this float f, float min, float max)
+		{
+			return Mathf.Clamp(f, min, max);
+		}
+
+		/// <summary>
 		/// Returns absolute of <paramref name="f"/>.
 		/// </summary>
 		public static float Abs(this float f)
 		{
 			return Mathf.Abs(f);
+		}
+
+		/// <summary>
+		/// Returns the lowest value between <paramref name="f"/> and <paramref name="values"/>.
+		/// </summary>
+		public static float Min(this float f, params float[] values)
+		{
+			return Mathf.Min(f, Mathf.Min(values));
+		}
+
+		/// <summary>
+		/// Returns the highest value between <paramref name="f"/> and <paramref name="values"/>.
+		/// </summary>
+		public static float Max(this float f, params float[] values)
+		{
+			return Mathf.Max(f, Mathf.Max(values));
 		}
 
 		/// <summary>
@@ -83,6 +107,11 @@ namespace SpaxUtils
 		public static float Remap(this float f, float a, float b, float fromA = 0f, float fromB = 1f)
 		{
 			return Mathf.Lerp(a, b, Mathf.InverseLerp(fromA, fromB, f));
+		}
+
+		public static float Evaluate(this float f, AnimationCurve curve)
+		{
+			return curve.Evaluate(f);
 		}
 
 		#region Easing functions

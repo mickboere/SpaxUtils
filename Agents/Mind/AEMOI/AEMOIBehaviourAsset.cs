@@ -40,7 +40,7 @@ namespace SpaxUtils
 				{
 					if (!trigger[i].Approx(0))
 					{
-						strength += motivation[i] + trigger[i];
+						strength += motivation[i] * trigger[i];
 					}
 				}
 				return true;

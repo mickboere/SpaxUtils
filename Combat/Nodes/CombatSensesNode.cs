@@ -9,7 +9,7 @@ namespace SpaxUtils
 	/// <summary>
 	/// AEMOI related node that stimulates the mind with combat senses.
 	/// </summary>
-	public class AgentCombatSenseNode : StateComponentNodeBase
+	public class CombatSensesNode : StateComponentNodeBase
 	{
 		private class EnemyData
 		{
@@ -23,16 +23,13 @@ namespace SpaxUtils
 			}
 		}
 
-		[SerializeField, Range(0f, 1f)] private float hostileRange = 0.8f;
-		[SerializeField, Range(0f, 1f)] private float engageRange = 0.4f;
-		[SerializeField] private float forgetTime = 10f;
-
 		private IAgent agent;
 		private IEntityCollection entityCollection;
 		private IVisionComponent vision;
 		private IHittable hittable;
 		private ICommunicationChannel comms;
 		private AgentStatHandler statHandler;
+		private CombatSensesSettings settings;
 		private EnemyIdentificationData[] enemyIdentificationData;
 
 		private EntityComponentFilter<ITargetable> targetables;
@@ -40,7 +37,7 @@ namespace SpaxUtils
 
 		public void InjectDependencies(IAgent agent, IEntityCollection entityCollection, IVisionComponent vision,
 			IHittable hittable, ICommunicationChannel comms,
-			AgentStatHandler statHandler,
+			AgentStatHandler statHandler, CombatSensesSettings settings,
 			EnemyIdentificationData[] enemyIdentificationData)
 		{
 			this.agent = agent;
@@ -49,6 +46,7 @@ namespace SpaxUtils
 			this.hittable = hittable;
 			this.comms = comms;
 			this.statHandler = statHandler;
+			this.settings = settings;
 			this.enemyIdentificationData = enemyIdentificationData;
 		}
 
@@ -124,15 +122,17 @@ namespace SpaxUtils
 			// Process vertically to stimulate both Anger and Fear.
 			// Anger is proportionate to relative incoming force.
 			// Fear is proportionate to relative incoming damage.
-			Vector8 stim = new Vector8(hitData.Result_Force / agent.Body.RigidbodyWrapper.Mass, 0f, 0f, 0f, hitData.Result_Damage / agent.GetStat(AgentStatIdentifiers.HEALTH), 0f, 0f, 0f);
+			Vector8 stim = new Vector8(
+				hitData.Result_Force / agent.Body.RigidbodyWrapper.Mass, 0f, 0f, 0f,
+				hitData.Result_Damage / agent.GetStat(AgentStatIdentifiers.HEALTH) * 3f, 0f, 0f, 0f);
 			agent.Mind.Stimulate(stim, hitData.Hitter);
 		}
 
 		private void OnSentHitEvent(HitData hitData)
 		{
 			// Invoked when the agent has hit another entity (in combat).
-			// Process vertically to satisfy both Anger and Fear.
-			Vector8 satisfaction = new Vector8(1f, 0f, 0f, 0f, 1f, 0f, 0f, 0f);
+			// Satisfies Anger.
+			Vector8 satisfaction = new Vector8(1f, 0f, 0f, 0f, 0f, 0f, 0f, 0f);
 			agent.Mind.Satisfy(satisfaction, hitData.Hittable.Entity);
 		}
 
@@ -177,7 +177,7 @@ namespace SpaxUtils
 			List<ITargetable> outOfView = enemies.Keys.Except(visible).ToList();
 			foreach (ITargetable lostTargetable in outOfView)
 			{
-				if (Time.time - enemies[lostTargetable].LastSeen > forgetTime)
+				if (Time.time - enemies[lostTargetable].LastSeen > settings.ForgetTime)
 				{
 					enemies.Remove(lostTargetable);
 				}
@@ -188,10 +188,26 @@ namespace SpaxUtils
 		{
 			foreach (EnemyData enemy in enemies.Values)
 			{
-				Vector8 stim = new Vector8();
-				stim.NW = Mathf.InverseLerp(vision.Range, vision.Range * hostileRange, enemy.Distance); // Hate
-				stim.N = Mathf.InverseLerp(vision.Range * hostileRange, vision.Range * engageRange, enemy.Distance); // Anger
-				//stim.S = statHandler.PointStatOcton.SW.PercentileMax.InvertClamped(); // Fear
+				// STIM should be a combination of certain calculation about the enemy's status:
+				// 
+				// DANGER (how easy is it currently for the enemy to kill us) => instills fear, carefulness, desire for distance
+				// (DIS)ADVANTAGE (difference in current stat values)
+				//		Advantage	=> will prompt one to press this advantage (charge up for powerful attack).
+				//		Disadvantage => will prompt one to better their odds (power up, seek better weapon, etc).
+				// 
+
+				Vector8 current = agent.Mind.Stimuli.ContainsKey(enemy.Entity) ? agent.Mind.Stimuli[enemy.Entity] : Vector8.Zero;
+
+				float threat = (enemy.Distance / (vision.Range * settings.ThreatRange)).InvertClamped().Evaluate(settings.ThreatCurve) / Mathf.Max(current.NW * settings.StimDamping, 1f);
+				float incite = (enemy.Distance / (vision.Range * settings.InciteRange)).InvertClamped().Evaluate(settings.InciteCurve) / Mathf.Max(current.N * settings.StimDamping, 1f);
+				float danger = (statHandler.PointStatOcton.SW.PercentileMax.InvertClamped() * threat * 2f).Clamp01() / Mathf.Max(current.S * settings.StimDamping, 1f);
+
+				Vector8 stim = new Vector8()
+				{
+					N = incite, // Anger
+					S = danger, // Fear
+					NW = threat // Hate
+				};
 
 				//SpaxDebug.Log($"Stimulate ({enemy.Entity.Identification.Name}):", stim.ToStringShort());
 

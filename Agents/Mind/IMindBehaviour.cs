@@ -16,6 +16,11 @@
 		bool Interuptable { get; }
 
 		/// <summary>
+		/// The minimum required motivation for this behaviour to be triggered / considered valid.
+		/// </summary>
+		//Vector8 Trigger { get; }
+
+		/// <summary>
 		/// Returns whether this behaviour is valid to be intiated.
 		/// </summary>
 		/// <param name="motivation">The agent's current motivation profile, used to determine whether the minimum motivation is met for behaviour initiation.</param>
