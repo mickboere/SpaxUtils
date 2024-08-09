@@ -33,7 +33,7 @@ namespace SpaxUtils
 		{
 			strength = 0f;
 
-			if (motivation > trigger)
+			if (motivation >= trigger)
 			{
 				// Calculate strength by summing all motivation members that exceed the minimum trigger motivation.
 				for (int i = 0; i < 8; i++)

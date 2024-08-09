@@ -590,6 +590,22 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
+		/// Returns whether all members of <paramref name="a"/> either match or exceed their counterparts in <paramref name="b"/>.
+		/// </summary>
+		public static bool operator >=(Vector8 a, Vector8 b)
+		{
+			return
+				a.N >= b.N &&
+				a.NE >= b.NE &&
+				a.E >= b.E &&
+				a.SE >= b.SE &&
+				a.S >= b.S &&
+				a.SW >= b.SW &&
+				a.W >= b.W &&
+				a.NW >= b.NW;
+		}
+
+		/// <summary>
 		/// Returns whether all members of <paramref name="a"/> are smaller than their counterparts in <paramref name="b"/>.
 		/// </summary>
 		public static bool operator <(Vector8 a, Vector8 b)
@@ -603,6 +619,22 @@ namespace SpaxUtils
 				a.SW < b.SW &&
 				a.W < b.W &&
 				a.NW < b.NW;
+		}
+
+		/// <summary>
+		/// Returns whether all members of <paramref name="a"/> either match or are smaller than their counterparts in <paramref name="b"/>.
+		/// </summary>
+		public static bool operator <=(Vector8 a, Vector8 b)
+		{
+			return
+				a.N <= b.N &&
+				a.NE <= b.NE &&
+				a.E <= b.E &&
+				a.SE <= b.SE &&
+				a.S <= b.S &&
+				a.SW <= b.SW &&
+				a.W <= b.W &&
+				a.NW <= b.NW;
 		}
 
 		#endregion Operators

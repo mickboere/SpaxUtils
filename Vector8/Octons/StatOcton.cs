@@ -4,7 +4,7 @@ using UnityEngine;
 namespace SpaxUtils
 {
 	/// <summary>
-	/// Class that behaves as a <see cref="Vector8"/>, assigning an <see cref="EntityStat"/> to each member.
+	/// Class that behaves as a <see cref="SpaxUtils.Vector8"/>, assigning an <see cref="EntityStat"/> to each member.
 	/// </summary>
 	[Serializable]
 	public class StatOcton : IOcton

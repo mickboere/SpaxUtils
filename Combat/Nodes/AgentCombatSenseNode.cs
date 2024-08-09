@@ -32,6 +32,7 @@ namespace SpaxUtils
 		private IVisionComponent vision;
 		private IHittable hittable;
 		private ICommunicationChannel comms;
+		private AgentStatHandler statHandler;
 		private EnemyIdentificationData[] enemyIdentificationData;
 
 		private EntityComponentFilter<ITargetable> targetables;
@@ -39,6 +40,7 @@ namespace SpaxUtils
 
 		public void InjectDependencies(IAgent agent, IEntityCollection entityCollection, IVisionComponent vision,
 			IHittable hittable, ICommunicationChannel comms,
+			AgentStatHandler statHandler,
 			EnemyIdentificationData[] enemyIdentificationData)
 		{
 			this.agent = agent;
@@ -46,6 +48,7 @@ namespace SpaxUtils
 			this.vision = vision;
 			this.hittable = hittable;
 			this.comms = comms;
+			this.statHandler = statHandler;
 			this.enemyIdentificationData = enemyIdentificationData;
 		}
 
@@ -186,8 +189,9 @@ namespace SpaxUtils
 			foreach (EnemyData enemy in enemies.Values)
 			{
 				Vector8 stim = new Vector8();
-				stim.NW = Mathf.InverseLerp(vision.Range, vision.Range * hostileRange, enemy.Distance) * 0.8f; // Hostility
+				stim.NW = Mathf.InverseLerp(vision.Range, vision.Range * hostileRange, enemy.Distance); // Hate
 				stim.N = Mathf.InverseLerp(vision.Range * hostileRange, vision.Range * engageRange, enemy.Distance); // Anger
+				//stim.S = statHandler.PointStatOcton.SW.PercentileMax.InvertClamped(); // Fear
 
 				//SpaxDebug.Log($"Stimulate ({enemy.Entity.Identification.Name}):", stim.ToStringShort());
 

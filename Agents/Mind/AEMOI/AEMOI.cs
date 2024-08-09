@@ -29,6 +29,7 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public (Vector8 motivation, IEntity target) Motivation { get; private set; }
 
+		private IAgent agent;
 		private IDependencyManager dependencyManager;
 		private AEMOISettings settings;
 		private IOcton personality;
@@ -38,8 +39,9 @@ namespace SpaxUtils
 
 		private Dictionary<IEntity, Vector8> stimuli = new Dictionary<IEntity, Vector8>();
 
-		public AEMOI(IDependencyManager dependencyManager, AEMOISettings settings, IOcton personality, IEnumerable<IMindBehaviour> behaviours = null)
+		public AEMOI(IAgent agent, IDependencyManager dependencyManager, AEMOISettings settings, IOcton personality, IEnumerable<IMindBehaviour> behaviours = null)
 		{
+			this.agent = agent;
 			this.dependencyManager = dependencyManager;
 			this.settings = settings;
 			this.personality = personality;
@@ -83,11 +85,11 @@ namespace SpaxUtils
 			// Gather senses.
 			UpdatingEvent?.Invoke(delta);
 
-			// Simulate stimuli according to Personality and dampen them to limit buildup.
+			// Dampen stimuli to limit buildup.
 			List<IEntity> sources = new List<IEntity>(stimuli.Keys);
 			foreach (IEntity source in sources)
 			{
-				stimuli[source] = stimuli[source].Simulate(Vector8.Zero, Personality, settings.EmotionSimulation * delta).Lerp(Vector8.Zero, settings.EmotionDamping * delta);
+				stimuli[source] = stimuli[source].Lerp(Vector8.Zero, settings.EmotionDamping * delta);
 			}
 
 			// Set the current highest motivation.

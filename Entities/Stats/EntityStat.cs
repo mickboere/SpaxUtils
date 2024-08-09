@@ -86,49 +86,39 @@ namespace SpaxUtils
 			base.Dispose();
 		}
 
+		#region Damage
+
 		public void Damage(float damage, bool clamp = true, bool applyMultiplier = true)
 		{
-			if (applyMultiplier)
-			{
-				damageMultiplier = damageMultiplier ?? entity?.GetStat(Identifier.SubStat(AgentStatIdentifiers.SUB_COST));
-				damage *= damageMultiplier ?? 1f;
-			}
-
+			CalculateDamage(ref damage, applyMultiplier);
 			BaseValue = clamp ? Mathf.Max(0f, BaseValue - damage) : BaseValue - damage;
 		}
 
 		public void Damage(float damage, bool clamp, out bool drained, bool applyMultiplier = true)
 		{
-			if (applyMultiplier)
-			{
-				damageMultiplier = damageMultiplier ?? entity?.GetStat(Identifier.SubStat(AgentStatIdentifiers.SUB_COST));
-				damage *= damageMultiplier ?? 1f;
-			}
-
+			CalculateDamage(ref damage, applyMultiplier);
 			drained = damage > BaseValue;
 			Damage(damage, clamp, false);
 		}
 
 		public void Damage(float damage, bool clamp, out bool drained, out float excess, bool applyMultiplier = true)
 		{
-			if (applyMultiplier)
-			{
-				damageMultiplier = damageMultiplier ?? entity?.GetStat(Identifier.SubStat(AgentStatIdentifiers.SUB_COST));
-				damage *= damageMultiplier ?? 1f;
-			}
-
+			CalculateDamage(ref damage, applyMultiplier);
 			excess = Mathf.Abs(Mathf.Min(0, BaseValue - damage));
 			drained = excess > 0;
 			Damage(damage, clamp, false);
 		}
 
-		/// <summary>
-		/// Returns the percentile of this stat compared to its max sub-stat.
-		/// </summary>
-		public float Percentile()
+		private void CalculateDamage(ref float damage, bool applyMultiplier)
 		{
-			return Value / entity.GetStat(Identifier.SubStat("Max"));
+			if (applyMultiplier)
+			{
+				damageMultiplier = damageMultiplier ?? entity?.GetStat(Identifier.SubStat(AgentStatIdentifiers.SUB_COST));
+				damage *= damageMultiplier ?? 1f;
+			}
 		}
+
+		#endregion Damage
 
 		private void OnDataValueChanged(object newValue)
 		{

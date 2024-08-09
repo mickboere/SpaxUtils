@@ -1,7 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.Serialization;
 
 namespace SpaxUtils
 {
@@ -10,10 +9,9 @@ namespace SpaxUtils
 	/// </summary>
 	public class AgentStatHandler : EntityComponentBase
 	{
-		public StatOcton StatPoints => pointStatOcton;
+		public PointStatOcton PointStatOcton => pointStatOcton;
 
-		[SerializeField] private StatOcton pointStatOcton;
-		[SerializeField] private List<PointsStat> pointsStats;
+		[SerializeField] private PointStatOcton pointStatOcton;
 
 		private IAgent agent;
 
@@ -27,14 +25,7 @@ namespace SpaxUtils
 
 		protected void Awake()
 		{
-			// Initialize stat pairs.
-			foreach (PointsStat pointStat in pointsStats)
-			{
-				pointStat.Initialize(agent);
-			}
-
-			// Initialize point stat octon.
-			// This octon gives easy access to relevant stat data for other classes.
+			// Initialize point stats.
 			pointStatOcton.Initialize(agent);
 
 			// Modify recovery stat with control (so that recovery only occurs when agent is in control).
@@ -69,21 +60,15 @@ namespace SpaxUtils
 
 			// Update state pairs to initiate recovery.
 			// TODO: MUST BE DONE THROUGH BRAIN NODE TO PREVENT RECOVERY DURING DEATH.
-			foreach (PointsStat pointStat in pointsStats)
-			{
-				pointStat.Update(Time.deltaTime * EntityTimeScale);
-			}
+			pointStatOcton.Update(Time.deltaTime);
 		}
 
 		/// <summary>
-		/// Recovers all multistats.
+		/// Recovers all point stats.
 		/// </summary>
 		public void RecoverAll()
 		{
-			foreach (PointsStat pointStat in pointsStats)
-			{
-				pointStat.Recover();
-			}
+			pointStatOcton.Recover();
 		}
 	}
 }
