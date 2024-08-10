@@ -21,6 +21,7 @@ namespace SpaxUtils
 
 		#endregion // Properties
 
+		[Header("COMBAT")]
 		[Header("Hit detection")]
 		[SerializeField, ConstDropdown(typeof(ITransformLookupIdentifiers), showAdress: true)] private List<string> hitBoxes;
 		[SerializeField] private float hitDetectionDelay = 0f;

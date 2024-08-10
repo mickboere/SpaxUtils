@@ -6,7 +6,7 @@ namespace SpaxUtils
 {
 	/// <summary>
 	/// Implementation of <see cref="ITargeter"/>.
-	/// Stores this entity's targets (as <see cref="ITargetable"/>) and its current main target.
+	/// Stores an entity's current target as <see cref="ITargetable"/>.
 	/// </summary>
 	public class TargeterComponent : EntityComponentBase, ITargeter
 	{
@@ -16,53 +16,12 @@ namespace SpaxUtils
 		#region Properties
 
 		/// <inheritdoc/>
-		public IList<ITargetable> Targets { get; private set; } = new List<ITargetable>();
-
-		/// <inheritdoc/>
 		public ITargetable Target { get; private set; }
 
 		/// <inheritdoc/>
 		public bool Targeting => Target != null;
 
 		#endregion Properties
-
-		#region Methods
-
-		/// <inheritdoc/>
-		public void AddTarget(ITargetable targetable)
-		{
-			if (targetable == null || Targets.Contains(targetable))
-			{
-				return;
-			}
-
-			Targets.Add(targetable);
-		}
-
-		/// <inheritdoc/>
-		public void RemoveTarget(ITargetable targetable)
-		{
-			if (Target == targetable)
-			{
-				SetTarget(null);
-			}
-
-			if (Targets.Contains(targetable))
-			{
-				Targets.Remove(targetable);
-			}
-		}
-
-		/// <inheritdoc/>
-		public void SetTargets(IEnumerable<ITargetable> targetables)
-		{
-			Targets = new List<ITargetable>(targetables);
-
-			if (Target != null && !Targets.Contains(Target))
-			{
-				Targets.Add(Target);
-			}
-		}
 
 		/// <inheritdoc/>
 		public void SetTarget(ITargetable targetable)
@@ -78,11 +37,8 @@ namespace SpaxUtils
 				return;
 			}
 
-			AddTarget(targetable);
 			Target = targetable;
 			TargetChangedEvent?.Invoke(Target);
 		}
-
-		#endregion Methods
 	}
 }

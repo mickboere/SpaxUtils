@@ -23,12 +23,12 @@ namespace SpaxUtils
 		#region Properties
 
 		/// <summary>
-		/// The action performer of this agent. See <see cref="IActor"/>.
+		/// The action performer of this agent.
 		/// </summary>
 		IActor Actor { get; }
 
 		/// <summary>
-		/// The state machine of this agent. See <see cref="IBrain"/>.
+		/// The state machine of this agent.
 		/// </summary>
 		IBrain Brain { get; }
 
@@ -38,17 +38,22 @@ namespace SpaxUtils
 		IMind Mind { get; }
 
 		/// <summary>
-		/// The body of this agent. See <see cref="IAgentBody"/>.
+		/// The relations manager of this agent, keeps track of relations for entity ID's and Labels.
+		/// </summary>
+		IRelations Relations { get; }
+
+		/// <summary>
+		/// The body of this agent, holds references to all physical data.
 		/// </summary>
 		IAgentBody Body { get; }
 
 		/// <summary>
-		/// The targetable component of this agent. See <see cref="ITargetable"/>.
+		/// The targetable component of this agent, contains all data on the physical dimensions of this entity.
 		/// </summary>
 		ITargetable Targetable { get; }
 
 		/// <summary>
-		/// The targeter of this agent. See <see cref="ITargeter"/>.
+		/// The targeter of this agent, keeps track of the currently targeted entity.
 		/// </summary>
 		ITargeter Targeter { get; }
 

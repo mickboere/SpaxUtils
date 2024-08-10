@@ -92,7 +92,7 @@ namespace SpaxUtils
 			Stats = new StatCollection<EntityStat>();
 		}
 
-		protected virtual void LoadData(RuntimeDataCollection runtimeData)
+		protected virtual void LoadData(RuntimeDataCollection runtimeData = null)
 		{
 			// Load entity data.
 			if (runtimeData != null)

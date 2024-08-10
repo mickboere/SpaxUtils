@@ -41,9 +41,9 @@ namespace SpaxUtils
 		/// All data entries making up this runtime data.
 		/// </summary>
 		[JsonIgnore]
-		public IReadOnlyList<RuntimeDataEntry> Data
+		public IReadOnlyCollection<RuntimeDataEntry> Data
 		{
-			get { return _data.Values.ToList(); }
+			get { return _data.Values; }
 			set
 			{
 				_data = new Dictionary<string, RuntimeDataEntry>();

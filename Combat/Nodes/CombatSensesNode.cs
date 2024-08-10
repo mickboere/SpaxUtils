@@ -30,15 +30,13 @@ namespace SpaxUtils
 		private ICommunicationChannel comms;
 		private AgentStatHandler statHandler;
 		private CombatSensesSettings settings;
-		private EnemyIdentificationData[] enemyIdentificationData;
 
 		private EntityComponentFilter<ITargetable> targetables;
 		private Dictionary<ITargetable, EnemyData> enemies = new Dictionary<ITargetable, EnemyData>();
 
 		public void InjectDependencies(IAgent agent, IEntityCollection entityCollection, IVisionComponent vision,
 			IHittable hittable, ICommunicationChannel comms,
-			AgentStatHandler statHandler, CombatSensesSettings settings,
-			EnemyIdentificationData[] enemyIdentificationData)
+			AgentStatHandler statHandler, CombatSensesSettings settings)
 		{
 			this.agent = agent;
 			this.entityCollection = entityCollection;
@@ -47,7 +45,6 @@ namespace SpaxUtils
 			this.comms = comms;
 			this.statHandler = statHandler;
 			this.settings = settings;
-			this.enemyIdentificationData = enemyIdentificationData;
 		}
 
 		public override void OnStateEntered()
@@ -60,22 +57,9 @@ namespace SpaxUtils
 			comms.Listen<HitData>(this, OnSentHitEvent);
 			agent.Actor.PerformanceUpdateEvent += OnPerformanceUpdateEvent;
 
-			List<string> hostiles = agent.GetDataValue<List<string>>(AIDataIdentifiers.HOSTILES);
-			if (hostiles == null)
-			{
-				hostiles = new List<string>();
-			}
-			if (enemyIdentificationData != null)
-			{
-				foreach (EnemyIdentificationData eid in enemyIdentificationData)
-				{
-					hostiles.AddRange(eid.EnemyLabels);
-				}
-			}
-
 			targetables = new EntityComponentFilter<ITargetable>(
 				entityCollection,
-				(entity) => entity.Identification.HasAny(hostiles) || hostiles.Contains(entity.Identification.ID),
+				(entity) => entity.Identification.HasAny(agent.Relations.Enemies) || agent.Relations.Enemies.Contains(entity.Identification.ID),
 				(c) => true,
 				agent);
 
@@ -201,12 +185,13 @@ namespace SpaxUtils
 				float threat = (enemy.Distance / (vision.Range * settings.ThreatRange)).InvertClamped().Evaluate(settings.ThreatCurve) / Mathf.Max(current.NW * settings.StimDamping, 1f);
 				float incite = (enemy.Distance / (vision.Range * settings.InciteRange)).InvertClamped().Evaluate(settings.InciteCurve) / Mathf.Max(current.N * settings.StimDamping, 1f);
 				float danger = (statHandler.PointStatOcton.SW.PercentileMax.InvertClamped() * threat * 2f).Clamp01() / Mathf.Max(current.S * settings.StimDamping, 1f);
+				float hate = threat * -agent.Relations.Score(enemy.Entity.Identification).Min(0f);
 
 				Vector8 stim = new Vector8()
 				{
 					N = incite, // Anger
 					S = danger, // Fear
-					NW = threat // Hate
+					NW = hate // Hate
 				};
 
 				//SpaxDebug.Log($"Stimulate ({enemy.Entity.Identification.Name}):", stim.ToStringShort());

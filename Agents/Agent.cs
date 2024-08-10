@@ -14,6 +14,8 @@ namespace SpaxUtils
 		public event Action DiedEvent;
 		public event Action RevivedEvent;
 
+		#region Properties
+
 		/// <inheritdoc/>
 		public IActor Actor { get; } = new Actor();
 
@@ -22,6 +24,9 @@ namespace SpaxUtils
 
 		/// <inheritdoc/>
 		public IMind Mind { get; private set; }
+
+		/// <inheritdoc/>
+		public IRelations Relations { get; private set; }
 
 		/// <inheritdoc/>
 		public IAgentBody Body { get; private set; }
@@ -35,6 +40,8 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public bool Dead => Brain.IsStateActive(StateIdentifiers.DEAD);
 
+		#endregion Properties
+
 		protected override string GameObjectNamePrefix => "[Agent]";
 
 		[SerializeField, ConstDropdown(typeof(IStateIdentifierConstants))] private string state;
@@ -42,6 +49,7 @@ namespace SpaxUtils
 
 		private CallbackService callbackService;
 		private AEMOISettings aemoiSettings;
+		private IRelationData[] relationData;
 
 		/// <inheritdoc/>
 		public Dictionary<object, object> RetrieveDependencies()
@@ -53,13 +61,15 @@ namespace SpaxUtils
 
 		public void InjectDependencies(
 			IAgentBody body, ITargetable targetableComponent, ITargeter targeterComponent,
-			IPerformer[] performers, CallbackService callbackService, AEMOISettings aemoiSettings)
+			CallbackService callbackService, AEMOISettings aemoiSettings,
+			IPerformer[] performers, IRelationData[] relationData)
 		{
 			Body = body;
 			Targetable = targetableComponent;
 			Targeter = targeterComponent;
 			this.callbackService = callbackService;
 			this.aemoiSettings = aemoiSettings;
+			this.relationData = relationData;
 
 			foreach (IPerformer performer in performers)
 			{
@@ -76,6 +86,9 @@ namespace SpaxUtils
 
 			// Create AEMOI mind instance.
 			Mind = new AEMOI(this, DependencyManager, aemoiSettings, new StatOcton(this, aemoiSettings.Personality, Vector8.Half));
+
+			// Load Relations.
+			LoadRelations();
 
 			// Initialize brain.
 			Brain = new Brain(DependencyManager, callbackService, state, null, brainGraphs);
@@ -131,6 +144,37 @@ namespace SpaxUtils
 				if (!brainGraphs.Contains(graph))
 				{
 					brainGraphs.Add(graph);
+				}
+			}
+		}
+
+		private void LoadRelations()
+		{
+			// First load or create data collection.
+			if (RuntimeData.ContainsEntry(AgentDataIdentifiers.RELATIONS))
+			{
+				Relations = new AgentRelations(RuntimeData.GetEntry<RuntimeDataCollection>(AgentDataIdentifiers.RELATIONS));
+			}
+			else
+			{
+				RuntimeDataCollection data = new RuntimeDataCollection(AgentDataIdentifiers.RELATIONS);
+				RuntimeData.TryAdd(data);
+				Relations = new AgentRelations(data);
+			}
+
+			// Populate relations with injected data.
+			if (relationData != null)
+			{
+				foreach (IRelationData data in relationData)
+				{
+					var relations = data.GetRelations();
+					foreach (KeyValuePair<string, float> relation in relations)
+					{
+						if (!Relations.Relations.ContainsKey(relation.Key))
+						{
+							Relations.Set(relation.Key, relation.Value);
+						}
+					}
 				}
 			}
 		}
