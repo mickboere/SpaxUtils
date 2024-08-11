@@ -17,6 +17,6 @@ namespace SpaxUtils
 		/// </summary>
 		/// <param name="targetables">The targetables to check the view for.</param>
 		/// <returns></returns>
-		List<ITargetable> Spot(List<ITargetable> targetables);
+		List<ITargetable> Spot(IEnumerable<ITargetable> targetables);
 	}
 }

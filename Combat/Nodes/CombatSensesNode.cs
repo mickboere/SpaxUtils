@@ -24,22 +24,19 @@ namespace SpaxUtils
 		}
 
 		private IAgent agent;
-		private IEntityCollection entityCollection;
 		private IVisionComponent vision;
 		private IHittable hittable;
 		private ICommunicationChannel comms;
 		private AgentStatHandler statHandler;
 		private CombatSensesSettings settings;
 
-		private EntityComponentFilter<ITargetable> targetables;
 		private Dictionary<ITargetable, EnemyData> enemies = new Dictionary<ITargetable, EnemyData>();
 
-		public void InjectDependencies(IAgent agent, IEntityCollection entityCollection, IVisionComponent vision,
+		public void InjectDependencies(IAgent agent, IVisionComponent vision,
 			IHittable hittable, ICommunicationChannel comms,
 			AgentStatHandler statHandler, CombatSensesSettings settings)
 		{
 			this.agent = agent;
-			this.entityCollection = entityCollection;
 			this.vision = vision;
 			this.hittable = hittable;
 			this.comms = comms;
@@ -56,14 +53,7 @@ namespace SpaxUtils
 			hittable.Subscribe(this, OnReceivedHitEvent, -2);
 			comms.Listen<HitData>(this, OnSentHitEvent);
 			agent.Actor.PerformanceUpdateEvent += OnPerformanceUpdateEvent;
-
-			targetables = new EntityComponentFilter<ITargetable>(
-				entityCollection,
-				(entity) => entity.Identification.HasAny(agent.Relations.Enemies) || agent.Relations.Enemies.Contains(entity.Identification.ID),
-				(c) => true,
-				agent);
-
-			targetables.RemovedComponentEvent += OnEntityRemovedEvent;
+			agent.Targeter.Enemies.RemovedComponentEvent += OnEnemyRemovedEvent;
 		}
 
 		public override void OnStateExit()
@@ -75,8 +65,7 @@ namespace SpaxUtils
 			hittable.Unsubscribe(this);
 			comms.StopListening(this);
 			agent.Actor.PerformanceUpdateEvent -= OnPerformanceUpdateEvent;
-
-			targetables.Dispose();
+			agent.Targeter.Enemies.RemovedComponentEvent -= OnEnemyRemovedEvent;
 		}
 
 		private void OnMindUpdatingEvent(float delta)
@@ -139,7 +128,7 @@ namespace SpaxUtils
 		private void GatherEnemyData()
 		{
 			// Get all enemies currently in view and store their relevant data.
-			List<ITargetable> visible = vision.Spot(targetables.Components);
+			List<ITargetable> visible = vision.Spot(agent.Targeter.Enemies.Components);
 			foreach (ITargetable inView in visible)
 			{
 				EnemyData data;
@@ -200,7 +189,7 @@ namespace SpaxUtils
 			}
 		}
 
-		private void OnEntityRemovedEvent(ITargetable targetable)
+		private void OnEnemyRemovedEvent(ITargetable targetable)
 		{
 			enemies.Remove(targetable);
 		}

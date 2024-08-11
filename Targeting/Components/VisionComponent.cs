@@ -43,7 +43,7 @@ namespace SpaxUtils
 			this.transformLookup = transformLookup;
 		}
 
-		public List<ITargetable> Spot(List<ITargetable> targetables)
+		public List<ITargetable> Spot(IEnumerable<ITargetable> targetables)
 		{
 			List<ITargetable> spotted = new List<ITargetable>();
 

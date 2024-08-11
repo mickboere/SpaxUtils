@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 
 namespace SpaxUtils
 {
@@ -27,6 +28,16 @@ namespace SpaxUtils
 		/// Whether this targeter currently has a target.
 		/// </summary>
 		bool Targeting { get; }
+
+		/// <summary>
+		/// A collection of all the agent's enemy targets.
+		/// </summary>
+		IEntityComponentFilter<ITargetable> Enemies { get; }
+
+		/// <summary>
+		/// A collection of all the agent's friendly targets.
+		/// </summary>
+		IEntityComponentFilter<ITargetable> Friends { get; }
 
 		#endregion Properties
 

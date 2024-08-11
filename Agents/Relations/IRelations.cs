@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 
@@ -5,6 +6,16 @@ namespace SpaxUtils
 {
 	public interface IRelations
 	{
+		/// <summary>
+		/// Invoked when any of the relations have been altered.
+		/// </summary>
+		event Action RelationsUpdatedEvent;
+
+		/// <summary>
+		/// Invoked when a specific relation has been updated.
+		/// </summary>
+		event Action<string> RelationUpdatedEvent;
+
 		/// <summary>
 		/// An agent's memories define whether something's identity inpires fondness or hostility.
 		/// - The Key can be either an agent's ID or any identification Label.

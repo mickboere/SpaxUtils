@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
+using System;
 using UnityEngine;
 
 namespace SpaxUtils
@@ -11,9 +12,17 @@ namespace SpaxUtils
 		public const float MAX = 1f;
 
 		/// <inheritdoc/>
+		public event Action RelationsUpdatedEvent;
+
+		/// <inheritdoc/>
+		public event Action<string> RelationUpdatedEvent;
+
+		/// <inheritdoc/>
 		public IReadOnlyDictionary<string, float> Relations => relations;
+
 		/// <inheritdoc/>
 		public IReadOnlyCollection<string> Enemies => enemies;
+
 		/// <inheritdoc/>
 		public IReadOnlyCollection<string> Friends => friends;
 
@@ -39,8 +48,13 @@ namespace SpaxUtils
 				relations.Add(relation, 0f);
 			}
 
+			float previous = relations[relation];
 			relations[relation] = Mathf.Clamp(amount, MIN, MAX);
-			Update();
+			if (!relations[relation].Approx(previous))
+			{
+				Update();
+				RelationUpdatedEvent?.Invoke(relation);
+			}
 		}
 
 		/// <inheritdoc/>
@@ -51,8 +65,13 @@ namespace SpaxUtils
 				relations.Add(relation, 0f);
 			}
 
+			float previous = relations[relation];
 			relations[relation] = Mathf.Clamp(relations[relation] + amount, -1f, 1f);
-			Update();
+			if (!relations[relation].Approx(previous))
+			{
+				Update();
+				RelationUpdatedEvent?.Invoke(relation);
+			}
 		}
 
 		/// <inheritdoc/>
@@ -77,6 +96,7 @@ namespace SpaxUtils
 		{
 			enemies = relations.Where(r => r.Value < -THRESHOLD).Select(s => s.Key).ToList();
 			friends = relations.Where(r => r.Value > THRESHOLD).Select(s => s.Key).ToList();
+			RelationsUpdatedEvent?.Invoke();
 		}
 	}
 }

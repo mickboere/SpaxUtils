@@ -8,23 +8,22 @@ namespace SpaxUtils
 	/// Class that keeps track of <see cref="IEntityComponent"/>s found within the <see cref="IEntityCollection"/> of type <typeparamref name="T"/> and definable evaluations.
 	/// </summary>
 	/// <typeparam name="T">The type of <see cref="IEntityComponent"/></typeparam>
-	public class EntityComponentFilter<T> : IDisposable where T : class, IEntityComponent
+	public class EntityComponentFilter<T> : IEntityComponentFilter<T> where T : class, IEntityComponent
 	{
 		public event Action<T> AddedComponentEvent;
 		public event Action<T> RemovedComponentEvent;
 
-		public List<T> Components
+		public IList<T> Components
 		{
 			get
 			{
 				if (components == null)
 				{
-					components = entityCollection.GetComponents<T>(evaluateEntity, evaluateComponent, exclude);
+					components = entityCollection.GetComponents(evaluateEntity, evaluateComponent, exclude);
 				}
 				return components;
 			}
 		}
-		public int Count => Components.Count;
 
 		protected Func<IEntity, bool> evaluateEntity;
 		protected Func<T, bool> evaluateComponent;
@@ -57,9 +56,28 @@ namespace SpaxUtils
 			entityCollection.RemovedEntityEvent += OnRemovedEntity;
 		}
 
+		public void Reevaluate()
+		{
+			List<T> old = new List<T>(Components);
+			components = entityCollection.GetComponents(evaluateEntity, evaluateComponent, exclude);
+			List<T> removed = old.Except(components).ToList();
+			List<T> added = components.Except(old).ToList();
+			foreach (T r in removed)
+			{
+				RemovedComponentEvent?.Invoke(r);
+			}
+			foreach (T a in added)
+			{
+				AddedComponentEvent?.Invoke(a);
+			}
+		}
+
 		protected virtual void OnAddedEntity(IEntity entity)
 		{
-			if (!exclude.Contains(entity) && evaluateEntity(entity) && entity.TryGetEntityComponent(out T component) && evaluateComponent(component))
+			if (!exclude.Contains(entity) &&
+				evaluateEntity(entity) &&
+				entity.TryGetEntityComponent(out T component) &&
+				evaluateComponent(component))
 			{
 				AddComponent(component);
 			}
@@ -89,7 +107,6 @@ namespace SpaxUtils
 		{
 			entityCollection.AddedEntityEvent -= OnAddedEntity;
 			entityCollection.RemovedEntityEvent -= OnRemovedEntity;
-			Components.Clear();
 		}
 	}
 }

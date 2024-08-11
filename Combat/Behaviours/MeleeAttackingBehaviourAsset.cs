@@ -10,7 +10,6 @@ namespace SpaxUtils
 	[CreateAssetMenu(fileName = "Behaviour_MeleeAttack", menuName = "ScriptableObjects/Combat/MeleeAttackBehaviourAsset")]
 	public class MeleeAttackingBehaviourAsset : BaseCombatMoveBehaviourAsset
 	{
-		[SerializeField, ConstDropdown(typeof(IIdentificationLabels))] private string[] targetLabels;
 		[SerializeField] private float autoAimRange = 2f;
 		[SerializeField] private LayerMask hitDetectionMask;
 
@@ -36,7 +35,6 @@ namespace SpaxUtils
 		private bool wasPerforming;
 		private TimerStruct momentumTimer;
 		private bool appliedMomentum;
-		private EntityComponentFilter<ITargetable> targetables;
 		private TimedCurveModifier hitPauseMod;
 
 		public void InjectDependencies(ICombatMove move, CallbackService callbackService,
@@ -68,7 +66,6 @@ namespace SpaxUtils
 			base.Start();
 
 			hitDetector = new CombatHitDetector(Agent, transformLookup, combatMove, hitDetectionMask);
-			targetables = new EntityComponentFilter<ITargetable>(entityCollection, (entity) => entity.Identification.HasAll(targetLabels), (c) => true, Agent);
 		}
 
 		public override void Stop()
@@ -76,7 +73,6 @@ namespace SpaxUtils
 			base.Stop();
 
 			hitDetector.Dispose();
-			targetables.Dispose();
 		}
 
 		public override void CustomUpdate(float delta)
@@ -124,7 +120,7 @@ namespace SpaxUtils
 				rigidbodyWrapper.TargetVelocity = targeter.Target.Center - RigidbodyWrapper.Position;
 			}
 			else if (RigidbodyWrapper.TargetVelocity.magnitude <= 1f &&
-				navigationHandler.TryGetClosestTarget(targetables.Components, out ITargetable closest, out float distance) &&
+				navigationHandler.TryGetClosestTarget(Agent.Targeter.Enemies.Components, out ITargetable closest, out float distance) &&
 				distance < autoAimRange)
 			{
 				// Auto aim to closest targetable in range.
