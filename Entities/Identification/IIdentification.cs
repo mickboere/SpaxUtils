@@ -37,6 +37,11 @@ namespace SpaxUtils
 		#region Label Methods
 
 		/// <summary>
+		/// Returns whether this identification matches any of the <paramref name="strings"/> given, checking for both the <see cref="ID"/> and <see cref="Labels"/>.
+		/// </summary>
+		bool Matches(IEnumerable<string> strings);
+
+		/// <summary>
 		/// Adds the provided <paramref name="labels"/> if they aren't added already.
 		/// </summary>
 		void Add(params string[] labels);

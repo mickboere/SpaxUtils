@@ -56,6 +56,19 @@ namespace SpaxUtils
 			Entity = entity;
 		}
 
+		public bool Matches(IEnumerable<string> strings)
+		{
+			foreach (string s in strings)
+			{
+				if (ID == s || labels.Contains(s))
+				{
+					return true;
+				}
+			}
+
+			return false;
+		}
+
 		#region Label Methods
 
 		/// <inheritdoc/>

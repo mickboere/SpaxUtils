@@ -149,6 +149,14 @@ namespace SpaxUtils
 		/// <summary>
 		/// Converts a <see cref="Vector3"/> direction to a <see cref="Quaternion"/> rotation.
 		/// </summary>
+		public static Quaternion LookRotation(this Vector3 vector3)
+		{
+			return Quaternion.LookRotation(vector3, Vector3.up);
+		}
+
+		/// <summary>
+		/// Converts a <see cref="Vector3"/> direction to a <see cref="Quaternion"/> rotation.
+		/// </summary>
 		public static Quaternion LookRotation(this Vector3 vector3, Vector3 up)
 		{
 			return Quaternion.LookRotation(vector3, up);
