@@ -13,13 +13,13 @@ namespace SpaxUtils
 	{
 		private class EnemyData
 		{
-			public IEntity Entity;
+			public IAgent Agent;
 			public float LastSeen;
 			public float Distance;
 
-			public EnemyData(IEntity entity)
+			public EnemyData(IAgent agent)
 			{
-				Entity = entity;
+				Agent = agent;
 			}
 		}
 
@@ -29,12 +29,13 @@ namespace SpaxUtils
 		private ICommunicationChannel comms;
 		private AgentStatHandler statHandler;
 		private CombatSensesSettings settings;
+		private ProjectileService projectileService;
 
 		private Dictionary<ITargetable, EnemyData> enemies = new Dictionary<ITargetable, EnemyData>();
 
 		public void InjectDependencies(IAgent agent, IVisionComponent vision,
 			IHittable hittable, ICommunicationChannel comms,
-			AgentStatHandler statHandler, CombatSensesSettings settings)
+			AgentStatHandler statHandler, CombatSensesSettings settings, ProjectileService projectileService)
 		{
 			this.agent = agent;
 			this.vision = vision;
@@ -42,6 +43,7 @@ namespace SpaxUtils
 			this.comms = comms;
 			this.statHandler = statHandler;
 			this.settings = settings;
+			this.projectileService = projectileService;
 		}
 
 		public override void OnStateEntered()
@@ -52,7 +54,7 @@ namespace SpaxUtils
 			agent.Mind.MotivatedEvent += OnMindMotivatedEvent;
 			hittable.Subscribe(this, OnReceivedHitEvent, -2);
 			comms.Listen<HitData>(this, OnSentHitEvent);
-			agent.Actor.PerformanceUpdateEvent += OnPerformanceUpdateEvent;
+			agent.Actor.PerformanceStartedEvent += OnPerformanceStartedEvent;
 			agent.Targeter.Enemies.RemovedComponentEvent += OnEnemyRemovedEvent;
 		}
 
@@ -64,7 +66,7 @@ namespace SpaxUtils
 			agent.Mind.MotivatedEvent -= OnMindMotivatedEvent;
 			hittable.Unsubscribe(this);
 			comms.StopListening(this);
-			agent.Actor.PerformanceUpdateEvent -= OnPerformanceUpdateEvent;
+			agent.Actor.PerformanceStartedEvent -= OnPerformanceStartedEvent;
 			agent.Targeter.Enemies.RemovedComponentEvent -= OnEnemyRemovedEvent;
 		}
 
@@ -104,23 +106,19 @@ namespace SpaxUtils
 		private void OnSentHitEvent(HitData hitData)
 		{
 			// Invoked when the agent has hit another entity (in combat).
-			// Satisfies Anger.
-			Vector8 satisfaction = new Vector8(1f, 0f, 0f, 0f, 0f, 0f, 0f, 0f);
-			agent.Mind.Satisfy(satisfaction, hitData.Hittable.Entity);
+			// Satisfies ???.
+
+			//Vector8 satisfaction = new Vector8(1f, 0f, 0f, 0f, 0f, 0f, 0f, 0f);
+			//agent.Mind.Satisfy(satisfaction, hitData.Hittable.Entity);
 		}
 
-		private static readonly List<string> ATTACK_ACTS = new List<string>() { ActorActs.LIGHT, ActorActs.HEAVY }; // TODO: Temp solution.
-		private void OnPerformanceUpdateEvent(IPerformer performer)
+		private void OnPerformanceStartedEvent(IPerformer performer)
 		{
-			if (ATTACK_ACTS.Contains(performer.Act.Title) &&
-				performer.State == PerformanceState.Performing &&
-				performer.RunTime.Approx(0f) &&
-				performer is IMovePerformer movePerformer)
+			if (performer is IMovePerformer movePerformer && movePerformer.Move is ICombatMove combatMove)
 			{
-				//SpaxDebug.Log($"Satisfy Anger", $"{movePerformer.Charge}");
 				// Invoked when the agent performs an attack.
-				// Process satisfies Anger towards current target by the charge amount.
-				Vector8 satisfaction = new Vector8(movePerformer.Charge, 0f, 0f, 0f, 0f, 0f, 0f, 0f);
+				// Satisfies Anger.
+				Vector8 satisfaction = new Vector8() { N = movePerformer.Charge };
 				agent.Mind.Satisfy(satisfaction, agent.Targeter.Target.Entity);
 			}
 		}
@@ -132,9 +130,9 @@ namespace SpaxUtils
 			foreach (ITargetable inView in visible)
 			{
 				EnemyData data;
-				if (!enemies.ContainsKey(inView))
+				if (!enemies.ContainsKey(inView) && inView.Entity is IAgent enemyAgent)
 				{
-					data = new EnemyData(inView.Entity);
+					data = new EnemyData(enemyAgent);
 					enemies.Add(inView, data);
 				}
 				else
@@ -159,33 +157,60 @@ namespace SpaxUtils
 
 		private void SendContinuousStimuli(float delta)
 		{
+			// Projectile stimuli.
+			if (projectileService.IsTarget(agent.Targetable, out IProjectile[] projectiles))
+			{
+				foreach (IProjectile projectile in projectiles)
+				{
+					if (agent.Targetable.Center.Distance(projectile.StartPoint) < projectile.Range)
+					{
+						Vector8 current = agent.Mind.RetrieveStimuli(projectile.Source);
+
+						Vector3 direction = agent.Targetable.Center - projectile.Point;
+						float imminence = projectile.Speed / (direction.magnitude - (projectile.Radius + agent.Targetable.Size.x)).Max(1f); // The more imminent the projectile, the more dangerous.
+						float danger = Mathf.Clamp(imminence * direction.ClampedDot(projectile.Velocity), 0f, 10f); // Dot: if projectile isn't pointing towards agent its not dangerous.
+						Vector8 stim = new Vector8()
+						{
+							E = danger * current.E.InvertClamped().OutExpo(),
+							W = danger * current.W.InvertClamped().OutExpo()
+						};
+						agent.Mind.Stimulate(stim * delta, projectile.Source);
+					}
+				}
+			}
+
+			// Tracked enemy stimuli.
 			foreach (EnemyData enemy in enemies.Values)
 			{
-				// STIM should be a combination of certain calculation about the enemy's status:
-				// 
-				// DANGER (how easy is it currently for the enemy to kill us) => instills fear, carefulness, desire for distance
-				// (DIS)ADVANTAGE (difference in current stat values)
-				//		Advantage	=> will prompt one to press this advantage (charge up for powerful attack).
-				//		Disadvantage => will prompt one to better their odds (power up, seek better weapon, etc).
-				// 
-
-				Vector8 current = agent.Mind.Stimuli.ContainsKey(enemy.Entity) ? agent.Mind.Stimuli[enemy.Entity] : Vector8.Zero;
+				Vector8 current = agent.Mind.RetrieveStimuli(enemy.Agent);
 
 				float threat = (enemy.Distance / (vision.Range * settings.ThreatRange)).InvertClamped().Evaluate(settings.ThreatCurve) / Mathf.Max(current.NW * settings.StimDamping, 1f);
-				float incite = (enemy.Distance / (vision.Range * settings.InciteRange)).InvertClamped().Evaluate(settings.InciteCurve) / Mathf.Max(current.N * settings.StimDamping, 1f);
+				float incitement = (enemy.Distance / (vision.Range * settings.InciteRange)).InvertClamped().Evaluate(settings.InciteCurve) / Mathf.Max(current.N * settings.StimDamping, 1f);
 				float danger = (statHandler.PointStatOcton.SW.PercentileMax.InvertClamped() * threat * 2f).Clamp01() / Mathf.Max(current.S * settings.StimDamping, 1f);
-				float hate = threat * -agent.Relations.Score(enemy.Entity.Identification).Min(0f);
+				float hostility = threat * -agent.Relations.Score(enemy.Agent.Identification).Min(0f);
+
+				float carefulness = -1f * danger; // Default satisfaction if there is no danger.
+				if (enemy.Agent.Actor.State == PerformanceState.Preparing &&
+					enemy.Agent.Actor.MainPerformer is IMovePerformer movePerformer &&
+					movePerformer.Move is ICombatMove combatMove)
+				{
+					carefulness = Mathf.InverseLerp(combatMove.Range * 1.5f, combatMove.Range, enemy.Distance) * 10;// * (movePerformer.Charge * 2f).Min(2f);
+				}
+				float evade = carefulness / Mathf.Max(current.E * settings.StimDamping, 1f);
+				float guard = carefulness / Mathf.Max(current.W * settings.StimDamping, 1f);
 
 				Vector8 stim = new Vector8()
 				{
-					N = incite, // Anger
-					S = danger, // Fear
-					NW = hate // Hate
+					N = incitement, // Attacking
+					E = evade, // Evasion
+					S = danger, // Fleeing
+					W = guard, // Guarding
+					NW = hostility // Hating
 				};
 
 				//SpaxDebug.Log($"Stimulate ({enemy.Entity.Identification.Name}):", stim.ToStringShort());
 
-				agent.Mind.Stimulate(stim * delta, enemy.Entity);
+				agent.Mind.Stimulate(stim * delta, enemy.Agent);
 			}
 		}
 

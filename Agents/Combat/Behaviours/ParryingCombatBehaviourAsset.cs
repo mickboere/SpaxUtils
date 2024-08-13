@@ -9,7 +9,7 @@ namespace SpaxUtils
 	/// Attacking behaviour that parries incoming attacks.
 	/// </summary>
 	[CreateAssetMenu(fileName = "Behaviour_Parrying", menuName = "ScriptableObjects/Combat/ParryingBehaviourAsset")]
-	public class ParryingBehaviourAsset : MeleeAttackingBehaviourAsset
+	public class ParryingCombatBehaviourAsset : MeleeCombatBehaviourAsset
 	{
 		private IHittable hittable;
 

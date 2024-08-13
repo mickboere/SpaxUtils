@@ -5,10 +5,16 @@ namespace SpaxUtils
 {
 	/// <summary>
 	/// Interface for 3-part sequenced melee combat moves (charge, perform, release).
-	/// Implements <see cref="IPerformanceMove"/>.
 	/// </summary>
-	public interface IMeleeCombatMove : IPerformanceMove
+	public interface IMeleeCombatMove : ICombatMove
 	{
+		/// <summary>
+		/// The type of attack pattern this combat move utilizes.
+		///		- Horizontal: Best way to avoid is moving backwards.
+		///		- Vertical: Best way to avoid is moving to the side.
+		/// </summary>
+		MeleeAttackType AttackType { get; }
+
 		/// <summary>
 		/// Collection of hit-box bone identifiers for this move's performance.
 		/// </summary>

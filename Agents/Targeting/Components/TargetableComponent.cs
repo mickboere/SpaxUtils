@@ -25,7 +25,7 @@ namespace SpaxUtils
 			get
 			{
 				GetRenderers();
-				if (renderersAtStart == null || renderersAtStart.Length < 1)
+				if (renderersAtStart == null || renderersAtStart.Length == 0)
 				{
 					return new Bounds(transform.position, Vector3.one);
 				}

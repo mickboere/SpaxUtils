@@ -487,7 +487,7 @@ namespace SpaxUtils
 
 		#endregion // Averaging
 
-		#region OnLine
+		#region On Line
 
 		public static Vector3 ClosestOnLine(this Vector3 point, Vector3 a, Vector3 b)
 		{
@@ -503,7 +503,7 @@ namespace SpaxUtils
 			return a + Vector3.Project(point - a, b - a);
 		}
 
-		#endregion OnLine
+		#endregion On Line
 
 		#region Physics
 
@@ -516,7 +516,7 @@ namespace SpaxUtils
 		/// <returns>The force required to go from <paramref name="current"/>(this) to <paramref name="target"/> velocity.</returns>
 		public static Vector3 CalculateForce(this Vector3 current, Vector3 target, float power = 1f)
 		{
-			return ((target - current) / Time.fixedDeltaTime * power);
+			return (target - current) / Time.fixedDeltaTime * power;
 		}
 
 		/// <summary>

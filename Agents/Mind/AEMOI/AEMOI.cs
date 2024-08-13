@@ -11,6 +11,8 @@ namespace SpaxUtils
 	/// </summary>
 	public class AEMOI : IMind
 	{
+		public const float MOTIVATION_UPPER_BOUND = 10f;
+
 		/// <inheritdoc/>
 		public event Action<float> UpdatingEvent;
 
@@ -117,11 +119,11 @@ namespace SpaxUtils
 		{
 			if (!stimuli.ContainsKey(source))
 			{
-				stimuli.Add(source, (stimulation * Personality).Clamp(0f, 100f)); // TODO: 100 is a magic number, requires testing to see actual useful value bounds.
+				stimuli.Add(source, (stimulation * Personality).Clamp(0f, MOTIVATION_UPPER_BOUND));
 			}
 			else
 			{
-				stimuli[source] = (stimuli[source] + stimulation * Personality).Clamp(0f, 100f);
+				stimuli[source] = (stimuli[source] + stimulation * Personality).Clamp(0f, MOTIVATION_UPPER_BOUND);
 			}
 		}
 
@@ -129,6 +131,12 @@ namespace SpaxUtils
 		public void Satisfy(Vector8 satisfaction, IEntity source)
 		{
 			Stimulate(-satisfaction, source);
+		}
+
+		/// <inheritdoc/>
+		public Vector8 RetrieveStimuli(IEntity source)
+		{
+			return Stimuli.ContainsKey(source) ? Stimuli[source] : Vector8.Zero;
 		}
 
 		#endregion

@@ -8,23 +8,22 @@ namespace SpaxUtils
 	{
 		public Vector3 Point => transform.position;
 		public float Radius => radius;
+		public Vector3 StartPoint { get; private set; }
+		public float Range { get { return range; } set { range = value; } }
 		public float Speed => speed * startupTimer.Progress;
 		public Vector3 Velocity => transform.forward * Speed;
 
 		public IAgent Source => agent;
 		public ITargetable Target => target;
-		public bool Hostile => hostile;
-		public bool Friendly => friendly;
 
 		[Header("Projectile")]
-		[SerializeField] private float radius;
-		[SerializeField] private float speed;
+		[SerializeField] private float radius = 0.2f;
+		[SerializeField] private float range = 30f;
+		[SerializeField] private float speed = 10f;
 		[SerializeField] private float mass = 1f;
 		[SerializeField] private float duration = 6f;
 		[SerializeField] private float startupTime = 0f;
 		[Header("Hit Detection")]
-		[SerializeField] private bool hostile;
-		[SerializeField] private bool friendly;
 		[SerializeField] private LayerMask layerMask;
 		[SerializeField] private bool destroyOnHit;
 		[SerializeField] private float repeatHitTime = 0.5f;
@@ -45,12 +44,13 @@ namespace SpaxUtils
 		{
 			this.projectileService = projectileService;
 			this.agent = agent;
-			this.target = agent.Targeter.Target;
+			target = agent.Targeter.Target;
 		}
 
 		protected void Awake()
 		{
 			projectileService.Add(this);
+			StartPoint = Point;
 			lifeTimer = new TimerStruct(duration);
 			startupTimer = new TimerStruct(startupTime);
 		}
@@ -76,7 +76,7 @@ namespace SpaxUtils
 				}
 			}
 
-			if (lifeTimer.Expired || (detectedHit && destroyOnHit))
+			if (lifeTimer.Expired || (detectedHit && destroyOnHit) || StartPoint.Distance(Point) > Range)
 			{
 				Destroy(gameObject);
 			}
@@ -84,6 +84,16 @@ namespace SpaxUtils
 			{
 				OnUpdate(Time.deltaTime);
 			}
+		}
+
+		/// <inheritdoc/>
+		public bool IsInPath(Vector3 point, float radius, float delta, out Vector3 closest, out float distance)
+		{
+			// Project the projectile's position forward in time and do an overlapping sphere check to
+			// the closest point on that projection to see whether the point falls on the projectile's path.
+			closest = point.ClosestOnLine(Point, Point + Velocity * delta);
+			distance = point.Distance(closest) - (Radius + radius);
+			return distance <= 0f;
 		}
 
 		protected void OnDestroy()

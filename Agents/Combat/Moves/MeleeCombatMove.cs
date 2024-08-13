@@ -7,9 +7,9 @@ namespace SpaxUtils
 	/// Configurable <see cref="IMeleeCombatMove"/> asset that contains data required for performing a melee combat move.
 	/// </summary>
 	[CreateAssetMenu(fileName = "MeleeCombatMove", menuName = "ScriptableObjects/Combat/MeleeCombatMove")]
-	public class MeleeCombatMove : PerformanceMove, IMeleeCombatMove
+	public class MeleeCombatMove : BaseCombatMove, IMeleeCombatMove
 	{
-		#region Properties
+		public MeleeAttackType AttackType => attackType;
 		public List<string> HitBoxes => hitBoxes;
 		public float HitDetectionDelay => hitDetectionDelay;
 		public Vector3 Inertia => momentum;
@@ -19,10 +19,8 @@ namespace SpaxUtils
 		public float Offence => offence;
 		public float Piercing => piercing;
 
-		#endregion // Properties
-
-		[Header("COMBAT")]
 		[Header("Hit detection")]
+		[SerializeField] private MeleeAttackType attackType;
 		[SerializeField, ConstDropdown(typeof(ITransformLookupIdentifiers), showAdress: true)] private List<string> hitBoxes;
 		[SerializeField] private float hitDetectionDelay = 0f;
 

@@ -14,6 +14,7 @@ namespace SpaxUtils
 	{
 		public const string DEFAULT_IDENTIFIER = "ACTOR";
 
+		public event Action<IPerformer> PerformanceStartedEvent;
 		public event Action<IPerformer> PerformanceUpdateEvent;
 		public event Action<IPerformer> PerformanceCompletedEvent;
 
@@ -85,6 +86,7 @@ namespace SpaxUtils
 				availablePerformers.Sort((a, b) => b.Priority.CompareTo(a.Priority));
 			}
 
+			performer.PerformanceStartedEvent += OnPerformanceStartedEvent;
 			performer.PerformanceUpdateEvent += OnPerformanceUpdateEvent;
 			performer.PerformanceCompletedEvent += OnPerformanceCompletedEvent;
 		}
@@ -98,6 +100,7 @@ namespace SpaxUtils
 			}
 
 			availablePerformers.Remove(performer);
+			performer.PerformanceStartedEvent -= OnPerformanceStartedEvent;
 			performer.PerformanceUpdateEvent -= OnPerformanceUpdateEvent;
 			performer.PerformanceCompletedEvent -= OnPerformanceCompletedEvent;
 		}
@@ -205,6 +208,11 @@ namespace SpaxUtils
 		public bool TryCancel(bool force)
 		{
 			return MainPerformer == null ? false : MainPerformer.TryCancel(force);
+		}
+
+		private void OnPerformanceStartedEvent(IPerformer performer)
+		{
+			PerformanceStartedEvent?.Invoke(performer);
 		}
 
 		private void OnPerformanceUpdateEvent(IPerformer performer)

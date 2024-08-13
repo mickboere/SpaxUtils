@@ -25,15 +25,27 @@ namespace SpaxUtils
 			timescaleStat = Agent.GetStat(EntityStatIdentifiers.TIMESCALE, true, 1f);
 		}
 
+		public override void Start()
+		{
+			base.Start();
+			Performer.PerformanceStartedEvent += OnPerformanceStartedEvent;
+		}
+
+		public override void Stop()
+		{
+			base.Stop();
+			Performer.PerformanceStartedEvent -= OnPerformanceStartedEvent;
+		}
+
+		private void OnPerformanceStartedEvent(IPerformer performer)
+		{
+			// First frame of performance.
+			instanceTimer = new TimerClass(move.InstanceDelay, () => timescaleStat, callbackService);
+		}
+
 		public override void CustomUpdate(float delta)
 		{
 			base.CustomUpdate(delta);
-
-			if (Performer.State == PerformanceState.Performing && Performer.RunTime.Approx(0f))
-			{
-				// First frame of performance.
-				instanceTimer = new TimerClass(move.InstanceDelay, () => timescaleStat, callbackService);
-			}
 
 			if (instanceTimer != null && instanceTimer.Expired)
 			{
@@ -43,7 +55,11 @@ namespace SpaxUtils
 				{
 					location = transformLookup.Lookup(move.InstanceLocation).position;
 				}
-				DependencyUtils.InstantiateAndInject(move.ProjectilePrefab, location, Agent.Transform.forward.LookRotation(), dependencyManager, true, false);
+				GameObject instance = DependencyUtils.InstantiateAndInject(move.ProjectilePrefab, location, Agent.Transform.forward.LookRotation(), dependencyManager, true, false);
+				if (instance.TryGetComponent(out IProjectile projectile))
+				{
+					projectile.Range = move.Range;
+				}
 				instanceTimer.Dispose();
 				instanceTimer = null;
 			}

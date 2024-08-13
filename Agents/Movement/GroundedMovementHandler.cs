@@ -16,7 +16,7 @@ namespace SpaxUtils
 				_inputAxis = value.FlattenY().normalized;
 			}
 		}
-		private Vector3 _inputAxis;
+		private Vector3 _inputAxis = Vector3.forward;
 
 		/// <inheritdoc/>
 		public Vector3 MovementInputRaw { get; set; }
@@ -106,8 +106,7 @@ namespace SpaxUtils
 
 			if (!grounder.Sliding)
 			{
-				rigidbodyWrapper.ApplyMovement(targetVelocity.HasValue ? targetVelocity.Value : rigidbodyWrapper.TargetVelocity,
-					controlForce, brakeForce, power, ignoreControl, grounder.Mobility);
+				rigidbodyWrapper.ApplyMovement(targetVelocity, controlForce, brakeForce, power, ignoreControl, grounder.Mobility);
 
 				if (MovementInputRaw.magnitude > 1.01f)
 				{

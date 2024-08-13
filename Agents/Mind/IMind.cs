@@ -64,6 +64,11 @@ namespace SpaxUtils
 		/// <param name="delta">The time in seconds between updates.</param>
 		void Update(float delta);
 
+		/// <summary>
+		/// Retrieves the current stimuli stored for <paramref name="source"/>.
+		/// </summary>
+		Vector8 RetrieveStimuli(IEntity source);
+
 		#region Stimulation
 
 		/// <summary>

@@ -245,6 +245,7 @@ namespace SpaxUtils
 				power * scale * (timeScale ?? 1f),
 				maxForce * scale * (timeScale ?? 1f))
 				.Localize(transform).Multiply(ControlAxis).Globalize(transform);
+
 			Rigidbody.AddForce(force);
 		}
 

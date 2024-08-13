@@ -11,6 +11,7 @@ namespace SpaxUtils
 	/// </summary>
 	public class MovePerformerComponent : EntityComponentBase, IMovePerformanceHandler
 	{
+		public event Action<IPerformer> PerformanceStartedEvent;
 		public event Action<IPerformer> PerformanceUpdateEvent;
 		public event Action<IPerformer> PerformanceCompletedEvent;
 
@@ -109,6 +110,7 @@ namespace SpaxUtils
 			}
 
 			var performer = new MovePerformer(dependencyManager, act, move, agent, EntityTimeScale, callbackService);
+			performer.PerformanceStartedEvent += OnPerformanceStartedEvent;
 			performer.PerformanceUpdateEvent += OnPerformanceUpdateEvent;
 			performer.PerformanceCompletedEvent += OnPerformanceCompletedEvent;
 			finalPerformer = performer;
@@ -238,6 +240,11 @@ namespace SpaxUtils
 
 		#endregion Move Management
 
+		private void OnPerformanceStartedEvent(IPerformer performer)
+		{
+			PerformanceStartedEvent?.Invoke(performer);
+		}
+
 		private void OnPerformanceUpdateEvent(IPerformer performer)
 		{
 			if (State != lastState)
@@ -255,6 +262,7 @@ namespace SpaxUtils
 
 			RemoveFollowUpMoves(performer);
 
+			performer.PerformanceStartedEvent -= OnPerformanceStartedEvent;
 			performer.PerformanceUpdateEvent -= OnPerformanceUpdateEvent;
 			performer.PerformanceCompletedEvent -= OnPerformanceCompletedEvent;
 

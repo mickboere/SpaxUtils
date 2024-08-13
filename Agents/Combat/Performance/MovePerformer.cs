@@ -10,6 +10,7 @@ namespace SpaxUtils
 	/// </summary>
 	public class MovePerformer : IMovePerformer, IDisposable
 	{
+		public event Action<IPerformer> PerformanceStartedEvent;
 		public event Action<IPerformer> PerformanceUpdateEvent;
 		public event Action<IPerformer> PerformanceCompletedEvent;
 
@@ -144,11 +145,14 @@ namespace SpaxUtils
 						//RunTime -= delta;
 					}
 				}
-				// No else statement here to prevent frame delay.
-				//if (State != PerformanceState.Preparing)
-				// Do ELSE because then if runtime is 0 but state is performing we know its the first frame of performance :)
-				else
+				// No else statement here to remove frame delay.
+				if (State != PerformanceState.Preparing)
 				{
+					if (RunTime.Approx(0f))
+					{
+						PerformanceStartedEvent?.Invoke(this);
+					}
+
 					// Performing.
 					RunTime += delta;
 

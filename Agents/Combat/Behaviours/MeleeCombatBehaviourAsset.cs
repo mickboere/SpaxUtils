@@ -8,7 +8,7 @@ namespace SpaxUtils
 	/// Behaviour for melee <see cref="IMeleeCombatMove"/>s that manages hit-detection during performance.
 	/// </summary>
 	[CreateAssetMenu(fileName = "Behaviour_MeleeAttack", menuName = "ScriptableObjects/Combat/MeleeAttackBehaviourAsset")]
-	public class MeleeAttackingBehaviourAsset : BaseCombatMoveBehaviourAsset
+	public class MeleeCombatBehaviourAsset : BaseCombatMoveBehaviourAsset
 	{
 		[SerializeField] private float autoAimRange = 2f;
 		[SerializeField] private LayerMask hitDetectionMask;
@@ -64,6 +64,7 @@ namespace SpaxUtils
 			base.Start();
 
 			hitDetector = new CombatHitDetector(Agent, transformLookup, move, hitDetectionMask);
+			Performer.PerformanceStartedEvent += OnPerformanceStartedEvent;
 		}
 
 		public override void Stop()
@@ -71,6 +72,7 @@ namespace SpaxUtils
 			base.Stop();
 
 			hitDetector.Dispose();
+			Performer.PerformanceStartedEvent -= OnPerformanceStartedEvent;
 		}
 
 		public override void CustomUpdate(float delta)
@@ -89,11 +91,6 @@ namespace SpaxUtils
 
 			if (Performer.State == PerformanceState.Performing)
 			{
-				if (Performer.RunTime.Approx(0f))
-				{
-					OnFirstFrameOfPerformance();
-				}
-
 				if (Performer.RunTime >= move.HitDetectionDelay && hitDetector.Update(out List<HitScanHitData> newHits))
 				{
 					OnNewHitDetected(newHits);
@@ -109,7 +106,7 @@ namespace SpaxUtils
 			}
 		}
 
-		protected void OnFirstFrameOfPerformance()
+		protected void OnPerformanceStartedEvent(IPerformer performer)
 		{
 			// AIMING:
 			if (targeter.Target != null)

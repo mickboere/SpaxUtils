@@ -16,16 +16,20 @@ namespace SpaxUtils
 		protected IMind Mind => Agent.Mind;
 		protected EntityStat EntityTimescale;
 		protected CallbackService CallbackService { get; private set; }
+		protected AgentStatHandler StatHandler { get; private set; }
+		protected PointStatOcton PointStats => StatHandler.PointStatOcton;
 
 		[SerializeField] protected int priority;
 		[SerializeField, FormerlySerializedAs("motivation")] protected Vector8 trigger;
 		[SerializeField, HideInInspector] protected bool requireState;
 		[SerializeField, Conditional(nameof(requireState), drawToggle: true), ConstDropdown(typeof(IStateIdentifierConstants))] protected string brainState;
 
-		public void InjectDependencies(IAgent agent, CallbackService callbackService)
+		public void InjectDependencies(IAgent agent, CallbackService callbackService, AgentStatHandler agentStatHandler)
 		{
 			Agent = agent;
 			CallbackService = callbackService;
+			StatHandler = agentStatHandler;
+
 			EntityTimescale = Agent.GetStat(EntityStatIdentifiers.TIMESCALE, true, 1f);
 		}
 

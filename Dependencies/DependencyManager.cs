@@ -349,7 +349,7 @@ namespace SpaxUtils
 				List<Type> implementations = type.GetAllImplementations();
 				if (implementations == null || implementations.Count == 0)
 				{
-					SpaxDebug.Error(IdentifierPrefix + "Requested type to instantiate is abstract and either has no assignable implementation requires a Factory. ", $"Regarding (context:{context} < type:{type})");
+					SpaxDebug.Error(IdentifierPrefix + "Requested type to instantiate is abstract and either has no assignable implementation or requires a Factory. ", $"Regarding (context:{context} < type:{type})");
 					return false;
 				}
 

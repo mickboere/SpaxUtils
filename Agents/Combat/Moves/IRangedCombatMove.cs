@@ -4,9 +4,8 @@ namespace SpaxUtils
 {
 	/// <summary>
 	/// Interface for 3-part sequenced ranged combat moves (charge, perform, release).
-	/// Implements <see cref="IPerformanceMove"/>.
 	/// </summary>
-	public interface IRangedCombatMove : IPerformanceMove
+	public interface IRangedCombatMove : ICombatMove
 	{
 		/// <summary>
 		/// The prefab of the ranged projectile to instantiate.

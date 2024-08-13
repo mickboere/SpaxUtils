@@ -7,7 +7,7 @@ namespace SpaxUtils
 	/// Configurable <see cref="IRangedCombatMove"/> asset that contains data required for performing a ranged combat move.
 	/// </summary>
 	[CreateAssetMenu(fileName = "RangedCombatMove", menuName = "ScriptableObjects/Combat/RangedCombatMove")]
-	public class RangedCombatMove : PerformanceMove, IRangedCombatMove
+	public class RangedCombatMove : BaseCombatMove, IRangedCombatMove
 	{
 		public GameObject ProjectilePrefab => projectilePrefab;
 		public string InstanceLocation => instanceLocation;
