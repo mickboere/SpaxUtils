@@ -7,7 +7,7 @@ namespace SpaxUtils
 {
 	/// <summary>
 	/// Agent component that is able to execute an <see cref="IPerformanceMove"/> of which the progression is broadcast through events.
-	/// This component does not actually apply anything on an agent-level, for that see <see cref="ActorPerformanceControllerNode"/>.
+	/// This component does not actually apply anything on an agent-level, for that see <see cref="AgentPerformanceControllerNode"/>.
 	/// </summary>
 	public class MovePerformerComponent : EntityComponentBase, IMovePerformanceHandler
 	{

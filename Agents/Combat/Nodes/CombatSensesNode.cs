@@ -94,12 +94,17 @@ namespace SpaxUtils
 		private void OnReceivedHitEvent(HitData hitData)
 		{
 			// Invoked when the agent was hit by another entity.
-			// Process vertically to stimulate both Anger and Fear.
 			// Anger is proportionate to relative incoming force.
 			// Fear is proportionate to relative incoming damage.
-			Vector8 stim = new Vector8(
-				hitData.Result_Force / agent.Body.RigidbodyWrapper.Mass, 0f, 0f, 0f,
-				hitData.Result_Damage / agent.GetStat(AgentStatIdentifiers.HEALTH) * 3f, 0f, 0f, 0f);
+			// Hate is a combination of both.
+			float anger = hitData.Result_Force / agent.Body.RigidbodyWrapper.Mass;
+			float fear = hitData.Result_Damage / statHandler.PointStatOcton.SW.Current * 3f;
+			Vector8 stim = new Vector8()
+			{
+				N = anger,
+				S = fear,
+				NW = anger + fear,
+			};
 			agent.Mind.Stimulate(stim, hitData.Hitter);
 		}
 
@@ -158,6 +163,7 @@ namespace SpaxUtils
 		private void SendContinuousStimuli(float delta)
 		{
 			// Projectile stimuli.
+			// TODO: Split up projectile detection sense to a separte component which can be accesses by the behaviours.
 			if (projectileService.IsTarget(agent.Targetable, out IProjectile[] projectiles))
 			{
 				foreach (IProjectile projectile in projectiles)
@@ -168,7 +174,7 @@ namespace SpaxUtils
 
 						Vector3 direction = agent.Targetable.Center - projectile.Point;
 						float imminence = projectile.Speed / (direction.magnitude - (projectile.Radius + agent.Targetable.Size.x)).Max(1f); // The more imminent the projectile, the more dangerous.
-						float danger = Mathf.Clamp(imminence * direction.ClampedDot(projectile.Velocity), 0f, 10f); // Dot: if projectile isn't pointing towards agent its not dangerous.
+						float danger = Mathf.Clamp(imminence * direction.ClampedDot(projectile.Velocity), 0f, AEMOI.MAX_STIM); // Dot: if projectile isn't pointing towards agent its not dangerous.
 						Vector8 stim = new Vector8()
 						{
 							E = danger * current.E.InvertClamped().OutExpo(),
@@ -189,12 +195,12 @@ namespace SpaxUtils
 				float danger = (statHandler.PointStatOcton.SW.PercentileMax.InvertClamped() * threat * 2f).Clamp01() / Mathf.Max(current.S * settings.StimDamping, 1f);
 				float hostility = threat * -agent.Relations.Score(enemy.Agent.Identification).Min(0f);
 
-				float carefulness = -1f * danger; // Default satisfaction if there is no danger.
+				float carefulness = -AEMOI.MAX_STIM * danger; // Default satisfaction if there is no danger.
 				if (enemy.Agent.Actor.State == PerformanceState.Preparing &&
 					enemy.Agent.Actor.MainPerformer is IMovePerformer movePerformer &&
 					movePerformer.Move is ICombatMove combatMove)
 				{
-					carefulness = Mathf.InverseLerp(combatMove.Range * 1.5f, combatMove.Range, enemy.Distance) * 10;// * (movePerformer.Charge * 2f).Min(2f);
+					carefulness = Mathf.InverseLerp(combatMove.Range * 1.5f, combatMove.Range, enemy.Distance) * AEMOI.MAX_STIM;// * (movePerformer.Charge * 2f).Min(2f);
 				}
 				float evade = carefulness / Mathf.Max(current.E * settings.StimDamping, 1f);
 				float guard = carefulness / Mathf.Max(current.W * settings.StimDamping, 1f);

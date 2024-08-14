@@ -1,5 +1,6 @@
 ﻿using System;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace SpaxUtils
 {
@@ -9,7 +10,7 @@ namespace SpaxUtils
 		public string Title => act;
 		public bool Interuptable => interuptable;
 		public bool Interuptor => interuptor;
-		public float Buffer => customBuffer ? buffer : Act<bool>.DEFAULT_BUFFER;
+		public float Buffer => hasCustomBuffer ? customBuffer : Act<bool>.DEFAULT_BUFFER;
 
 		public string ActionMap => actionMap;
 		public string Input => input;
@@ -24,8 +25,8 @@ namespace SpaxUtils
 		[SerializeField] private int inputPrio;
 		[SerializeField] private bool interuptable;
 		[SerializeField] private bool interuptor;
-		[SerializeField, HideInInspector] private bool customBuffer;
-		[SerializeField, Conditional(nameof(customBuffer), drawToggle: true)] private float buffer;
+		[SerializeField, HideInInspector] private bool hasCustomBuffer;
+		[SerializeField, Conditional(nameof(hasCustomBuffer), drawToggle: true)] private float customBuffer;
 		[SerializeField] private bool holdEveryFrame;
 	}
 }

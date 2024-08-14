@@ -18,11 +18,12 @@ namespace SpaxUtils
 		public string Identifier => stat;
 		public EntityStat Current { get; private set; }
 		public EntityStat Max { get; private set; }
+		public EntityStat Cost { get; private set; }
 		public EntityStat Recoverable { get; private set; }
 		public EntityStat Recovery { get; private set; }
 		public EntityStat RecoveryDelay { get; private set; }
 		public EntityStat Frailty { get; private set; }
-
+		
 		public float PercentileMax => Current / Max;
 		public float PercentileRecoverable => isRecoverable ? Current / Recoverable : PercentileMax;
 		public float RecoverablePercentile => isRecoverable ? Recoverable / Max : 1f;
@@ -48,6 +49,7 @@ namespace SpaxUtils
 			}
 
 			string maxId = stat.SubStat(AgentStatIdentifiers.SUB_MAX);
+			string costId = stat.SubStat(AgentStatIdentifiers.SUB_COST);
 			string recoverableId = stat.SubStat(AgentStatIdentifiers.SUB_RECOVERABLE);
 			string frailtyId = stat.SubStat(AgentStatIdentifiers.SUB_FRAILTY);
 			string recoveryId = stat.SubStat(AgentStatIdentifiers.SUB_RECOVERY);
@@ -61,6 +63,8 @@ namespace SpaxUtils
 
 			Max = entity.GetStat(maxId, true);
 			Max.ValueChangedEvent += OnMaxChangedEvent;
+
+			Cost = entity.GetStat(costId, true, 1f);
 
 			if (isRecoverable)
 			{

@@ -12,7 +12,6 @@ namespace SpaxUtils
 		[SerializeField] private float maxDistance;
 
 		private IAgent agent;
-		private IActor actor;
 		private IEntityCollection entityCollection;
 		private AgentNavigationHandler navigationHandler;
 		private CallbackService callbackService;
@@ -20,12 +19,11 @@ namespace SpaxUtils
 
 		private EntityComponentFilter<ITargetable> targetables;
 
-		public void InjectDependencies(IAgent agent, IActor actor,
+		public void InjectDependencies(IAgent agent,
 			IEntityCollection entityCollection, AgentNavigationHandler navigationHandler,
 			CallbackService callbackService, IAgentMovementHandler movementHandler)
 		{
 			this.agent = agent;
-			this.actor = actor;
 			this.entityCollection = entityCollection;
 			this.navigationHandler = navigationHandler;
 			this.callbackService = callbackService;
@@ -35,7 +33,7 @@ namespace SpaxUtils
 		public override void OnStateEntered()
 		{
 			base.OnStateEntered();
-			actor.Listen<Act<bool>>(this, ActorActs.TARGET, OnTargetAct);
+			agent.Actor.Listen<Act<bool>>(this, ActorActs.TARGET, OnTargetAct);
 			targetables = new EntityComponentFilter<ITargetable>(entityCollection, (agent) => agent.Identification.HasAll(targetLabels), (c) => true, agent);
 			callbackService.SubscribeUpdate(UpdateMode.Update, this, OnUpdate);
 		}
@@ -43,7 +41,7 @@ namespace SpaxUtils
 		public override void OnStateExit()
 		{
 			base.OnStateExit();
-			actor.StopListening(this);
+			agent.Actor.StopListening(this);
 			agent.Targeter.SetTarget(null);
 			targetables.Dispose();
 			callbackService.UnsubscribeUpdate(UpdateMode.Update, this);

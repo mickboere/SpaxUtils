@@ -5,21 +5,21 @@ using UnityEngine;
 
 namespace SpaxUtils
 {
-	public class InputToActMapperNode : StateComponentNodeBase
+	public class PlayerInputToActMapperNode : StateComponentNodeBase
 	{
-		[SerializeField] private PlayerInputToActMap map;
-
 		private PlayerInputWrapper playerInputWrapper;
 		private IAgent agent;
 		private CallbackService callbackService;
+		private InputToActMap map;
 
-		private List<InputToActMapper> mappers = new List<InputToActMapper>();
+		private List<PlayerInputToActMapper> mappers = new List<PlayerInputToActMapper>();
 
-		public void InjectDependencies(PlayerInputWrapper playerInputWrapper, IAgent agent, CallbackService callbackService)
+		public void InjectDependencies(PlayerInputWrapper playerInputWrapper, IAgent agent, CallbackService callbackService, InputToActMap map)
 		{
 			this.playerInputWrapper = playerInputWrapper;
 			this.agent = agent;
 			this.callbackService = callbackService;
+			this.map = map;
 		}
 
 		public override void OnStateEntered()
@@ -28,7 +28,7 @@ namespace SpaxUtils
 
 			foreach (InputToActMapping mapping in map.Mappings)
 			{
-				mappers.Add(new InputToActMapper(mapping, agent, playerInputWrapper));
+				mappers.Add(new PlayerInputToActMapper(agent.Actor, mapping, playerInputWrapper));
 			}
 
 			callbackService.SubscribeUpdate(UpdateMode.Update, this, OnUpdate);
@@ -38,7 +38,7 @@ namespace SpaxUtils
 		{
 			base.OnStateExit();
 
-			foreach (InputToActMapper mapper in mappers)
+			foreach (PlayerInputToActMapper mapper in mappers)
 			{
 				mapper.Dispose();
 			}
@@ -49,7 +49,7 @@ namespace SpaxUtils
 
 		private void OnUpdate()
 		{
-			foreach (InputToActMapper mapper in mappers)
+			foreach (PlayerInputToActMapper mapper in mappers)
 			{
 				mapper.Update();
 			}

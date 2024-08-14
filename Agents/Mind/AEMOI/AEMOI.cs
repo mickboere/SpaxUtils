@@ -11,7 +11,7 @@ namespace SpaxUtils
 	/// </summary>
 	public class AEMOI : IMind
 	{
-		public const float MOTIVATION_UPPER_BOUND = 10f;
+		public const float MAX_STIM = 10f;
 
 		/// <inheritdoc/>
 		public event Action<float> UpdatingEvent;
@@ -119,11 +119,11 @@ namespace SpaxUtils
 		{
 			if (!stimuli.ContainsKey(source))
 			{
-				stimuli.Add(source, (stimulation * Personality).Clamp(0f, MOTIVATION_UPPER_BOUND));
+				stimuli.Add(source, (stimulation * Personality).Clamp(0f, MAX_STIM));
 			}
 			else
 			{
-				stimuli[source] = (stimuli[source] + stimulation * Personality).Clamp(0f, MOTIVATION_UPPER_BOUND);
+				stimuli[source] = (stimuli[source] + stimulation * Personality).Clamp(0f, MAX_STIM);
 			}
 		}
 

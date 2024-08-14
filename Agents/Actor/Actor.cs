@@ -12,49 +12,81 @@ namespace SpaxUtils
 	/// </summary>
 	public class Actor : ChannelBase<string, IAct>, IActor, IDisposable
 	{
-		public const string DEFAULT_IDENTIFIER = "ACTOR";
-
 		public event Action<IPerformer> PerformanceStartedEvent;
 		public event Action<IPerformer> PerformanceUpdateEvent;
 		public event Action<IPerformer> PerformanceCompletedEvent;
 
-		public int Priority => int.MaxValue;
-		public IAct Act => MainPerformer != null ? MainPerformer.Act : null;
-		public PerformanceState State => MainPerformer != null ? MainPerformer.State : PerformanceState.Inactive;
-		public float RunTime => MainPerformer != null ? MainPerformer.RunTime : 0f;
-		public bool Blocked { get; set; } = false;
-
-		/// <summary>
-		/// The last performer to be activated.
-		/// </summary>
+		/// <inheritdoc/>
 		public IPerformer MainPerformer => activePerformers.Count > 0 ? activePerformers[activePerformers.Count - 1] : null;
 
-		private List<IPerformer> availablePerformers;
+		/// <inheritdoc/>
+		public bool Blocked { get; set; } = false;
+
+		/// <inheritdoc/>
+		public int Priority => int.MaxValue;
+
+		/// <inheritdoc/>
+		public IAct Act => MainPerformer != null ? MainPerformer.Act : null;
+
+		/// <inheritdoc/>
+		public PerformanceState State => MainPerformer != null ? MainPerformer.State : PerformanceState.Inactive;
+
+		/// <inheritdoc/>
+		public float RunTime => MainPerformer != null ? MainPerformer.RunTime : 0f;
+
+		private CallbackService callbackService;
+		private Dictionary<string, InputToActMapper> inputMappers = new Dictionary<string, InputToActMapper>();
+		private List<IPerformer> availablePerformers = new List<IPerformer>();
 		private List<IPerformer> activePerformers = new List<IPerformer>();
 		private Act<bool>? lastPerformedAct;
 		private (Act<bool> act, TimerStruct timer)? lastFailedAttempt;
 
-		public Actor(
-			string identifier = DEFAULT_IDENTIFIER,
-			IEnumerable<IPerformer> performers = null)
-				: base(identifier)
+		public Actor(string identifier, CallbackService callbackService, InputToActMap inputToActMap = null,
+			IEnumerable<IPerformer> performers = null) : base(identifier)
 		{
-			// Collect performers.
-			this.availablePerformers = new List<IPerformer>();
+			this.callbackService = callbackService;
+			callbackService.SubscribeUpdate(UpdateMode.Update, this, OnUpdate);
+
+			// Initialize input to act mappers.
+			if (inputToActMap != null)
+			{
+				foreach (InputToActMapping mapping in inputToActMap.Mappings)
+				{
+					inputMappers.Add(mapping.Title, new InputToActMapper(this, mapping));
+				}
+			}
+
+			// Register performers.
 			if (performers != null)
 			{
 				foreach (IPerformer performer in performers)
 				{
-					AddPerformer(performer);
+					if (performer != this)
+					{
+						AddPerformer(performer);
+					}
 				}
 			}
 		}
 
 		public void Dispose()
 		{
+			callbackService.UnsubscribeUpdate(UpdateMode.Update, this);
 			while (availablePerformers.Count > 0)
 			{
 				RemovePerformer(availablePerformers[0]);
+			}
+			foreach (InputToActMapper mapper in inputMappers.Values)
+			{
+				mapper.Dispose();
+			}
+		}
+
+		protected void OnUpdate()
+		{
+			foreach (InputToActMapper mapper in inputMappers.Values)
+			{
+				mapper.Update();
 			}
 		}
 
@@ -62,6 +94,35 @@ namespace SpaxUtils
 		public void Send<T>(T act, TimerStruct timer = default) where T : IAct
 		{
 			base.Send<T>(act.Title, act, timer);
+		}
+
+		/// <inheritdoc/>
+		public void SendInput(string act, bool? value = null)
+		{
+			if (inputMappers.ContainsKey(act))
+			{
+				if (value.HasValue)
+				{
+					inputMappers[act].Send(value.Value);
+				}
+				else
+				{
+					inputMappers[act].Send(true);
+					inputMappers[act].Send(false);
+				}
+			}
+			else
+			{
+				if (value.HasValue)
+				{
+					Send(new Act<bool>(act, value.Value));
+				}
+				else
+				{
+					Send(new Act<bool>(act, true));
+					Send(new Act<bool>(act, false));
+				}
+			}
 		}
 
 		#region Management

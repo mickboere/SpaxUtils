@@ -9,7 +9,7 @@ namespace SpaxUtils
 	/// <summary>
 	/// Base <see cref="IAgent"/> implementation.
 	/// </summary>
-	public class Agent : Entity, IAgent, IDependencyProvider
+	public class Agent : Entity, IAgent
 	{
 		public event Action DiedEvent;
 		public event Action RevivedEvent;
@@ -17,7 +17,7 @@ namespace SpaxUtils
 		#region Properties
 
 		/// <inheritdoc/>
-		public IActor Actor { get; } = new Actor();
+		public IActor Actor { get; private set; }
 
 		/// <inheritdoc/>
 		public IBrain Brain { get; private set; }
@@ -49,19 +49,13 @@ namespace SpaxUtils
 
 		private CallbackService callbackService;
 		private AEMOISettings aemoiSettings;
+		private InputToActMap inputToActMap;
+		private IPerformer[] performers;
 		private IRelationData[] relationData;
-
-		/// <inheritdoc/>
-		public Dictionary<object, object> RetrieveDependencies()
-		{
-			var dependencies = new Dictionary<object, object>();
-			dependencies.Add(typeof(Actor), Actor);
-			return dependencies;
-		}
 
 		public void InjectDependencies(
 			IAgentBody body, ITargetable targetableComponent, ITargeter targeterComponent,
-			CallbackService callbackService, AEMOISettings aemoiSettings,
+			CallbackService callbackService, AEMOISettings aemoiSettings, InputToActMap inputToActMap,
 			IPerformer[] performers, IRelationData[] relationData)
 		{
 			Body = body;
@@ -69,29 +63,22 @@ namespace SpaxUtils
 			Targeter = targeterComponent;
 			this.callbackService = callbackService;
 			this.aemoiSettings = aemoiSettings;
+			this.inputToActMap = inputToActMap;
+			this.performers = performers;
 			this.relationData = relationData;
-
-			foreach (IPerformer performer in performers)
-			{
-				if (performer != Actor)
-				{
-					Actor.AddPerformer(performer);
-				}
-			}
 		}
 
 		protected override void Awake()
 		{
 			base.Awake();
 
-			// Create AEMOI mind instance.
+			// Initialize all Agent components.
+			Actor = new Actor($"ACTOR_{Identification.ID}", callbackService, inputToActMap, performers);
 			Mind = new AEMOI(this, DependencyManager, aemoiSettings, new StatOcton(this, aemoiSettings.Personality, Vector8.Half));
-
-			// Load Relations.
+			Brain = new Brain(DependencyManager, callbackService, state, null, brainGraphs);
 			LoadRelations();
 
-			// Initialize brain.
-			Brain = new Brain(DependencyManager, callbackService, state, null, brainGraphs);
+			// Start the Brain to become alive.
 			Brain.EnteredStateEvent += OnEnteredStateEvent;
 			Brain.Start();
 		}

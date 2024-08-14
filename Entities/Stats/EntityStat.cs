@@ -88,25 +88,26 @@ namespace SpaxUtils
 
 		#region Damage
 
-		public void Damage(float damage, bool clamp = true, bool applyMultiplier = true)
+		public float Damage(float damage, bool clamp = true, bool applyMultiplier = true)
 		{
 			CalculateDamage(ref damage, applyMultiplier);
 			BaseValue = clamp ? Mathf.Max(0f, BaseValue - damage) : BaseValue - damage;
+			return damage;
 		}
 
-		public void Damage(float damage, bool clamp, out bool drained, bool applyMultiplier = true)
+		public float Damage(float damage, bool clamp, out bool drained, bool applyMultiplier = true)
 		{
 			CalculateDamage(ref damage, applyMultiplier);
 			drained = damage > BaseValue;
-			Damage(damage, clamp, false);
+			return Damage(damage, clamp, false);
 		}
 
-		public void Damage(float damage, bool clamp, out bool drained, out float excess, bool applyMultiplier = true)
+		public float Damage(float damage, bool clamp, out bool drained, out float excess, bool applyMultiplier = true)
 		{
 			CalculateDamage(ref damage, applyMultiplier);
 			excess = Mathf.Abs(Mathf.Min(0, BaseValue - damage));
 			drained = excess > 0;
-			Damage(damage, clamp, false);
+			return Damage(damage, clamp, false);
 		}
 
 		private void CalculateDamage(ref float damage, bool applyMultiplier)

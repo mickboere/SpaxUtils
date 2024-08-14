@@ -1,64 +1,64 @@
 ﻿using System;
-using static UnityEngine.InputSystem.InputAction;
 
 namespace SpaxUtils
 {
 	/// <summary>
-	/// Instanced helper class that maps player input to actor acts.
+	/// Instanced helper class that uses an <see cref="InputToActMapping"/> to map boolean input to actor acts.
 	/// </summary>
 	public class InputToActMapper : IDisposable
 	{
+		private IActor actor;
 		private InputToActMapping mapping;
-		private IAgent agent;
-		private PlayerInputWrapper playerInputWrapper;
 
-		private Option option;
 		private bool holding;
 
-		public InputToActMapper(InputToActMapping mapping, IAgent agent, PlayerInputWrapper playerInputWrapper)
+		public InputToActMapper(IActor actor, InputToActMapping mapping)
 		{
+			this.actor = actor;
 			this.mapping = mapping;
-			this.agent = agent;
-			this.playerInputWrapper = playerInputWrapper;
+		}
 
-			playerInputWrapper.RequestActionMaps(this, 0, mapping.ActionMap);
+		public void Send(bool input)
+		{
+			if (input)
+			{
+				Hold();
+			}
+			else
+			{
+				Release();
+			}
+		}
 
-			option = new Option(mapping.Title, mapping.Input,
-				delegate (CallbackContext c)
-				{
-					if (c.started)
-					{
-						agent.Actor.Send(NewAct(true));
-						holding = true;
-					}
-					else if (c.canceled)
-					{
-						agent.Actor.Send(NewAct(false));
-						holding = false;
-					}
-				},
-			playerInputWrapper, false, mapping.InputPrio);
-			option.MakeAvailable();
+		public void Hold()
+		{
+			if (!holding)
+			{
+				actor.Send(NewAct(true));
+				holding = true;
+			}
+		}
+
+		public void Release()
+		{
+			if (holding)
+			{
+				actor.Send(NewAct(false));
+				holding = false;
+			}
 		}
 
 		public void Update()
 		{
 			if (mapping.HoldEveryFrame && holding)
 			{
-				agent.Actor.Send(NewAct(true));
+				actor.Send(NewAct(true));
 			}
 		}
 
-		public void Dispose()
+		public virtual void Dispose()
 		{
-			if (holding)
-			{
-				agent.Actor.Send(NewAct(false));
-				holding = false;
-			}
-
-			option.Dispose();
-			playerInputWrapper.CompleteActionMapRequest(this);
+			Release();
 		}
 
 		private Act<bool> NewAct(bool value)

@@ -22,6 +22,7 @@ namespace SpaxUtils
 		private EntityStat timescaleStat;
 		private EntityStat health;
 		private EntityStat endurance;
+		private EntityStat enduranceCost;
 		private EntityStat defence;
 
 		private TimedCurveModifier hitPauseMod;
@@ -47,6 +48,7 @@ namespace SpaxUtils
 			timescaleStat = agent.GetStat(EntityStatIdentifiers.TIMESCALE);
 			health = agent.GetStat(AgentStatIdentifiers.HEALTH);
 			endurance = agent.GetStat(AgentStatIdentifiers.ENDURANCE);
+			enduranceCost = agent.GetStat(AgentStatIdentifiers.ENDURANCE.SubStat(AgentStatIdentifiers.SUB_COST));
 			defence = agent.GetStat(AgentStatIdentifiers.DEFENCE);
 		}
 

@@ -7,7 +7,7 @@ namespace SpaxUtils
 	/// <summary>
 	/// Behaviour for melee <see cref="IMeleeCombatMove"/>s that manages hit-detection during performance.
 	/// </summary>
-	[CreateAssetMenu(fileName = "Behaviour_MeleeAttack", menuName = "ScriptableObjects/Combat/MeleeAttackBehaviourAsset")]
+	[CreateAssetMenu(fileName = "CombatBehaviour_MeleeAttack", menuName = "ScriptableObjects/Combat/MeleeCombatBehaviourAsset")]
 	public class MeleeCombatBehaviourAsset : BaseCombatMoveBehaviourAsset
 	{
 		[SerializeField] private float autoAimRange = 2f;

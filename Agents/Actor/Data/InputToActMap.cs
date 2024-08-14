@@ -7,8 +7,8 @@ namespace SpaxUtils
 	/// <summary>
 	/// ScriptableObject containing input to act mappings.
 	/// </summary>
-	[CreateAssetMenu(fileName = "PlayerInputToActMap", menuName = "ScriptableObjects/PlayerInputToActMap")]
-	public class PlayerInputToActMap : ScriptableObject
+	[CreateAssetMenu(fileName = "InputToActMap", menuName = "ScriptableObjects/InputToActMap")]
+	public class InputToActMap : ScriptableObject
 	{
 		public IReadOnlyList<InputToActMapping> Mappings => mappings;
 
