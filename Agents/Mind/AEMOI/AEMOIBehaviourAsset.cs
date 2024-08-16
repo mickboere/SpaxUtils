@@ -9,6 +9,7 @@ namespace SpaxUtils
 	/// </summary>
 	public abstract class AEMOIBehaviourAsset : BehaviourAsset, IMindBehaviour
 	{
+		public string Name => name;
 		public virtual int Priority => priority;
 		public virtual bool Interuptable { get; protected set; } = true;
 
@@ -19,6 +20,7 @@ namespace SpaxUtils
 		protected AgentStatHandler StatHandler { get; private set; }
 		protected PointStatOcton PointStats => StatHandler.PointStatOcton;
 
+		[SerializeField] new private string name;
 		[SerializeField] protected int priority;
 		[SerializeField, FormerlySerializedAs("motivation")] protected Vector8 trigger;
 		[SerializeField, HideInInspector] protected bool requireState;

@@ -69,10 +69,11 @@ namespace SpaxUtils
 						continue;
 					}
 
-					Vector3 eyeToTarget = targetable.Point - eye.Transform.position;
-					if (eyeToTarget.magnitude < eye.Range && Vector3.Angle(eye.Transform.forward, eyeToTarget.normalized) < eye.Fov * 0.5f)
+					Vector3 eyeToTarget = targetable.Center - eye.Transform.position;
+					float distanceToTarget = eyeToTarget.magnitude;
+					if (distanceToTarget < eye.Range && Vector3.Angle(eye.Transform.forward, eyeToTarget.normalized) < eye.Fov * 0.5f)
 					{
-						if (!eye.Raycast || !Physics.Raycast(eye.Transform.position, eyeToTarget, out _, eye.Range, eye.LayerMask))
+						if (!eye.Raycast || !Physics.Raycast(eye.Transform.position, eyeToTarget, out _, eyeToTarget.magnitude, eye.LayerMask))
 						{
 							spotted.Add(targetable);
 						}

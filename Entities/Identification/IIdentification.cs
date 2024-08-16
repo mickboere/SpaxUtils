@@ -39,6 +39,11 @@ namespace SpaxUtils
 		/// <summary>
 		/// Returns whether this identification matches any of the <paramref name="strings"/> given, checking for both the <see cref="ID"/> and <see cref="Labels"/>.
 		/// </summary>
+		bool IsMatch(params string[] strings) => Matches(strings);
+
+		/// <summary>
+		/// Returns whether this identification matches any of the <paramref name="strings"/> given, checking for both the <see cref="ID"/> and <see cref="Labels"/>.
+		/// </summary>
 		bool Matches(IEnumerable<string> strings);
 
 		/// <summary>

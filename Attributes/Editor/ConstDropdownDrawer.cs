@@ -42,7 +42,7 @@ namespace SpaxUtils
 				{
 					if (!Application.isPlaying)
 					{
-						SpaxDebug.Warning("ConstDropdown has an old value but no available collections to pull from.");
+						//SpaxDebug.Warning("ConstDropdown has an old value but no available collections to pull from.");
 					}
 				}
 				else

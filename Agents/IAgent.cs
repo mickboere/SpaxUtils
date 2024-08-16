@@ -13,12 +13,12 @@ namespace SpaxUtils
 		/// <summary>
 		/// Invoked once the agent has died.
 		/// </summary>
-		event Action DiedEvent;
+		event Action<IAgent> DiedEvent;
 
 		/// <summary>
 		/// Invoked once the agent has revived.
 		/// </summary>
-		event Action RevivedEvent;
+		event Action<IAgent> RevivedEvent;
 
 		#region Properties
 

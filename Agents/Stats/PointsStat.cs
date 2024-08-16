@@ -23,10 +23,11 @@ namespace SpaxUtils
 		public EntityStat Recovery { get; private set; }
 		public EntityStat RecoveryDelay { get; private set; }
 		public EntityStat Frailty { get; private set; }
-		
+
 		public float PercentileMax => Current / Max;
 		public float PercentileRecoverable => isRecoverable ? Current / Recoverable : PercentileMax;
 		public float RecoverablePercentile => isRecoverable ? Recoverable / Max : 1f;
+		public bool IsRecovering => hasRecovery && (recoveryTimer == null || recoveryTimer.Expired) && !PercentileRecoverable.Approx(1f);
 
 		[SerializeField, ConstDropdown(typeof(IStatIdentifierConstants), includeEmpty: true)] private string stat;
 		[SerializeField, Tooltip(TT_hasRecovery)] private bool hasRecovery;

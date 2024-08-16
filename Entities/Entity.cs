@@ -8,7 +8,7 @@ namespace SpaxUtils
 	/// <summary>
 	/// Base implementation for an <see cref="IEntity"/>, wraps around Unity's GameObject.
 	/// </summary>
-	[DefaultExecutionOrder(-9999)]
+	[DefaultExecutionOrder(-9999), ExecuteInEditMode]
 	public class Entity : MonoBehaviour, IEntity
 	{
 		public const string ID_NAME = "Name";
@@ -52,7 +52,12 @@ namespace SpaxUtils
 
 		protected virtual string GameObjectNamePrefix => "[Entity]";
 		protected virtual string GameObjectName =>
-			string.IsNullOrEmpty(identification.Name) ? gameObject.name :
+			string.IsNullOrWhiteSpace(identification.Name) ?
+				string.IsNullOrWhiteSpace(identification.ID) ?
+					Identification.Labels.Count == 0 ?
+						gameObject.name :
+					$"{GameObjectNamePrefix} {identification.TagLabels()}" :
+				$"{GameObjectNamePrefix} {identification.ID}" :
 			$"{GameObjectNamePrefix} {identification.Name}";
 
 		[SerializeField] protected Identification identification;
@@ -61,6 +66,7 @@ namespace SpaxUtils
 		protected IStatLibrary statLibrary;
 		private RuntimeDataService runtimeDataService;
 		private List<string> failedStats = new List<string>(); // Used to minimize error logs.
+		private bool awake;
 
 		public void InjectDependencies(
 			IDependencyManager dependencyManager, IEntityComponent[] entityComponents, IEntityCollection entityCollection,
@@ -125,18 +131,21 @@ namespace SpaxUtils
 
 		protected virtual void Awake()
 		{
-			// Check if our dependencies have been injected, if not, do so ourselves.
-			// Thanks to DefaultExecutionOrderAttribute we should be able to inject all other components before they wake up.
-			if (DependencyManager == null)
+			if (!Application.isPlaying)
 			{
-				string dependencyManagerName = $"Entity:{Identification.Name}";
-				SpaxDebug.Log("Entity did not have its dependencies injected.", $"Creating new DependencyManager using Global, named; '{dependencyManagerName}'.", LogType.Notify, Color.yellow, GameObject);
-				DependencyUtils.Inject(GameObject, new DependencyManager(GlobalDependencyManager.Instance, dependencyManagerName), true, true);
+				return;
 			}
+
+			Initialize();
 		}
 
 		protected void Start()
 		{
+			if (!Application.isPlaying)
+			{
+				return;
+			}
+
 			gameObject.name = GameObjectName;
 
 			if (RuntimeData.ContainsEntry(ID_POS) && Transform.position == Vector3.zero)
@@ -148,14 +157,45 @@ namespace SpaxUtils
 
 		protected virtual void OnEnable()
 		{
+			if (!Application.isPlaying)
+			{
+				return;
+			}
+
+			Initialize();
 			Identification.IdentificationUpdatedEvent += OnIdentificationUpdatedEvent;
 			entityCollection.Add(this);
 		}
 
 		protected virtual void OnDisable()
 		{
+			if (!Application.isPlaying)
+			{
+				return;
+			}
+
 			Identification.IdentificationUpdatedEvent -= OnIdentificationUpdatedEvent;
 			entityCollection.Remove(this);
+		}
+
+		protected void Update()
+		{
+			if (!Application.isPlaying)
+			{
+				gameObject.name = GameObjectName;
+			}
+		}
+
+		private void Initialize()
+		{
+			// Check if our dependencies have been injected, if not, do so ourselves.
+			// Thanks to DefaultExecutionOrderAttribute we should be able to inject all other components before they wake up.
+			if (DependencyManager == null)
+			{
+				string dependencyManagerName = $"Entity:{Identification.Name}";
+				SpaxDebug.Log("Entity did not have its dependencies injected.", $"Creating new DependencyManager using Global, named; '{dependencyManagerName}'.", LogType.Notify, Color.yellow, GameObject);
+				DependencyUtils.Inject(GameObject, new DependencyManager(GlobalDependencyManager.Instance, dependencyManagerName), true, true);
+			}
 		}
 
 		#region Data

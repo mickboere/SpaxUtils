@@ -6,6 +6,11 @@
 	public interface IMindBehaviour : IBehaviour
 	{
 		/// <summary>
+		/// The user-facing name for this behaviour.
+		/// </summary>
+		string Name { get; }
+
+		/// <summary>
 		/// Valid higher priority behaviours are always chosen over lower priority behaviours.
 		/// </summary>
 		int Priority { get; }

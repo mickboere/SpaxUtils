@@ -29,7 +29,7 @@ namespace SpaxUtils
 		/// </summary>
 		public bool Hide { get; }
 
-		public ConditionalAttribute(string toggleProperty, bool inverse = false, bool drawToggle = false, bool hide = false)
+		public ConditionalAttribute(string toggleProperty, bool inverse = false, bool drawToggle = false, bool hide = true)
 		{
 			ToggleProperty = toggleProperty;
 			EnumValue = -1;
@@ -38,13 +38,13 @@ namespace SpaxUtils
 			Hide = hide;
 		}
 
-		public ConditionalAttribute(string toggleProperty, int enumValue, bool inverse = false)
+		public ConditionalAttribute(string toggleProperty, int enumValue, bool inverse = false, bool drawToggle = false, bool hide = true)
 		{
 			ToggleProperty = toggleProperty;
 			EnumValue = enumValue;
 			Inverse = inverse;
-			DrawToggle = false;
-			Hide = true;
+			DrawToggle = drawToggle;
+			Hide = hide;
 		}
 	}
 }

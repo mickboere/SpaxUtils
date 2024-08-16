@@ -34,19 +34,18 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public (Vector8 motivation, IEntity target) Motivation { get; private set; }
 
-		private IAgent agent;
+		/// <inheritdoc/>
+		public IMindBehaviour ActiveBehaviour { get; private set; }
+
 		private IDependencyManager dependencyManager;
 		private AEMOISettings settings;
 		private IOcton personality;
 		private List<IMindBehaviour> behaviours;
 
-		private IMindBehaviour activeBehaviour;
-
 		private Dictionary<IEntity, Vector8> stimuli = new Dictionary<IEntity, Vector8>();
 
-		public AEMOI(IAgent agent, IDependencyManager dependencyManager, AEMOISettings settings, IOcton personality, IEnumerable<IMindBehaviour> behaviours = null)
+		public AEMOI(IDependencyManager dependencyManager, AEMOISettings settings, IOcton personality, IEnumerable<IMindBehaviour> behaviours = null)
 		{
-			this.agent = agent;
 			this.dependencyManager = dependencyManager;
 			this.settings = settings;
 			this.personality = personality;
@@ -185,7 +184,7 @@ namespace SpaxUtils
 		private void ReassessBehaviour()
 		{
 			// If the current behaviour isn't interruptable, don't even bother.
-			if (activeBehaviour != null && !activeBehaviour.Interuptable)
+			if (ActiveBehaviour != null && !ActiveBehaviour.Interuptable)
 			{
 				return;
 			}
@@ -203,7 +202,7 @@ namespace SpaxUtils
 				}
 			}
 
-			if (match == null || match == activeBehaviour)
+			if (match == null || match == ActiveBehaviour)
 			{
 				return;
 			}
@@ -214,19 +213,19 @@ namespace SpaxUtils
 
 		private void StopBehaviour()
 		{
-			if (activeBehaviour == null)
+			if (ActiveBehaviour == null)
 			{
 				// There's no active behaviour to stop.
 				return;
 			}
 
-			activeBehaviour.Stop();
-			activeBehaviour = null;
+			ActiveBehaviour.Stop();
+			ActiveBehaviour = null;
 		}
 
 		private void StartBehaviour(IMindBehaviour behaviour)
 		{
-			activeBehaviour = behaviour;
+			ActiveBehaviour = behaviour;
 			behaviour.Start();
 		}
 

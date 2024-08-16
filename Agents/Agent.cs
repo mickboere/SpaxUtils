@@ -11,8 +11,8 @@ namespace SpaxUtils
 	/// </summary>
 	public class Agent : Entity, IAgent
 	{
-		public event Action DiedEvent;
-		public event Action RevivedEvent;
+		public event Action<IAgent> DiedEvent;
+		public event Action<IAgent> RevivedEvent;
 
 		#region Properties
 
@@ -74,7 +74,7 @@ namespace SpaxUtils
 
 			// Initialize all Agent components.
 			Actor = new Actor($"ACTOR_{Identification.ID}", callbackService, inputToActMap, performers);
-			Mind = new AEMOI(this, DependencyManager, aemoiSettings, new StatOcton(this, aemoiSettings.Personality, Vector8.Half));
+			Mind = new AEMOI(DependencyManager, aemoiSettings, new StatOcton(this, aemoiSettings.Personality, Vector8.Half));
 			Brain = new Brain(DependencyManager, callbackService, state, null, brainGraphs);
 			LoadRelations();
 
@@ -92,25 +92,21 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public void Die(ITransition transition = null)
 		{
-			if (!Dead)
+			if (!Dead && Brain.TryTransition(StateIdentifiers.DEAD, transition))
 			{
 				Actor.TryCancel(true);
-				if (Brain.TryTransition(StateIdentifiers.DEAD, transition))
-				{
-					DiedEvent?.Invoke();
-				}
+				Actor.Blocked = true;
+				DiedEvent?.Invoke(this);
 			}
 		}
 
 		/// <inheritdoc/>
 		public void Revive(ITransition transition = null)
 		{
-			if (Dead)
+			if (Dead && Brain.TryTransition(StateIdentifiers.ACTIVE, transition))
 			{
-				if (Brain.TryTransition(StateIdentifiers.ACTIVE, transition))
-				{
-					RevivedEvent?.Invoke();
-				}
+				Actor.Blocked = false;
+				RevivedEvent?.Invoke(this);
 			}
 		}
 

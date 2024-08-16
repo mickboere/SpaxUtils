@@ -27,6 +27,7 @@ namespace SpaxUtils
 		private IVisionComponent vision;
 		private IHittable hittable;
 		private ICommunicationChannel comms;
+		private ISpawnpoint spawnpoint;
 		private AgentStatHandler statHandler;
 		private CombatSensesSettings settings;
 		private ProjectileService projectileService;
@@ -34,13 +35,14 @@ namespace SpaxUtils
 		private Dictionary<ITargetable, EnemyData> enemies = new Dictionary<ITargetable, EnemyData>();
 
 		public void InjectDependencies(IAgent agent, IVisionComponent vision,
-			IHittable hittable, ICommunicationChannel comms,
+			IHittable hittable, ICommunicationChannel comms, [Optional] ISpawnpoint spawnpoint,
 			AgentStatHandler statHandler, CombatSensesSettings settings, ProjectileService projectileService)
 		{
 			this.agent = agent;
 			this.vision = vision;
 			this.hittable = hittable;
 			this.comms = comms;
+			this.spawnpoint = spawnpoint;
 			this.statHandler = statHandler;
 			this.settings = settings;
 			this.projectileService = projectileService;
@@ -55,7 +57,7 @@ namespace SpaxUtils
 			hittable.Subscribe(this, OnReceivedHitEvent, -2);
 			comms.Listen<HitData>(this, OnSentHitEvent);
 			agent.Actor.PerformanceStartedEvent += OnPerformanceStartedEvent;
-			agent.Targeter.Enemies.RemovedComponentEvent += OnEnemyRemovedEvent;
+			agent.Targeter.Enemies.RemovedComponentEvent += OnEnemyTargetRemovedEvent;
 		}
 
 		public override void OnStateExit()
@@ -67,14 +69,7 @@ namespace SpaxUtils
 			hittable.Unsubscribe(this);
 			comms.StopListening(this);
 			agent.Actor.PerformanceStartedEvent -= OnPerformanceStartedEvent;
-			agent.Targeter.Enemies.RemovedComponentEvent -= OnEnemyRemovedEvent;
-		}
-
-		private void OnMindUpdatingEvent(float delta)
-		{
-			// Invoked when the mind begins updating.
-			GatherEnemyData();
-			SendContinuousStimuli(delta);
+			agent.Targeter.Enemies.RemovedComponentEvent -= OnEnemyTargetRemovedEvent;
 		}
 
 		private void OnMindMotivatedEvent()
@@ -89,6 +84,68 @@ namespace SpaxUtils
 			{
 				agent.Targeter.SetTarget(null);
 			}
+		}
+
+		private void OnMindUpdatingEvent(float delta)
+		{
+			// Invoked when the mind begins updating.
+			GatherEnemyData();
+			SendContinuousStimuli(delta);
+		}
+
+		private void GatherEnemyData()
+		{
+			// Get all enemies currently in view and store their relevant data.
+			List<ITargetable> visible = vision.Spot(agent.Targeter.Enemies.Components);
+			foreach (ITargetable inView in visible)
+			{
+				IAgent enemyAgent = inView.Entity as IAgent;
+				if (enemyAgent.Dead)
+				{
+					continue;
+				}
+
+				EnemyData data;
+				if (!enemies.ContainsKey(inView))
+				{
+					data = new EnemyData(enemyAgent);
+					enemies.Add(inView, data);
+					enemyAgent.DiedEvent += OnEnemyDiedEvent;
+				}
+				else
+				{
+					data = enemies[inView];
+				}
+
+				data.LastSeen = Time.time;
+				data.Distance = Vector3.Distance(agent.Targetable.Center, inView.Center);
+			}
+
+			// Check for any enemies that have died or been out of view for too long and forget about them.
+			List<ITargetable> outOfView = enemies.Keys.Except(visible).ToList();
+			foreach (ITargetable lostTargetable in outOfView)
+			{
+				if (enemies[lostTargetable].Agent.Dead || Time.time - enemies[lostTargetable].LastSeen > settings.ForgetTime)
+				{
+					enemies[lostTargetable].Agent.DiedEvent -= OnEnemyDiedEvent;
+					enemies.Remove(lostTargetable);
+				}
+			}
+		}
+
+		private void OnEnemyTargetRemovedEvent(ITargetable targetable)
+		{
+			if (enemies.ContainsKey(targetable))
+			{
+				enemies[targetable].Agent.DiedEvent -= OnEnemyDiedEvent;
+				enemies.Remove(targetable);
+			}
+		}
+
+		private void OnEnemyDiedEvent(IAgent enemy)
+		{
+			// Enemy has died, satisfy all motivations towards them.
+			agent.Mind.Satisfy(Vector8.One * AEMOI.MAX_STIM, enemy);
 		}
 
 		private void OnReceivedHitEvent(HitData hitData)
@@ -128,38 +185,6 @@ namespace SpaxUtils
 			}
 		}
 
-		private void GatherEnemyData()
-		{
-			// Get all enemies currently in view and store their relevant data.
-			List<ITargetable> visible = vision.Spot(agent.Targeter.Enemies.Components);
-			foreach (ITargetable inView in visible)
-			{
-				EnemyData data;
-				if (!enemies.ContainsKey(inView) && inView.Entity is IAgent enemyAgent)
-				{
-					data = new EnemyData(enemyAgent);
-					enemies.Add(inView, data);
-				}
-				else
-				{
-					data = enemies[inView];
-				}
-
-				data.LastSeen = Time.time;
-				data.Distance = Vector3.Distance(agent.Targetable.Center, inView.Center);
-			}
-
-			// Check for any enemies that have been out of view for too long and forget about them.
-			List<ITargetable> outOfView = enemies.Keys.Except(visible).ToList();
-			foreach (ITargetable lostTargetable in outOfView)
-			{
-				if (Time.time - enemies[lostTargetable].LastSeen > settings.ForgetTime)
-				{
-					enemies.Remove(lostTargetable);
-				}
-			}
-		}
-
 		private void SendContinuousStimuli(float delta)
 		{
 			// Projectile stimuli.
@@ -190,12 +215,18 @@ namespace SpaxUtils
 			{
 				Vector8 current = agent.Mind.RetrieveStimuli(enemy.Agent);
 
+				float incitement = 0f;
+				if (spawnpoint == null || spawnpoint.Region == null || spawnpoint.Region.IsInside(enemy.Agent.Transform.position))
+				{
+					// Only incite anger (action) if agent has no region or if enemy is within region.
+					incitement = (enemy.Distance / (vision.Range * settings.InciteRange)).InvertClamped().Evaluate(settings.InciteCurve) / Mathf.Max(current.N * settings.StimDamping, 1f);
+				}
+
 				float threat = (enemy.Distance / (vision.Range * settings.ThreatRange)).InvertClamped().Evaluate(settings.ThreatCurve) / Mathf.Max(current.NW * settings.StimDamping, 1f);
-				float incitement = (enemy.Distance / (vision.Range * settings.InciteRange)).InvertClamped().Evaluate(settings.InciteCurve) / Mathf.Max(current.N * settings.StimDamping, 1f);
 				float danger = (statHandler.PointStatOcton.SW.PercentileMax.InvertClamped() * threat * 2f).Clamp01() / Mathf.Max(current.S * settings.StimDamping, 1f);
 				float hostility = threat * -agent.Relations.Score(enemy.Agent.Identification).Min(0f);
 
-				float carefulness = -AEMOI.MAX_STIM * danger; // Default satisfaction if there is no danger.
+				float carefulness = -AEMOI.MAX_STIM * danger.InvertClamped(); // Default is satisfaction if there is no danger.
 				if (enemy.Agent.Actor.State == PerformanceState.Preparing &&
 					enemy.Agent.Actor.MainPerformer is IMovePerformer movePerformer &&
 					movePerformer.Move is ICombatMove combatMove)
@@ -218,11 +249,6 @@ namespace SpaxUtils
 
 				agent.Mind.Stimulate(stim * delta, enemy.Agent);
 			}
-		}
-
-		private void OnEnemyRemovedEvent(ITargetable targetable)
-		{
-			enemies.Remove(targetable);
 		}
 	}
 }

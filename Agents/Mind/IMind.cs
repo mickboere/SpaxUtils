@@ -48,6 +48,11 @@ namespace SpaxUtils
 		(Vector8 motivation, IEntity target) Motivation { get; }
 
 		/// <summary>
+		/// The <see cref="IMindBehaviour"/> currently in control of the Agent.
+		/// </summary>
+		IMindBehaviour ActiveBehaviour { get; }
+
+		/// <summary>
 		/// Activates the mind to allow it to process stimuli and act upon them.
 		/// </summary>
 		/// <param name="reset">Whether the mind's emotions should be reset before activating.</param>
