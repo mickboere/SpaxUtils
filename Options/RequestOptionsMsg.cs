@@ -7,7 +7,7 @@ namespace SpaxUtils
 {
 	/// <summary>
 	/// A message to be sent over a <see cref="ICommunicationChannel"/>.
-	/// Will request any amount of <see cref="Option"/>s for its target of type <typeparamref name="T"/>.
+	/// Will request <see cref="Option"/>s for its target of type <typeparamref name="T"/>.
 	/// </summary>
 	/// <typeparam name="T">The target type for which options are being requested.</typeparam>
 	public class RequestOptionsMsg<T> : IRequestOptionsMsg, IDisposable

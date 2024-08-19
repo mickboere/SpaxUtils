@@ -25,27 +25,45 @@ namespace SpaxUtils
 		private SharedRigHandler sharedRigHandler;
 		private ICommunicationChannel comms;
 		private InventoryComponent inventoryComponent;
+		private IEquipmentData[] injectedEquipment;
 
 		private RuntimeDataCollection equipmentData;
 		private Dictionary<string, IEquipmentSlot> slots = new Dictionary<string, IEquipmentSlot>();
 		private Dictionary<string, RuntimeEquipedData> equipedItems = new Dictionary<string, RuntimeEquipedData>(); // string = slot.UID
 
 		public void InjectDependencies(SharedRigHandler sharedRigHandler,
-			ICommunicationChannel comms, InventoryComponent inventoryComponent)
+			ICommunicationChannel comms, InventoryComponent inventoryComponent,
+			IEquipmentData[] injectedEquipment)
 		{
 			this.sharedRigHandler = sharedRigHandler;
 			this.comms = comms;
 			this.inventoryComponent = inventoryComponent;
+			this.injectedEquipment = injectedEquipment;
 
 			equipmentData = Entity.RuntimeData.GetEntry(EQUIPMENT_DATA_ID, new RuntimeDataCollection(EQUIPMENT_DATA_ID));
 		}
 
 		protected void Start()
 		{
-			// Load equipment
-			foreach (RuntimeDataEntry entry in equipmentData.Data)
+			if (equipmentData.Data.Count > 0)
 			{
-				TryEquip(inventoryComponent.Inventory.Get((string)entry.Value), out _, entry.ID);
+				// Equip loaded equipment data.
+				foreach (RuntimeDataEntry entry in equipmentData.Data)
+				{
+					TryEquip(inventoryComponent.Inventory.Get((string)entry.Value), out _, entry.ID);
+				}
+			}
+			else
+			{
+				// Equip injected equipment data.
+				foreach (IEquipmentData equipment in injectedEquipment)
+				{
+					RuntimeItemData itemData = inventoryComponent.Inventory.Get(equipment);
+					if (itemData != null)
+					{
+						TryEquip(itemData, out _);
+					}
+				}
 			}
 		}
 
@@ -60,7 +78,7 @@ namespace SpaxUtils
 			comms.StopListening(this);
 		}
 
-		#region IEquipmentComponent
+		#region Slot Management
 
 		/// <inheritdoc/>
 		public bool TryGetSlotFromID(string id, out IEquipmentSlot slot)
@@ -140,6 +158,10 @@ namespace SpaxUtils
 			}
 			return false;
 		}
+
+		#endregion Slot Management
+
+		#region Equipment
 
 		/// <inheritdoc/>
 		public bool CanEquip(RuntimeItemData runtimeItemData,
@@ -269,7 +291,7 @@ namespace SpaxUtils
 			return EquipedItems.FirstOrDefault(e => e.Slot.ID == slot);
 		}
 
-		#endregion
+		#endregion Equipment
 
 		#region IInteractor
 

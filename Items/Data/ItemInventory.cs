@@ -195,7 +195,28 @@ namespace SpaxUtils
 		/// <returns>Runtime item with ID <paramref name="runtimeItemID"/>.</returns>
 		public RuntimeItemData Get(string runtimeItemID)
 		{
-			return entries[runtimeItemID];
+			if (entries.ContainsKey(runtimeItemID))
+			{
+				return entries[runtimeItemID];
+			}
+			return null;
+		}
+
+		/// <summary>
+		/// Returns runtime item which matches <paramref name="itemData"/>.
+		/// </summary>
+		/// <param name="itemData">The itemData to find a runtime match for.</param>
+		/// <returns>The <see cref="RuntimeItemData"/> matching <paramref name="itemData"/>, if any.</returns>
+		public RuntimeItemData Get(IItemData itemData)
+		{
+			foreach (RuntimeItemData entry in entries.Values)
+			{
+				if (entry.ItemData == itemData)
+				{
+					return entry;
+				}
+			}
+			return null;
 		}
 
 		/// <summary>

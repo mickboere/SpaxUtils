@@ -20,16 +20,28 @@ namespace SpaxUtils
 
 		private IDependencyManager dependencies;
 		private IItemDatabase itemDatabase;
+		private IItemData[] injectedItems;
 
-		public void InjectDependencies(IDependencyManager dependencies, IItemDatabase itemDatabase)
+		public void InjectDependencies(IDependencyManager dependencies, IItemDatabase itemDatabase,
+			IItemData[] injectedItems)
 		{
 			this.dependencies = dependencies;
 			this.itemDatabase = itemDatabase;
+			this.injectedItems = injectedItems;
 		}
 
 		protected void Awake()
 		{
 			Inventory = new ItemInventory(dependencies, itemDatabase, Entity.RuntimeData.GetEntry(INVENTORY_DATA_ID, new RuntimeDataCollection(INVENTORY_DATA_ID)));
+
+			// Ensure injected item data is present.
+			foreach (IItemData item in injectedItems)
+			{
+				if (Inventory.Get(item) == null)
+				{
+					Inventory.AddItem(item);
+				}
+			}
 		}
 
 		protected void OnDestroy()

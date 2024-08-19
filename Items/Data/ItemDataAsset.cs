@@ -1,13 +1,15 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.Serialization;
 
 namespace SpaxUtils
 {
 	[CreateAssetMenu(fileName = "Item", menuName = "ScriptableObjects/Items/ItemDataAsset")]
-	public class ItemDataAsset : ScriptableObject, IItemData
+	public class ItemDataAsset : ScriptableObject, IItemData, IBindingKeyProvider
 	{
 		public const string TT_UNIQUE = "Unique items cannot be stacked, and will always count as a new data entry when added to the inventory.";
+
+		/// <inheritdoc/>
+		public object BindingKey => $"ITEM:{ID}";
 
 		/// <inheritdoc/>
 		public string ID => id;

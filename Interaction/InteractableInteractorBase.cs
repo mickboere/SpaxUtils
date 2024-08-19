@@ -30,7 +30,7 @@ namespace SpaxUtils
 
 		/// <summary>
 		/// Called from <see cref="AttemptInteraction(string, IInteractable, object, out IInteraction)"/> if <see cref="Able(string)"/> and
-		/// <paramref name="interactable"/>.<see cref="IInteractable.IsInteractable(IInteractor, string)"/> return true.
+		/// <paramref name="interactable"/>.<see cref="IInteractable.Supports(string)"/> return true.
 		/// </summary>
 		protected abstract bool OnAttempt(string interactionType, IInteractable interactable, object data, out IInteraction interaction);
 	}

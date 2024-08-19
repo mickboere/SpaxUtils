@@ -110,21 +110,5 @@ namespace SpaxUtils
 			rootGo.SetActive(true);
 			return agent;
 		}
-
-		private static List<object> CombineDependencies(ICollection<object> a, ICollection<object> b)
-		{
-			List<object> dependencies = new List<object>(a);
-			if (b.Count > 0)
-			{
-				foreach (var item in b)
-				{
-					if (!dependencies.Contains(item))
-					{
-						dependencies.Add(item);
-					}
-				}
-			}
-			return dependencies;
-		}
 	}
 }
