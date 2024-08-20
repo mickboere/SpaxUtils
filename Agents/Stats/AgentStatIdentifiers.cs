@@ -89,6 +89,7 @@
 		// Daeth
 		public const string OFFENCE = BODY_STAT + "Offence"; // Total damage output.
 		public const string PIERCING = BODY_STAT + "Piercing"; // Piercing power of attacks, scales with Offence to calculate penetration.
+		public const string RANGE = BODY_STAT + "Range"; // The agent's base attack range (should either be 0 or as large as the idle collision radius).
 		// Fire
 		public const string ENERGY = BODY_STAT + "Energy"; // Amount of available force.
 		public const string STRENGTH = BODY_STAT + "Strength"; // Force output.

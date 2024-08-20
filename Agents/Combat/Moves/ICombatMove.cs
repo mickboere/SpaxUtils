@@ -6,7 +6,7 @@
 	public interface ICombatMove : IPerformanceMove
 	{
 		/// <summary>
-		/// The (base) range of this combat move.
+		/// The (base) hit range of this combat move.
 		/// </summary>
 		float Range { get; }
 	}

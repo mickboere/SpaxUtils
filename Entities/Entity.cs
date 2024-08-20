@@ -3,6 +3,10 @@ using UnityEngine;
 using System;
 using System.Linq;
 
+#if UNITY_EDITOR
+using UnityEditor.SceneManagement;
+#endif
+
 namespace SpaxUtils
 {
 	/// <summary>
@@ -180,10 +184,12 @@ namespace SpaxUtils
 
 		protected void Update()
 		{
-			if (!Application.isPlaying)
+#if UNITY_EDITOR
+			if (!Application.isPlaying && PrefabStageUtility.GetCurrentPrefabStage() == null)
 			{
 				gameObject.name = GameObjectName;
 			}
+#endif
 		}
 
 		private void Initialize()

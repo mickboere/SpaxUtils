@@ -188,7 +188,7 @@ namespace SpaxUtils
 		private void SendContinuousStimuli(float delta)
 		{
 			// Projectile stimuli.
-			// TODO: Split up projectile detection sense to a separte component which can be accesses by the behaviours.
+			// TODO: Split up projectile detection sense to a separte component which can be accesses by the behaviours to also track projectiles.
 			if (projectileService.IsTarget(agent.Targetable, out IProjectile[] projectiles))
 			{
 				foreach (IProjectile projectile in projectiles)
@@ -219,7 +219,8 @@ namespace SpaxUtils
 				if (spawnpoint == null || spawnpoint.Region == null || spawnpoint.Region.IsInside(enemy.Agent.Transform.position))
 				{
 					// Only incite anger (action) if agent has no region or if enemy is within region.
-					incitement = (enemy.Distance / (vision.Range * settings.InciteRange)).InvertClamped().Evaluate(settings.InciteCurve) / Mathf.Max(current.N * settings.StimDamping, 1f);
+					//incitement = (enemy.Distance / (vision.Range * settings.InciteRange)).InvertClamped().Evaluate(settings.InciteCurve) / Mathf.Max(current.N * settings.StimDamping, 1f);
+					incitement = current.NW / Mathf.Max(current.N * settings.StimDamping, 1f);
 				}
 
 				float threat = (enemy.Distance / (vision.Range * settings.ThreatRange)).InvertClamped().Evaluate(settings.ThreatCurve) / Mathf.Max(current.NW * settings.StimDamping, 1f);
@@ -231,7 +232,13 @@ namespace SpaxUtils
 					enemy.Agent.Actor.MainPerformer is IMovePerformer movePerformer &&
 					movePerformer.Move is ICombatMove combatMove)
 				{
-					carefulness = Mathf.InverseLerp(combatMove.Range * 1.5f, combatMove.Range, enemy.Distance) * AEMOI.MAX_STIM;// * (movePerformer.Charge * 2f).Min(2f);
+					float range = combatMove.Range;
+					if (combatMove is IMeleeCombatMove meleeCombatMove)
+					{
+						range += enemy.Agent.GetStat(AgentStatIdentifiers.RANGE.SubStat(meleeCombatMove.Limb)) ?? 0f;
+					}
+
+					carefulness = Mathf.InverseLerp(range * 1.5f, range, enemy.Distance) * AEMOI.MAX_STIM;// * (movePerformer.Charge * 2f).Min(2f);
 				}
 				float evade = carefulness / Mathf.Max(current.E * settings.StimDamping, 1f);
 				float guard = carefulness / Mathf.Max(current.W * settings.StimDamping, 1f);
