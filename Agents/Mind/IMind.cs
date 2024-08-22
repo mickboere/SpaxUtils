@@ -12,6 +12,16 @@ namespace SpaxUtils
 	public interface IMind
 	{
 		/// <summary>
+		/// Invoked when the mind is activated.
+		/// </summary>
+		event Action ActivatedEvent;
+
+		/// <summary>
+		/// Invoked when the mind is deactivated.
+		/// </summary>
+		event Action DeactivatedEvent;
+
+		/// <summary>
 		/// Called once when the mind is updated, requesting all senses to call <see cref="Stimulate(Vector8, IEntity)"/>.
 		/// The float value is the time delta between updates.
 		/// </summary>
@@ -43,7 +53,7 @@ namespace SpaxUtils
 		IReadOnlyDictionary<IEntity, Vector8> Stimuli { get; }
 
 		/// <summary>
-		/// The motivation profile that is currently the strongest and the entity responsible for it.
+		/// The stimulation profile that is currently the strongest and the entity responsible for it.
 		/// </summary>
 		(Vector8 motivation, IEntity target) Motivation { get; }
 

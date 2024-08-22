@@ -14,6 +14,12 @@ namespace SpaxUtils
 		public const float MAX_STIM = 10f;
 
 		/// <inheritdoc/>
+		public event Action ActivatedEvent;
+
+		/// <inheritdoc/>
+		public event Action DeactivatedEvent;
+
+		/// <inheritdoc/>
 		public event Action<float> UpdatingEvent;
 
 		/// <inheritdoc/>
@@ -68,6 +74,7 @@ namespace SpaxUtils
 			}
 
 			Active = true;
+			ActivatedEvent?.Invoke();
 		}
 
 		/// <inheritdoc/>
@@ -81,6 +88,7 @@ namespace SpaxUtils
 			StopBehaviour();
 
 			Active = false;
+			DeactivatedEvent?.Invoke();
 		}
 
 		/// <inheritdoc/>
@@ -97,7 +105,7 @@ namespace SpaxUtils
 			}
 
 			// Set the current highest motivation.
-			Motivation = GetMotivation();
+			Motivation = GetStrongestStimuli();
 			MotivatedEvent?.Invoke();
 
 			// Check whether the current behaviour can/needs to be switched.
@@ -232,9 +240,9 @@ namespace SpaxUtils
 		#endregion Behaviour
 
 		/// <summary>
-		/// Returns the strongest motivation.
+		/// Returns the strongest stimuli.
 		/// </summary>
-		private (Vector8 stimuli, IEntity source) GetMotivation()
+		private (Vector8 stimuli, IEntity source) GetStrongestStimuli()
 		{
 			Vector8 motivation = Vector8.Zero;
 			IEntity target = null;

@@ -1,17 +1,13 @@
 using System.Collections;
 using System.Collections.Generic;
-using UnityEngine;
-using SpaxUtils.StateMachines;
 using System.Linq;
+using UnityEngine;
 
 namespace SpaxUtils
 {
-	/// <summary>
-	/// AEMOI related node that stimulates the mind with combat senses.
-	/// </summary>
-	public class CombatSensesNode : StateComponentNodeBase
+	public class CombatSensesComponent : EntityComponentBase
 	{
-		private class EnemyData
+		public class EnemyData
 		{
 			public IAgent Agent;
 			public float LastSeen;
@@ -48,31 +44,38 @@ namespace SpaxUtils
 			this.projectileService = projectileService;
 		}
 
-		public override void OnStateEntered()
+		protected void Awake()
 		{
-			base.OnStateEntered();
+			agent.Mind.ActivatedEvent += OnMindActivated;
+			agent.Mind.DeactivatedEvent += OnMindDeactivated;
 
-			agent.Mind.UpdatingEvent += OnMindUpdatingEvent;
-			agent.Mind.MotivatedEvent += OnMindMotivatedEvent;
+			if (agent.Mind.Active)
+			{
+				OnMindActivated();
+			}
+		}
+
+		public void OnMindActivated()
+		{
+			agent.Mind.UpdatingEvent += OnMindUpdating;
+			agent.Mind.MotivatedEvent += OnMindMotivated;
 			hittable.Subscribe(this, OnReceivedHitEvent, -2);
 			comms.Listen<HitData>(this, OnSentHitEvent);
 			agent.Actor.PerformanceStartedEvent += OnPerformanceStartedEvent;
 			agent.Targeter.Enemies.RemovedComponentEvent += OnEnemyTargetRemovedEvent;
 		}
 
-		public override void OnStateExit()
+		public void OnMindDeactivated()
 		{
-			base.OnStateExit();
-
-			agent.Mind.UpdatingEvent -= OnMindUpdatingEvent;
-			agent.Mind.MotivatedEvent -= OnMindMotivatedEvent;
+			agent.Mind.UpdatingEvent -= OnMindUpdating;
+			agent.Mind.MotivatedEvent -= OnMindMotivated;
 			hittable.Unsubscribe(this);
 			comms.StopListening(this);
 			agent.Actor.PerformanceStartedEvent -= OnPerformanceStartedEvent;
 			agent.Targeter.Enemies.RemovedComponentEvent -= OnEnemyTargetRemovedEvent;
 		}
 
-		private void OnMindMotivatedEvent()
+		private void OnMindMotivated()
 		{
 			// Invoked when the mind's motivation has settled.
 			if (agent.Mind.Motivation.target != null)
@@ -86,7 +89,7 @@ namespace SpaxUtils
 			}
 		}
 
-		private void OnMindUpdatingEvent(float delta)
+		private void OnMindUpdating(float delta)
 		{
 			// Invoked when the mind begins updating.
 			GatherEnemyData();
