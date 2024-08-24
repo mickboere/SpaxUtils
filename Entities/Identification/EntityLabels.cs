@@ -6,6 +6,7 @@
 	public class EntityLabels : IIdentificationLabels
 	{
 		public const string PLAYER = "Player";
+		public const string CAMERA = "Camera";
 		public const string NPC = "NPC";
 		public const string ITEM = "Item";
 	}
