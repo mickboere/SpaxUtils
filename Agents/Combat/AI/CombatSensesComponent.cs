@@ -179,13 +179,13 @@ namespace SpaxUtils
 
 		private void OnPerformanceStartedEvent(IPerformer performer)
 		{
-			if (performer is IMovePerformer movePerformer && movePerformer.Move is ICombatMove combatMove)
-			{
-				// Invoked when the agent performs an attack.
-				// Satisfies Anger.
-				Vector8 satisfaction = new Vector8() { N = movePerformer.Charge };
-				agent.Mind.Satisfy(satisfaction, agent.Targeter.Target.Entity);
-			}
+			//if (performer is IMovePerformer movePerformer && movePerformer.Move is ICombatMove combatMove)
+			//{
+			//	// Invoked when the agent performs an attack.
+			//	// Satisfies Anger.
+			//	Vector8 satisfaction = new Vector8() { N = movePerformer.Charge };
+			//	agent.Mind.Satisfy(satisfaction, agent.Targeter.Target.Entity);
+			//}
 		}
 
 		private void SendContinuousStimuli(float delta)

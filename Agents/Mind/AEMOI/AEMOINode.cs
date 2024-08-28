@@ -12,7 +12,6 @@ namespace SpaxUtils
 
 		private IAgent agent;
 		private CallbackService callbackService;
-		private ITargeter targeter;
 
 		private List<AEMOIBehaviourAsset> behaviourInstances;
 
@@ -20,7 +19,6 @@ namespace SpaxUtils
 		{
 			this.agent = agent;
 			this.callbackService = callbackService;
-			this.targeter = targeter;
 		}
 
 		public override void OnStateEntered()
