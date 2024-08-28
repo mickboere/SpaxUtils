@@ -85,8 +85,8 @@ namespace SpaxUtils
 
 		protected void OnDestroy()
 		{
-			((Actor)Actor).Dispose();
-			Brain.Dispose();
+			((Actor)Actor)?.Dispose();
+			Brain?.Dispose();
 		}
 
 		/// <inheritdoc/>

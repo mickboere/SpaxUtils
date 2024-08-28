@@ -16,11 +16,13 @@ namespace SpaxUtils
 		public bool HasAnimator => AnimatorWrapper != null && AnimatorWrapper.Animator != null;
 		public AnimatorWrapper AnimatorWrapper => RefComponentRelative(ref animatorWrapper);
 
-		public SkinnedMeshRenderer ReferenceMesh => RefComponentRelative(ref referenceSkin);
 		public Transform SkeletonRootBone => skeletonRootBone;
-		public Transform Head => head;
 		public IReadOnlyList<Transform> Skeleton => GetSkeleton();
+		public IReadOnlyList<Renderer> Renderers => renderers;
+
 		public Vector3 Center => Skeleton.GetCenter(t => t.TryGetComponent(out SkeletonBoneOptions options) ? options.Weight : 1f);
+
+		public Transform Head => head;
 
 		[SerializeField] private float scale = 1f;
 		[SerializeField] private RigidbodyWrapper rigidbodyWrapper;
@@ -29,7 +31,7 @@ namespace SpaxUtils
 		[SerializeField] private AnimatorWrapper animatorWrapper;
 		[SerializeField] private Transform skeletonRootBone;
 		[SerializeField] private Transform head;
-		[SerializeField] private SkinnedMeshRenderer referenceSkin;
+		[SerializeField] private List<Renderer> renderers;
 		[SerializeField] private bool debug;
 
 		private ITargetable targetableComponent;
@@ -63,27 +65,26 @@ namespace SpaxUtils
 			EnsureAllComponents();
 		}
 
-		public List<Transform> GetSkeleton(bool refresh = false)
+		private void EnsureAllComponents()
+		{
+			RefComponentRelative(ref rigidbodyWrapper);
+			RefComponentRelative(ref animatorWrapper);
+			RefComponentRelative(ref targetableComponent);
+		}
+
+		private T RefComponentRelative<T>(ref T component)
+		{
+			component = component ?? gameObject.GetComponentRelative<T>();
+			return component;
+		}
+
+		private List<Transform> GetSkeleton(bool refresh = false)
 		{
 			if (skeleton == null || refresh)
 			{
 				skeleton = SkeletonRootBone.CollectChildrenRecursive((t) => !t.TryGetComponent(out IExcludeFromSkeleton ex) || ex.Exclude);
 			}
 			return skeleton;
-		}
-
-		private void EnsureAllComponents()
-		{
-			RefComponentRelative(ref rigidbodyWrapper);
-			RefComponentRelative(ref animatorWrapper);
-			RefComponentRelative(ref targetableComponent);
-			RefComponentRelative(ref referenceSkin);
-		}
-
-		private T RefComponentRelative<T>(ref T component)
-		{
-			component = gameObject.GetComponentRelative<T>();
-			return component;
 		}
 
 		protected void OnDrawGizmos()

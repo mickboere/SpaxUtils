@@ -122,6 +122,11 @@ namespace SpaxUtils
 		/// <returns>A dictionary of normalized surface values located at the <paramref name="raycastHit"/>.</returns>
 		public Dictionary<string, float> GetSurfaceValues(RaycastHit raycastHit)
 		{
+			if (surfaces.Count == 0)
+			{
+				return new Dictionary<string, float>() { { defaultSurfaceType, 1f } };
+			}
+
 			if (!raycastHit.transform.gameObject.TryGetComponentRelative(out MeshFilter meshFilter))
 			{
 				Debug.LogError("No MeshFilter found to read vertex colors from, returning null.", raycastHit.transform);

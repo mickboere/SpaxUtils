@@ -80,20 +80,27 @@ namespace SpaxUtils
 			{
 				if (entry.Value is JArray jArray)
 				{
-					switch (jArray[0].Type)
+					if (jArray.Count > 0)
 					{
-						case JTokenType.String:
-							// JArray to List<string>
-							List<string> stringCollection = jArray.ToObject<List<string>>();
-							entry.Value = stringCollection;
-							break;
-						case JTokenType.Object:
-						default:
-							// JArray to RuntimeDataCollection.
-							RuntimeDataCollection childCollection = new RuntimeDataCollection(entry.ID, jArray.ToObject<List<RuntimeDataEntry>>(), this);
-							_data[entry.ID] = childCollection;
-							entry.Dispose();
-							break;
+						switch (jArray[0].Type)
+						{
+							case JTokenType.String:
+								// JArray to List<string>
+								List<string> stringCollection = jArray.ToObject<List<string>>();
+								entry.Value = stringCollection;
+								break;
+							case JTokenType.Object:
+							default:
+								// JArray to RuntimeDataCollection.
+								RuntimeDataCollection childCollection = new RuntimeDataCollection(entry.ID, jArray.ToObject<List<RuntimeDataEntry>>(), this);
+								_data[entry.ID] = childCollection;
+								entry.Dispose();
+								break;
+						}
+					}
+					else
+					{
+						SpaxDebug.Warning($"Empty JArray", $"at: {entry.ID} in {ID}");
 					}
 				}
 				else

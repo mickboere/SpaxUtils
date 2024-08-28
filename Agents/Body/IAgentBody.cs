@@ -18,9 +18,9 @@ namespace SpaxUtils
 		bool HasAnimator { get; }
 		AnimatorWrapper AnimatorWrapper { get; }
 
-		SkinnedMeshRenderer ReferenceMesh { get; }
 		Transform SkeletonRootBone { get; }
 		IReadOnlyList<Transform> Skeleton { get; }
+		IReadOnlyList<Renderer> Renderers { get; }
 
 		Vector3 Center { get; }
 	}

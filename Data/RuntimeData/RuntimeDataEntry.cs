@@ -18,7 +18,7 @@ namespace SpaxUtils
 		/// The identidier/label of this data.
 		/// </summary>
 		[JsonProperty(Order = -2)]
-		public virtual string ID { get; private set; }
+		public virtual string ID { get; set; }
 
 		/// <summary>
 		/// The value of this data.

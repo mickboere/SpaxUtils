@@ -102,24 +102,25 @@ namespace SpaxUtils
 			Stats = new StatCollection<EntityStat>();
 		}
 
-		protected virtual void LoadData(RuntimeDataCollection runtimeData = null)
+		protected virtual void LoadData(RuntimeDataCollection baseData = null)
 		{
-			// Load entity data.
-			if (runtimeData != null)
+			if (baseData != null)
 			{
 				// Data was supplied through dependencies.
-				RuntimeData = runtimeData;
-			}
-			else if (runtimeDataService.CurrentProfile.TryGet(Identification.ID, out RuntimeDataCollection entityData))
-			{
-				// Saved data was found in data service.
-				RuntimeData = entityData;
+				RuntimeData = baseData.Clone();
+				RuntimeData.ID = Identification.ID;
 			}
 			else
 			{
 				// Create new data.
 				// We don't set the global data as the collection's parent because there's no guarantee this entity needs to be saved.
 				RuntimeData = new RuntimeDataCollection(Identification.ID);
+			}
+
+			if (runtimeDataService.CurrentProfile.TryGet(Identification.ID, out RuntimeDataCollection entityData))
+			{
+				// Saved data was found in data service, append to existing data and overwrite duplicate data.
+				RuntimeData.Append(entityData, true);
 			}
 
 			// Load or set entity name in data.
@@ -152,7 +153,7 @@ namespace SpaxUtils
 
 			gameObject.name = GameObjectName;
 
-			if (RuntimeData.ContainsEntry(ID_POS) && Transform.position == Vector3.zero)
+			if (RuntimeData != null && RuntimeData.ContainsEntry(ID_POS) && Transform.position == Vector3.zero)
 			{
 				Transform.position = RuntimeData.Get<Vector3>(ID_POS);
 				Transform.eulerAngles = RuntimeData.Get<Vector3>(ID_ROT);
