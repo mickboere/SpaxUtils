@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 
 namespace SpaxUtils
@@ -9,31 +8,15 @@ namespace SpaxUtils
 	/// </summary>
 	public class VisionComponent : EntityComponentBase, IVisionComponent
 	{
-		[Serializable]
-		public class Eye
-		{
-			public string TransformIdentifier => transformIdentifier;
-			public Transform Transform
-			{
-				get { return transform; }
-				set { transform = value; }
-			}
-			public float Fov => fov;
-			public float Range => range;
-			public bool Raycast => raycast;
-			public LayerMask LayerMask => layerMask;
+		/// <inheritdoc/>
+		public float Range => range;
 
-			[SerializeField, ConstDropdown(typeof(ITransformLookupIdentifiers), includeEmpty: true)] private string transformIdentifier;
-			[SerializeField] private Transform transform;
-			[SerializeField] private float fov;
-			[SerializeField] private float range;
-			[SerializeField] private bool raycast;
-			[SerializeField] private LayerMask layerMask;
-		}
-
-		public float Range => eyes[0].Range;
-
-		[SerializeField] private List<Eye> eyes;
+		[SerializeField, ConstDropdown(typeof(ITransformLookupIdentifiers), includeEmpty: true)] private string transformIdentifier;
+		[SerializeField] private Transform eyeTransform;
+		[SerializeField] private float fov;
+		[SerializeField] private float range;
+		[SerializeField] private bool raycast;
+		[SerializeField] private LayerMask layerMask;
 		[SerializeField] private bool debug;
 
 		private TransformLookup transformLookup;
@@ -43,40 +26,38 @@ namespace SpaxUtils
 			this.transformLookup = transformLookup;
 		}
 
+		/// <inheritdoc/>
 		public List<ITargetable> Spot(IEnumerable<ITargetable> targetables)
 		{
 			List<ITargetable> spotted = new List<ITargetable>();
 
-			foreach (Eye eye in eyes)
+			if (eyeTransform == null && !string.IsNullOrEmpty(transformIdentifier))
 			{
-				if (eye.Transform == null && !string.IsNullOrEmpty(eye.TransformIdentifier))
-				{
-					eye.Transform = transformLookup.Lookup(eye.TransformIdentifier);
-				}
+				eyeTransform = transformLookup.Lookup(transformIdentifier);
+			}
 
-				if (eye.Transform == null)
+			if (eyeTransform == null)
+			{
+				SpaxDebug.Error("Eye transform could not be found.", $"Eye transform identifier: {transformIdentifier}", this);
+				return spotted;
+			}
+
+			// For each targetable, check if they are in view (meaning in range and within FOV).
+			foreach (ITargetable targetable in targetables)
+			{
+				if (spotted.Contains(targetable))
 				{
-					SpaxDebug.Error("Eye transform could not be found.", $"Index: {eyes.IndexOf(eye)}", this);
+					// Skip targetables that have already been spotted.
 					continue;
 				}
 
-				// For each targetable, check if they are in view (meaning in range and within FOV).
-				foreach (ITargetable targetable in targetables)
+				Vector3 eyeToTarget = targetable.Center - eyeTransform.position;
+				float distanceToTarget = eyeToTarget.magnitude;
+				if (distanceToTarget < range && Vector3.Angle(eyeTransform.forward, eyeToTarget.normalized) < fov * 0.5f)
 				{
-					if (spotted.Contains(targetable))
+					if (!raycast || !Physics.Raycast(eyeTransform.position, eyeToTarget, out _, eyeToTarget.magnitude, layerMask))
 					{
-						// Skip targetables that have already been spotted.
-						continue;
-					}
-
-					Vector3 eyeToTarget = targetable.Center - eye.Transform.position;
-					float distanceToTarget = eyeToTarget.magnitude;
-					if (distanceToTarget < eye.Range && Vector3.Angle(eye.Transform.forward, eyeToTarget.normalized) < eye.Fov * 0.5f)
-					{
-						if (!eye.Raycast || !Physics.Raycast(eye.Transform.position, eyeToTarget, out _, eyeToTarget.magnitude, eye.LayerMask))
-						{
-							spotted.Add(targetable);
-						}
+						spotted.Add(targetable);
 					}
 				}
 			}
@@ -88,31 +69,28 @@ namespace SpaxUtils
 		{
 			if (debug)
 			{
-				foreach (Eye eye in eyes)
+				if (eyeTransform == null && !string.IsNullOrEmpty(transformIdentifier))
 				{
-					if (eye.Transform == null && !string.IsNullOrEmpty(eye.TransformIdentifier))
+					if (transformLookup == null)
 					{
-						if (transformLookup == null)
-						{
-							transformLookup = GetComponent<TransformLookup>();
-						}
-
-						if (transformLookup != null)
-						{
-							eye.Transform = transformLookup.Lookup(eye.TransformIdentifier);
-						}
+						transformLookup = GetComponent<TransformLookup>();
 					}
 
-					if (eye.Transform == null)
+					if (transformLookup != null)
 					{
-						//SpaxDebug.Error("Eye transform could not be found.", $"Index: {eyes.IndexOf(eye)}", this);
-						continue;
+						eyeTransform = transformLookup.Lookup(transformIdentifier);
 					}
-
-					Gizmos.color = Color.white;
-					Gizmos.matrix = eye.Transform.localToWorldMatrix;
-					Gizmos.DrawFrustum(Vector3.zero, eye.Fov, eye.Range * 2f / eye.Transform.lossyScale.magnitude, 0f, 1f);
 				}
+
+				if (eyeTransform == null)
+				{
+					//SpaxDebug.Error("Eye transform could not be found.", $"Index: {eyes.IndexOf(eye)}", this);
+					return;
+				}
+
+				Gizmos.color = Color.white;
+				Gizmos.matrix = eyeTransform.localToWorldMatrix;
+				Gizmos.DrawFrustum(Vector3.zero, fov, range * 2f / eyeTransform.lossyScale.magnitude, 0f, 1f);
 			}
 		}
 	}

@@ -137,7 +137,10 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public void Satisfy(Vector8 satisfaction, IEntity source)
 		{
-			Stimulate(-satisfaction, source);
+			if (stimuli.ContainsKey(source))
+			{
+				stimuli[source] = (stimuli[source] - satisfaction).Clamp(0f, MAX_STIM);
+			}
 		}
 
 		/// <inheritdoc/>
