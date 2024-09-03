@@ -10,5 +10,6 @@ namespace SpaxUtils
 	{
 		[field: SerializeField] public Canvas Canvas { get; private set; }
 		[field: SerializeField] public EventSystem EventSystem { get; private set; }
+		[field: SerializeField] public Camera Camera { get; private set; }
 	}
 }

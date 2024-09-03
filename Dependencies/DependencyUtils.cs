@@ -148,7 +148,7 @@ namespace SpaxUtils
 					instance.transform.SetParent(parent);
 				}
 				instance.transform.localPosition = position;
-				instance.transform.rotation = rotation;
+				instance.transform.localRotation = rotation;
 			}
 			finally
 			{
