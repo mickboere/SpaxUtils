@@ -109,6 +109,11 @@ namespace SpaxUtils
 		/// </summary>
 		StatCost PerformCost { get; }
 
+		/// <summary>
+		/// Performing SFX data.
+		/// </summary>
+		SFXData PerformSFX { get; }
+
 		#endregion Performance
 
 		/// <summary>
