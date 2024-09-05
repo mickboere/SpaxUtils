@@ -5,7 +5,7 @@ using UnityEngine;
 namespace SpaxUtils
 {
 	[CreateAssetMenu(fileName = "Behaviour_Maneuver_Dash", menuName = "ScriptableObjects/Combat/DashManeuverBehaviourAsset")]
-	public class DashManeuverBehaviourAsset : BasePerformanceMoveBehaviourAsset
+	public class DashManeuverBehaviourAsset : CorePerformanceMoveBehaviourAsset
 	{
 		[SerializeField] private float dashSpeed = 10f;
 		[SerializeField] private float glideSpeed = 5f;
@@ -43,9 +43,9 @@ namespace SpaxUtils
 			callbackService.UnsubscribeUpdate(UpdateMode.FixedUpdate, this);
 		}
 
-		public override void CustomUpdate(float delta)
+		public override void ExternalUpdate(float delta)
 		{
-			base.CustomUpdate(delta);
+			base.ExternalUpdate(delta);
 
 			if (State == PerformanceState.Preparing)
 			{

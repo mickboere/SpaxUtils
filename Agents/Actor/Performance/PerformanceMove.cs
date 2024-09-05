@@ -32,7 +32,6 @@ namespace SpaxUtils
 		public float TotalDuration => MinDuration + Release;
 		public string PerformSpeedMultiplierStat => performSpeedMultiplier;
 		public StatCost PerformCost => performCost;
-		public SFXData PerformSFX => performSFX;
 
 		public float CancelDuration => cancelDuration;
 
@@ -73,7 +72,6 @@ namespace SpaxUtils
 		[SerializeField, Conditional(nameof(hasPerformance), hide: true), Range(0f, 1f), Tooltip(TT_CHARGE_FADEOUT)] private float chargeFadeout = 0.3f;
 		[SerializeField, Conditional(nameof(hasPerformance), hide: true), ConstDropdown(typeof(IStatIdentifierConstants))] private string performSpeedMultiplier = AgentStatIdentifiers.ATTACK_PERFORM_SPEED;
 		[SerializeField] private StatCost performCost;
-		[SerializeField] private SFXData performSFX;
 
 		public override string ToString()
 		{

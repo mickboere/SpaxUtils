@@ -43,9 +43,9 @@ namespace SpaxUtils
 			instanceTimer = new TimerClass(move.InstanceDelay, () => timescaleStat, callbackService);
 		}
 
-		public override void CustomUpdate(float delta)
+		public override void ExternalUpdate(float delta)
 		{
-			base.CustomUpdate(delta);
+			base.ExternalUpdate(delta);
 
 			if (instanceTimer != null && instanceTimer.Expired)
 			{

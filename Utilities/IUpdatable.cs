@@ -9,6 +9,6 @@ namespace SpaxUtils
 		/// Custom update method incorporating <paramref name="delta"/> time.
 		/// </summary>
 		/// <param name="delta">The delta between the last and current update.</param>
-		void CustomUpdate(float delta);
+		void ExternalUpdate(float delta);
 	}
 }

@@ -75,9 +75,9 @@ namespace SpaxUtils
 			Performer.PerformanceStartedEvent -= OnPerformanceStartedEvent;
 		}
 
-		public override void CustomUpdate(float delta)
+		public override void ExternalUpdate(float delta)
 		{
-			base.CustomUpdate(delta);
+			base.ExternalUpdate(delta);
 
 			if (Performer.State == PerformanceState.Preparing && Performer.Charge > Move.MinCharge)
 			{

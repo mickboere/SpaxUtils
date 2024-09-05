@@ -19,6 +19,20 @@ namespace SpaxUtils
 		[SerializeField, MinMaxRange(0.01f, 1f, true)] private Vector2 volumeRange = new Vector2(1f, 1f);
 		[SerializeField, MinMaxRange(0.01f, 3f, true, false)] private Vector2 pitchRange = new Vector2(1f, 1f);
 
+		public void Play(AudioSource audioSource, float volume = 1f)
+		{
+			if (clips == null || clips.Count == 0)
+			{
+				SpaxDebug.Warning("No clips defined.");
+				return;
+			}
+
+			audioSource.pitch = RandomPitch;
+			audioSource.volume = RandomVolume * volume;
+			audioSource.clip = RandomClip;
+			audioSource.Play();
+		}
+
 		public void PlayOneShot(AudioSource audioSource, float volume = 1f)
 		{
 			if (clips == null || clips.Count == 0)

@@ -44,9 +44,9 @@ namespace SpaxUtils
 			agentStatHandler.PointStatOcton.W.Cost.RemoveModifier(this);
 		}
 
-		public override void CustomUpdate(float delta)
+		public override void ExternalUpdate(float delta)
 		{
-			base.CustomUpdate(delta);
+			base.ExternalUpdate(delta);
 
 			if (Performer.State == PerformanceState.Preparing)
 			{

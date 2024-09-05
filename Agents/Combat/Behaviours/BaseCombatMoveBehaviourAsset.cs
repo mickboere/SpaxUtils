@@ -3,9 +3,9 @@
 namespace SpaxUtils
 {
 	/// <summary>
-	/// Inherits <see cref="BasePerformanceMoveBehaviourAsset"/>, implements default combat move pose evaluation.
+	/// Inherits <see cref="CorePerformanceMoveBehaviourAsset"/>, implements default combat move pose evaluation.
 	/// </summary>
-	public class BaseCombatMoveBehaviourAsset : BasePerformanceMoveBehaviourAsset
+	public class BaseCombatMoveBehaviourAsset : CorePerformanceMoveBehaviourAsset
 	{
 		protected override IPoserInstructions Evaluate(out float weight)
 		{
