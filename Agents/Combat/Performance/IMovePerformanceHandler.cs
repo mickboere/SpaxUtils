@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 
 namespace SpaxUtils
 {
@@ -7,6 +8,11 @@ namespace SpaxUtils
 	/// </summary>
 	public interface IMovePerformanceHandler : IMovePerformer
 	{
+		/// <summary>
+		/// Invoked each time the <see cref="Moveset"/> is updated.
+		/// </summary>
+		event Action MovesetUpdatedEvent;
+
 		/// <summary>
 		/// The current set of highest-priority moves per act.
 		/// </summary>

@@ -10,6 +10,7 @@ namespace SpaxUtils
 	public class PointsStat
 	{
 		#region Tooltips
+		private const string TT_hasMax = "Whether this stat has an associated maximum value stat. If false, the max will be the same as the current value.";
 		private const string TT_hasRecovery = "Whether this stat automatically recovers points over time.";
 		private const string TT_isRecoverable = "Whether this stat has a diminishable recoverable amount separate from its max amount.";
 		private const string TT_overdraw = "The amount taxed from the recoverable amount when the stat is overdrawn (below 0). Default: 1.";
@@ -24,14 +25,19 @@ namespace SpaxUtils
 		public EntityStat RecoveryDelay { get; private set; }
 		public EntityStat Frailty { get; private set; }
 
+		public bool HasMax => hasMax;
+		public bool HasRecovery => hasMax && hasRecovery;
+		public bool IsRecoverable => hasMax && isRecoverable;
+
 		public float PercentileMax => Current / Max;
-		public float PercentileRecoverable => isRecoverable ? Current / Recoverable : PercentileMax;
-		public float RecoverablePercentile => isRecoverable ? Recoverable / Max : 1f;
-		public bool IsRecovering => hasRecovery && (recoveryTimer == null || recoveryTimer.Expired) && !PercentileRecoverable.Approx(1f);
+		public float PercentileRecoverable => IsRecoverable ? Current / Recoverable : PercentileMax;
+		public float RecoverablePercentile => IsRecoverable ? Recoverable / Max : 1f;
+		public bool IsRecovering => HasRecovery && (recoveryTimer == null || recoveryTimer.Expired) && !PercentileRecoverable.Approx(1f);
 
 		[SerializeField, ConstDropdown(typeof(IStatIdentifierConstants), includeEmpty: true)] private string stat;
-		[SerializeField, Tooltip(TT_hasRecovery)] private bool hasRecovery;
-		[SerializeField, Tooltip(TT_isRecoverable)] private bool isRecoverable;
+		[SerializeField, Tooltip(TT_hasRecovery)] private bool hasMax = true;
+		[SerializeField, Conditional(nameof(hasMax), hide: true), Tooltip(TT_hasRecovery)] private bool hasRecovery;
+		[SerializeField, Conditional(nameof(hasMax), hide: true), Tooltip(TT_isRecoverable)] private bool isRecoverable;
 		[SerializeField, Conditional(nameof(isRecoverable), hide: true), Tooltip(TT_overdraw)] private float overdraw = 1f;
 
 		private bool initialized = false;
@@ -59,21 +65,25 @@ namespace SpaxUtils
 			timescale = entity.GetStat(EntityStatIdentifiers.TIMESCALE, true, 1f);
 
 			Current = entity.GetStat(stat, true);
-			Current.ValueChangedEvent += OnCurrentChangedEvent;
-			lastCurrent = Current;
 
-			Max = entity.GetStat(maxId, true);
-			Max.ValueChangedEvent += OnMaxChangedEvent;
+			if (HasMax)
+			{
+				Current.ValueChangedEvent += OnCurrentChangedEvent;
+				lastCurrent = Current;
+
+				Max = entity.GetStat(maxId, true);
+				Max.ValueChangedEvent += OnMaxChangedEvent;
+			}
 
 			Cost = entity.GetStat(costId, true, 1f);
 
-			if (isRecoverable)
+			if (IsRecoverable)
 			{
 				Recoverable = entity.GetStat(recoverableId, true);
 				Recoverable.ValueChangedEvent += OnRecoverableChangedEvent;
 				Frailty = entity.GetStat(frailtyId);
 			}
-			if (hasRecovery)
+			if (HasRecovery)
 			{
 				Recovery = entity.GetStat(recoveryId, true);
 				RecoveryDelay = entity.GetStat(recoveryDelayId, true);
@@ -89,9 +99,9 @@ namespace SpaxUtils
 				return;
 			}
 
-			if (hasRecovery && (recoveryTimer == null || recoveryTimer.Expired))
+			if (HasRecovery && (recoveryTimer == null || recoveryTimer.Expired))
 			{
-				if (isRecoverable)
+				if (IsRecoverable)
 				{
 					// Recover Current towards Recoverable.
 					Current.BaseValue = Mathf.Min(Recoverable, Current.BaseValue + Recovery * delta * timescale);
@@ -109,7 +119,7 @@ namespace SpaxUtils
 		/// </summary>
 		public void Recover()
 		{
-			if (!initialized)
+			if (!initialized || !HasMax)
 			{
 				return;
 			}
@@ -133,7 +143,7 @@ namespace SpaxUtils
 			{
 				// Damage has occured to the Current stat.
 				lastDamage = lastCurrent - current;
-				if (isRecoverable)
+				if (IsRecoverable)
 				{
 					if (Frailty != null)
 					{
@@ -158,7 +168,7 @@ namespace SpaxUtils
 				float duration = current < Mathf.Epsilon ? RecoveryDelay * 1.5f : RecoveryDelay;
 				recoveryTimer = recoveryTimer?.Reset(duration) ?? new TimerClass(duration, () => timescale, true);
 			}
-			else if (isRecoverable)
+			else if (IsRecoverable)
 			{
 				// Current has healed, Recoverable cannot be smaller than Current.
 				Recoverable.BaseValue = Mathf.Max(Recoverable, current);
@@ -172,7 +182,7 @@ namespace SpaxUtils
 			// Current cannot exceed Max.
 			Current.BaseValue = Mathf.Min(Current, Max);
 
-			if (isRecoverable)
+			if (IsRecoverable)
 			{
 				// Recoverable cannot exceed Max.
 				Recoverable.BaseValue = Mathf.Min(Recoverable, Max);
@@ -187,7 +197,7 @@ namespace SpaxUtils
 
 		public static implicit operator float(PointsStat pointsStat)
 		{
-			return pointsStat.Current;
+			return pointsStat.Current ?? 0f;
 		}
 	}
 }

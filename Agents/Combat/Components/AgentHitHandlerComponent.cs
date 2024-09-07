@@ -43,7 +43,7 @@ namespace SpaxUtils
 
 		protected void OnEnable()
 		{
-			hittable.Subscribe(this, OnHitEvent, -1);
+			hittable.Subscribe(this, OnHitEvent, 1);
 
 			timescaleStat = agent.GetStat(EntityStatIdentifiers.TIMESCALE);
 			health = agent.GetStat(AgentStatIdentifiers.HEALTH);
@@ -65,7 +65,7 @@ namespace SpaxUtils
 		private void OnHitEvent(HitData hitData)
 		{
 			// Transfer intertia.
-			rigidbodyWrapper.Push(hitData.Inertia, hitData.HitterMass);
+			rigidbodyWrapper.Push(hitData.Inertia, hitData.Mass);
 
 			// Calculate damage and impact.
 			hitData.Result_Penetration = hitData.Result_Parried ? 0f : hitData.Offence * hitData.Piercing / defence;
@@ -87,11 +87,13 @@ namespace SpaxUtils
 			endurance.Damage(hitData.Result_Force, true, out bool stunned);
 			if (stunned)
 			{
+				hitData.Result_Stunned = true;
+
 				// Stun.
 				agent.Actor.TryCancel(true);
 
 				// Transfer Impact.
-				rigidbodyWrapper.Push(hitData.Direction * hitData.Result_Force, hitData.Mass);
+				rigidbodyWrapper.Push(hitData.Direction * hitData.Result_Force, hitData.Force);
 
 				// Apply stun.
 				stunHandler.EnterStun(hitData);

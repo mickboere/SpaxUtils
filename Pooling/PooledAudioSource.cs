@@ -9,8 +9,11 @@ namespace SpaxUtils
 	public class PooledAudioSource : PooledItemBase
 	{
 		public override bool Finished => !AudioSource.isPlaying;
+		public override int DefaultPoolSize => defaultPoolSize;
 
 		[field: SerializeField] public AudioSource AudioSource { get; private set; }
+		[SerializeField] private int defaultPoolSize = 25;
+
 
 		protected void Awake()
 		{

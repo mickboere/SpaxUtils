@@ -14,7 +14,7 @@ namespace SpaxUtils
 		/// <summary>
 		/// The entity which was hit.
 		/// </summary>
-		public IHittable Hittable { get; }
+		public IHittable Receiver { get; }
 
 		/// <summary>
 		/// The entity responsible for initiating this hit.
@@ -22,9 +22,14 @@ namespace SpaxUtils
 		public IEntity Hitter { get; }
 
 		/// <summary>
-		/// The mass if the hitter.
+		/// The hit-point in world space.
 		/// </summary>
-		public float HitterMass { get; }
+		public Vector3 Point { get; }
+
+		/// <summary>
+		/// The total mass of the hitter, used to apply inertia.
+		/// </summary>
+		public float Mass { get; }
 
 		/// <summary>
 		/// The inertia of the hitter in world-space.
@@ -39,7 +44,7 @@ namespace SpaxUtils
 		/// <summary>
 		/// The total mass behind the hit, defines force transfer capacity.
 		/// </summary>
-		public float Mass { get; }
+		public float Force { get; }
 
 		/// <summary>
 		/// The total strength behind the hit, defines impact force.
@@ -61,9 +66,19 @@ namespace SpaxUtils
 		#region Return
 
 		/// <summary>
+		/// Return data defining whether the receiver was guarding/blocking against the attack and the amound of guard weight applied to the hit.
+		/// </summary>
+		public float Result_Blocked { get; set; }
+
+		/// <summary>
 		/// Return data defining whether this hit was parried by the receiver.
 		/// </summary>
 		public bool Result_Parried { get; set; }
+
+		/// <summary>
+		/// Return data defining whether this hit caused the receiver to be stunned.
+		/// </summary>
+		public bool Result_Stunned { get; set; }
 
 		/// <summary>
 		/// Return data defining total percentage of offensive penetration dealt to receiver.
@@ -83,25 +98,48 @@ namespace SpaxUtils
 		#endregion Return
 
 		public HitData(
-			IHittable hittable,
+			IHittable receiver,
 			IEntity hitter,
-			float hitterMass,
+			Vector3 point,
+			float mass,
 			Vector3 inertia,
 			Vector3 direction,
-			float mass,
+			float force,
 			float strength = 1f,
 			float offence = 0f,
 			float piercing = 0f)
 		{
-			Hittable = hittable;
+			Receiver = receiver;
 			Hitter = hitter;
-			HitterMass = hitterMass;
+			Point = point;
+			Mass = mass;
 			Inertia = inertia;
 			Direction = direction;
-			Mass = mass;
+			Force = force;
 			Strength = strength;
 			Offence = offence;
 			Piercing = piercing;
+		}
+
+		public override string ToString()
+		{
+			return $"HitData:" +
+				$"\nReceiver={Receiver.Entity.Identification.TagFull()}," +
+				$"\nHitter={Hitter.Identification.TagFull()}," +
+				$"\nPoint={Point}," +
+				$"\nMass={Mass}," +
+				$"\nInertia={Inertia}," +
+				$"\nDirection={Direction}," +
+				$"\nForce={Force}," +
+				$"\nStrength={Strength}," +
+				$"\nOffence={Offence}," +
+				$"\nPiercing={Piercing}," +
+				$"\n\nResult_Blocked={Result_Blocked}," +
+				$"\nResult_Parried={Result_Parried}," +
+				$"\nResult_Stunned={Result_Stunned}," +
+				$"\nResult_Penetration={Result_Penetration}," +
+				$"\nResult_Damage={Result_Damage}," +
+				$"\nResult_Force={Result_Force}";
 		}
 	}
 }

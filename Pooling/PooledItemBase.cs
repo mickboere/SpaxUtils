@@ -8,6 +8,9 @@ namespace SpaxUtils
 	public abstract class PooledItemBase : MonoBehaviour, IPooledItem
 	{
 		/// <inheritdoc/>
+		public abstract int DefaultPoolSize { get; }
+
+		/// <inheritdoc/>
 		public abstract bool Finished { get; }
 	}
 }

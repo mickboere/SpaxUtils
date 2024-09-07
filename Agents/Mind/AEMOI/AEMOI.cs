@@ -253,7 +253,8 @@ namespace SpaxUtils
 
 			foreach (KeyValuePair<IEntity, Vector8> kvp in stimuli)
 			{
-				float max = kvp.Value.Highest(out int i);
+				float max = kvp.Value.Highest(out _);
+				//float max = kvp.Value.Sum();
 				if (max > highest)
 				{
 					motivation = kvp.Value;

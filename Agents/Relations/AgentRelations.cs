@@ -7,9 +7,10 @@ namespace SpaxUtils
 {
 	public class AgentRelations : IRelations
 	{
+		/// <summary>
+		/// The threshold above which is considered a friend, and below its negative considered an enemy.
+		/// </summary>
 		public const float THRESHOLD = 0.2f;
-		public const float MIN = -1f;
-		public const float MAX = 1f;
 
 		/// <inheritdoc/>
 		public event Action RelationsUpdatedEvent;
@@ -49,7 +50,7 @@ namespace SpaxUtils
 			}
 
 			float previous = relations[relation];
-			relations[relation] = Mathf.Clamp(amount, MIN, MAX);
+			relations[relation] = amount;
 			if (!relations[relation].Approx(previous))
 			{
 				Update();
@@ -66,7 +67,7 @@ namespace SpaxUtils
 			}
 
 			float previous = relations[relation];
-			relations[relation] = Mathf.Clamp(relations[relation] + amount, -1f, 1f);
+			relations[relation] = relations[relation] + amount;
 			if (!relations[relation].Approx(previous))
 			{
 				Update();

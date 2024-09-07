@@ -16,7 +16,7 @@ namespace SpaxUtils
 			public float Relation => relation;
 
 			[SerializeField, ConstDropdown(typeof(IIdentificationLabels))] private string label;
-			[SerializeField, Range(AgentRelations.MIN, AgentRelations.MAX)] private float relation;
+			[SerializeField, Range(-1f, 1f)] private float relation;
 		}
 
 		public object BindingKey => GetInstanceID();

@@ -8,8 +8,8 @@ namespace SpaxUtils
 	{
 		public Vector8 Vector8 => Current;
 		public Vector8 Current => new Vector8(N, NE, E, SE, S, SW, W, NW);
-		public Vector8 Max => new Vector8(N.Max, NE.Max, E.Max, SE.Max, S.Max, SW.Max, W.Max, NW.Max);
-		public Vector8 Recoverable => new Vector8(N.Recoverable, NE.Recoverable, E.Recoverable, SE.Recoverable, S.Recoverable, SW.Recoverable, W.Recoverable, NW.Recoverable);
+		public Vector8 Max => new Vector8(N.Max ?? 0f, NE.Max ?? 0f, E.Max ?? 0f, SE.Max ?? 0f, S.Max ?? 0f, SW.Max ?? 0f, W.Max ?? 0f, NW.Max ?? 0f);
+		public Vector8 Recoverable => new Vector8(N.Recoverable ?? 0f, NE.Recoverable ?? 0f, E.Recoverable ?? 0f, SE.Recoverable ?? 0f, S.Recoverable ?? 0f, SW.Recoverable ?? 0f, W.Recoverable ?? 0f, NW.Recoverable ?? 0f);
 
 		public PointsStat N => north;
 		[SerializeField] private PointsStat north;

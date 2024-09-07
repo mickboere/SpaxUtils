@@ -47,16 +47,17 @@ namespace SpaxUtils
 				hitData.Result_Parried = true;
 				parries.Add(hitData.Hitter);
 
-				if (hitData.Hitter.TryGetEntityComponent<IHittable>(out IHittable parriedHittable))
+				if (hitData.Hitter.TryGetEntityComponent(out IHittable parriedHittable))
 				{
 					// Generate parry hit.
 					HitData parryHit = new HitData(
 						parriedHittable,
 						Agent,
+						hitData.Point,
 						rigidbodyWrapper.Mass,
 						hitData.Inertia,
 						-hitData.Inertia.normalized,
-						hitData.Mass,
+						hitData.Force,
 						hitData.Strength,
 						0f,
 						0f);

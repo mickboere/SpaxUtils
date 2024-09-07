@@ -10,8 +10,8 @@ namespace SpaxUtils
 	/// <typeparam name="T"></typeparam>
 	public class Pool<T> : IService where T : MonoBehaviour, IPooledItem
 	{
-		public const int SIZE = 15;
-		public const bool DYNAMIC = true;
+		public const int DEFAULT_SIZE = 15;
+		public const bool DEFAULT_DYNAMIC = true;
 
 		private T prefab;
 		private bool dynamic;
@@ -21,7 +21,7 @@ namespace SpaxUtils
 
 		public Pool() : this(GlobalDependencyManager.Instance.Get<PooledItemDatabase>(), GlobalDependencyManager.Instance.Get<CallbackService>()) { }
 
-		public Pool(PooledItemDatabase database, CallbackService callbackService) : this(database.GetPrefab<T>(), SIZE, DYNAMIC, callbackService) { }
+		public Pool(PooledItemDatabase database, CallbackService callbackService) : this(database.GetPrefab<T>(), database.GetPrefab<T>().DefaultPoolSize, DEFAULT_DYNAMIC, callbackService) { }
 
 		public Pool(T prefab, int size, bool dynamic, CallbackService callbackService = null)
 		{

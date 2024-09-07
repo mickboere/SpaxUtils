@@ -11,16 +11,19 @@ namespace SpaxUtils
 	public class GuardingCombatBehaviourAsset : BaseCombatMoveBehaviourAsset
 	{
 		private AgentStatHandler agentStatHandler;
+		private IHittable hittable;
 
 		private EntityStat defenceStat;
 		private EntityStat guardStat;
 
 		private FloatFuncModifier defenceMod;
-		private FloatFuncModifier enduranceMod;
+		private FloatFuncModifier enduranceDamageMod;
 
-		public void InjectDependencies(AgentStatHandler agentStatHandler)
+		public void InjectDependencies(AgentStatHandler agentStatHandler, IHittable hittable)
 		{
 			this.agentStatHandler = agentStatHandler;
+			this.hittable = hittable;
+
 			defenceStat = Agent.GetStat(AgentStatIdentifiers.DEFENCE);
 			guardStat = Agent.GetStat(AgentStatIdentifiers.GUARD);
 		}
@@ -32,8 +35,10 @@ namespace SpaxUtils
 			defenceMod = new FloatFuncModifier(ModMethod.Additive, (defence) => defence + guardStat * Weight);
 			defenceStat.AddModifier(this, defenceMod);
 
-			enduranceMod = new FloatFuncModifier(ModMethod.Absolute, (endurance) => endurance / (guardStat * 0.01f).LerpTo(1f, 1f - Weight));
-			agentStatHandler.PointStatOcton.W.Cost.AddModifier(this, enduranceMod);
+			enduranceDamageMod = new FloatFuncModifier(ModMethod.Absolute, (endurance) => endurance / (guardStat * 0.01f).LerpTo(1f, 1f - Weight));
+			agentStatHandler.PointStatOcton.W.Cost.AddModifier(this, enduranceDamageMod);
+
+			hittable.Subscribe(this, OnHitEvent, 1000);
 		}
 
 		public override void Stop()
@@ -42,6 +47,7 @@ namespace SpaxUtils
 
 			defenceStat.RemoveModifier(this);
 			agentStatHandler.PointStatOcton.W.Cost.RemoveModifier(this);
+			hittable.Unsubscribe(this);
 		}
 
 		public override void ExternalUpdate(float delta)
@@ -57,6 +63,12 @@ namespace SpaxUtils
 					Performer.TryPerform();
 				}
 			}
+		}
+
+		private void OnHitEvent(HitData hitData)
+		{
+			// Hit by enemy attack during guard.
+			hitData.Result_Blocked = Weight;
 		}
 	}
 }

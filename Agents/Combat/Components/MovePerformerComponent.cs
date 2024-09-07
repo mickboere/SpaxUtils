@@ -14,17 +14,27 @@ namespace SpaxUtils
 		public event Action<IPerformer> PerformanceStartedEvent;
 		public event Action<IPerformer> PerformanceUpdateEvent;
 		public event Action<IPerformer> PerformanceCompletedEvent;
+		public event Action MovesetUpdatedEvent;
 
+		/// <inheritdoc/>
 		public int Priority => 0;
+		/// <inheritdoc/>
 		public IAct Act => MainPerformer != null ? MainPerformer.Act : null;
+		/// <inheritdoc/>
 		public PerformanceState State => MainPerformer != null ? MainPerformer.State : PerformanceState.Inactive;
+		/// <inheritdoc/>
 		public float RunTime => MainPerformer != null ? MainPerformer.RunTime : 0f;
 
+		/// <inheritdoc/>
 		public IPerformanceMove Move => MainPerformer != null ? MainPerformer.Move : null;
+		/// <inheritdoc/>
 		public float Charge => MainPerformer != null ? MainPerformer.Charge : 0f;
+		/// <inheritdoc/>
 		public bool Canceled => MainPerformer != null ? MainPerformer.Canceled : false;
+		/// <inheritdoc/>
 		public float CancelTime => MainPerformer != null ? MainPerformer.CancelTime : 0f;
 
+		/// <inheritdoc/>
 		public IReadOnlyDictionary<string, IPerformanceMove> Moveset => moveset;
 
 		private MovePerformer MainPerformer => helpers.Count > 0 ? helpers[helpers.Count - 1] : null;
@@ -236,6 +246,8 @@ namespace SpaxUtils
 					moveset.Add(act, top.Value.move);
 				}
 			}
+
+			MovesetUpdatedEvent?.Invoke();
 		}
 
 		#endregion Move Management

@@ -58,9 +58,6 @@
 		// Soul Attributes
 		#region Soul Attributes
 		private const string SOUL_ATTRIBUTE = ATTRIBUTES + "SOUL/";
-		public const string SPIRIT = SOUL_ATTRIBUTE + "Spirit"; // Spendable soul experience points.
-		public const string VIRTUE = SOUL_ATTRIBUTE + "Virtue"; // Total amount of virtuous spirit gained.
-		public const string SIN = SOUL_ATTRIBUTE + "Sin"; // Total amount of sinful spirit gained.
 		public const string SOUL_LEVEL = SOUL_ATTRIBUTE + "Soul_Level"; // All soul attributes combined.
 		// Attributes
 		public const string GRAVITY = SOUL_ATTRIBUTE + "Gravity"; // Make heavy
@@ -111,7 +108,14 @@
 		#endregion Body Stats
 
 		// Soul Stats
-		//private const string SOUL_STAT = IStatIdentifierConstants.STATS + "SOUL/";
+		#region Soul Stats
+		private const string SOUL_STAT = IStatIdentifierConstants.STATS + "SOUL/";
+
+		public const string SPIRIT = SOUL_STAT + "Spirit"; // Spendable soul experience points.
+		public const string VIRTUE = SOUL_STAT + "Virtue"; // Total amount of virtuous spirit gained.
+		public const string SIN = SOUL_STAT + "Sin"; // Total amount of sinful spirit gained.
+		
+		#endregion Soul Stats
 
 		#region Sub Stats
 

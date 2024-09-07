@@ -51,7 +51,7 @@ namespace SpaxUtils
 					{
 						if (!hits.Any((x) => x.Transform == hit.transform))
 						{
-							hits.Add(new HitScanHitData(hit, toNext.normalized));
+							hits.Add(new HitScanHitData(hit, toNext.normalized, current.Center));
 						}
 					}
 				}

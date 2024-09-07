@@ -146,6 +146,7 @@ namespace SpaxUtils
 					HitData hitData = new HitData(
 						hittable,
 						Agent,
+						hit.Point,
 						rigidbodyWrapper.Mass,
 						inertia,
 						hit.Direction,

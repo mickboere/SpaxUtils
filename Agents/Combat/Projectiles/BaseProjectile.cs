@@ -133,10 +133,11 @@ namespace SpaxUtils
 				HitData hitData = new HitData(
 					hittable,
 					agent,
+					hit.point,
 					mass, // Inertia mass transfer
 					Velocity,
 					Velocity.normalized,
-					mass // Stun mass transfer
+					mass // Stun force transfer
 				);
 
 				if (hittable.Hit(hitData))
