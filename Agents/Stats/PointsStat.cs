@@ -29,9 +29,21 @@ namespace SpaxUtils
 		public bool HasRecovery => hasMax && hasRecovery;
 		public bool IsRecoverable => hasMax && isRecoverable;
 
+		/// <summary>
+		/// How much the curent points make up of the max points.
+		/// </summary>
 		public float PercentileMax => Current / Max;
+		/// <summary>
+		/// How much the current points make up of the recoverable points.
+		/// </summary>
 		public float PercentileRecoverable => IsRecoverable ? Current / Recoverable : PercentileMax;
+		/// <summary>
+		/// How much the recoverable points make up of the max points.
+		/// </summary>
 		public float RecoverablePercentile => IsRecoverable ? Recoverable / Max : 1f;
+		/// <summary>
+		/// Whether the stat points are currently recovering.
+		/// </summary>
 		public bool IsRecovering => HasRecovery && (recoveryTimer == null || recoveryTimer.Expired) && !PercentileRecoverable.Approx(1f);
 
 		[SerializeField, ConstDropdown(typeof(IStatIdentifierConstants), includeEmpty: true)] private string stat;

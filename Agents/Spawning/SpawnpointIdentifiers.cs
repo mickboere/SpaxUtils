@@ -8,5 +8,7 @@
 		public const string TEST_02 = GENERIC + "TEST_02";
 		public const string TEST_03 = GENERIC + "TEST_03";
 		public const string TEST_04 = GENERIC + "TEST_04";
+		public const string TEST_05 = GENERIC + "TEST_05";
+		public const string TEST_06 = GENERIC + "TEST_06";
 	}
 }

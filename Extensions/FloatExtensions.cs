@@ -205,6 +205,34 @@ namespace SpaxUtils
 
 		#endregion Cubic
 
+		#region Quart
+
+		/// <summary>
+		/// https://easings.net/#easeInQuart
+		/// </summary>
+		public static float InQuart(this float x)
+		{
+			return x * x * x * x;
+		}
+
+		/// <summary>
+		/// https://easings.net/#easeOutQuart
+		/// </summary>
+		public static float OutQuart(this float x)
+		{
+			return 1f - Mathf.Pow(1f - x, 4f);
+		}
+
+		/// <summary>
+		/// https://easings.net/#easeInOutQuart
+		/// </summary>
+		public static float InOutQuart(this float x)
+		{
+			return x < 0.5f ? 8f * x * x * x * x : 1f - Mathf.Pow(-2f * x + 2f, 4f) / 2f;
+		}
+
+		#endregion Quart
+
 		#region Expo
 
 		/// <summary>

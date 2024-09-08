@@ -69,11 +69,15 @@ namespace SpaxUtils
 			// Invoked when the mind's motivation has settled.
 			if (agent.Mind.Motivation.target != null)
 			{
-				// Set target to the entity responsible for the mind's motivation.
-				agent.Targeter.SetTarget(agent.Mind.Motivation.target.GetEntityComponent<ITargetable>());
+				if (agent.Targeter.Target == null || agent.Targeter.Target.Entity != agent.Mind.Motivation.target)
+				{
+					// Set target to the entity responsible for the mind's motivation.
+					agent.Targeter.SetTarget(agent.Mind.Motivation.target.GetEntityComponent<ITargetable>());
+				}
 			}
 			else
 			{
+				// There is no motivation target.
 				agent.Targeter.SetTarget(null);
 			}
 		}

@@ -15,6 +15,7 @@ namespace SpaxUtils
 			public float Hostility;
 			public float Threat;
 			public float Advantage;
+			public float Disadvantage;
 			public float Oppurtunity;
 
 			public EnemyData(IAgent agent)
@@ -59,6 +60,11 @@ namespace SpaxUtils
 
 		public EnemyData GetEnemyData()
 		{
+			if (agent.Targeter.Target == null || !enemies.ContainsKey(agent.Targeter.Target))
+			{
+				return null;
+			}
+
 			return enemies[agent.Targeter.Target];
 		}
 
@@ -131,6 +137,7 @@ namespace SpaxUtils
 
 		private void SendContinuousStimuli(float delta)
 		{
+			float pointSum = statHandler.PointStatOcton.Vector8.Sum();
 			foreach (EnemyData enemy in enemies.Values)
 			{
 				Vector8 current = agent.Mind.RetrieveStimuli(enemy.Agent);
@@ -139,8 +146,12 @@ namespace SpaxUtils
 
 				// Threat is defined by distance to enemy.
 				enemy.Threat = (enemy.Distance / (vision.Range * settings.ThreatRange)).InvertClamped().Evaluate(settings.ThreatCurve);
+				// Oppurtunity is defined by enemy being occupied.
 				enemy.Oppurtunity = (enemy.Agent.Actor.State is PerformanceState.Performing ? 1f : 0.5f) * enemy.Threat.InvertClamped();
-				enemy.Advantage = statHandler.PointStatOcton.Vector8.Sum() / enemy.Agent.GetEntityComponent<AgentStatHandler>().PointStatOcton.Vector8.Sum();
+				// (Dis)Advantage is defined by difference in current stat points.
+				float enemyPointSum = enemy.Agent.GetEntityComponent<AgentStatHandler>().PointStatOcton.Vector8.Sum();
+				enemy.Advantage = pointSum / enemyPointSum;
+				enemy.Disadvantage = enemyPointSum / pointSum;
 
 				// - CALCULATE STIMULI -
 
@@ -153,7 +164,7 @@ namespace SpaxUtils
 				}
 
 				// Danger (fear) is defined by disadvantage to enemy.
-				float danger = (statHandler.PointStatOcton.SW.PercentileMax.InvertClamped() * enemy.Threat * 2f).Clamp01();
+				float danger = (statHandler.PointStatOcton.SW.PercentileMax.Invert() * enemy.Threat * 2f).Clamp01() + statHandler.PointStatOcton.W.PercentileRecoverable.Invert();
 
 				// 
 				float carefulness = -AEMOI.MAX_STIM * danger.InvertClamped(); // Default is satisfaction if there is no danger.
@@ -178,7 +189,7 @@ namespace SpaxUtils
 					NE = Damp(enemy.Oppurtunity, current.NE),
 					E = carefulness, // Evading
 					S = Damp(danger, current.S), // Fleeing
-					SW = Damp(1f / enemy.Advantage, current.SW),
+					SW = Damp(Mathf.Max(enemy.Disadvantage - 1f, 0f), current.SW),
 					W = carefulness, // Guarding
 					NW = Damp(enemy.Threat * enemy.Hostility, current.NW) // Hating
 				};

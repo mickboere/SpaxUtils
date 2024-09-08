@@ -75,7 +75,7 @@ namespace SpaxUtils
 		/// If <paramref name="force"/> is TRUE, it will cancel the performance regardless of state.
 		/// </summary>
 		/// <returns>Whether the performance has been succesfully canceled.</returns>
-		bool TryCancel(bool force);
+		bool TryCancel(bool force = false);
 
 		#endregion
 	}
