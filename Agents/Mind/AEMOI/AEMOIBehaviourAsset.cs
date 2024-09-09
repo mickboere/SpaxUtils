@@ -18,6 +18,7 @@ namespace SpaxUtils
 		protected EntityStat EntityTimescale;
 		protected CallbackService CallbackService { get; private set; }
 		protected AgentStatHandler StatHandler { get; private set; }
+		protected CombatSensesComponent CombatSenses { get; private set; }
 		protected PointStatOcton PointStats => StatHandler.PointStatOcton;
 
 		[SerializeField] new private string name;
@@ -26,11 +27,12 @@ namespace SpaxUtils
 		[SerializeField, HideInInspector] protected bool requireState;
 		[SerializeField, Conditional(nameof(requireState), drawToggle: true), ConstDropdown(typeof(IStateIdentifierConstants))] protected string brainState;
 
-		public void InjectDependencies(IAgent agent, CallbackService callbackService, AgentStatHandler agentStatHandler)
+		public void InjectDependencies(IAgent agent, CallbackService callbackService, AgentStatHandler agentStatHandler, CombatSensesComponent combatSenses)
 		{
 			Agent = agent;
 			CallbackService = callbackService;
 			StatHandler = agentStatHandler;
+			CombatSenses = combatSenses;
 
 			EntityTimescale = Agent.GetStat(EntityStatIdentifiers.TIMESCALE, true, 1f);
 		}

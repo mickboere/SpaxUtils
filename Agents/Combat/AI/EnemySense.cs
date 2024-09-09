@@ -11,8 +11,10 @@ namespace SpaxUtils
 		{
 			public IAgent Agent;
 			public float LastSeen;
+			public Vector3 Direction;
 			public float Distance;
 			public float Hostility;
+			public float Range;
 			public float Threat;
 			public float Advantage;
 			public float Disadvantage;
@@ -77,6 +79,8 @@ namespace SpaxUtils
 
 		private void GatherEnemyData()
 		{
+			float pointSum = statHandler.PointStatOcton.Vector8.Sum();
+
 			// Get all enemies currently in view and store their relevant data.
 			List<ITargetable> visible = vision.Spot(agent.Targeter.Enemies.Components);
 			foreach (ITargetable inView in visible)
@@ -87,21 +91,36 @@ namespace SpaxUtils
 					continue;
 				}
 
-				EnemyData data;
+				EnemyData enemy;
 				if (!enemies.ContainsKey(inView))
 				{
-					data = new EnemyData(enemyAgent);
-					enemies.Add(inView, data);
+					enemy = new EnemyData(enemyAgent);
+					enemies.Add(inView, enemy);
 					enemyAgent.DiedEvent += OnEnemyDiedEvent;
-					data.Hostility = agent.Relations.Score(enemyAgent.Identification).Abs();
+					enemy.Hostility = agent.Relations.Score(enemyAgent.Identification).Abs();
 				}
 				else
 				{
-					data = enemies[inView];
+					enemy = enemies[inView];
 				}
 
-				data.LastSeen = Time.time;
-				data.Distance = Vector3.Distance(agent.Targetable.Center, inView.Center);
+				// - UPDATE ENEMY INTEL -
+				enemy.LastSeen = Time.time;
+				enemy.Direction = enemy.Agent.Transform.position - agent.Transform.position;
+				enemy.Distance = enemy.Direction.magnitude;
+
+				// Threat is defined by distance to enemy.
+				enemy.Threat = (enemy.Distance / (vision.Range * settings.ThreatRange)).InvertClamped().Evaluate(settings.ThreatCurve);
+				// Oppurtunity is defined by enemy being occupied.
+				enemy.Oppurtunity = (enemy.Agent.Actor.State is PerformanceState.Performing ? 1f : 0.5f) * enemy.Threat.Invert();
+				// (Dis)Advantage is defined by difference in current stat points.
+				float enemyPointSum = enemy.Agent.GetEntityComponent<AgentStatHandler>().PointStatOcton.Vector8.Sum();
+				enemy.Advantage = pointSum / enemyPointSum;
+				enemy.Disadvantage = enemyPointSum / pointSum;
+				enemy.Range = enemyAgent.GetStat(AgentStatIdentifiers.RANGE) +
+					Mathf.Max(
+						enemy.Agent.GetStat(AgentStatIdentifiers.RANGE.SubStat(AgentStatIdentifiers.SUB_LEFT_HAND)),
+						enemy.Agent.GetStat(AgentStatIdentifiers.RANGE.SubStat(AgentStatIdentifiers.SUB_RIGHT_HAND)));
 			}
 
 			// Check for any enemies that have been out of view for too long and forget about them.
@@ -137,21 +156,13 @@ namespace SpaxUtils
 
 		private void SendContinuousStimuli(float delta)
 		{
-			float pointSum = statHandler.PointStatOcton.Vector8.Sum();
 			foreach (EnemyData enemy in enemies.Values)
 			{
 				Vector8 current = agent.Mind.RetrieveStimuli(enemy.Agent);
 
 				// - GATHER INTEL -
 
-				// Threat is defined by distance to enemy.
-				enemy.Threat = (enemy.Distance / (vision.Range * settings.ThreatRange)).InvertClamped().Evaluate(settings.ThreatCurve);
-				// Oppurtunity is defined by enemy being occupied.
-				enemy.Oppurtunity = (enemy.Agent.Actor.State is PerformanceState.Performing ? 1f : 0.5f) * enemy.Threat.InvertClamped();
-				// (Dis)Advantage is defined by difference in current stat points.
-				float enemyPointSum = enemy.Agent.GetEntityComponent<AgentStatHandler>().PointStatOcton.Vector8.Sum();
-				enemy.Advantage = pointSum / enemyPointSum;
-				enemy.Disadvantage = enemyPointSum / pointSum;
+
 
 				// - CALCULATE STIMULI -
 
@@ -163,11 +174,13 @@ namespace SpaxUtils
 					incitement = current.NW * (enemy.Distance / (vision.Range * settings.InciteRange)).InvertClamped().Evaluate(settings.InciteCurve);
 				}
 
-				// Danger (fear) is defined by disadvantage to enemy.
-				float danger = (statHandler.PointStatOcton.SW.PercentileMax.Invert() * enemy.Threat * 2f).Clamp01() + statHandler.PointStatOcton.W.PercentileRecoverable.Invert();
+				// Desire to separate (fear) is defined by crucial stats that need time to recover.
+				float separate = statHandler.PointStatOcton.SW.PercentileMax.Invert();
+				separate += statHandler.PointStatOcton.W.PercentileRecoverable.Invert().Remap(-1f, 1f);
+				separate *= separate > 0 ? enemy.Threat : 2f;
 
 				// 
-				float carefulness = -AEMOI.MAX_STIM * danger.InvertClamped(); // Default is satisfaction if there is no danger.
+				float carefulness = -AEMOI.MAX_STIM * enemy.Threat.Invert(); // Default is satisfaction if there is no threat.
 				if (enemy.Agent.Actor.State == PerformanceState.Preparing &&
 					enemy.Agent.Actor.MainPerformer is IMovePerformer movePerformer &&
 					movePerformer.Move is ICombatMove combatMove)
@@ -178,7 +191,7 @@ namespace SpaxUtils
 						range += enemy.Agent.GetStat(AgentStatIdentifiers.RANGE.SubStat(meleeCombatMove.Limb)) ?? 0f;
 					}
 
-					carefulness = Mathf.InverseLerp(range * 1.5f, range, enemy.Distance) * AEMOI.MAX_STIM;
+					carefulness = Mathf.InverseLerp(range + range, range, enemy.Distance).InOutSine() * AEMOI.MAX_STIM;
 				}
 
 				// - SEND STIMULI -
@@ -188,7 +201,8 @@ namespace SpaxUtils
 					N = Damp(incitement, current.N), // Attacking
 					NE = Damp(enemy.Oppurtunity, current.NE),
 					E = carefulness, // Evading
-					S = Damp(danger, current.S), // Fleeing
+									 //S = Damp(separate, current.S), // Fleeing
+					S = separate, // Fleeing
 					SW = Damp(Mathf.Max(enemy.Disadvantage - 1f, 0f), current.SW),
 					W = carefulness, // Guarding
 					NW = Damp(enemy.Threat * enemy.Hostility, current.NW) // Hating
