@@ -42,7 +42,7 @@ namespace SpaxUtils
 		[SerializeField] private string name;
 		[SerializeField, TextArea] private string description;
 		[SerializeField, HideInInspector] private bool copyParent;
-		[SerializeField, Conditional(nameof(copyParent), drawToggle: true), ConstDropdown(typeof(ILabeledDataIdentifiers))] private string parentIdentifier;
+		[SerializeField, Conditional(nameof(copyParent), drawToggle: true, hide: false), ConstDropdown(typeof(ILabeledDataIdentifiers))] private string parentIdentifier;
 		[SerializeField, Conditional(nameof(copyParent), true, false, true)] private Color color;
 		[SerializeField, Conditional(nameof(copyParent), true, false, true)] private Sprite icon;
 		[SerializeField] private List<SubStatConfiguration> subStats;

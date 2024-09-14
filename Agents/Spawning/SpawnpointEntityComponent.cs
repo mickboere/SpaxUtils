@@ -17,14 +17,10 @@ namespace SpaxUtils
 
 		public void OnValidate()
 		{
-			Entity.Identification.ID = identifier;
+			if (!Application.isPlaying && isActiveAndEnabled)
+			{
+				Entity.Identification.ID = identifier;
+			}
 		}
-	}
-
-	public interface ISpawnpoint : IIdentifiable
-	{
-		Vector3 Position { get; }
-		Quaternion Rotation { get; }
-		SpawnRegion Region { get; }
 	}
 }

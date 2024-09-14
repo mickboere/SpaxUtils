@@ -38,7 +38,7 @@ namespace SpaxUtils
 		private Dictionary<string, InputToActMapper> inputMappers = new Dictionary<string, InputToActMapper>();
 		private List<IPerformer> availablePerformers = new List<IPerformer>();
 		private List<IPerformer> activePerformers = new List<IPerformer>();
-		private Act<bool>? lastPerformedAct;
+		private Act<bool>? lastPerformedInput;
 		private (Act<bool> act, TimerStruct timer)? lastFailedAttempt;
 
 		public Actor(string identifier, CallbackService callbackService, InputToActMap inputToActMap = null,
@@ -182,25 +182,27 @@ namespace SpaxUtils
 
 			// Default Act<bool> behaviour
 			// (AKA button behaviour - TRUE prepares act, FALSE performs it).
-			if (act is Act<bool> boolAct)
+			if (act is Act<bool> input)
 			{
-				if (boolAct.Value && MainPerformer != null && Act.Title == act.Title && !(State.HasFlag(PerformanceState.Finishing) || State.HasFlag(PerformanceState.Completed)))
+				if (MainPerformer != null && Act.Title == act.Title &&
+					input.Value && State is PerformanceState.Preparing)
 				{
-					// Don't process duplicate / continuous input.
+					// Don't process continuous input.
 					return;
 				}
 
-				bool failed = true;
-				if ((boolAct.Value && TryPrepare(boolAct, out _)) ||
-					(!boolAct.Value && MainPerformer != null && lastPerformedAct.HasValue &&
-						lastPerformedAct.Value.Title == boolAct.Title && lastPerformedAct.Value.Value &&
+				if ((input.Value && TryPrepare(input, out _)) ||
+					(!input.Value && MainPerformer != null && lastPerformedInput.HasValue &&
+						lastPerformedInput.Value.Title == input.Title && lastPerformedInput.Value.Value &&
 						MainPerformer.TryPerform()))
 				{
-					failed = false;
-					lastPerformedAct = act.Title == ActorActs.CANCEL ? null : boolAct;
+					lastPerformedInput = act.Title == ActorActs.CANCEL ? null : input;
+					lastFailedAttempt = null;
 				}
-
-				lastFailedAttempt = failed ? (boolAct, new TimerStruct(act.Buffer)) : null;
+				else
+				{
+					lastFailedAttempt = (input, new TimerStruct(act.Buffer));
+				}
 			}
 		}
 

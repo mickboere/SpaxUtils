@@ -9,13 +9,8 @@ namespace SpaxUtils
 	public class SpawnAgentAtEntityNode : StateComponentNodeBase
 	{
 		[SerializeField] private AgentSetupAsset agentSetup;
-		[SerializeField, ConstDropdown(typeof(IIdentificationLabels))] private List<string> labels;
-		[SerializeField] private ScriptableObject[] dependencies;
-
 		[SerializeField, ConstDropdown(typeof(SpawnpointIdentifiers))] private string spawnpoint;
-
-		[SerializeField] private LabeledDataCollection data;
-		[SerializeField] private bool overwriteData;
+		[SerializeField] private AgentSpawnData spawnData;
 
 		private IDependencyManager dependencyManager;
 		private IEntityCollection entityCollection;
@@ -36,12 +31,11 @@ namespace SpaxUtils
 			{
 				DependencyManager agentDependencyManager = new DependencyManager(dependencyManager, agentSetup.Identification.Name);
 				agentDependencyManager.Bind(spawnpoint);
-				Agent agent = AgentFactory.Create(agentSetup, agentDependencyManager, spawnpoint.Position, spawnpoint.Rotation, labels: labels, dependencies: dependencies);
-				data.ApplyToEntity(agent, overwriteData);
+				spawnData.Spawn(agentSetup, agentDependencyManager, spawnpoint.Position, spawnpoint.Rotation);
 			}
 			else
 			{
-				SpaxDebug.Error($"Was unable to find spawnpoint.", $"Tags ({string.Join(", ", this.spawnpoint)})");
+				SpaxDebug.Warning($"Was unable to find spawnpoint, agent was not spawned.", $"Spawnpoint tags: ({string.Join(", ", this.spawnpoint)})");
 			}
 		}
 	}
