@@ -171,7 +171,7 @@ namespace SpaxUtils
 					Performer.TryCancel(true);
 				}
 
-				float hitPause = combatSettings.MaxHitPause * hitData.Result_Penetration.InvertClamped();
+				float hitPause = Mathf.Lerp(combatSettings.HitPauseRange.x, combatSettings.HitPauseRange.y, hitData.Result_Penetration.ClampedInvert());
 				if (hitPauseMod == null || hitPause > hitPauseMod.Timer.Remaining)
 				{
 					// Apply hit-pause.

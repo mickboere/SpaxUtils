@@ -105,7 +105,7 @@ namespace SpaxUtils
 			foreach (ITargetable targetable in visible)
 			{
 				float angleScore = Vector3.Normalize(targetable.Center - ViewPoint.position).ClampedDot(ViewPoint.forward);
-				float distanceScore = (Vector3.Distance(targetable.Position, agent.Transform.position) / Range).InvertClamped();
+				float distanceScore = (Vector3.Distance(targetable.Position, agent.Transform.position) / Range).ClampedInvert();
 				float score = angleScore * 5f + distanceScore;
 				if (score > bestScore)
 				{

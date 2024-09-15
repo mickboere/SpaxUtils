@@ -71,13 +71,12 @@ namespace SpaxUtils
 		/// <returns>Whether the timer has expired.</returns>
 		public bool Update(float delta)
 		{
+			bool wasExpired = Expired;
 			Time += delta * Timescale;
-
-			if (Expired)
+			if (!wasExpired && Expired)
 			{
 				TimerExpiredEvent?.Invoke();
 			}
-
 			return Expired;
 		}
 

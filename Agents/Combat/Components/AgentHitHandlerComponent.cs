@@ -69,7 +69,7 @@ namespace SpaxUtils
 
 			// Calculate damage and impact.
 			hitData.Result_Penetration = hitData.Result_Parried ? 0f : hitData.Offence * hitData.Piercing / defence;
-			float impact = hitData.Result_Penetration.InvertClamped();
+			float impact = hitData.Result_Penetration.ClampedInvert();
 			hitData.Result_Damage = hitData.Result_Parried ? 0f : SpaxFormulas.CalculateDamage(hitData.Offence, defence);
 			hitData.Result_Force = hitData.Result_Parried ? 0f : hitData.Strength * impact;
 
@@ -78,7 +78,7 @@ namespace SpaxUtils
 			hitPauseMod = new TimedCurveModifier(
 				ModMethod.Absolute,
 				combatSettings.HitPauseCurve,
-				new TimerStruct(combatSettings.MaxHitPause * impact),
+				new TimerStruct(Mathf.Lerp(combatSettings.HitPauseRange.x, combatSettings.HitPauseRange.y, impact)),
 				callbackService);
 			timescaleStat.RemoveModifier(this);
 			timescaleStat.AddModifier(this, hitPauseMod);

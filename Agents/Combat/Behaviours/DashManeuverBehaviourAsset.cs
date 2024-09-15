@@ -64,8 +64,8 @@ namespace SpaxUtils
 			Vector3 input = RigidbodyWrapper.RelativeVelocity;
 			IPoserInstructions instructions = Move.PosingData.GetInstructions(Performer.Charge, input);
 
-			weight = ((Performer.RunTime - Move.MinDuration) / Move.Release).InvertClamped().InOutSine();
-			weight *= (Performer.CancelTime / Move.CancelDuration).InvertClamped();
+			weight = ((Performer.RunTime - Move.MinDuration) / Move.Release).ClampedInvert().InOutSine();
+			weight *= (Performer.CancelTime / Move.CancelDuration).ClampedInvert();
 
 			return instructions;
 		}

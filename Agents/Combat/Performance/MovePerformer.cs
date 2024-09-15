@@ -141,8 +141,6 @@ namespace SpaxUtils
 					{
 						// Finished charging.
 						State = PerformanceState.Performing;
-						// Substract delta from Runtime so that it's set to 0 later, making first frame of performance easy to check.
-						//RunTime -= delta;
 					}
 				}
 				// No else statement here to remove frame delay.

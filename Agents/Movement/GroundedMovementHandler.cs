@@ -5,7 +5,7 @@ using UnityEngine;
 namespace SpaxUtils
 {
 	[DefaultExecutionOrder(30)]
-	public class GroundedMovementHandler : EntityComponentBase, IAgentMovementHandler
+	public class GroundedMovementHandler : AgentComponentBase, IAgentMovementHandler
 	{
 		/// <inheritdoc/>
 		public Vector3 InputAxis
@@ -39,13 +39,10 @@ namespace SpaxUtils
 		private Vector3 _forwardDirection;
 
 		/// <inheritdoc/>
-		public float MovementSpeed { get { return speed; } set { speed = value; } }
+		public float MovementSpeed { get { return speed * moveSpeedStat; } set { speed = value; } }
 
 		/// <inheritdoc/>
 		public bool LockRotation { get; set; }
-
-		/// <inheritdoc/>
-		public float RotationSpeed { get; set; }
 
 		[SerializeField] private float speed = 4.5f;
 		[SerializeField] private float rotationSmoothingSpeed = 30f;
@@ -60,11 +57,15 @@ namespace SpaxUtils
 		private MovementInputSettings inputSettings;
 		private MovementInputHelper inputHelper;
 
+		private EntityStat moveSpeedStat;
+
 		public void InjectDependencies(RigidbodyWrapper rigidbodyWrapper, IGrounderComponent grounder, MovementInputSettings inputSettings)
 		{
 			this.rigidbodyWrapper = rigidbodyWrapper;
 			this.grounder = grounder;
 			this.inputSettings = inputSettings;
+
+			moveSpeedStat = Agent.GetStat(AgentStatIdentifiers.MOVEMENT_SPEED, true, 1f);
 		}
 
 		protected void OnEnable()
@@ -101,7 +102,7 @@ namespace SpaxUtils
 			if (!targetVelocity.HasValue)
 			{
 				// Calculate target velocity from current input.
-				rigidbodyWrapper.TargetVelocity = MovementInputRaw == Vector3.zero ? Vector3.zero : Quaternion.LookRotation(InputAxis) * MovementInputSmooth * speed;
+				rigidbodyWrapper.TargetVelocity = MovementInputRaw == Vector3.zero ? Vector3.zero : Quaternion.LookRotation(InputAxis) * MovementInputSmooth * MovementSpeed;
 			}
 
 			if (!grounder.Sliding)

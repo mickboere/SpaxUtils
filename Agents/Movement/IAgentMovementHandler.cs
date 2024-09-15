@@ -25,14 +25,9 @@ namespace SpaxUtils
 		Vector3 TargetDirection { get; set; }
 
 		/// <summary>
-		/// Movement speed (m/s) when input length is equal 1.
+		/// Movement speed (m/s) when input length is equal to 1.
 		/// </summary>
 		float MovementSpeed { get; set; }
-
-		/// <summary>
-		/// Base rotation speed in degrees per second.
-		/// </summary>
-		float RotationSpeed { get; set; }
 
 		/// <summary>
 		/// Whether the agent's rotation should be locked, preventing it from automatically pointing in the movement direction.
