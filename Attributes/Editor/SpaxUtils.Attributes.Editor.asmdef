@@ -1,0 +1,19 @@
+{
+    "name": "SpaxUtils.Attributes.Editor",
+    "rootNamespace": "",
+    "references": [
+        "GUID:d3ba9085b8877b241925b39f1f2bfc0c",
+        "GUID:908a68e2dbfbf3d4a9666fd3ba7283f1"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

@@ -40,7 +40,7 @@ namespace SpaxUtils
 				string signatureColor = caller.ToColorHex(0.5f, 0.7f);
 				string log = $"[{Time.frameCount}] <color=#{signatureColor}><b>[{caller}]</b></color> <color=#{textColor}>{coloredText}</color> {nonColoredText}\n";
 #else
-				string log = $"[{caller}]({Time.frameCount}) {messageColored}{messageNotColored}";
+				string log = $"[{caller}]({Time.frameCount}) {coloredText}{nonColoredText}";
 #endif
 
 				switch (logType)

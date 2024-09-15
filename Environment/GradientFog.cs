@@ -25,16 +25,18 @@ namespace SpaxUtils
 		protected void OnRenderObject()
 		{
 			Camera camera;
+#if UNITY_EDITOR
 			if (Application.isPlaying)
 			{
 				camera = Camera.main;
 			}
 			else
 			{
-#if UNITY_EDITOR
 				camera = SceneView.GetAllSceneCameras().FirstOrDefault();
-#endif
 			}
+#else
+			camera = Camera.main;
+#endif
 
 			float evaluation = 0.5f;
 			if (camera != null)
