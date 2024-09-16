@@ -125,7 +125,6 @@ namespace SpaxUtils
 
 			// STAT COST:
 			Agent.TryApplyStatCost(Move.PerformCost, (massStat - limbMassStat) * 0.5f + limbMassStat * 2f, out bool drained);
-			// TODO?: If drained enter either tire or overheat state?
 
 			momentumTimer = new TimerClass(move.ForceDelay, () => timescaleStat, callbackService);
 		}
@@ -138,7 +137,7 @@ namespace SpaxUtils
 				{
 					// Generate hit data.
 					Vector3 inertia = move.Inertia.Look((hittable.Entity.Transform.position - Agent.Transform.position).FlattenY().normalized);
-					float mass = limbMassStat;
+					float force = limbMassStat;
 					float strength = strengthStat * move.Strength;
 					float offence = limbOffenceStat * move.Offence;
 					float piercing = limbPiercingStat * move.Piercing;
@@ -146,11 +145,11 @@ namespace SpaxUtils
 					HitData hitData = new HitData(
 						hittable,
 						Agent,
-						hit.Point,
 						rigidbodyWrapper.Mass,
 						inertia,
+						hit.Point,
 						hit.Direction,
-						mass,
+						force,
 						strength,
 						offence,
 						piercing
@@ -171,7 +170,7 @@ namespace SpaxUtils
 					Performer.TryCancel(true);
 				}
 
-				float hitPause = Mathf.Lerp(combatSettings.HitPauseRange.x, combatSettings.HitPauseRange.y, hitData.Result_Penetration.ClampedInvert());
+				float hitPause = Mathf.LerpUnclamped(combatSettings.HitPauseRange.x, combatSettings.HitPauseRange.y, hitData.Result_Impact);
 				if (hitPauseMod == null || hitPause > hitPauseMod.Timer.Remaining)
 				{
 					// Apply hit-pause.

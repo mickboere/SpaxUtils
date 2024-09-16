@@ -36,8 +36,8 @@ namespace SpaxUtils
 						float danger = Mathf.Clamp(imminence * direction.ClampedDot(projectile.Velocity), 0f, AEMOI.MAX_STIM); // Dot: if projectile isn't pointing towards agent its not dangerous.
 						Vector8 stim = new Vector8()
 						{
-							E = danger * current.E.ClampedInvert().OutExpo(),
-							W = danger * current.W.ClampedInvert().OutExpo()
+							E = danger * current.E.InvertClamped().OutExpo(),
+							W = danger * current.W.InvertClamped().OutExpo()
 						};
 						agent.Mind.Stimulate(stim * delta, projectile.Source);
 					}

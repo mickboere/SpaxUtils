@@ -176,7 +176,7 @@ namespace SpaxUtils
 				if (Physics.SphereCast(origin, checkRadius, direction, out RaycastHit hit, Stride * surveyLength, layerMask))
 				{
 					// Find safe spot if hit normal exceeds max footing angle.
-					if (hit.normal.Dot(rigidbodyWrapper.Up).ClampedInvert() * 90f > maxFootingAngle && TryFindSafeSpot(hit.point, out RaycastHit safeSpot))
+					if (hit.normal.Dot(rigidbodyWrapper.Up).InvertClamped() * 90f > maxFootingAngle && TryFindSafeSpot(hit.point, out RaycastHit safeSpot))
 					{
 						hit = safeSpot;
 					}

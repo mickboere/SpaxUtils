@@ -8,36 +8,42 @@ namespace SpaxUtils
 	public static class AgentFactory
 	{
 		public static Agent Create(IAgentSetup setup, IDependencyManager dependencyManager,
+			string overrideName = null,
 			IEnumerable<string> labels = null,
 			IEnumerable<StateMachineGraph> brainGraphs = null,
 			IEnumerable<GameObject> children = null,
 			IEnumerable<object> dependencies = null)
 		{
-			return Create(setup.Identification, setup.Frame, setup.Body, dependencyManager, Vector3.zero, Quaternion.identity, labels,
+			return Create(setup.Identification, setup.Frame, setup.Body, dependencyManager, Vector3.zero, Quaternion.identity,
+				overrideName, labels,
 				brainGraphs == null ? setup.BrainGraphs : setup.BrainGraphs.Union(brainGraphs),
 				children == null ? setup.Children : setup.Children.Union(children),
 				dependencies == null ? setup.Dependencies : setup.Dependencies.Union(dependencies));
 		}
 
 		public static Agent Create(IAgentSetup setup, IDependencyManager dependencyManager, Vector3 position,
+			string overrideName = null,
 			IEnumerable<string> labels = null,
 			IEnumerable<StateMachineGraph> brainGraphs = null,
 			IEnumerable<GameObject> children = null,
 			IEnumerable<object> dependencies = null)
 		{
-			return Create(setup.Identification, setup.Frame, setup.Body, dependencyManager, position, Quaternion.identity, labels,
+			return Create(setup.Identification, setup.Frame, setup.Body, dependencyManager, position, Quaternion.identity,
+				overrideName, labels,
 				brainGraphs == null ? setup.BrainGraphs : setup.BrainGraphs.Union(brainGraphs),
 				children == null ? setup.Children : setup.Children.Union(children),
 				dependencies == null ? setup.Dependencies : setup.Dependencies.Union(dependencies));
 		}
 
 		public static Agent Create(IAgentSetup setup, IDependencyManager dependencyManager, Vector3 position, Quaternion rotation,
+			string overrideName = null,
 			IEnumerable<string> labels = null,
 			IEnumerable<StateMachineGraph> brainGraphs = null,
 			IEnumerable<GameObject> children = null,
 			IEnumerable<object> dependencies = null)
 		{
-			return Create(setup.Identification, setup.Frame, setup.Body, dependencyManager, position, rotation, labels,
+			return Create(setup.Identification, setup.Frame, setup.Body, dependencyManager, position, rotation,
+				overrideName, labels,
 				brainGraphs == null ? setup.BrainGraphs : setup.BrainGraphs.Union(brainGraphs),
 				children == null ? setup.Children : setup.Children.Union(children),
 				dependencies == null ? setup.Dependencies : setup.Dependencies.Union(dependencies));
@@ -50,6 +56,7 @@ namespace SpaxUtils
 			IDependencyManager dependencyManager,
 			Vector3 position,
 			Quaternion rotation,
+			string overrideName = null,
 			IEnumerable<string> labels = null,
 			IEnumerable<StateMachineGraph> brainGraphs = null,
 			IEnumerable<GameObject> children = null,
@@ -79,6 +86,10 @@ namespace SpaxUtils
 			// Set up identity.
 			Agent agent = rootGo.GetComponent<Agent>();
 			identification = new Identification(identification, agent);
+			if (!string.IsNullOrEmpty(overrideName))
+			{
+				identification.Name = overrideName;
+			}
 			if (labels != null)
 			{
 				identification.Add(labels);

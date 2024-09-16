@@ -38,7 +38,7 @@ namespace SpaxUtils
 		public ITargeter Targeter { get; private set; }
 
 		/// <inheritdoc/>
-		public bool Dead => Brain.IsStateActive(StateIdentifiers.DEAD);
+		public bool Dead => Brain.IsStateActive(StateIdentifiers.DEAD) || deathTransition != null && !deathTransition.Completed;
 
 		#endregion Properties
 
@@ -52,6 +52,7 @@ namespace SpaxUtils
 		private InputToActMap inputToActMap;
 		private IPerformer[] performers;
 		private IRelationData[] relationData;
+		private ITransition deathTransition;
 
 		public void InjectDependencies(
 			IAgentBody body, ITargetable targetableComponent, ITargeter targeterComponent,
@@ -94,6 +95,7 @@ namespace SpaxUtils
 		{
 			if (!Dead && Brain.TryTransition(StateIdentifiers.DEAD, transition))
 			{
+				deathTransition = transition;
 				Actor.TryCancel(true);
 				Actor.Blocked = true;
 				DiedEvent?.Invoke(this);
@@ -140,9 +142,9 @@ namespace SpaxUtils
 			}
 			else
 			{
-				RuntimeDataCollection data = new RuntimeDataCollection(AgentDataIdentifiers.RELATIONS);
-				RuntimeData.TryAdd(data);
-				Relations = new AgentRelations(data);
+				RuntimeDataCollection relationData = new RuntimeDataCollection(AgentDataIdentifiers.RELATIONS);
+				RuntimeData.TryAdd(relationData, true);
+				Relations = new AgentRelations(relationData);
 			}
 
 			// Populate relations with injected data.

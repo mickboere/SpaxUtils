@@ -53,9 +53,9 @@ namespace SpaxUtils
 					HitData parryHit = new HitData(
 						parriedHittable,
 						Agent,
-						hitData.Point,
 						rigidbodyWrapper.Mass,
 						hitData.Inertia,
+						hitData.Point,
 						-hitData.Inertia.normalized,
 						hitData.Force,
 						hitData.Strength,

@@ -79,7 +79,7 @@ namespace SpaxUtils
 		/// </summary>
 		/// <param name="identifier">The identifier of the runtime data for which to return a modifiable <see cref="EntityStat"/>.</param>
 		/// <param name="createDataIfNull">If there is no existing data for <paramref name="identifier"/>, should it be created?</param>
-		/// <param name="defaultValueIfUndefined">The default value for the newly created stat if there is no preconfigured data available.</param>
+		/// <param name="defaultValueIfUndefined">The default value for the newly created stat if there is no stat configuration data available.</param>
 		/// <returns>An <see cref="EntityStat"/> that wraps around the data with ID <paramref name="identifier"/>.</returns>
 		EntityStat GetStat(string identifier, bool createDataIfNull = false, float defaultValueIfUndefined = 0f);
 

@@ -27,12 +27,14 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public IReadOnlyCollection<string> Friends => friends;
 
+		private RuntimeDataCollection data;
 		private Dictionary<string, float> relations;
 		private List<string> enemies;
 		private List<string> friends;
 
 		public AgentRelations(RuntimeDataCollection relationData)
 		{
+			this.data = relationData;
 			relations = new Dictionary<string, float>();
 			foreach (RuntimeDataEntry data in relationData.Data)
 			{
@@ -51,6 +53,7 @@ namespace SpaxUtils
 
 			float previous = relations[relation];
 			relations[relation] = amount;
+			data.Set(relation, amount);
 			if (!relations[relation].Approx(previous))
 			{
 				Update();
@@ -68,6 +71,7 @@ namespace SpaxUtils
 
 			float previous = relations[relation];
 			relations[relation] = relations[relation] + amount;
+			data.Set(relation, relations[relation]);
 			if (!relations[relation].Approx(previous))
 			{
 				Update();

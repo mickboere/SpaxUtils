@@ -7,6 +7,7 @@ namespace SpaxUtils
 	[Serializable]
 	public class AgentSpawnData
 	{
+		[SerializeField] private string overrideName;
 		[SerializeField, ConstDropdown(typeof(IIdentificationLabels))] private List<string> labels;
 		[SerializeField] private ScriptableObject[] dependencies;
 		[SerializeField] private LabeledDataCollection data;
@@ -14,7 +15,7 @@ namespace SpaxUtils
 
 		public Agent Spawn(IAgentSetup agentSetup, IDependencyManager dependencyManager, Vector3 position, Quaternion rotation)
 		{
-			Agent agent = AgentFactory.Create(agentSetup, dependencyManager, position, rotation, labels: labels, dependencies: dependencies);
+			Agent agent = AgentFactory.Create(agentSetup, dependencyManager, position, rotation, overrideName: overrideName, labels: labels, dependencies: dependencies);
 			data.ApplyToEntity(agent, overwriteData);
 			return agent;
 		}

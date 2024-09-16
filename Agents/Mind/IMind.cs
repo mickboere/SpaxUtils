@@ -87,14 +87,14 @@ namespace SpaxUtils
 		#region Stimulation
 
 		/// <summary>
-		/// Stimulates the mind to spur its emotions.
+		/// Stimulates the mind to spur its emotions and form a motivation.
 		/// </summary>
 		/// <param name="stimulation">The stimulation to apply.</param>
 		/// <param name="source">The entity responsible for this stimulation.</param>
 		void Stimulate(Vector8 stimulation, IEntity source);
 
 		/// <summary>
-		/// Satisfies to mind to calm its emotions.
+		/// Satisfies the mind to calm its emotions and deform motivation.
 		/// </summary>
 		/// <param name="satisfaction">The satisfaction to apply.</param>
 		/// <param name="source">The entity responsible for this satisfaction.</param>

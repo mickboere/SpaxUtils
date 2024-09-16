@@ -14,7 +14,6 @@ namespace SpaxUtils
 		private IAgent agent;
 		private IHittable hittable;
 		private RigidbodyWrapper rigidbodyWrapper;
-		private AnimatorPoser animatorPoser;
 		private CombatSettings combatSettings;
 		private CallbackService callbackService;
 		private IStunHandler stunHandler;
@@ -22,20 +21,19 @@ namespace SpaxUtils
 		private EntityStat timescaleStat;
 		private EntityStat health;
 		private EntityStat endurance;
-		private EntityStat enduranceCost;
 		private EntityStat defence;
+		private EntityStat hardness;
 
 		private TimedCurveModifier hitPauseMod;
 
 		public void InjectDependencies(IAgent agent, IHittable hittable,
-			RigidbodyWrapper rigidbodyWrapper, AnimatorPoser animatorPoser,
+			RigidbodyWrapper rigidbodyWrapper,
 			CombatSettings combatSettings, CallbackService callbackService,
 			IStunHandler stunHandler)
 		{
 			this.agent = agent;
 			this.hittable = hittable;
 			this.rigidbodyWrapper = rigidbodyWrapper;
-			this.animatorPoser = animatorPoser;
 			this.combatSettings = combatSettings;
 			this.callbackService = callbackService;
 			this.stunHandler = stunHandler;
@@ -43,19 +41,18 @@ namespace SpaxUtils
 
 		protected void OnEnable()
 		{
-			hittable.Subscribe(this, OnHitEvent, 1);
+			timescaleStat = agent.GetStat(EntityStatIdentifiers.TIMESCALE, true);
+			health = agent.GetStat(AgentStatIdentifiers.HEALTH, true);
+			endurance = agent.GetStat(AgentStatIdentifiers.ENDURANCE, true);
+			defence = agent.GetStat(AgentStatIdentifiers.DEFENCE, true);
+			hardness = agent.GetStat(AgentStatIdentifiers.HARDNESS, true);
 
-			timescaleStat = agent.GetStat(EntityStatIdentifiers.TIMESCALE);
-			health = agent.GetStat(AgentStatIdentifiers.HEALTH);
-			endurance = agent.GetStat(AgentStatIdentifiers.ENDURANCE);
-			enduranceCost = agent.GetStat(AgentStatIdentifiers.ENDURANCE.SubStat(AgentStatIdentifiers.SUB_COST));
-			defence = agent.GetStat(AgentStatIdentifiers.DEFENCE);
+			hittable.Subscribe(this, OnHitEvent, 100);
 		}
 
 		protected void OnDisable()
 		{
 			hittable.Unsubscribe(this);
-			rigidbodyWrapper.Control.RemoveModifier(this);
 		}
 
 		/// <summary>
@@ -68,17 +65,21 @@ namespace SpaxUtils
 			rigidbodyWrapper.Push(hitData.Inertia, hitData.Mass);
 
 			// Calculate damage and impact.
-			hitData.Result_Penetration = hitData.Result_Parried ? 0f : hitData.Offence * hitData.Piercing / defence;
-			float impact = hitData.Result_Penetration.ClampedInvert();
-			hitData.Result_Damage = hitData.Result_Parried ? 0f : SpaxFormulas.CalculateDamage(hitData.Offence, defence);
-			hitData.Result_Force = hitData.Result_Parried ? 0f : hitData.Strength * impact;
+			if (!hitData.Result_Parried)
+			{
+				float damage = SpaxFormulas.CalculateDamage(hitData.Offence, defence);
+				hitData.Result_Penetration = (hitData.Offence * hitData.Piercing / defence * hardness.Value.InvertClamped()).OutCubic();
+				hitData.Result_Impact = (hitData.Strength * hitData.Piercing.InvertClamped() / defence * hardness).OutCubic();
+				hitData.Result_Damage = damage * (hitData.Result_Penetration + hitData.Result_Impact);
+				hitData.Result_Force = hitData.Strength * hitData.Result_Impact;
+			}
 
 			// Apply hit-pause.
 			hitPauseMod?.Dispose();
 			hitPauseMod = new TimedCurveModifier(
 				ModMethod.Absolute,
 				combatSettings.HitPauseCurve,
-				new TimerStruct(Mathf.Lerp(combatSettings.HitPauseRange.x, combatSettings.HitPauseRange.y, impact)),
+				new TimerStruct(Mathf.LerpUnclamped(combatSettings.HitPauseRange.x, combatSettings.HitPauseRange.y, hitData.Result_Impact)),
 				callbackService);
 			timescaleStat.RemoveModifier(this);
 			timescaleStat.AddModifier(this, hitPauseMod);
@@ -112,6 +113,8 @@ namespace SpaxUtils
 					Die();
 				}
 			}
+
+			//SpaxDebug.Log($"Hit {agent.Identification.Name}", hitData.ToString(), context: agent.GameObject);
 		}
 
 		private void Die()

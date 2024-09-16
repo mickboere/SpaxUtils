@@ -22,11 +22,6 @@ namespace SpaxUtils
 		public IEntity Hitter { get; }
 
 		/// <summary>
-		/// The hit-point in world space.
-		/// </summary>
-		public Vector3 Point { get; }
-
-		/// <summary>
 		/// The total mass of the hitter, used to apply inertia.
 		/// </summary>
 		public float Mass { get; }
@@ -37,12 +32,17 @@ namespace SpaxUtils
 		public Vector3 Inertia { get; }
 
 		/// <summary>
+		/// The hit-point in world space.
+		/// </summary>
+		public Vector3 Point { get; }
+
+		/// <summary>
 		/// The normalized inbound direction of the hit in world space.
 		/// </summary>
 		public Vector3 Direction { get; }
 
 		/// <summary>
-		/// The total mass behind the hit, defines force transfer capacity.
+		/// The total force behind the hit, defines force transfer capacity.
 		/// </summary>
 		public float Force { get; }
 
@@ -81,9 +81,14 @@ namespace SpaxUtils
 		public bool Result_Stunned { get; set; }
 
 		/// <summary>
-		/// Return data defining total percentage of offensive penetration dealt to receiver.
+		/// Return data defining the percentage of penetration dealt to receiver (0-1~).
 		/// </summary>
 		public float Result_Penetration { get; set; }
+
+		/// <summary>
+		/// Return data defining percentage of impact dealt to receiver (0-1~).
+		/// </summary>
+		public float Result_Impact { get; set; }
 
 		/// <summary>
 		/// Return data defining total amount of damage dealt to receiver.
@@ -100,20 +105,20 @@ namespace SpaxUtils
 		public HitData(
 			IHittable receiver,
 			IEntity hitter,
-			Vector3 point,
 			float mass,
 			Vector3 inertia,
+			Vector3 point,
 			Vector3 direction,
 			float force,
-			float strength = 1f,
+			float strength = 0f,
 			float offence = 0f,
 			float piercing = 0f)
 		{
 			Receiver = receiver;
 			Hitter = hitter;
-			Point = point;
 			Mass = mass;
 			Inertia = inertia;
+			Point = point;
 			Direction = direction;
 			Force = force;
 			Strength = strength;
@@ -126,9 +131,9 @@ namespace SpaxUtils
 			return $"HitData:" +
 				$"\nReceiver={Receiver.Entity.Identification.TagFull()}," +
 				$"\nHitter={Hitter.Identification.TagFull()}," +
-				$"\nPoint={Point}," +
 				$"\nMass={Mass}," +
 				$"\nInertia={Inertia}," +
+				$"\nPoint={Point}," +
 				$"\nDirection={Direction}," +
 				$"\nForce={Force}," +
 				$"\nStrength={Strength}," +
@@ -138,6 +143,7 @@ namespace SpaxUtils
 				$"\nResult_Parried={Result_Parried}," +
 				$"\nResult_Stunned={Result_Stunned}," +
 				$"\nResult_Penetration={Result_Penetration}," +
+				$"\nResult_Impact={Result_Impact}," +
 				$"\nResult_Damage={Result_Damage}," +
 				$"\nResult_Force={Result_Force}";
 		}

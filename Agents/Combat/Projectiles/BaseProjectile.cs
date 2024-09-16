@@ -133,9 +133,9 @@ namespace SpaxUtils
 				HitData hitData = new HitData(
 					hittable,
 					agent,
-					hit.point,
 					mass, // Inertia mass transfer
 					Velocity,
+					hit.point,
 					Velocity.normalized,
 					mass // Stun force transfer
 				);

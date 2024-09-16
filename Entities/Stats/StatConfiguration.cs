@@ -35,9 +35,9 @@ namespace SpaxUtils
 		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifiers))] private string identifier;
 		[SerializeField] private float defaultValue;
 		[SerializeField, HideInInspector] private bool hasMinValue;
-		[SerializeField, Conditional(nameof(hasMinValue), drawToggle: true)] private float minValue;
+		[SerializeField, Conditional(nameof(hasMinValue), drawToggle: true, hide: false)] private float minValue;
 		[SerializeField, HideInInspector] private bool hasMaxValue;
-		[SerializeField, Conditional(nameof(hasMaxValue), drawToggle: true)] private float maxValue;
+		[SerializeField, Conditional(nameof(hasMaxValue), drawToggle: true, hide: false)] private float maxValue;
 		[SerializeField] private DecimalMethod decimals;
 		[SerializeField] private string name;
 		[SerializeField, TextArea] private string description;
