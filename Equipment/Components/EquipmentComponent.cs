@@ -239,7 +239,7 @@ namespace SpaxUtils
 
 				// Occupy the slot, apply data and invoke equiped event.
 				equipedItems[slot.ID] = equipedData;
-				equipmentData.Set(slot.ID, equipedData.RuntimeItemData.RuntimeID);
+				equipmentData.SetValue(slot.ID, equipedData.RuntimeItemData.RuntimeID);
 				slot.Equip(equipedData);
 				EquipedEvent?.Invoke(equipedData);
 

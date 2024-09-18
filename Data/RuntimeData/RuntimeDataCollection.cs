@@ -198,7 +198,7 @@ namespace SpaxUtils
 		/// <param name="id">The id of data entry we're looking to replace.</param>
 		/// <param name="value">The value to set in the data entry of type <paramref name="id"/>.</param>
 		/// <param name="createIfNull">If the desired data entry does not exist yet, should it be created?</param>
-		public void Set(string id, object value, bool createIfNull = true)
+		public void SetValue(string id, object value, bool createIfNull = true)
 		{
 			RuntimeDataEntry entry = GetEntry(id);
 			if (entry != null)
@@ -295,7 +295,7 @@ namespace SpaxUtils
 		/// </summary>
 		/// <param name="id">The ID of the entry we want to retrieve its value of.</param>
 		/// <returns>Value of entry with ID <paramref name="id"/>, NULL if entry is null.</returns>
-		public object Get(string id)
+		public object GetValue(string id)
 		{
 			RuntimeDataEntry entry = GetEntry(id);
 			if (entry != null)
@@ -311,7 +311,7 @@ namespace SpaxUtils
 		/// <param name="id">The ID of the entry we want to retrieve its value of.</param>
 		/// <typeparam name="T">The type to cast the result to.</typeparam>
 		/// <returns>Value of entry with ID <paramref name="id"/> as <typeparamref name="T"/>, DEFAULT if entry is null.</returns>
-		public T Get<T>(string id)
+		public T GetValue<T>(string id)
 		{
 			RuntimeDataEntry entry = GetEntry(id);
 			if (entry != null)
@@ -334,7 +334,7 @@ namespace SpaxUtils
 		/// <typeparam name="T">The type to cast the result to.</typeparam>
 		/// <param name="value">Value of entry with ID <paramref name="id"/> as <typeparamref name="T"/>, DEFAULT if entry is null.</param>
 		/// <returns>True when data with ID <paramref name="id"/> was found, false if it wasn't.</returns>
-		public bool TryGet<T>(string id, out T value)
+		public bool TryGetValue<T>(string id, out T value)
 		{
 			RuntimeDataEntry entry = GetEntry(id);
 			if (entry != null)

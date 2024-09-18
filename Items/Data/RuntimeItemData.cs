@@ -17,12 +17,12 @@ namespace SpaxUtils
 		public string RuntimeID => RuntimeData.ID;
 		public string ItemID => ItemData.ID;
 
-		public int Quantity => Unique ? 1 : RuntimeData.TryGet(ItemDataIdentifierConstants.QUANTITY, out int quantity) ? quantity : 1;
+		public int Quantity => Unique ? 1 : RuntimeData.TryGetValue(ItemDataIdentifierConstants.QUANTITY, out int quantity) ? quantity : 1;
 
-		public string Name => RuntimeData.Get<string>(ItemDataIdentifierConstants.NAME) ?? ItemData.Name;
-		public string Description => RuntimeData.Get<string>(ItemDataIdentifierConstants.DESCRIPTION) ?? ItemData.Description;
-		public string Category => RuntimeData.Get<string>(ItemDataIdentifierConstants.CATEGORY) ?? ItemData.Category;
-		public bool Unique => RuntimeData.TryGet(ItemDataIdentifierConstants.UNIQUE, out bool unique) ? unique : ItemData.Unique;
+		public string Name => RuntimeData.GetValue<string>(ItemDataIdentifierConstants.NAME) ?? ItemData.Name;
+		public string Description => RuntimeData.GetValue<string>(ItemDataIdentifierConstants.DESCRIPTION) ?? ItemData.Description;
+		public string Category => RuntimeData.GetValue<string>(ItemDataIdentifierConstants.CATEGORY) ?? ItemData.Category;
+		public bool Unique => RuntimeData.TryGetValue(ItemDataIdentifierConstants.UNIQUE, out bool unique) ? unique : ItemData.Unique;
 
 		public IDependencyManager DependencyManager { get; private set; }
 
@@ -35,7 +35,7 @@ namespace SpaxUtils
 			DependencyManager = dependencyManager;
 
 			// Mandatory data used when loading item data.
-			runtimeData.Set(ItemDataIdentifierConstants.ITEM_ID, ItemID);
+			runtimeData.SetValue(ItemDataIdentifierConstants.ITEM_ID, ItemID);
 		}
 
 		/// <inheritdoc/>

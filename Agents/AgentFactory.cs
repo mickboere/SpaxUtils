@@ -2,23 +2,32 @@
 using System.Collections.Generic;
 using UnityEngine;
 using System.Linq;
+using System;
 
 namespace SpaxUtils
 {
 	public static class AgentFactory
 	{
+		public enum Callback
+		{
+			OnInject,
+			OnActivate
+		}
+
 		public static Agent Create(IAgentSetup setup, IDependencyManager dependencyManager,
 			string overrideName = null,
 			IEnumerable<string> labels = null,
 			IEnumerable<StateMachineGraph> brainGraphs = null,
 			IEnumerable<GameObject> children = null,
-			IEnumerable<object> dependencies = null)
+			IEnumerable<object> dependencies = null,
+			Action<Callback> progressCallback = null)
 		{
 			return Create(setup.Identification, setup.Frame, setup.Body, dependencyManager, Vector3.zero, Quaternion.identity,
 				overrideName, labels,
 				brainGraphs == null ? setup.BrainGraphs : setup.BrainGraphs.Union(brainGraphs),
 				children == null ? setup.Children : setup.Children.Union(children),
-				dependencies == null ? setup.Dependencies : setup.Dependencies.Union(dependencies));
+				dependencies == null ? setup.Dependencies : setup.Dependencies.Union(dependencies),
+				progressCallback);
 		}
 
 		public static Agent Create(IAgentSetup setup, IDependencyManager dependencyManager, Vector3 position,
@@ -26,13 +35,15 @@ namespace SpaxUtils
 			IEnumerable<string> labels = null,
 			IEnumerable<StateMachineGraph> brainGraphs = null,
 			IEnumerable<GameObject> children = null,
-			IEnumerable<object> dependencies = null)
+			IEnumerable<object> dependencies = null,
+			Action<Callback> progressCallback = null)
 		{
 			return Create(setup.Identification, setup.Frame, setup.Body, dependencyManager, position, Quaternion.identity,
 				overrideName, labels,
 				brainGraphs == null ? setup.BrainGraphs : setup.BrainGraphs.Union(brainGraphs),
 				children == null ? setup.Children : setup.Children.Union(children),
-				dependencies == null ? setup.Dependencies : setup.Dependencies.Union(dependencies));
+				dependencies == null ? setup.Dependencies : setup.Dependencies.Union(dependencies),
+				progressCallback);
 		}
 
 		public static Agent Create(IAgentSetup setup, IDependencyManager dependencyManager, Vector3 position, Quaternion rotation,
@@ -40,13 +51,15 @@ namespace SpaxUtils
 			IEnumerable<string> labels = null,
 			IEnumerable<StateMachineGraph> brainGraphs = null,
 			IEnumerable<GameObject> children = null,
-			IEnumerable<object> dependencies = null)
+			IEnumerable<object> dependencies = null,
+			Action<Callback> progressCallback = null)
 		{
 			return Create(setup.Identification, setup.Frame, setup.Body, dependencyManager, position, rotation,
 				overrideName, labels,
 				brainGraphs == null ? setup.BrainGraphs : setup.BrainGraphs.Union(brainGraphs),
 				children == null ? setup.Children : setup.Children.Union(children),
-				dependencies == null ? setup.Dependencies : setup.Dependencies.Union(dependencies));
+				dependencies == null ? setup.Dependencies : setup.Dependencies.Union(dependencies),
+				progressCallback);
 		}
 
 		public static Agent Create(
@@ -60,7 +73,8 @@ namespace SpaxUtils
 			IEnumerable<string> labels = null,
 			IEnumerable<StateMachineGraph> brainGraphs = null,
 			IEnumerable<GameObject> children = null,
-			IEnumerable<object> dependencies = null)
+			IEnumerable<object> dependencies = null,
+			Action<Callback> progressCallback = null)
 		{
 			if (!dependencyManager.TryGetBinding(typeof(ICommunicationChannel), typeof(ICommunicationChannel), false, out _))
 			{
@@ -109,6 +123,7 @@ namespace SpaxUtils
 			DependencyUtils.BindMonoBehaviours(rootGo, dependencyManager, includeChildren: true);
 
 			// Inject all dependencies.
+			progressCallback?.Invoke(Callback.OnInject);
 			DependencyUtils.Inject(rootGo, dependencyManager, includeChildren: true, bindComponents: false);
 
 			// Initialize the brain.
@@ -118,6 +133,7 @@ namespace SpaxUtils
 			}
 
 			// Activate Agent and return.
+			progressCallback?.Invoke(Callback.OnActivate);
 			rootGo.SetActive(true);
 			return agent;
 		}

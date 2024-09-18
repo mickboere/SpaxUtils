@@ -26,7 +26,7 @@ namespace SpaxUtils
 		{
 			if (runtimeDataService.CurrentProfile.ContainsEntry(ID_PLAYER_COLLECTION))
 			{
-				List<string> playerCollection = runtimeDataService.CurrentProfile.Get<List<string>>(ID_PLAYER_COLLECTION);
+				List<string> playerCollection = runtimeDataService.CurrentProfile.GetValue<List<string>>(ID_PLAYER_COLLECTION);
 				if (playerIndex < playerCollection.Count)
 				{
 					string id = playerCollection[playerIndex];
@@ -53,20 +53,20 @@ namespace SpaxUtils
 			List<string> playerCollection = new List<string>();
 			if (runtimeDataService.CurrentProfile.ContainsEntry(ID_PLAYER_COLLECTION))
 			{
-				playerCollection = runtimeDataService.CurrentProfile.Get<List<string>>(ID_PLAYER_COLLECTION);
+				playerCollection = runtimeDataService.CurrentProfile.GetValue<List<string>>(ID_PLAYER_COLLECTION);
 			}
 
 			if (playerIndex < playerCollection.Count)
 			{
 				// Overwrite entity at player index.
 				playerCollection[playerIndex] = entity.Identification.ID;
-				runtimeDataService.CurrentProfile.Set(ID_PLAYER_COLLECTION, playerCollection);
+				runtimeDataService.CurrentProfile.SetValue(ID_PLAYER_COLLECTION, playerCollection);
 			}
 			else
 			{
 				// Expand player collection.
 				playerCollection.Add(entity.Identification.ID);
-				runtimeDataService.CurrentProfile.Set(ID_PLAYER_COLLECTION, playerCollection);
+				runtimeDataService.CurrentProfile.SetValue(ID_PLAYER_COLLECTION, playerCollection);
 			}
 		}
 	}

@@ -117,7 +117,7 @@ namespace SpaxUtils
 				RuntimeData = new RuntimeDataCollection(Identification.ID);
 			}
 
-			if (runtimeDataService.CurrentProfile.TryGet(Identification.ID, out RuntimeDataCollection entityData))
+			if (runtimeDataService.CurrentProfile.TryGetValue(Identification.ID, out RuntimeDataCollection entityData))
 			{
 				// Saved data was found in data service, append to existing data and overwrite duplicate data.
 				RuntimeData.Append(entityData, true);
@@ -126,11 +126,11 @@ namespace SpaxUtils
 			// Load or set entity name in data.
 			if (RuntimeData.ContainsEntry(ID_NAME))
 			{
-				Identification.Name = RuntimeData.Get<string>(ID_NAME);
+				Identification.Name = RuntimeData.GetValue<string>(ID_NAME);
 			}
 			else
 			{
-				RuntimeData.Set(ID_NAME, Identification.Name);
+				RuntimeData.SetValue(ID_NAME, Identification.Name);
 			}
 		}
 
@@ -155,8 +155,8 @@ namespace SpaxUtils
 
 			if (RuntimeData != null && RuntimeData.ContainsEntry(ID_POS) && Transform.position == Vector3.zero)
 			{
-				Transform.position = RuntimeData.Get<Vector3>(ID_POS);
-				Transform.eulerAngles = RuntimeData.Get<Vector3>(ID_ROT);
+				Transform.position = RuntimeData.GetValue<Vector3>(ID_POS);
+				Transform.eulerAngles = RuntimeData.GetValue<Vector3>(ID_ROT);
 			}
 		}
 
@@ -210,8 +210,8 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public virtual void Save()
 		{
-			RuntimeData.Set(ID_POS, Transform.position);
-			RuntimeData.Set(ID_ROT, Transform.eulerAngles);
+			RuntimeData.SetValue(ID_POS, Transform.position);
+			RuntimeData.SetValue(ID_ROT, Transform.eulerAngles);
 			OnSaveEvent?.Invoke(RuntimeData);
 			runtimeDataService.Save(RuntimeData);
 		}
@@ -219,19 +219,19 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public virtual void SetDataValue(string identifier, object value)
 		{
-			RuntimeData.Set(identifier, value);
+			RuntimeData.SetValue(identifier, value);
 		}
 
 		/// <inheritdoc/>
 		public virtual object GetDataValue(string identifier)
 		{
-			return RuntimeData.Get(identifier);
+			return RuntimeData.GetValue(identifier);
 		}
 
 		/// <inheritdoc/>
 		public virtual T GetDataValue<T>(string identifier)
 		{
-			return RuntimeData.Get<T>(identifier);
+			return RuntimeData.GetValue<T>(identifier);
 		}
 
 		/// <inheritdoc/>
@@ -349,7 +349,7 @@ namespace SpaxUtils
 
 		private void OnIdentificationUpdatedEvent(IIdentification identification)
 		{
-			RuntimeData.Set(ID_NAME, identification.Name);
+			RuntimeData.SetValue(ID_NAME, identification.Name);
 			gameObject.name = GameObjectName;
 		}
 	}

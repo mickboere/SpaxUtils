@@ -56,13 +56,13 @@ namespace SpaxUtils
 				// Load the root seed of this profile.
 				// Everything is deterministic so values won't randomly change between sessions,
 				// but in case we want to allow renaming profiles in the future, this should prevent issues.
-				RootSeed = profile.Get<int>(ID_ROOT_SEED);
+				RootSeed = profile.GetValue<int>(ID_ROOT_SEED);
 			}
 			else
 			{
 				// Generate new root seed from profile ID.
 				RootSeed = profile.ID.GetDeterministicHashCode();
-				profile.Set(ID_ROOT_SEED, RootSeed);
+				profile.SetValue(ID_ROOT_SEED, RootSeed);
 			}
 		}
 	}

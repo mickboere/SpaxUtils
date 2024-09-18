@@ -109,7 +109,7 @@ namespace SpaxUtils
 		/// <param name="itemID">The ID of the item type (optional when runtime data contains the ID.)</param>
 		public RuntimeItemData AddItem(RuntimeDataCollection runtimeData, string itemID = null)
 		{
-			IItemData itemData = itemDatabase.GetItem(itemID ?? runtimeData.Get<string>(ItemDataIdentifierConstants.ITEM_ID));
+			IItemData itemData = itemDatabase.GetItem(itemID ?? runtimeData.GetValue<string>(ItemDataIdentifierConstants.ITEM_ID));
 			return AddItem(itemData, runtimeData);
 		}
 
@@ -133,7 +133,7 @@ namespace SpaxUtils
 				if (!runtimeItemData.Unique && itemStack != null)
 				{
 					// Non-unique (stacking) item of which we already have an instance, increase the quantity of the existing one.
-					itemStack.RuntimeData.Set(ItemDataIdentifierConstants.QUANTITY, itemStack.Quantity + runtimeItemData.Quantity);
+					itemStack.RuntimeData.SetValue(ItemDataIdentifierConstants.QUANTITY, itemStack.Quantity + runtimeItemData.Quantity);
 					runtimeData.Dispose();
 					runtimeItemData.Dispose();
 					return itemStack;

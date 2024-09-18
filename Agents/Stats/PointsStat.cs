@@ -101,6 +101,16 @@ namespace SpaxUtils
 				RecoveryDelay = entity.GetStat(recoveryDelayId, true);
 			}
 
+			if (HasMax && Current.BaseValue > Max)
+			{
+				// Health points have been manually supplied through data, accomodate for it.
+				Max.BaseValue = Current.BaseValue - Max;
+				if (isRecoverable)
+				{
+					Recoverable.BaseValue = Max;
+				}
+			}
+
 			initialized = true;
 		}
 

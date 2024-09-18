@@ -53,7 +53,7 @@ namespace SpaxUtils
 
 			float previous = relations[relation];
 			relations[relation] = amount;
-			data.Set(relation, amount);
+			data.SetValue(relation, amount);
 			if (!relations[relation].Approx(previous))
 			{
 				Update();
@@ -71,7 +71,7 @@ namespace SpaxUtils
 
 			float previous = relations[relation];
 			relations[relation] = relations[relation] + amount;
-			data.Set(relation, relations[relation]);
+			data.SetValue(relation, relations[relation]);
 			if (!relations[relation].Approx(previous))
 			{
 				Update();
