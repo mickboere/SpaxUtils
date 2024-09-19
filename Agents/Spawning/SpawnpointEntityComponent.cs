@@ -11,7 +11,7 @@ namespace SpaxUtils
 		public Quaternion Rotation => overridePoint == null ? transform.rotation : overridePoint.rotation;
 		public SpawnRegion Region => region;
 
-		[SerializeField, ConstDropdown(typeof(SpawnpointIdentifiers))] private string identifier;
+		[SerializeField, ConstDropdown(typeof(ISpawnpointIdentifiers))] private string identifier;
 		[SerializeField] private Transform overridePoint;
 		[SerializeField] private SpawnRegion region;
 

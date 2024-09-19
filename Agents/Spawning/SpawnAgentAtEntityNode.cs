@@ -9,7 +9,7 @@ namespace SpaxUtils
 	public class SpawnAgentAtEntityNode : StateComponentNodeBase
 	{
 		[SerializeField] private AgentSetupAsset agentSetup;
-		[SerializeField, ConstDropdown(typeof(SpawnpointIdentifiers))] private string spawnpoint;
+		[SerializeField, ConstDropdown(typeof(ISpawnpointIdentifiers))] private string spawnpoint;
 		[SerializeField] private AgentSpawnData spawnData;
 
 		private IDependencyManager dependencyManager;

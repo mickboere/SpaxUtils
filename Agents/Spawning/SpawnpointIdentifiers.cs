@@ -1,8 +1,8 @@
 ﻿namespace SpaxUtils
 {
-	public class SpawnpointIdentifiers
+	public class SpawnpointIdentifiers : ISpawnpointIdentifiers
 	{
-		private const string GENERIC = "Generic/";
+		private const string GENERIC = ISpawnpointIdentifiers.SPAWNPOINT + "Generic/";
 		public const string DEFAULT = GENERIC + "Player";
 		public const string TEST_01 = GENERIC + "TEST_01";
 		public const string TEST_02 = GENERIC + "TEST_02";
