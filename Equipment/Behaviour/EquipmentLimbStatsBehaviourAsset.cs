@@ -53,6 +53,7 @@ namespace SpaxUtils
 		public override void Stop()
 		{
 			base.Stop();
+
 			foreach (EntityStat stat in stats)
 			{
 				stat.RemoveModifier(this);

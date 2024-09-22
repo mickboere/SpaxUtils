@@ -37,7 +37,7 @@ namespace SpaxUtils
 		/// <summary>
 		/// Center of mass of the rigidbody in world space
 		/// </summary>
-		public Vector3 CenterOfMass { get => Rigidbody.worldCenterOfMass; set => Rigidbody.centerOfMass = value.Localize(Rigidbody.transform); }
+		public Vector3 CenterOfMass { get => Rigidbody.worldCenterOfMass; set => Rigidbody.centerOfMass = value.LocalizeDirection(Rigidbody.transform); }
 
 		/// <summary>
 		/// Center of mass of the rigidbody in local space.
@@ -52,7 +52,7 @@ namespace SpaxUtils
 		/// <summary>
 		/// Velocity of the rigidbody in local space.
 		/// </summary>
-		public Vector3 RelativeVelocity { get => Velocity.Localize(Rigidbody.transform); set => Velocity = value.Globalize(Rigidbody.transform); }
+		public Vector3 RelativeVelocity { get => Velocity.LocalizeDirection(Rigidbody.transform); set => Velocity = value.GlobalizeDirection(Rigidbody.transform); }
 
 		/// <summary>
 		/// Magnitude of the rigidbody's velocity.
@@ -74,7 +74,7 @@ namespace SpaxUtils
 		/// <summary>
 		/// Average change in velocity of the rigidbody in local space (readonly).
 		/// </summary>
-		public Vector3 RelativeAcceleration => Acceleration.Localize(Rigidbody.transform);
+		public Vector3 RelativeAcceleration => Acceleration.LocalizeDirection(Rigidbody.transform);
 
 		/// <summary>
 		/// The kinetic energy of this rigidbody.
@@ -180,7 +180,7 @@ namespace SpaxUtils
 
 		public void AddForceRelative(Vector3 force, ForceMode forceMode)
 		{
-			Rigidbody.AddForce(force.Globalize(Rigidbody.transform), forceMode);
+			Rigidbody.AddForce(force.GlobalizeDirection(Rigidbody.transform), forceMode);
 		}
 
 		/// <summary>
@@ -223,7 +223,7 @@ namespace SpaxUtils
 		/// <param name="mass">Mass of the incoming impact. Leave negative to match rigidbody mass.</param>
 		public void PushRelative(Vector3 velocity, float mass = -1f)
 		{
-			Push(velocity.Globalize(Rigidbody.transform), mass);
+			Push(velocity.GlobalizeDirection(Rigidbody.transform), mass);
 		}
 
 		#endregion
@@ -244,7 +244,7 @@ namespace SpaxUtils
 				target * control * scale,
 				power * scale * (timeScale ?? 1f),
 				maxForce * scale * (timeScale ?? 1f))
-				.Localize(transform).Multiply(ControlAxis).Globalize(transform);
+				.LocalizeDirection(transform).Multiply(ControlAxis).GlobalizeDirection(transform);
 
 			Rigidbody.AddForce(force);
 		}

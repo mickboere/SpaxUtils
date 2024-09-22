@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using UnityEngine;
 
 namespace SpaxUtils
@@ -15,31 +16,37 @@ namespace SpaxUtils
 		}
 
 		private int prio;
+		private IAgent agent;
 		private AgentArmsComponent component;
 		private IIKComponent ik;
 		private TransformLookup lookup;
 		private RigidbodyWrapper rigidbodyWrapper;
 		private FinalIKComponent finalIKComponent;
 
-		private Vector3 hips;
 		private Transform hand;
-		private Vector3 targetPos;
+		private Vector3 targetPosSmooth;
 		private Vector3 posVelocity;
 
-		private Vector3 forward;
-		private Vector3 dirVelocity;
+		private Quaternion targetRotationSmooth;
+		private Quaternion rotVelocity;
 
-		public ArmSlotHelper(bool isLeft, int prio, AgentArmsComponent component,
-			IIKComponent ik, TransformLookup lookup, RigidbodyWrapper rigidbodyWrapper, FinalIKComponent finalIKComponent)
+		public ArmSlotHelper(bool isLeft, int prio)
 		{
+			IsLeft = isLeft;
 			this.prio = prio;
-			this.ik = ik;
+		}
+
+		public void InjectDependencies(IAgent agent, IIKComponent ik, AgentArmsComponent component,
+			TransformLookup lookup, RigidbodyWrapper rigidbodyWrapper, FinalIKComponent finalIKComponent)
+		{
+			this.agent = agent;
 			this.component = component;
+			this.ik = ik;
 			this.lookup = lookup;
 			this.rigidbodyWrapper = rigidbodyWrapper;
 			this.finalIKComponent = finalIKComponent;
 
-			IsLeft = isLeft;
+			hand = lookup.Lookup(IsLeft ? HumanBoneIdentifiers.LEFT_HAND : HumanBoneIdentifiers.RIGHT_HAND);
 		}
 
 		public void Dispose()
@@ -50,50 +57,58 @@ namespace SpaxUtils
 
 		public void Reset()
 		{
-			targetPos = Vector3.zero;
+			targetPosSmooth = Vector3.zero;
 			posVelocity = Vector3.zero;
 
 			ik.RemoveInfluencer(this, IKChain);
 			ElbowHintWeight = 0f;
 		}
 
-		public void Update(float weight, ArmedSettings settings, float delta)
+		public void Update(float weight, RuntimeEquipedData data, float delta)
 		{
-			// Collect data.
+			// GATHER CONTROL DATA.
 			(Vector3 pos, Quaternion rot) orientation = component.GetHandSlotOrientation(IsLeft, false);
-			hips = lookup.Lookup(HumanBoneIdentifiers.HIPS).position;
-			hand = lookup.Lookup(IsLeft ? HumanBoneIdentifiers.LEFT_HAND : HumanBoneIdentifiers.RIGHT_HAND);
 			Vector3 positionOffset = hand.position - orientation.pos;
-			Quaternion rotationOffset = Quaternion.Inverse(orientation.rot) * hand.rotation;
+			Quaternion rotationOffset = orientation.rot.Inverse() * hand.rotation;
 
-			// Calculate target position.
-			Vector3 target = hips + (ik.Entity.Transform.right * (IsLeft ? -1f : 1f)) * settings.width;
-			target += ik.Entity.Transform.up * settings.height;
-			target += ik.Entity.Transform.forward * settings.forward;
-			target += (hand.position - target) * settings.handInfluence;
-			target += (rigidbodyWrapper.Velocity * settings.velocityInfluence).ClampMagnitude(settings.maxVelocityInfluence);
-			target += (rigidbodyWrapper.Acceleration * settings.accelerationInfluence).ClampMagnitude(settings.maxAccelerationInfluence);
-			if (targetPos == Vector3.zero)
+			float mass = data.RuntimeItemData.TryGetStat(AgentStatIdentifiers.MASS, out float m) ? m : 1f;
+			float strength = agent.TryGetStat(AgentStatIdentifiers.STRENGTH, out EntityStat s) ? s : 1f;
+			float smoothTime = mass / (strength * 0.1f);
+
+			// CALCULATE POSITION.
+			Vector3 targetPos = hand.position - agent.Transform.position;
+			targetPos -= rigidbodyWrapper.Acceleration * smoothTime;
+			targetPosSmooth =
+				targetPosSmooth == Vector3.zero ?
+					targetPos :
+					targetPosSmooth.SmoothDamp(targetPos, ref posVelocity, smoothTime, delta);
+
+			// - Prevent position going out of bounds.
+			targetPosSmooth = (targetPosSmooth + agent.Transform.position).LocalizePoint(agent.Transform);
+			if (targetPosSmooth.z < 0f) targetPosSmooth.z = 0f;
+			if (IsLeft && targetPosSmooth.x > 0f || !IsLeft && targetPosSmooth.x < 0f) targetPosSmooth.x = 0f;
+			targetPosSmooth = targetPosSmooth.GlobalizePoint(agent.Transform) - agent.Transform.position;
+
+			// - Prevent position passing through body.
+			Vector3 flat = targetPosSmooth.FlattenY();
+			if (flat.magnitude < agent.Body.Bumper.radius)
 			{
-				targetPos = target;
+				targetPosSmooth = flat.ClampMagnitude(agent.Body.Bumper.radius, float.MaxValue).SetY(targetPosSmooth.y);
 			}
-			targetPos = Vector3.SmoothDamp(targetPos, target, ref posVelocity, settings.smoothTime, float.MaxValue, delta);
 
-			// Calculate target rotation.
-			Vector3 targetForward = orientation.rot * Vector3.forward;
-			targetForward += (rigidbodyWrapper.Velocity * settings.rotationVelocityInfluence).ClampMagnitude(settings.maxRotationVelocityInfluence);
-			targetForward += (IsLeft ? rigidbodyWrapper.Left : rigidbodyWrapper.Right) * settings.rotationInOut;
-			targetForward += rigidbodyWrapper.Up * settings.rotationUpDown;
-			forward = Vector3.SmoothDamp(forward, targetForward.normalized, ref dirVelocity, settings.rotationSmoothTime, float.MaxValue, delta).normalized;
-			Quaternion targetRotation = Quaternion.LookRotation(forward, orientation.rot * Vector3.up);
+			// CALCULATE ROTATION.
+			Quaternion targetRotation = orientation.rot;
+			targetRotationSmooth =
+				targetRotationSmooth == Quaternion.identity ?
+					targetRotation :
+					targetRotationSmooth.SmoothDamp(targetRotation, ref rotVelocity, smoothTime, delta);
 
-			// Bend goal weight
-			ElbowHintWeight = settings.elbowHintWeight * weight;
-
+			// APPLY INFLUENCE.
+			ElbowHintWeight = 0.5f * weight;
 			ik.AddInfluencer(this,
 				IsLeft ? IKChainConstants.LEFT_ARM : IKChainConstants.RIGHT_ARM, prio,
-				targetPos + targetRotation * positionOffset, weight,
-				targetRotation * rotationOffset, weight);
+				agent.Transform.position + targetPosSmooth + targetRotation * positionOffset, weight,
+				targetRotationSmooth * rotationOffset, weight);
 		}
 
 		public void DrawGizmos()
@@ -104,13 +119,13 @@ namespace SpaxUtils
 			}
 
 			Gizmos.color = Color.blue;
-			Gizmos.DrawLine(hips, hand.position);
+			//Gizmos.DrawLine(hips, hand.position);
 			Gizmos.color = new Color(0.5f, 1f, 0.1f, 0.6f);
-			Gizmos.DrawWireSphere(hips, 0.03f);
+			//Gizmos.DrawWireSphere(hips, 0.03f);
 			Gizmos.color = Color.magenta;
 			Gizmos.DrawWireSphere(hand.position, 0.03f);
 			Gizmos.color = Color.red;
-			Gizmos.DrawSphere(targetPos, 0.02f);
+			Gizmos.DrawSphere(targetPosSmooth, 0.02f);
 		}
 	}
 }

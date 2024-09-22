@@ -152,7 +152,7 @@ namespace SpaxUtils
 		{
 			float stunAmount = Mathf.Max(stunTimer.Progress.Invert(), Mathf.InverseLerp(recoveredThreshold, recoveryThreshold, rigidbodyWrapper.Speed));
 
-			IPoserInstructions instructions = hitBlendTree.GetInstructions(0f, -stunHit.Direction.Localize(rigidbodyWrapper.transform));
+			IPoserInstructions instructions = hitBlendTree.GetInstructions(0f, -stunHit.Direction.LocalizeDirection(rigidbodyWrapper.transform));
 			animatorPoser.ProvideInstructions(this, PoserLayerConstants.BODY, instructions, 10, stunAmount);
 			armsMod.SetValue(stunAmount.Invert());
 

@@ -16,8 +16,7 @@ namespace SpaxUtils
 		[SerializeField] private bool sheathe;
 		[SerializeField] private bool animateIK;
 		[SerializeField] private bool animateControl;
-		[SerializeField, Conditional(nameof(animateIK))] private int ikPriority;
-		[SerializeField, Conditional(nameof(animateIK))] private bool asStateTransition;
+		[SerializeField, Conditional(nameof(animateIK))] private int ikPriority = 2;
 		[SerializeField, Conditional(nameof(animateIK))] private float reachDuration = 0.5f;
 		[SerializeField, Conditional(nameof(animateIK))] private float recoverDuration = 1f;
 
@@ -25,25 +24,18 @@ namespace SpaxUtils
 		private CallbackService callbackService;
 		private IIKComponent ik;
 		private RigidbodyWrapper rigidbodyWrapper;
-		private IEquipmentComponent equipment;
 
 		private EntityStat entityTimeScale;
 		private FloatOperationModifier controlMod;
 		private Coroutine coroutine;
 
-		private RuntimeEquipedData leftEquip;
-		private ArmedEquipmentComponent leftComp;
-		private RuntimeEquipedData rightEquip;
-		private ArmedEquipmentComponent rightComp;
-
 		public void InjectDependencies(IEntity entity, AgentArmsComponent arms, CallbackService callbackService,
-			IIKComponent ik, RigidbodyWrapper rigidbodyWrapper, IEquipmentComponent equipment)
+			IIKComponent ik, RigidbodyWrapper rigidbodyWrapper)
 		{
 			this.arms = arms;
 			this.callbackService = callbackService;
 			this.ik = ik;
 			this.rigidbodyWrapper = rigidbodyWrapper;
-			this.equipment = equipment;
 
 			entityTimeScale = entity.GetStat(EntityStatIdentifiers.TIMESCALE, false);
 		}
@@ -55,39 +47,16 @@ namespace SpaxUtils
 				controlMod = new FloatOperationModifier(ModMethod.Absolute, Operation.Multiply, 1f);
 				rigidbodyWrapper.Control.AddModifier(this, controlMod);
 			}
-
-			if (animateIK && asStateTransition && sheathe != arms.Sheathed)
-			{
-				// Move hand IK target towards sheathe.
-				coroutine = callbackService.StartCoroutine(Animate(reachDuration, false, null));
-			}
 		}
 
 		public override void OnStateEntered()
 		{
 			base.OnStateEntered();
 
-			// Subscribe to events.
-			callbackService.LateUpdateCallback += OnLateUpdate;
-			equipment.EquipedEvent += OnEquipedEvent;
-			equipment.UnequipingEvent += OnUnquipingEvent;
-
-			foreach (RuntimeEquipedData item in equipment.EquipedItems)
-			{
-				OnEquipedEvent(item);
-			}
-
 			if (sheathe != arms.Sheathed)
 			{
-				if (asStateTransition)
-				{
-					Recover();
-				}
-				else
-				{
-					// Move hand IK target towards sheathe, use Recover() as callback.
-					coroutine = callbackService.StartCoroutine(Animate(reachDuration, false, Recover));
-				}
+				// Move hand IK target towards sheathe, use Recover() as callback.
+				coroutine = callbackService.StartCoroutine(Animate(reachDuration, false, Recover));
 			}
 
 			void Recover()
@@ -104,11 +73,6 @@ namespace SpaxUtils
 		{
 			base.OnStateExit();
 
-			// Unsubscribe from events.
-			callbackService.LateUpdateCallback -= OnLateUpdate;
-			equipment.EquipedEvent -= OnEquipedEvent;
-			equipment.UnequipingEvent -= OnUnquipingEvent;
-
 			// Clean up
 			if (coroutine != null)
 			{
@@ -123,28 +87,6 @@ namespace SpaxUtils
 				rigidbodyWrapper.Control.RemoveModifier(this);
 				controlMod.Dispose();
 			}
-
-			leftEquip = null;
-			leftComp = null;
-			rightEquip = null;
-			rightComp = null;
-
-			arms.ResetArms();
-		}
-
-		private void OnLateUpdate()
-		{
-			if (!sheathe)
-			{
-				if (leftComp != null)
-				{
-					arms.UpdateArm(true, leftComp.ArmedSettings, Time.deltaTime);
-				}
-				if (rightComp != null)
-				{
-					arms.UpdateArm(false, rightComp.ArmedSettings, Time.deltaTime);
-				}
-			}
 		}
 
 		private IEnumerator Animate(float duration, bool invert, Action callback)
@@ -152,20 +94,23 @@ namespace SpaxUtils
 			TimerStruct t = new TimerStruct(duration * (1f / (entityTimeScale ?? 1f)));
 			while (t)
 			{
-				float p = invert ? t.Progress.ReverseInOutCubic() : t.Progress.InOutCubic();
-				controlMod?.SetValue(p.Invert());
+				float weight = invert ? t.Progress.ReverseInOutCubic() : t.Progress.InOutCubic();
+				controlMod?.SetValue(weight.Invert());
 				if (arms.LeftVisual != null)
 				{
 					var orientation = GetSheathingOrientation(true);
-					ik.AddInfluencer(this, IKChainConstants.LEFT_ARM, ikPriority, orientation.pos, p, orientation.rot, p);
+					ik.AddInfluencer(this, IKChainConstants.LEFT_ARM, ikPriority, orientation.pos, weight, orientation.rot, weight);
 				}
 				if (arms.RightVisual != null)
 				{
 					var orientation = GetSheathingOrientation(false);
-					ik.AddInfluencer(this, IKChainConstants.RIGHT_ARM, ikPriority, orientation.pos, p, orientation.rot, p);
+					ik.AddInfluencer(this, IKChainConstants.RIGHT_ARM, ikPriority, orientation.pos, weight, orientation.rot, weight);
 				}
 				yield return null;
 			}
+
+			ik.RemoveInfluencer(this, IKChainConstants.LEFT_ARM);
+			ik.RemoveInfluencer(this, IKChainConstants.RIGHT_ARM);
 
 			callback?.Invoke();
 		}
@@ -186,36 +131,6 @@ namespace SpaxUtils
 			Debug.DrawRay(orientation.pos, orientation.rot * Vector3.forward * 0.2f, Color.blue);
 
 			return orientation;
-		}
-
-		private void OnEquipedEvent(RuntimeEquipedData data)
-		{
-			if (data.Slot.ID == HumanBoneIdentifiers.LEFT_HAND)
-			{
-				leftEquip = data;
-				leftComp = leftEquip.EquipedInstance.GetComponent<ArmedEquipmentComponent>();
-			}
-
-			if (data.Slot.ID == HumanBoneIdentifiers.RIGHT_HAND)
-			{
-				rightEquip = data;
-				rightComp = rightEquip.EquipedInstance.GetComponent<ArmedEquipmentComponent>();
-			}
-		}
-
-		private void OnUnquipingEvent(RuntimeEquipedData data)
-		{
-			if (data == leftEquip)
-			{
-				leftEquip = null;
-				leftComp = null;
-			}
-
-			if (data == rightEquip)
-			{
-				rightEquip = null;
-				rightComp = null;
-			}
 		}
 	}
 }

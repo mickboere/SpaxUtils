@@ -9,8 +9,18 @@ namespace SpaxUtils
 	/// Agent component which supplies equipment slots for a left and right arm,
 	/// and takes care of parenting and positioning of arms equipment.
 	/// </summary>
-	public class AgentArmsComponent : EntityComponentBase
+	public class AgentArmsComponent : AgentComponentBase
 	{
+		/// <summary>
+		/// Invoked when the sheathed state is changed.
+		/// </summary>
+		public event Action<bool> SheathedEvent;
+
+		/// <summary>
+		/// Composite weight float for both arms that can be influenced by external modifiers.
+		/// </summary>
+		public CompositeFloat Weight { get; set; } = new CompositeFloat(1f);
+
 		public Transform LeftHand => lookup.Lookup(HumanBoneIdentifiers.LEFT_HAND);
 		public Transform RightHand => lookup.Lookup(HumanBoneIdentifiers.RIGHT_HAND);
 		public Transform LeftSheathe => lookup.Lookup(TransformLookupIdentifiers.LEFT_SHEATHE);
@@ -38,11 +48,6 @@ namespace SpaxUtils
 			}
 		}
 
-		/// <summary>
-		/// Composite weight float for both arms that can be influenced by external modifiers.
-		/// </summary>
-		public CompositeFloat Weight { get; set; } = new CompositeFloat(1f);
-
 		[SerializeField, HideInInspector] private bool left;
 		[SerializeField, Conditional(nameof(left), drawToggle: true), ConstDropdown(typeof(IEquipmentSlotTypeConstants))] private string leftType;
 		[SerializeField, HideInInspector] private bool right;
@@ -56,24 +61,14 @@ namespace SpaxUtils
 
 		private TransformLookup lookup;
 		private IEquipmentComponent equipment;
-		private IIKComponent ik;
-		private RigidbodyWrapper rigidbodyWrapper;
-		private FinalIKComponent finalIKComponent;
 
 		private RuntimeEquipedData leftEquip;
 		private RuntimeEquipedData rightEquip;
-		private ArmSlotHelper leftHelper;
-		private ArmSlotHelper rightHelper;
 
-		public void InjectDependencies(TransformLookup lookup,
-			IEquipmentComponent equipment, IIKComponent ik,
-			RigidbodyWrapper rigidbodyWrapper, FinalIKComponent finalIKComponent)
+		public void InjectDependencies(IEquipmentComponent equipment, TransformLookup lookup)
 		{
-			this.lookup = lookup;
 			this.equipment = equipment;
-			this.ik = ik;
-			this.rigidbodyWrapper = rigidbodyWrapper;
-			this.finalIKComponent = finalIKComponent;
+			this.lookup = lookup;
 		}
 
 		#region Editor
@@ -128,28 +123,6 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
-		/// Updates one of the arms to animate with the defined parameters.
-		/// </summary>
-		/// <param name="isLeft">Whether to update the left arm or the right.</param>
-		/// <param name="weight">Effective weight of the arm's IK.</param>
-		/// <param name="settings">Armed settings defining how an arm should be carried.</param>
-		/// <param name="delta">Delta time used for interpolation and smoothing.</param>
-		public void UpdateArm(bool isLeft, ArmedSettings settings, float delta)
-		{
-			if (isLeft) { leftHelper?.Update(Weight, settings, delta); }
-			else { rightHelper?.Update(Weight, settings, delta); }
-		}
-
-		/// <summary>
-		/// Resets the arm helpers to disable IK.
-		/// </summary>
-		public void ResetArms()
-		{
-			leftHelper?.Reset();
-			rightHelper?.Reset();
-		}
-
-		/// <summary>
 		/// Sheathes or unsheathes the equiped arms.
 		/// </summary>
 		/// <param name="sheathe">TRUE will sheathe the arms, FALSE will unsheathe the arms.</param>
@@ -165,6 +138,7 @@ namespace SpaxUtils
 			}
 
 			Sheathed = sheathe;
+			SheathedEvent?.Invoke(Sheathed);
 		}
 
 		/// <summary>
@@ -237,31 +211,25 @@ namespace SpaxUtils
 				SetParentAndOrientation(data.EquipedInstance.transform, isLeft, Sheathed);
 			}
 
-			// Create helper.
 			if (isLeft)
 			{
 				leftEquip = data;
-				leftHelper = new ArmSlotHelper(true, 0, this, ik, lookup, rigidbodyWrapper, finalIKComponent);
 			}
 			else
 			{
 				rightEquip = data;
-				rightHelper = new ArmSlotHelper(false, 0, this, ik, lookup, rigidbodyWrapper, finalIKComponent);
 			}
 		}
 
 		private void OnUnequip(bool isLeft, RuntimeEquipedData data)
 		{
-			// Dispose helper.
 			if (isLeft)
 			{
 				leftEquip = null;
-				leftHelper?.Dispose();
 			}
 			else
 			{
 				rightEquip = null;
-				rightHelper?.Dispose();
 			}
 		}
 
@@ -272,8 +240,6 @@ namespace SpaxUtils
 			if (drawGizmos)
 			{
 				DrawHandSlotGizmos();
-				leftHelper?.DrawGizmos();
-				rightHelper?.DrawGizmos();
 			}
 		}
 

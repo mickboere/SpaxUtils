@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -9,6 +10,9 @@ namespace SpaxUtils
 	/// </summary>
 	public class AnimatorWrapper : MonoBehaviour, IDependency
 	{
+		public event Action OnAnimatorMoveEvent;
+		public event Action OnAnimatorIKEvent;
+
 		private const string X = "X";
 		private const string Y = "Y";
 		private const string Z = "Z";
@@ -44,19 +48,23 @@ namespace SpaxUtils
 			GetAnimator();
 		}
 
+		protected void OnAnimatorMove()
+		{
+			OnAnimatorMoveEvent?.Invoke();
+		}
+
+		protected void OnAnimatorIK()
+		{
+			OnAnimatorIKEvent?.Invoke();
+		}
+
 		private Animator GetAnimator()
 		{
 			// If animator is null, attempt to find it.
 
-			// Parents first:
 			if (animator == null)
 			{
-				animator = GetComponentInParent<Animator>();
-			}
-			// Children second:
-			if (animator == null)
-			{
-				animator = GetComponentInChildren<Animator>();
+				animator = gameObject.GetComponentRelative<Animator>();
 			}
 
 			if (animator == null)

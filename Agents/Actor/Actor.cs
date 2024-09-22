@@ -82,7 +82,7 @@ namespace SpaxUtils
 			}
 		}
 
-		protected void OnUpdate()
+		protected void OnUpdate(float delta)
 		{
 			foreach (InputToActMapper mapper in inputMappers.Values)
 			{

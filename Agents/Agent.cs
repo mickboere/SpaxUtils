@@ -73,6 +73,13 @@ namespace SpaxUtils
 		{
 			base.Awake();
 
+#if UNITY_EDITOR
+			if (!Application.isPlaying)
+			{
+				return;
+			}
+#endif
+
 			// Initialize all Agent components.
 			Actor = new Actor($"ACTOR_{Identification.ID}", callbackService, inputToActMap, performers);
 			Mind = new AEMOI(DependencyManager, aemoiSettings, new StatOcton(this, aemoiSettings.Personality, Vector8.Half));

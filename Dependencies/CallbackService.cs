@@ -27,14 +27,19 @@ namespace SpaxUtils
 		/// </summary>
 		public event Action LateUpdateCallback;
 
+		/// <summary>
+		/// OnDrawGizmos() callback.
+		/// </summary>
+		public event Action DrawGizmosCallback;
+
 		private Dictionary<int, Dictionary<object, Action<float>>> loops = new Dictionary<int, Dictionary<object, Action<float>>>();
 		private Dictionary<int, Coroutine> coroutines = new Dictionary<int, Coroutine>();
 
-		private List<(Action callback, int order)> orderedFixedUpdateCallbacks = new List<(Action callback, int order)>();
+		private List<(Action<float> callback, int order)> orderedFixedUpdateCallbacks = new List<(Action<float> callback, int order)>();
 		private Dictionary<object, int> orderedFixedUpdateIndices = new Dictionary<object, int>();
-		private List<(Action callback, int order)> orderedUpdateCallbacks = new List<(Action callback, int order)>();
+		private List<(Action<float> callback, int order)> orderedUpdateCallbacks = new List<(Action<float> callback, int order)>();
 		private Dictionary<object, int> orderedUpdateIndices = new Dictionary<object, int>();
-		private List<(Action callback, int order)> orderedLateUpdateCallbacks = new List<(Action callback, int order)>();
+		private List<(Action<float> callback, int order)> orderedLateUpdateCallbacks = new List<(Action<float> callback, int order)>();
 		private Dictionary<object, int> orderedLateUpdateIndices = new Dictionary<object, int>();
 
 		private bool unsubscribed;
@@ -44,7 +49,7 @@ namespace SpaxUtils
 			unsubscribed = false;
 			for (int i = 0; i < orderedFixedUpdateCallbacks.Count; i++)
 			{
-				orderedFixedUpdateCallbacks[i].callback();
+				orderedFixedUpdateCallbacks[i].callback(Time.fixedDeltaTime);
 				if (unsubscribed)
 				{
 					i--;
@@ -59,7 +64,7 @@ namespace SpaxUtils
 			unsubscribed = false;
 			for (int i = 0; i < orderedUpdateCallbacks.Count; i++)
 			{
-				orderedUpdateCallbacks[i].callback();
+				orderedUpdateCallbacks[i].callback(Time.deltaTime);
 				if (unsubscribed)
 				{
 					i--;
@@ -74,7 +79,7 @@ namespace SpaxUtils
 			unsubscribed = false;
 			for (int i = 0; i < orderedLateUpdateCallbacks.Count; i++)
 			{
-				orderedLateUpdateCallbacks[i].callback();
+				orderedLateUpdateCallbacks[i].callback(Time.deltaTime);
 				if (unsubscribed)
 				{
 					i--;
@@ -84,9 +89,21 @@ namespace SpaxUtils
 			LateUpdateCallback?.Invoke();
 		}
 
+		protected void OnDrawGizmos()
+		{
+			DrawGizmosCallback?.Invoke();
+		}
+
 		#region Ordered Callbacks
 
-		public void SubscribeUpdate(UpdateMode updateMode, object subscriber, Action callback, int order = 0)
+		/// <summary>
+		/// Subscribes to updates of <paramref name="updateMode"/>.
+		/// </summary>
+		/// <param name="updateMode">The unity update mode to subscribe to. Do NOT use <see cref="UpdateMode.Custom"/> here!</param>
+		/// <param name="subscriber">The subscriber object used to identify the subscription when unsubscribing.</param>
+		/// <param name="callback">The method to invoke when the update loop is running.</param>
+		/// <param name="order">The subscribe order, highest order is invoked last.</param>
+		public void SubscribeUpdate(UpdateMode updateMode, object subscriber, Action<float> callback, int order = 0)
 		{
 			switch (updateMode)
 			{
@@ -99,9 +116,12 @@ namespace SpaxUtils
 				case UpdateMode.LateUpdate:
 					Add(orderedLateUpdateCallbacks, orderedLateUpdateIndices, subscriber, callback, order);
 					break;
+				default:
+					SpaxDebug.Error($"Update mode <{updateMode}> is not supperted with default subscribe method.", "Callback was not subscribed.");
+					break;
 			}
 
-			void Add(List<(Action callback, int order)> list, Dictionary<object, int> dict, object subscriber, Action callback, int order)
+			void Add(List<(Action<float> callback, int order)> list, Dictionary<object, int> dict, object subscriber, Action<float> callback, int order)
 			{
 				// If empty just add.
 				if (list.Count == 0)
@@ -176,7 +196,7 @@ namespace SpaxUtils
 			RemoveSubscriber(orderedLateUpdateCallbacks, orderedLateUpdateIndices, subscriber);
 		}
 
-		private void RemoveSubscriber(List<(Action callback, int order)> list, Dictionary<object, int> dict, object subscriber)
+		private void RemoveSubscriber(List<(Action<float> callback, int order)> list, Dictionary<object, int> dict, object subscriber)
 		{
 			if (dict.ContainsKey(subscriber))
 			{

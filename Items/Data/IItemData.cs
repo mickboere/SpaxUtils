@@ -47,6 +47,6 @@ namespace SpaxUtils
 		/// <summary>
 		/// The (float) stats of this item.
 		/// </summary>
-		IReadOnlyList<LabeledFloatData> FloatStats { get; }
+		IReadOnlyDictionary<string, float> FloatStats { get; }
 	}
 }

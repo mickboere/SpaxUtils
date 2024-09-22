@@ -209,10 +209,8 @@ namespace SpaxUtils
 
 		public static Vector3 ClampMagnitude(this Vector3 vector, float min, float max)
 		{
-			float magnitude = vector.magnitude;
-			float diff = Mathf.Clamp(magnitude, min, max) - magnitude;
-			vector -= vector.normalized * diff;
-			return vector;
+			float magnitude = vector.magnitude.Clamp(min, max);
+			return vector.normalized * magnitude;
 		}
 
 		public static Vector3 ClampMagnitude(this Vector3 vector, float max)
@@ -252,7 +250,7 @@ namespace SpaxUtils
 		/// Projects <paramref name="a"/>-><paramref name="v"/> onto <paramref name="a"/>-><paramref name="b"/> 
 		/// to give the Vector3 inverse-lerp value as it would work in <see cref="Mathf.InverseLerp(float, float, float)"/>.
 		/// </summary>
-		public static Vector3 InverseLerp(Vector3 a, Vector3 b, Vector3 v)
+		public static Vector3 InverseLerp(this Vector3 a, Vector3 b, Vector3 v)
 		{
 			Vector3 ab = b - a;
 			Vector3 av = v - a;
@@ -263,13 +261,21 @@ namespace SpaxUtils
 		/// Projects <paramref name="a"/>-><paramref name="v"/> onto <paramref name="a"/>-><paramref name="b"/> 
 		/// to give the Vector3 inverse-lerp value as it would work in <see cref="Mathf.InverseLerp(float, float, float)"/>.
 		/// </summary>
-		public static Vector3 InverseLerp(Vector3 a, Vector3 b, Vector3 v, out float value)
+		public static Vector3 InverseLerp(this Vector3 a, Vector3 b, Vector3 v, out float value)
 		{
 			Vector3 ab = b - a;
 			Vector3 av = v - a;
 			Vector3 projection = Vector3.Project(av, ab);
 			value = projection.magnitude / ab.magnitude;
 			return projection;
+		}
+
+		/// <summary>
+		/// Wraps around <see cref="Vector3.SmoothDamp(Vector3, Vector3, ref Vector3, float, float, float)"/>.
+		/// </summary>
+		public static Vector3 SmoothDamp(this Vector3 vector, Vector3 target, ref Vector3 velocity, float smoothTime, float deltaTime)
+		{
+			return Vector3.SmoothDamp(vector, target, ref velocity, smoothTime, float.MaxValue, deltaTime);
 		}
 
 		/// <summary>
@@ -363,22 +369,51 @@ namespace SpaxUtils
 		#region Transformation
 
 		/// <summary>
-		/// Converts global vector to local vector (InverseTransformDirection).
+		/// Converts global vector to local vector (InverseTransformVector).
 		/// </summary>
-		public static Vector3 Localize(this Vector3 vector, Transform transform)
+		public static Vector3 LocalizeVector(this Vector3 vector, Transform transform)
+		{
+			return transform.InverseTransformVector(vector);
+		}
+
+		/// <summary>
+		/// Converts global position to local position (InverseTransformPoint).
+		/// </summary>
+		public static Vector3 LocalizePoint(this Vector3 vector, Transform transform)
+		{
+			return transform.InverseTransformPoint(vector);
+		}
+
+		/// <summary>
+		/// Converts global direction to local direction (InverseTransformDirection).
+		/// </summary>
+		public static Vector3 LocalizeDirection(this Vector3 vector, Transform transform)
 		{
 			return transform.InverseTransformDirection(vector);
 		}
 
 		/// <summary>
-		/// Converts local vector to global vector (by multiplying the vector by the transform's rotation).
+		/// Converts local vector to global vector (TransformVector).
 		/// </summary>
-		/// <param name="vector"></param>
-		/// <param name="transform"></param>
-		/// <returns></returns>
-		public static Vector3 Globalize(this Vector3 vector, Transform transform)
+		public static Vector3 GlobalizeVector(this Vector3 vector, Transform transform)
 		{
-			return transform.rotation * vector;
+			return transform.TransformVector(vector);
+		}
+
+		/// <summary>
+		/// Converts local position to global position (TransformPoint).
+		/// </summary>
+		public static Vector3 GlobalizePoint(this Vector3 vector, Transform transform)
+		{
+			return transform.TransformPoint(vector);
+		}
+
+		/// <summary>
+		/// Converts local vector to global vector (TransformDirection).
+		/// </summary>
+		public static Vector3 GlobalizeDirection(this Vector3 vector, Transform transform)
+		{
+			return transform.TransformDirection(vector);
 		}
 
 		/// <summary>

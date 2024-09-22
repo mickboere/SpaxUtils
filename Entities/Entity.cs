@@ -136,20 +136,24 @@ namespace SpaxUtils
 
 		protected virtual void Awake()
 		{
+#if UNITY_EDITOR
 			if (!Application.isPlaying)
 			{
 				return;
 			}
+#endif
 
 			Initialize();
 		}
 
 		protected void Start()
 		{
+#if UNITY_EDITOR
 			if (!Application.isPlaying)
 			{
 				return;
 			}
+#endif
 
 			gameObject.name = GameObjectName;
 
@@ -162,10 +166,12 @@ namespace SpaxUtils
 
 		protected virtual void OnEnable()
 		{
+#if UNITY_EDITOR
 			if (!Application.isPlaying)
 			{
 				return;
 			}
+#endif
 
 			Initialize();
 			Identification.IdentificationUpdatedEvent += OnIdentificationUpdatedEvent;
@@ -174,10 +180,12 @@ namespace SpaxUtils
 
 		protected virtual void OnDisable()
 		{
+#if UNITY_EDITOR
 			if (!Application.isPlaying)
 			{
 				return;
 			}
+#endif
 
 			Identification.IdentificationUpdatedEvent -= OnIdentificationUpdatedEvent;
 			entityCollection.Remove(this);

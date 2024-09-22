@@ -136,7 +136,7 @@ namespace SpaxUtils.StateMachines
 
 		#endregion
 
-		private void OnUpdate()
+		private void OnUpdate(float delta)
 		{
 			bool wasValid = _valid;
 			_valid = IsValid();

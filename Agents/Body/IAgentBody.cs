@@ -12,6 +12,7 @@ namespace SpaxUtils
 
 		bool HasRigidbody { get; }
 		RigidbodyWrapper RigidbodyWrapper { get; }
+		CapsuleCollider Bumper { get; }
 		float BaseMass { get; }
 		float BaseSpeed { get; }
 

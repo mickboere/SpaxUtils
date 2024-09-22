@@ -29,7 +29,7 @@ namespace SpaxUtils
 		public override void Start()
 		{
 			base.Start();
-			callbackService.SubscribeUpdate(UpdateMode.FixedUpdate, this, OnFixedUpdate);
+			callbackService.SubscribeUpdate(UpdateMode.FixedUpdate, this, OnUpdate);
 
 			Vector3 startVelocity = movementHandler.MovementInputRaw == Vector3.zero ?
 				RigidbodyWrapper.Forward * dashSpeed :
@@ -70,7 +70,7 @@ namespace SpaxUtils
 			return instructions;
 		}
 
-		private void OnFixedUpdate()
+		private void OnUpdate(float delta)
 		{
 			if (RigidbodyWrapper.Speed < 0.1f)
 			{
@@ -81,7 +81,7 @@ namespace SpaxUtils
 
 			Vector3 velocity = Quaternion.LookRotation(movementHandler.InputAxis) * movementHandler.MovementInputRaw * glideSpeed;
 			RigidbodyWrapper.ApplyMovement(velocity, controlForce, brakeForce, power, true);
-			movementHandler.UpdateRotation(Time.fixedDeltaTime, null, true);
+			movementHandler.UpdateRotation(delta, null, true);
 		}
 	}
 }

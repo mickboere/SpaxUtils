@@ -27,17 +27,17 @@ namespace SpaxUtils
 		public override void OnStateEntered()
 		{
 			base.OnStateEntered();
-			callbackService.SubscribeUpdate(UpdateMode.FixedUpdate, this, OnFixedUpdateCallback);
+			callbackService.SubscribeUpdate(UpdateMode.FixedUpdate, this, OnUpdate);
 		}
 
 		public override void OnStateExit()
 		{
 			base.OnStateExit();
-			callbackService.UnsubscribeUpdate(UpdateMode.FixedUpdate, this);
+			callbackService.UnsubscribeUpdates(this);
 			surveyorComponent.ResetSurveyor();
 		}
 
-		private void OnFixedUpdateCallback()
+		private void OnUpdate(float delta)
 		{
 			if (Poser.GetDominantInstructions().Transition.TryEvaluateFloat(AnimationFloatConstants.FEET_SPACING, 0f, out float spacing))
 			{
@@ -48,7 +48,7 @@ namespace SpaxUtils
 				surveyorComponent.Spacing = surveyorComponent.DefaultSpacing;
 			}
 
-			surveyorComponent.UpdateSurveyor(Time.fixedDeltaTime);
+			surveyorComponent.UpdateSurveyor(delta);
 		}
 	}
 }

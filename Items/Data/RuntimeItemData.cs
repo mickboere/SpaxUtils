@@ -43,14 +43,13 @@ namespace SpaxUtils
 		{
 			if (!RuntimeData.ContainsEntry(identifier))
 			{
-				LabeledFloatData floatData = ItemData.FloatStats.FirstOrDefault(s => s.ID == identifier);
-				if (floatData == null)
+				if (!ItemData.FloatStats.ContainsKey(identifier))
 				{
 					data = null;
 					return false;
 				}
 
-				data = new RuntimeDataEntry(floatData);
+				data = new RuntimeDataEntry(identifier, ItemData.FloatStats[identifier]);
 				return RuntimeData.TryAdd(data);
 			}
 

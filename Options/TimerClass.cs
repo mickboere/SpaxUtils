@@ -34,7 +34,7 @@ namespace SpaxUtils
 			if (callbackService != null)
 			{
 				this.callbackService = callbackService;
-				callbackService.SubscribeUpdate(UpdateMode.Update, this, OnUpdateCallback, -9999);
+				callbackService.SubscribeUpdate(UpdateMode.Update, this, OnUpdate, -9999);
 			}
 		}
 
@@ -101,9 +101,9 @@ namespace SpaxUtils
 			return this;
 		}
 
-		private void OnUpdateCallback()
+		private void OnUpdate(float delta)
 		{
-			Update(UnityEngine.Time.deltaTime);
+			Update(delta);
 		}
 	}
 }

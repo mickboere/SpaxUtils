@@ -122,8 +122,8 @@ namespace SpaxUtils
 		{
 			float z = Mathf.Cos(progress * Mathf.PI);
 			float y = Mathf.Sin(-progress * Mathf.PI);
-			Vector3 dir = (rigidbodyWrapper.TargetVelocity == Vector3.zero ? transform.rotation : Quaternion.LookRotation(rigidbodyWrapper.TargetVelocity)) * (new Vector3(0f, y, z).normalized * Stride);
-			origin = transform.position + transform.rotation * (surveyOriginOffset + (Vector3.up * Stride));
+			Vector3 dir = (rigidbodyWrapper.TargetVelocity == Vector3.zero ? rigidbodyWrapper.Rotation : Quaternion.LookRotation(rigidbodyWrapper.TargetVelocity)) * (new Vector3(0f, y, z).normalized * Stride);
+			origin = rigidbodyWrapper.Position + rigidbodyWrapper.Rotation * (surveyOriginOffset + (Vector3.up * Stride));
 			return dir;
 		}
 
@@ -158,7 +158,7 @@ namespace SpaxUtils
 				origin += body.SkeletonRootBone.rotation * leg.Offset.normalized * Spacing * body.Scale * 0.5f;
 
 				// Move origin forwards to meet center of mass.
-				origin += (body.Center - origin).Localize(transform).FlattenXY().Globalize(transform) * surveyOriginCOMInfluence;
+				origin += (body.Center - origin).LocalizeDirection(transform).FlattenXY().GlobalizeDirection(transform) * surveyOriginCOMInfluence;
 
 				// Move origin to match velocity.
 				origin += rigidbodyWrapper.Velocity * delta * surveyOriginVelocityInfluence;

@@ -47,7 +47,7 @@ namespace SpaxUtils
 			callbackService.UnsubscribeUpdate(UpdateMode.Update, this);
 		}
 
-		private void OnUpdate()
+		private void OnUpdate(float delta)
 		{
 			foreach (PlayerInputToActMapper mapper in mappers)
 			{

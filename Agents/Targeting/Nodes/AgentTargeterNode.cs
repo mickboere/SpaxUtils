@@ -43,7 +43,7 @@ namespace SpaxUtils
 			movementHandler.LockRotation = false;
 		}
 
-		private void OnUpdate()
+		private void OnUpdate(float delta)
 		{
 			if (agent.Targeter.Target != null && navigationHandler.Distance() > maxDistance)
 			{

@@ -10,6 +10,7 @@ namespace SpaxUtils
 
 		public bool HasRigidbody => RigidbodyWrapper != null;
 		public RigidbodyWrapper RigidbodyWrapper => RefComponentRelative(ref rigidbodyWrapper);
+		public CapsuleCollider Bumper => bumper;
 		public float BaseMass => baseMass;
 		public float BaseSpeed => baseSpeed;
 
@@ -26,6 +27,7 @@ namespace SpaxUtils
 
 		[SerializeField] private float scale = 1f;
 		[SerializeField] private RigidbodyWrapper rigidbodyWrapper;
+		[SerializeField] private CapsuleCollider bumper;
 		[SerializeField] private float baseMass = 100f;
 		[SerializeField] private float baseSpeed = 4f;
 		[SerializeField] private AnimatorWrapper animatorWrapper;

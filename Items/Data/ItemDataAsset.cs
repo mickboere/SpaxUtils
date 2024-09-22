@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 namespace SpaxUtils
@@ -35,7 +36,18 @@ namespace SpaxUtils
 		public IReadOnlyList<BehaviourAsset> InventoryBehaviour => inventoryBehaviour;
 
 		/// <inheritdoc/>
-		public IReadOnlyList<LabeledFloatData> FloatStats => itemStats;
+		public IReadOnlyDictionary<string, float> FloatStats
+		{
+			get
+			{
+				if (_floatStats == null)
+				{
+					_floatStats = itemStats.ToDictionary((LabeledFloatData f) => f.ID, (LabeledFloatData f) => f.FloatValue);
+				}
+				return _floatStats;
+			}
+		}
+		private Dictionary<string, float> _floatStats;
 
 		[Header("Item Data")]
 		[SerializeField] private string id;
