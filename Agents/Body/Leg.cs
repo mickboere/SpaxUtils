@@ -13,9 +13,6 @@ namespace SpaxUtils
 		public event Action<ILeg, bool> FootstepEvent;
 
 		/// <inheritdoc/>
-		public Vector3 Offset => offset;
-
-		/// <inheritdoc/>
 		public bool Grounded { get; private set; }
 
 		/// <inheritdoc/>
@@ -52,7 +49,6 @@ namespace SpaxUtils
 
 		public float Length => (Knee.position - Thigh.position).magnitude + (Foot.position - Knee.position).magnitude;
 
-		[SerializeField] private Vector3 offset;
 		[SerializeField, Range(-1f, 1f)] private float walkCycleOffset;
 		[SerializeField] private float elevation;
 

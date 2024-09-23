@@ -155,7 +155,7 @@ namespace SpaxUtils
 				Vector3 direction = GetSurveyorSpoke(progress, out Vector3 origin);
 
 				// Adjust spacing.
-				origin += body.SkeletonRootBone.rotation * leg.Offset.normalized * Spacing * body.Scale * 0.5f;
+				origin += (leg.Thigh.position - origin).FlattenY();
 
 				// Move origin forwards to meet center of mass.
 				origin += (body.Center - origin).LocalizeDirection(transform).FlattenXY().GlobalizeDirection(transform) * surveyOriginCOMInfluence;
