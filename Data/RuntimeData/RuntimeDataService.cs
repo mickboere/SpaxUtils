@@ -12,9 +12,9 @@ namespace SpaxUtils
 	/// </summary>
 	public class RuntimeDataService : IService, IDisposable
 	{
-		private const string GLOBAL_PROFILE = "GLOBAL";
-		private const string PROFILE_FILE_TYPE = ".save";
-		private static readonly string PROFILES_PATH = $"{Application.persistentDataPath}/Profiles/";
+		public const string GLOBAL_PROFILE = "GLOBAL";
+		public const string PROFILE_FILE_TYPE = ".save";
+		public static readonly string PROFILES_PATH = $"{Application.persistentDataPath}/Profiles/";
 
 		/// <summary>
 		/// Invoked once <see cref="CurrentProfile"/> has changed.
