@@ -12,7 +12,7 @@ namespace SpaxUtils
 	/// </summary>
 	public class RuntimeDataService : IService, IDisposable
 	{
-		public const string GLOBAL_PROFILE = "GLOBAL";
+		public const string GLOBAL_DATA = "GLOBAL";
 		public const string PROFILE_FILE_TYPE = ".save";
 		public static readonly string PROFILES_PATH = $"{Application.persistentDataPath}/Profiles/";
 
@@ -20,6 +20,11 @@ namespace SpaxUtils
 		/// Invoked once <see cref="CurrentProfile"/> has changed.
 		/// </summary>
 		public event Action<RuntimeDataCollection> CurrentProfileChangedEvent;
+
+		/// <summary>
+		/// The global data profile used for storing settings across all profiles.
+		/// </summary>
+		public RuntimeDataCollection GlobalData { get; private set; }
 
 		/// <summary>
 		/// The current profile to which all undirected data is saved.
@@ -52,8 +57,19 @@ namespace SpaxUtils
 			// Collect profiles but don't load them.
 			Profiles = Directory.GetFiles(PROFILES_PATH).ToDictionary<string, string, RuntimeDataCollection>(k => k, v => null);
 
-			// Switch to global profile by default.
-			LoadProfile(GLOBAL_PROFILE, true, out _, true);
+			// Explicitly load global data but don't store it in the Profiles dictionary.
+			if (Profiles.ContainsKey(GLOBAL_DATA))
+			{
+				Profiles.Remove(GLOBAL_DATA);
+			}
+			if (LoadProfile(GLOBAL_DATA, false, out RuntimeDataCollection globalData, true))
+			{
+				GlobalData = globalData;
+			}
+			else
+			{
+				SpaxDebug.Error("Global data could not be loaded!");
+			}
 		}
 
 		public void Dispose()
@@ -126,6 +142,7 @@ namespace SpaxUtils
 
 			// Save to disk.
 			RuntimeDataCollection data = Profiles[profileId];
+			data.SetValue(ProfileDataIdentifiers.LAST_SAVE, DateTime.UtcNow.ToString());
 			SpaxDebug.Notify($"Saving data for profile: {profileId}\n{data}");
 			JsonUtils.StreamWrite(data, PROFILES_PATH + data.ID + PROFILE_FILE_TYPE);
 			return true;
@@ -140,6 +157,14 @@ namespace SpaxUtils
 		/// <returns>Whether loading the profile was a success.</returns>
 		public bool LoadProfile(string profileId, bool setAsCurrent, out RuntimeDataCollection data, bool createIfNull = false)
 		{
+			// Check if global data.
+			if (profileId == GLOBAL_DATA && GlobalData != null)
+			{
+				// GlobalData cannot be set as current as it is a separate profile meant to be written to explicitly.
+				data = GlobalData;
+				return true;
+			}
+
 			// Check if already loaded.
 			if (Profiles.ContainsKey(profileId) && Profiles[profileId] != null)
 			{
@@ -171,7 +196,10 @@ namespace SpaxUtils
 				CurrentProfile = data;
 			}
 
-			Profiles[profileId] = data;
+			if (profileId != GLOBAL_DATA)
+			{
+				Profiles[profileId] = data;
+			}
 			return data != null;
 		}
 

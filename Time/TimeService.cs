@@ -15,6 +15,14 @@ namespace SpaxUtils
 		/// </summary>
 		public const float PAUSED_TIMESCALE = 0.000001f;
 
+		#region Timekeeping
+
+		/// <summary>
+		/// The initial <see cref="DateTime"/> when the currently loaded profile was created.
+		/// If there is no currently loaded profile, time will be set to time of service instantiation.
+		/// </summary>
+		public DateTime InitialDateTime { get; private set; }
+
 		#region Floats
 
 		/// <summary>
@@ -48,31 +56,37 @@ namespace SpaxUtils
 		/// <para></para>
 		/// <inheritdoc cref="TimeType.UnscaledPlaytime"/>
 		/// </summary>
-		public double UnscaledPlaytimeDouble { get; private set; }
+		public double UnscaledPlaytimeDouble { get { return (double)_playtimeUnscaled.Value; } private set { _playtimeUnscaled.Value = value; } }
+		private RuntimeDataEntry _playtimeUnscaled;
 
 		/// <summary>
 		/// The <see cref="double"/> used for tracking <see cref="TimeType.ScaledPlaytime"/>.
 		/// <para></para>
 		/// <inheritdoc cref="TimeType.ScaledPlaytime"/>
 		/// </summary>
-		public double ScaledPlaytimeDouble { get; private set; }
+		public double ScaledPlaytimeDouble { get { return (double)_playtimeScaled.Value; } private set { _playtimeScaled.Value = value; } }
+		private RuntimeDataEntry _playtimeScaled;
 
 		#endregion
 
-		public DateTime InitialDateTime { get; private set; }
+		#endregion Timekeeping
+
 		public bool Paused { get; private set; }
 
 		private CallbackService callbackService;
+		private RuntimeDataService runtimeDataService;
 
 		private float originalTimeScale;
+		private List<object> pauseRequesters = new List<object>();
 		private List<object> pauseBlockers = new List<object>();
 
-		// TODO: Load time values from currently loaded profile (saving/loading data is also TODO)
-		public TimeService(CallbackService callbackService)
+		public TimeService(CallbackService callbackService, RuntimeDataService runtimeDataService)
 		{
 			this.callbackService = callbackService;
+			this.runtimeDataService = runtimeDataService;
 
 			callbackService.UpdateCallback += Update;
+			runtimeDataService.CurrentProfileChangedEvent += OnCurrentProfileChangedEvent;
 
 			Load();
 		}
@@ -80,6 +94,7 @@ namespace SpaxUtils
 		public void Dispose()
 		{
 			callbackService.UpdateCallback -= Update;
+			runtimeDataService.CurrentProfileChangedEvent -= OnCurrentProfileChangedEvent;
 		}
 
 		/// <summary>
@@ -103,17 +118,75 @@ namespace SpaxUtils
 			}
 		}
 
+		#region Pausing
+
 		/// <summary>
-		/// Will attempt to set the current pause-state to <paramref name="pause"/>.
+		/// Will attempt pause the game.
 		/// </summary>
-		/// <param name="pause">Whether the game should be paused or unpaused.</param>
-		/// <returns></returns>
-		public bool TryPause(bool pause)
+		public bool RequestPause(object requester)
 		{
-			if (Paused != pause && pauseBlockers.Count == 0)
+			if (!pauseRequesters.Contains(requester))
+			{
+				pauseRequesters.Add(requester);
+				if (pauseBlockers.Count == 0)
+				{
+					Pause(true);
+				}
+			}
+
+			return pauseBlockers.Count == 0;
+		}
+
+		/// <summary>
+		/// Complete a pause request and allow the game to continue if there are no pause requesters left.
+		/// </summary>
+		public void CompletePauseRequest(object requester)
+		{
+			if (pauseRequesters.Contains(requester))
+			{
+				pauseRequesters.Remove(requester);
+				if (pauseRequesters.Count == 0)
+				{
+					Pause(false);
+				}
+			}
+		}
+
+		/// <summary>
+		/// Add a blocker that prevents the game from pausing.
+		/// </summary>
+		public void AddPauseBlocker(object blocker)
+		{
+			if (!pauseBlockers.Contains(blocker))
+			{
+				pauseBlockers.Add(blocker);
+				if (Paused)
+				{
+					Pause(false);
+				}
+			}
+		}
+
+		/// <summary>
+		/// Remove a blocker to allow the game to pause again.
+		/// </summary>
+		public void RemovePauseBlocker(object blocker)
+		{
+			if (pauseBlockers.Contains(blocker))
+			{
+				pauseBlockers.Remove(blocker);
+				if (pauseBlockers.Count == 0 && pauseRequesters.Count > 0)
+				{
+					Pause(true);
+				}
+			}
+		}
+
+		private void Pause(bool pause)
+		{
+			if (Paused != pause)
 			{
 				Paused = pause;
-
 				if (Paused)
 				{
 					originalTimeScale = UnityEngine.Time.timeScale;
@@ -123,28 +196,10 @@ namespace SpaxUtils
 				{
 					UnityEngine.Time.timeScale = originalTimeScale;
 				}
-
-				return true;
-			}
-
-			return false;
-		}
-
-		public void AddPauseBlocker(object blocker)
-		{
-			if (!pauseBlockers.Contains(blocker))
-			{
-				pauseBlockers.Add(blocker);
 			}
 		}
 
-		public void RemovePauseBlocker(object blocker)
-		{
-			if (pauseBlockers.Contains(blocker))
-			{
-				pauseBlockers.Remove(blocker);
-			}
-		}
+		#endregion Pausing
 
 		private void Update()
 		{
@@ -152,9 +207,37 @@ namespace SpaxUtils
 			ScaledPlaytimeDouble += UnityEngine.Time.deltaTime;
 		}
 
+		private void OnCurrentProfileChangedEvent(RuntimeDataCollection profile)
+		{
+			Load();
+		}
+
 		private void Load()
 		{
-			InitialDateTime = DateTime.UtcNow;
+			if (runtimeDataService.CurrentProfile != null)
+			{
+				RuntimeDataEntry initialTimeEntry = runtimeDataService.CurrentProfile.GetEntry(ProfileDataIdentifiers.INITIAL_TIME,
+					new RuntimeDataEntry(ProfileDataIdentifiers.INITIAL_TIME, DateTime.UtcNow.ToString()));
+				if (DateTime.TryParse((string)initialTimeEntry.Value, out DateTime parse))
+				{
+					InitialDateTime = parse;
+				}
+				else
+				{
+					SpaxDebug.Error("Could not parse InitialDateTime!", (string)initialTimeEntry.Value);
+				}
+
+				_playtimeUnscaled = runtimeDataService.CurrentProfile.GetEntry(ProfileDataIdentifiers.PLAYTIME_UNSCALED,
+					new RuntimeDataEntry(ProfileDataIdentifiers.PLAYTIME_UNSCALED, 0d));
+				_playtimeScaled = runtimeDataService.CurrentProfile.GetEntry(ProfileDataIdentifiers.PLAYTIME_SCALED,
+					new RuntimeDataEntry(ProfileDataIdentifiers.PLAYTIME_SCALED, 0d));
+			}
+			else
+			{
+				InitialDateTime = DateTime.UtcNow;
+				_playtimeUnscaled = new RuntimeDataEntry(ProfileDataIdentifiers.PLAYTIME_UNSCALED, 0d);
+				_playtimeScaled = new RuntimeDataEntry(ProfileDataIdentifiers.PLAYTIME_SCALED, 0d);
+			}
 		}
 	}
 }

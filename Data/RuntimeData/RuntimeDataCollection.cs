@@ -103,15 +103,15 @@ namespace SpaxUtils
 						SpaxDebug.Warning($"Empty JArray", $"at: {entry.ID} in {ID}");
 					}
 				}
-				else
-				{
-					switch (entry.Value)
-					{
-						case double d:
-							entry.Value = (float)d;
-							break;
-					}
-				}
+				//else
+				//{
+				//	switch (entry.Value)
+				//	{
+				//		case double d:
+				//			entry.Value = (float)d;
+				//			break;
+				//	}
+				//}
 			}
 		}
 
