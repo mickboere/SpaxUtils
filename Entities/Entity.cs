@@ -137,6 +137,7 @@ namespace SpaxUtils
 			}
 #endif
 
+			Initialize();
 			Identification.IdentificationUpdatedEvent += OnIdentificationUpdatedEvent;
 			entityCollection.Add(this);
 		}
@@ -180,11 +181,11 @@ namespace SpaxUtils
 				string dependencyManagerName = $"Entity:{Identification.Name}";
 				SpaxDebug.Log("Entity did not have its dependencies injected.", $"Creating new DependencyManager using Global, named; '{dependencyManagerName}'.", LogType.Notify, Color.yellow, GameObject);
 				DependencyUtils.Inject(GameObject, new DependencyManager(GlobalDependencyManager.Instance, dependencyManagerName), true, true);
-			}
 
-			gameObject.name = GameObjectName;
-			Alive = true; // Instantiated entity is being initialized so we must assume its alive.
-			ApplyData();
+				gameObject.name = GameObjectName;
+				Alive = true; // Active entity is being initialized so we must assume its alive.
+				ApplyData();
+			}
 		}
 
 		#region Data
