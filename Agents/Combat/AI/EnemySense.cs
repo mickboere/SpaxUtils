@@ -86,7 +86,7 @@ namespace SpaxUtils
 			foreach (ITargetable enemy in agent.Targeter.Enemies.Components)
 			{
 				IAgent enemyAgent = enemy.Entity as IAgent;
-				if (enemyAgent == null || enemyAgent.Dead || (!enemies.ContainsKey(enemy) && !visible.Contains(enemy)))
+				if (enemyAgent == null || !enemyAgent.Alive || (!enemies.ContainsKey(enemy) && !visible.Contains(enemy)))
 				{
 					// Enemy isn't an agent, is dead, or invisible and not being tracked; skip.
 					continue;

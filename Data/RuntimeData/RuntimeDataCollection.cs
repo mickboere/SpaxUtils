@@ -24,17 +24,7 @@ namespace SpaxUtils
 		public override object Value
 		{
 			get { return Data; }
-			set
-			{
-				if (value is JToken token)
-				{
-					Data = token.ToObject<List<RuntimeDataEntry>>();
-				}
-				else
-				{
-					Data = new List<RuntimeDataEntry>((IEnumerable<RuntimeDataEntry>)value);
-				}
-			}
+			set { Data = new List<RuntimeDataEntry>((IEnumerable<RuntimeDataEntry>)value); }
 		}
 
 		/// <summary>
@@ -61,57 +51,10 @@ namespace SpaxUtils
 			if (dataEntries != null)
 			{
 				Data = dataEntries;
-				CorrectData();
 			}
 			else
 			{
 				_data = new Dictionary<string, RuntimeDataEntry>();
-			}
-		}
-
-		/// <summary>
-		/// Will cast all data to the appropriate types.
-		/// </summary>
-		public void CorrectData()
-		{
-			List<RuntimeDataEntry> entries = _data.Values.ToList();
-
-			foreach (RuntimeDataEntry entry in entries)
-			{
-				if (entry.Value is JArray jArray)
-				{
-					if (jArray.Count > 0)
-					{
-						switch (jArray[0].Type)
-						{
-							case JTokenType.String:
-								// JArray to List<string>
-								List<string> stringCollection = jArray.ToObject<List<string>>();
-								entry.Value = stringCollection;
-								break;
-							case JTokenType.Object:
-							default:
-								// JArray to RuntimeDataCollection.
-								RuntimeDataCollection childCollection = new RuntimeDataCollection(entry.ID, jArray.ToObject<List<RuntimeDataEntry>>(), this);
-								_data[entry.ID] = childCollection;
-								entry.Dispose();
-								break;
-						}
-					}
-					else
-					{
-						SpaxDebug.Warning($"Empty JArray", $"at: {entry.ID} in {ID}");
-					}
-				}
-				//else
-				//{
-				//	switch (entry.Value)
-				//	{
-				//		case double d:
-				//			entry.Value = (float)d;
-				//			break;
-				//	}
-				//}
 			}
 		}
 
@@ -123,6 +66,8 @@ namespace SpaxUtils
 			}
 			base.Dispose();
 		}
+
+		#region Static Functions
 
 		/// <summary>
 		/// Returns a new <see cref="RuntimeDataCollection"/> instance with a random <see cref="Guid"/> ID.
@@ -136,6 +81,27 @@ namespace SpaxUtils
 				dataEntries == null ? null : new List<RuntimeDataEntry>(dataEntries));
 			return data;
 		}
+
+		/// <summary>
+		/// Copy data over from <paramref name="from"/> to <paramref name="to"/>.
+		/// </summary>
+		public static void CopyData(RuntimeDataCollection from, RuntimeDataCollection to, bool overwrite = false)
+		{
+			foreach (RuntimeDataEntry entry in from.Data)
+			{
+				// If entry is collection, clone and add.
+				if (entry is RuntimeDataCollection childCollection)
+				{
+					to.TryAdd(childCollection.Clone(), overwrite);
+				}
+				else // If entry is not a collection, 
+				{
+					to.TryAdd(new RuntimeDataEntry(entry), overwrite);
+				}
+			}
+		}
+
+		#endregion Static Functions
 
 		/// <summary>
 		/// Returns whether the collection contains an entry with ID <paramref name="id"/>.
@@ -231,10 +197,38 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
+		/// Returns entry with ID <paramref name="id"/> and casts it to <typeparamref name="T"/>, if any.
+		/// </summary>
+		/// <param name="id">The ID of the entry to retrieve.</param>
+		public bool TryGetEntry<T>(string id, out T result) where T : RuntimeDataEntry
+		{
+			result = null;
+			RuntimeDataEntry entry = GetEntry(id);
+			if (entry == null)
+			{
+				return false;
+			}
+			else
+			{
+				if (entry is T cast)
+				{
+					result = cast;
+					return true;
+				}
+
+				SpaxDebug.Error($"Entry cast is not valid.", $"For ID '{id}', cannot cast '{entry.GetType().FullName}' to {typeof(T).FullName}.\n" +
+					$"Entry value: {(entry.Value == null ? "null" : entry.Value.GetType().FullName)}");
+			}
+
+			return false;
+		}
+
+		/// <summary>
 		/// Returns entry with ID <paramref name="id"/>.
 		/// </summary>
 		/// <param name="id">The ID of the entry to retrieve.</param>
-		/// <returns>Entry with ID <paramref name="id"/>, NULL if null.</returns>
+		/// <param name="defaultIfNull">If there exists no entry with ID <paramref name="id"/>, try to add this entry to the collection instead and return it.</param>
+		/// <returns>Entry with ID <paramref name="id"/> or <paramref name="defaultIfNull"/> if no entry for <paramref name="id"/> exists.</returns>
 		public T GetEntry<T>(string id, T defaultIfNull = null) where T : RuntimeDataEntry
 		{
 			RuntimeDataEntry entry = GetEntry(id);
@@ -260,8 +254,7 @@ namespace SpaxUtils
 					return cast;
 				}
 
-				SpaxDebug.Error($"Entry cast is not valid.", $"For ID '{id}', cannot cast '{entry.GetType().FullName}' to {typeof(T).FullName}.\n" +
-					$"Entry value: {(entry.Value == null ? "null" : entry.Value.GetType().FullName)}");
+				SpaxDebug.Error($"Entry cast is not valid.", $"For ID '{id}', cannot cast '{entry.GetType().FullName}' to '{typeof(T).FullName}'.\nEntry: {entry.ToStringExplicit()}");
 			}
 
 			return null;
@@ -275,10 +268,7 @@ namespace SpaxUtils
 		public List<T> GetEntries<T>() where T : RuntimeDataEntry
 		{
 			List<T> results = new List<T>();
-
-			bool isCollection = typeof(T).IsAssignableFrom(typeof(RuntimeDataCollection));
 			List<RuntimeDataEntry> entries = _data.Values.ToList();
-
 			foreach (RuntimeDataEntry entry in entries)
 			{
 				if (entry is T cast)
@@ -311,7 +301,7 @@ namespace SpaxUtils
 		/// <param name="id">The ID of the entry we want to retrieve its value of.</param>
 		/// <typeparam name="T">The type to cast the result to.</typeparam>
 		/// <returns>Value of entry with ID <paramref name="id"/> as <typeparamref name="T"/>, DEFAULT if entry is null.</returns>
-		public T GetValue<T>(string id)
+		public T GetValue<T>(string id, T defaultIfNull = default)
 		{
 			RuntimeDataEntry entry = GetEntry(id);
 			if (entry != null)
@@ -324,7 +314,7 @@ namespace SpaxUtils
 				SpaxDebug.Error($"Value cast is not valid.", $"For ID '{id}', cannot cast '{entry.Value.GetType().FullName}' to {typeof(T).FullName}");
 			}
 
-			return default;
+			return defaultIfNull;
 		}
 
 		/// <summary>
@@ -339,8 +329,12 @@ namespace SpaxUtils
 			RuntimeDataEntry entry = GetEntry(id);
 			if (entry != null)
 			{
-				value = (T)entry.Value;
-				return true;
+				if (entry.Value is T cast)
+				{
+					value = cast;
+					return true;
+				}
+				SpaxDebug.Error($"Invalid value cast:", $"From '{entry.Value}' to '{typeof(T).FullName}\nEntry:\n{entry}");
 			}
 			value = default;
 			return false;
@@ -353,9 +347,9 @@ namespace SpaxUtils
 		/// <summary>
 		/// Create a deep copy of this <see cref="RuntimeDataCollection"/>.
 		/// </summary>
-		public RuntimeDataCollection Clone()
+		public RuntimeDataCollection Clone(string id = null)
 		{
-			RuntimeDataCollection collection = new RuntimeDataCollection(ID);
+			RuntimeDataCollection collection = new RuntimeDataCollection(id ?? ID);
 
 			if (_data == null)
 			{
@@ -363,19 +357,7 @@ namespace SpaxUtils
 				return collection;
 			}
 
-			foreach (KeyValuePair<string, RuntimeDataEntry> entry in _data)
-			{
-				// If entry is collection, clone and add.
-				if (entry.Value is RuntimeDataCollection childCollection)
-				{
-					collection.TryAdd(childCollection.Clone(), true);
-				}
-				else // If entry is not a collection, 
-				{
-					collection.TryAdd(new RuntimeDataEntry(entry.Value, collection), true);
-				}
-			}
-
+			CopyData(this, collection);
 			return collection;
 		}
 
@@ -383,19 +365,10 @@ namespace SpaxUtils
 		/// Will copy all <see cref="RuntimeDataEntry"/>s from <paramref name="runtimeDataCollection"/> into this collection.
 		/// </summary>
 		/// <param name="runtimeDataCollection">The collection to copy the entries from.</param>
-		/// <param name="overwriteExisting">If this collection already contains an entry with the same ID, should it be overwritten?</param>
-		public RuntimeDataCollection Append(RuntimeDataCollection runtimeDataCollection, bool overwriteExisting = false)
+		/// <param name="overwrite">If this collection already contains an entry with the same ID, should it be overwritten?</param>
+		public RuntimeDataCollection Append(RuntimeDataCollection runtimeDataCollection, bool overwrite = false)
 		{
-			foreach (KeyValuePair<string, RuntimeDataEntry> entry in runtimeDataCollection._data)
-			{
-				if (_data.ContainsKey(entry.Key) && !overwriteExisting)
-				{
-					continue;
-				}
-
-				_data[entry.Key] = new RuntimeDataEntry(entry.Value, this);
-			}
-
+			CopyData(runtimeDataCollection, this, overwrite);
 			return this;
 		}
 
@@ -417,8 +390,12 @@ namespace SpaxUtils
 
 		public override string ToString()
 		{
-			// TODO: JSON.
-			return $"{{\n\tID={ID};\n\tData\n\t{{\n\t\t{string.Join(";\n\t\t", Data)}\n\t}}\n}}";
+			return SpaxJsonUtils.Serialize(this);
+		}
+
+		public override string ToStringExplicit()
+		{
+			return $"{{\n\tID={ID};\n\tData\n\t{{\n\t\t{string.Join(";\n\t\t", Data.Select((d) => d.ToStringExplicit()))}\n\t}}\n}}";
 		}
 	}
 }

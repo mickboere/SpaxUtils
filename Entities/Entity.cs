@@ -15,10 +15,6 @@ namespace SpaxUtils
 	[DefaultExecutionOrder(-9999), ExecuteInEditMode]
 	public class Entity : MonoBehaviour, IEntity
 	{
-		public const string ID_NAME = "Name";
-		public const string ID_POS = "Pos";
-		public const string ID_ROT = "Rot";
-
 		/// <inheritdoc/>
 		public event Action<RuntimeDataCollection> OnSaveEvent;
 
@@ -54,6 +50,13 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public StatCollection<EntityStat> Stats { get; private set; }
 
+		/// <inheritdoc/>
+		public bool Alive { get; protected set; }
+
+		/// <inheritdoc/>
+		public float Age => (float)_age;
+		private double _age;
+
 		protected virtual string GameObjectNamePrefix => "[Entity]";
 		protected virtual string GameObjectName =>
 			string.IsNullOrWhiteSpace(identification.Name) ?
@@ -70,7 +73,6 @@ namespace SpaxUtils
 		protected IStatLibrary statLibrary;
 		private RuntimeDataService runtimeDataService;
 		private List<string> failedStats = new List<string>(); // Used to minimize error logs.
-		private bool awake;
 
 		public void InjectDependencies(
 			IDependencyManager dependencyManager, IEntityComponent[] entityComponents, IEntityCollection entityCollection,
@@ -102,37 +104,7 @@ namespace SpaxUtils
 			Stats = new StatCollection<EntityStat>();
 		}
 
-		protected virtual void LoadData(RuntimeDataCollection baseData = null)
-		{
-			if (baseData != null)
-			{
-				// Data was supplied through dependencies.
-				RuntimeData = baseData.Clone();
-				RuntimeData.ID = Identification.ID;
-			}
-			else
-			{
-				// Create new data.
-				// We don't set the global data as the collection's parent because there's no guarantee this entity needs to be saved.
-				RuntimeData = new RuntimeDataCollection(Identification.ID);
-			}
-
-			if (runtimeDataService.CurrentProfile.TryGetValue(Identification.ID, out RuntimeDataCollection entityData))
-			{
-				// Saved data was found in data service, append to existing data and overwrite duplicate data.
-				RuntimeData.Append(entityData, true);
-			}
-
-			// Load or set entity name in data.
-			if (RuntimeData.ContainsEntry(ID_NAME))
-			{
-				Identification.Name = RuntimeData.GetValue<string>(ID_NAME);
-			}
-			else
-			{
-				RuntimeData.SetValue(ID_NAME, Identification.Name);
-			}
-		}
+		#region Unity Functions
 
 		protected virtual void Awake()
 		{
@@ -154,14 +126,6 @@ namespace SpaxUtils
 				return;
 			}
 #endif
-
-			gameObject.name = GameObjectName;
-
-			if (RuntimeData != null && RuntimeData.ContainsEntry(ID_POS) && Transform.position == Vector3.zero)
-			{
-				Transform.position = RuntimeData.GetValue<Vector3>(ID_POS);
-				Transform.eulerAngles = RuntimeData.GetValue<Vector3>(ID_ROT);
-			}
 		}
 
 		protected virtual void OnEnable()
@@ -173,7 +137,6 @@ namespace SpaxUtils
 			}
 #endif
 
-			Initialize();
 			Identification.IdentificationUpdatedEvent += OnIdentificationUpdatedEvent;
 			entityCollection.Add(this);
 		}
@@ -199,7 +162,14 @@ namespace SpaxUtils
 				gameObject.name = GameObjectName;
 			}
 #endif
+
+			if (Alive)
+			{
+				_age += Time.deltaTime;
+			}
 		}
+
+		#endregion Unity Functions
 
 		private void Initialize()
 		{
@@ -211,17 +181,74 @@ namespace SpaxUtils
 				SpaxDebug.Log("Entity did not have its dependencies injected.", $"Creating new DependencyManager using Global, named; '{dependencyManagerName}'.", LogType.Notify, Color.yellow, GameObject);
 				DependencyUtils.Inject(GameObject, new DependencyManager(GlobalDependencyManager.Instance, dependencyManagerName), true, true);
 			}
+
+			gameObject.name = GameObjectName;
+			Alive = true; // Instantiated entity is being initialized so we must assume its alive.
+			ApplyData();
 		}
 
 		#region Data
 
-		/// <inheritdoc/>
-		public virtual void Save()
+		protected virtual void LoadData(RuntimeDataCollection baseData = null)
 		{
-			RuntimeData.SetValue(ID_POS, Transform.position);
-			RuntimeData.SetValue(ID_ROT, Transform.eulerAngles);
+			if (baseData != null)
+			{
+				// Data was supplied through dependencies.
+				RuntimeData = baseData.Clone(Identification.ID);
+			}
+			else
+			{
+				// Create new data.
+				// We don't set the global data as the collection's parent because there's no guarantee this entity needs to be saved.
+				RuntimeData = new RuntimeDataCollection(Identification.ID);
+			}
+
+			if (runtimeDataService.CurrentProfile.TryGetEntry(Identification.ID, out RuntimeDataCollection entityData))
+			{
+				// Saved data was found in data service, append to existing data and overwrite duplicate data.
+				RuntimeData.Append(entityData, true);
+			}
+		}
+
+		protected virtual void ApplyData()
+		{
+			if (RuntimeData == null)
+			{
+				SpaxDebug.Error("No data to apply!", Identification.TagFull(), context: gameObject);
+				return;
+			}
+
+			// Load or set entity name in data.
+			if (RuntimeData.ContainsEntry(EntityDataIdentifiers.NAME))
+			{
+				Identification.Name = RuntimeData.GetValue<string>(EntityDataIdentifiers.NAME);
+			}
+			else
+			{
+				RuntimeData.SetValue(EntityDataIdentifiers.NAME, Identification.Name);
+			}
+
+			_age = RuntimeData.GetValue(EntityDataIdentifiers.AGE, 0d);
+			if (Age > 1f)
+			{
+				Transform.position = RuntimeData.GetValue(EntityDataIdentifiers.POSITION, transform.position);
+				Transform.eulerAngles = RuntimeData.GetValue(EntityDataIdentifiers.ROTATION, transform.eulerAngles);
+			}
+		}
+
+		/// <inheritdoc/>
+		public virtual void SaveData()
+		{
+			RuntimeData.SetValue(EntityDataIdentifiers.NAME, Identification.Name);
+			RuntimeData.SetValue(EntityDataIdentifiers.ALIVE, Alive);
+			RuntimeData.SetValue(EntityDataIdentifiers.AGE, _age);
+			RuntimeData.SetValue(EntityDataIdentifiers.POSITION, Transform.position);
+			RuntimeData.SetValue(EntityDataIdentifiers.ROTATION, Transform.eulerAngles);
+
 			OnSaveEvent?.Invoke(RuntimeData);
-			runtimeDataService.Save(RuntimeData);
+
+			// TODO: Only save entity stats that do no match the default value in order to reduce filesize.
+			runtimeDataService.SaveDataToProfile(RuntimeData);
 		}
 
 		/// <inheritdoc/>
@@ -357,7 +384,6 @@ namespace SpaxUtils
 
 		private void OnIdentificationUpdatedEvent(IIdentification identification)
 		{
-			RuntimeData.SetValue(ID_NAME, identification.Name);
 			gameObject.name = GameObjectName;
 		}
 	}

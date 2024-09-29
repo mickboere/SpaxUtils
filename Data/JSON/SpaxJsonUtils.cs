@@ -8,24 +8,24 @@ using UnityEngine;
 namespace SpaxUtils
 {
 	/// <summary>
-	/// Utility class for writing JSON to file.
+	/// Utility class for writing and reading JSON from/to file.
 	/// </summary>
-	/// https://code-maze.com/csharp-write-json-into-a-file/
-	public static class JsonUtils
+	public static class SpaxJsonUtils
 	{
 		private static readonly JsonSerializerSettings OPTIONS = new()
 		{
 #if UNITY_EDITOR
 			Formatting = Formatting.Indented,
 #endif
-			NullValueHandling = NullValueHandling.Ignore
+			NullValueHandling = NullValueHandling.Ignore,
+			Converters = new List<JsonConverter> { new RuntimeDataConverter() }
 		};
 
 		public static void StreamWrite(object obj, string path)
 		{
 			using var streamWriter = File.CreateText(path);
 			using var jsonWriter = new JsonTextWriter(streamWriter);
-			JsonSerializer.CreateDefault(OPTIONS).Serialize(jsonWriter, obj);
+			JsonSerializer.Create(OPTIONS).Serialize(jsonWriter, obj);
 		}
 
 		public static T StreamRead<T>(string path)
@@ -37,13 +37,12 @@ namespace SpaxUtils
 
 			using var streamReader = new StreamReader(path);
 			string json = streamReader.ReadToEnd();
-			SpaxDebug.Log($"JSON read result:", json);
 			return JsonConvert.DeserializeObject<T>(json);
 		}
 
 		public static string Serialize(object data)
 		{
-			return JsonConvert.SerializeObject(data);
+			return JsonConvert.SerializeObject(data, OPTIONS);
 		}
 	}
 }

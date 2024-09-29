@@ -89,6 +89,11 @@ namespace SpaxUtils
 
 		public override string ToString()
 		{
+			return SpaxJsonUtils.Serialize(this);
+		}
+
+		public virtual string ToStringExplicit()
+		{
 			return $"{{ ID={ID}, Value={Value}, Type={ValueType.FullName} }}";
 		}
 	}

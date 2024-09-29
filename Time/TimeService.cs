@@ -216,8 +216,9 @@ namespace SpaxUtils
 		{
 			if (runtimeDataService.CurrentProfile != null)
 			{
-				RuntimeDataEntry initialTimeEntry = runtimeDataService.CurrentProfile.GetEntry(ProfileDataIdentifiers.INITIAL_TIME,
-					new RuntimeDataEntry(ProfileDataIdentifiers.INITIAL_TIME, DateTime.UtcNow.ToString()));
+				RuntimeDataCollection metaData = runtimeDataService.GetMetaData();
+				RuntimeDataEntry initialTimeEntry = metaData.GetEntry(GlobalDataIdentifiers.INITIAL_TIME,
+					new RuntimeDataEntry(GlobalDataIdentifiers.INITIAL_TIME, DateTime.UtcNow.ToString()));
 				if (DateTime.TryParse((string)initialTimeEntry.Value, out DateTime parse))
 				{
 					InitialDateTime = parse;
@@ -227,16 +228,16 @@ namespace SpaxUtils
 					SpaxDebug.Error("Could not parse InitialDateTime!", (string)initialTimeEntry.Value);
 				}
 
-				_playtimeUnscaled = runtimeDataService.CurrentProfile.GetEntry(ProfileDataIdentifiers.PLAYTIME_UNSCALED,
-					new RuntimeDataEntry(ProfileDataIdentifiers.PLAYTIME_UNSCALED, 0d));
-				_playtimeScaled = runtimeDataService.CurrentProfile.GetEntry(ProfileDataIdentifiers.PLAYTIME_SCALED,
-					new RuntimeDataEntry(ProfileDataIdentifiers.PLAYTIME_SCALED, 0d));
+				_playtimeUnscaled = metaData.GetEntry(GlobalDataIdentifiers.PLAYTIME_UNSCALED,
+					new RuntimeDataEntry(GlobalDataIdentifiers.PLAYTIME_UNSCALED, 0d));
+				_playtimeScaled = metaData.GetEntry(GlobalDataIdentifiers.PLAYTIME_SCALED,
+					new RuntimeDataEntry(GlobalDataIdentifiers.PLAYTIME_SCALED, 0d));
 			}
 			else
 			{
 				InitialDateTime = DateTime.UtcNow;
-				_playtimeUnscaled = new RuntimeDataEntry(ProfileDataIdentifiers.PLAYTIME_UNSCALED, 0d);
-				_playtimeScaled = new RuntimeDataEntry(ProfileDataIdentifiers.PLAYTIME_SCALED, 0d);
+				_playtimeUnscaled = new RuntimeDataEntry(GlobalDataIdentifiers.PLAYTIME_UNSCALED, 0d);
+				_playtimeScaled = new RuntimeDataEntry(GlobalDataIdentifiers.PLAYTIME_SCALED, 0d);
 			}
 		}
 	}

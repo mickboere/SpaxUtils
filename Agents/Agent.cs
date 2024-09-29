@@ -37,9 +37,6 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public ITargeter Targeter { get; private set; }
 
-		/// <inheritdoc/>
-		public bool Dead => Brain.IsStateActive(StateIdentifiers.DEAD) || deathTransition != null && !deathTransition.Completed;
-
 		#endregion Properties
 
 		protected override string GameObjectNamePrefix => "[Agent]";
@@ -52,7 +49,6 @@ namespace SpaxUtils
 		private InputToActMap inputToActMap;
 		private IPerformer[] performers;
 		private IRelationData[] relationData;
-		private ITransition deathTransition;
 
 		public void InjectDependencies(
 			IAgentBody body, ITargetable targetableComponent, ITargeter targeterComponent,
@@ -100,9 +96,9 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public void Die(ITransition transition = null)
 		{
-			if (!Dead && Brain.TryTransition(StateIdentifiers.DEAD, transition))
+			if (Alive && Brain.TryTransition(StateIdentifiers.DEAD, transition))
 			{
-				deathTransition = transition;
+				Alive = false;
 				Actor.TryCancel(true);
 				Actor.Blocked = true;
 				DiedEvent?.Invoke(this);
@@ -112,8 +108,9 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public void Revive(ITransition transition = null)
 		{
-			if (Dead && Brain.TryTransition(StateIdentifiers.ACTIVE, transition))
+			if (!Alive && Brain.TryTransition(StateIdentifiers.ACTIVE, transition))
 			{
+				Alive = true;
 				Actor.Blocked = false;
 				RevivedEvent?.Invoke(this);
 			}

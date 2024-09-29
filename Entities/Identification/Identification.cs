@@ -5,6 +5,9 @@ using UnityEngine;
 
 namespace SpaxUtils
 {
+	/// <summary>
+	/// Data container used to identify unique entities by name, ID or labels.
+	/// </summary>
 	[Serializable]
 	public class Identification : IIdentification
 	{

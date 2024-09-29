@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 
 namespace SpaxUtils
@@ -22,6 +23,14 @@ namespace SpaxUtils
 			}
 
 			return Alphabet[i];
+		}
+
+		/// <summary>
+		/// Returns the last character in this string.
+		/// </summary>
+		public static char Last(this string s)
+		{
+			return s[s.Length - 1];
 		}
 
 		/// <summary>
@@ -109,6 +118,26 @@ namespace SpaxUtils
 
 				return hash1 + (hash2 * 1566083941);
 			}
+		}
+
+		/// <summary>
+		/// Sanitizes a string to only leave letters and single spaces with all special characters and leading/trailing/double spaces removed.
+		/// </summary>
+		public static string Sanitize(this string s)
+		{
+			StringBuilder sb = new StringBuilder();
+			char? last = null;
+			for (int i = 0; i < s.Length; i++)
+			{
+				char c = s[i];
+				if (char.IsLetter(c) ||
+					(c == ' ' && (!last.HasValue || last.Value != ' ')))
+				{
+					sb.Append(c);
+					last = c;
+				}
+			}
+			return sb.ToString();
 		}
 
 		#region Distance functions

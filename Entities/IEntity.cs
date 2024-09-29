@@ -43,6 +43,16 @@ namespace SpaxUtils
 		/// </summary>
 		StatCollection<EntityStat> Stats { get; }
 
+		/// <summary>
+		/// Whether this entity is currently alive or not.
+		/// </summary>
+		bool Alive { get; }
+
+		/// <summary>
+		/// Age this entity has been alive for in seconds.
+		/// </summary>
+		float Age { get; }
+
 		#endregion
 
 		#region Data
@@ -50,7 +60,7 @@ namespace SpaxUtils
 		/// <summary>
 		/// Save the entity's <see cref="RuntimeData"/>.
 		/// </summary>
-		void Save();
+		void SaveData();
 
 		/// <summary>
 		/// Sets the value object of <see cref="RuntimeDataEntry"/> with ID <paramref name="identifier"/>.

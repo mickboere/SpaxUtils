@@ -57,11 +57,6 @@ namespace SpaxUtils
 		/// </summary>
 		ITargeter Targeter { get; }
 
-		/// <summary>
-		/// Whether this agent is currently dead.
-		/// </summary>
-		bool Dead { get; }
-
 		#endregion
 
 		/// <summary>

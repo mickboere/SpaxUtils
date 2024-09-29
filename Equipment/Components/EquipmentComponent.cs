@@ -39,15 +39,14 @@ namespace SpaxUtils
 			this.comms = comms;
 			this.inventoryComponent = inventoryComponent;
 			this.injectedEquipment = injectedEquipment;
-
-			equipmentData = Entity.RuntimeData.GetEntry(EQUIPMENT_DATA_ID, new RuntimeDataCollection(EQUIPMENT_DATA_ID));
 		}
 
 		protected void Start()
 		{
-			if (equipmentData.Data.Count > 0)
+			if (Entity.RuntimeData.ContainsEntry(EQUIPMENT_DATA_ID))
 			{
-				// Equip loaded equipment data.
+				// Load existing equipment data and load it.
+				equipmentData = Entity.RuntimeData.GetEntry<RuntimeDataCollection>(EQUIPMENT_DATA_ID);
 				foreach (RuntimeDataEntry entry in equipmentData.Data)
 				{
 					TryEquip(inventoryComponent.Inventory.Get((string)entry.Value), out _, entry.ID);
@@ -55,7 +54,9 @@ namespace SpaxUtils
 			}
 			else
 			{
-				// Equip injected equipment data.
+				// Create new equipment data and equip injected data, if any.
+				equipmentData = new RuntimeDataCollection(EQUIPMENT_DATA_ID);
+				Entity.RuntimeData.TryAdd(equipmentData);
 				foreach (IEquipmentData equipment in injectedEquipment)
 				{
 					RuntimeItemData itemData = inventoryComponent.Inventory.Get(equipment);

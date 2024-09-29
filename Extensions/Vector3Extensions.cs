@@ -146,6 +146,8 @@ namespace SpaxUtils
 		}
 		#endregion In-Line Multiplying
 
+		#region Looking
+
 		/// <summary>
 		/// Converts a <see cref="Vector3"/> direction to a <see cref="Quaternion"/> rotation.
 		/// </summary>
@@ -194,6 +196,10 @@ namespace SpaxUtils
 			return Quaternion.LookRotation(forward, up) * vector;
 		}
 
+		#endregion Looking
+
+		#region Clamping
+
 		/// <summary>
 		/// Treats the <see cref="Vector3"/> as a rotatable direction and clamps its rotation to the <paramref name="maxAngle"/> along the <paramref name="axis"/>.
 		/// </summary>
@@ -219,6 +225,10 @@ namespace SpaxUtils
 			return vector;
 		}
 
+		#endregion Clamping
+
+		#region Projection
+
 		/// <summary>
 		/// Projects <paramref name="vector"/> onto plane with <paramref name="normal"/>.
 		/// </summary>
@@ -238,12 +248,13 @@ namespace SpaxUtils
 			return Vector3.ProjectOnPlane(vector, normal) - vector;
 		}
 
-		/// <summary>
-		/// Returns the largest axis value.
-		/// </summary>
-		public static float Max(this Vector3 vector3)
+		#endregion Projection
+
+		#region Interpolation
+
+		public static Vector3 Lerp(this Vector3 a, Vector3 b, float t)
 		{
-			return Mathf.Max(vector3.x, vector3.y, vector3.z);
+			return Vector3.Lerp(a, b, t);
 		}
 
 		/// <summary>
@@ -279,32 +290,28 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
-		/// Compute barycentric coordinates for point p with respect to triangle (a, b, c).
-		/// https://gamedev.stackexchange.com/questions/23743/whats-the-most-efficient-way-to-find-barycentric-coordinates
+		/// Will apply <paramref name="curve"/> to <paramref name="vector"/>, treating it as a directional vector.
 		/// </summary>
-		public static Vector3 Barycentric(Vector3 a, Vector3 b, Vector3 c, Vector3 p)
+		/// <param name="vector">Directional vector to apply the curve to.</param>
+		/// <param name="curve">Curve to apply to the vector.</param>
+		/// <param name="max">Vector magnitude corresponding to an evaluation of t=1 on the curve.</param>
+		public static Vector3 ApplyCurve(this Vector3 vector, AnimationCurve curve, float max = 1f)
 		{
-			Vector3 ab = b - a;
-			Vector3 ac = c - a;
-			Vector3 ap = p - a;
-
-			float d00 = Vector3.Dot(ab, ab);
-			float d01 = Vector3.Dot(ab, ac);
-			float d11 = Vector3.Dot(ac, ac);
-			float d20 = Vector3.Dot(ap, ab);
-			float d21 = Vector3.Dot(ap, ac);
-			float denom = d00 * d11 - d01 * d01;
-
-			float v = (d11 * d20 - d01 * d21) / denom;
-			float w = (d00 * d21 - d01 * d20) / denom;
-			float u = 1.0f - v - w;
-
-			return new Vector3(u, v, w);
+			float length = vector.magnitude;
+			float evaluation = curve.Evaluate(length / max);
+			return vector.normalized * evaluation;
 		}
 
-		public static Vector3 Lerp(this Vector3 a, Vector3 b, float t)
+		#endregion Interpolation
+
+		#region Operators
+
+		/// <summary>
+		/// Returns the largest axis value.
+		/// </summary>
+		public static float Max(this Vector3 vector3)
 		{
-			return Vector3.Lerp(a, b, t);
+			return Mathf.Max(vector3.x, vector3.y, vector3.z);
 		}
 
 		public static float Dot(this Vector3 a, Vector3 b)
@@ -365,6 +372,8 @@ namespace SpaxUtils
 		{
 			return new Vector3(a.x / b.x, a.y / b.y, a.z / b.z);
 		}
+
+		#endregion Operators
 
 		#region Transformation
 
@@ -522,7 +531,7 @@ namespace SpaxUtils
 
 		#endregion // Averaging
 
-		#region On Line
+		#region Lines
 
 		public static Vector3 ClosestOnLine(this Vector3 point, Vector3 a, Vector3 b)
 		{
@@ -538,7 +547,7 @@ namespace SpaxUtils
 			return a + Vector3.Project(point - a, b - a);
 		}
 
-		#endregion On Line
+		#endregion Lines
 
 		#region Physics
 
@@ -578,6 +587,32 @@ namespace SpaxUtils
 
 		#endregion // Physics
 
+		#region Coordination
+
+		/// <summary>
+		/// Compute barycentric coordinates for point p with respect to triangle (a, b, c).
+		/// https://gamedev.stackexchange.com/questions/23743/whats-the-most-efficient-way-to-find-barycentric-coordinates
+		/// </summary>
+		public static Vector3 Barycentric(Vector3 a, Vector3 b, Vector3 c, Vector3 p)
+		{
+			Vector3 ab = b - a;
+			Vector3 ac = c - a;
+			Vector3 ap = p - a;
+
+			float d00 = Vector3.Dot(ab, ab);
+			float d01 = Vector3.Dot(ab, ac);
+			float d11 = Vector3.Dot(ac, ac);
+			float d20 = Vector3.Dot(ap, ab);
+			float d21 = Vector3.Dot(ap, ac);
+			float denom = d00 * d11 - d01 * d01;
+
+			float v = (d11 * d20 - d01 * d21) / denom;
+			float w = (d00 * d21 - d01 * d20) / denom;
+			float u = 1.0f - v - w;
+
+			return new Vector3(u, v, w);
+		}
+
 		/// <summary>
 		/// Approximate a normal vector from a collection of points by comparing the highest and the lowest.
 		/// </summary>
@@ -611,18 +646,47 @@ namespace SpaxUtils
 			return normal.normalized;
 		}
 
+		#endregion Coordination
+
+		#region Parsing
+
 		/// <summary>
-		/// Will apply <paramref name="curve"/> to <paramref name="vector"/>, treating it as a directional vector.
+		/// Will convert <paramref name="vector3"/> to a string following the format: "0,0,0".
 		/// </summary>
-		/// <param name="vector">Directional vector to apply the curve to.</param>
-		/// <param name="curve">Curve to apply to the vector.</param>
-		/// <param name="max">Vector magnitude corresponding to an evaluation of t=1 on the curve.</param>
-		/// <returns></returns>
-		public static Vector3 ApplyCurve(this Vector3 vector, AnimationCurve curve, float max = 1f)
+		public static string ToParseableString(this Vector3 vector3)
 		{
-			float length = vector.magnitude;
-			float evaluation = curve.Evaluate(length / max);
-			return vector.normalized * evaluation;
+			return $"{vector3.x},{vector3.y},{vector3.z}";
 		}
+
+		/// <summary>
+		/// Will try to parse a vector3 from string.
+		/// Required format is: "0,0,0".
+		/// </summary>
+		public static bool TryParseVector3(this string s, out Vector3 vector3)
+		{
+			vector3 = new Vector3();
+
+			// Minimum length: "0,0,0" has a length of 5, therefore anything smaller than that won't be parseable.
+			// Maximum lenght: Floats have a maximum character buffer length of 16. 16 * 3 + 2 = a maximum length of 50.
+			if (s.Length < 5 || s.Length > 50 || (!char.IsDigit(s[0]) && s[0] != '-'))
+			{
+				// Positively not a parseable Vector3.
+				return false;
+			}
+
+			string[] split = s.Split(',');
+			if (split.Length == 3)
+			{
+				if (float.TryParse(split[0], out vector3.x) &&
+					float.TryParse(split[1], out vector3.y) &&
+					float.TryParse(split[2], out vector3.z))
+				{
+					return true;
+				}
+			}
+			return false;
+		}
+
+		#endregion
 	}
 }
