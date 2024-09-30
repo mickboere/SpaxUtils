@@ -12,9 +12,10 @@ namespace SpaxUtils
 	/// </summary>
 	public class RuntimeDataService : IService
 	{
-		public const string GLOBAL_DATA_ID = "GLOBAL";
 		public const string PROFILE_FILE_TYPE = ".save";
 		public static readonly string PROFILES_PATH = $"{Application.persistentDataPath}/Profiles/";
+		public const string GLOBAL_DATA_ID = "GLOBAL";
+		public const string DEFAULT_PROFILE_ID = "DEFAULT";
 
 		/// <summary>
 		/// Invoked once <see cref="CurrentProfile"/> has changed.
@@ -225,6 +226,48 @@ namespace SpaxUtils
 			SpaxDebug.Log("Unloaded profile:", profileId);
 		}
 
+		public RuntimeDataCollection EnsureCurrentProfile(bool useLastSave = true, string defaultIfNull = DEFAULT_PROFILE_ID)
+		{
+			if (CurrentProfile != null)
+			{
+				return CurrentProfile;
+			}
+
+			if (useLastSave && TryGetLastSavedMetaData(out RuntimeDataCollection result, true))
+			{
+				return result;
+			}
+
+			if (LoadProfile(defaultIfNull, out RuntimeDataCollection data, true, true))
+			{
+				return data;
+			}
+
+			SpaxDebug.Error("Somehow, no save profile could be ensured.", $"defaultIfNull=\"{defaultIfNull}\"");
+			return null;
+		}
+
+		/// <summary>
+		/// Retrieve meta data for profile with ID <paramref name="profileId"/>, <see cref="CurrentProfile"/> if null.
+		/// </summary>
+		public RuntimeDataCollection GetMetaData(string profileId = null)
+		{
+			if (profileId == null)
+			{
+				if (CurrentProfile != null)
+				{
+					profileId = CurrentProfile.ID;
+				}
+				else
+				{
+					SpaxDebug.Error("No meta data to return.", "No profile ID was provided and there is no currently selected profile.");
+					return null;
+				}
+			}
+
+			return ProfilesMetaData.GetEntry<RuntimeDataCollection>(profileId);
+		}
+
 		/// <summary>
 		/// Returns the profile with the most recent save time, if any.
 		/// </summary>
@@ -268,27 +311,6 @@ namespace SpaxUtils
 			}
 
 			return true;
-		}
-
-		/// <summary>
-		/// Retrieve meta data for profile with ID <paramref name="profileId"/>, <see cref="CurrentProfile"/> if null.
-		/// </summary>
-		public RuntimeDataCollection GetMetaData(string profileId = null)
-		{
-			if (profileId == null)
-			{
-				if (CurrentProfile != null)
-				{
-					profileId = CurrentProfile.ID;
-				}
-				else
-				{
-					SpaxDebug.Error("No meta data to return.", "No profile ID was provided and there is no currently selected profile.");
-					return null;
-				}
-			}
-
-			return ProfilesMetaData.GetEntry<RuntimeDataCollection>(profileId);
 		}
 
 		#endregion Loading

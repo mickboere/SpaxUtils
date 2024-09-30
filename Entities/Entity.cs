@@ -25,6 +25,9 @@ namespace SpaxUtils
 		public Transform Transform => GameObject.transform;
 
 		/// <inheritdoc/>
+		public string ID => Identification.ID;
+
+		/// <inheritdoc/>
 		public IIdentification Identification
 		{
 			get
@@ -71,7 +74,8 @@ namespace SpaxUtils
 
 		protected IEntityCollection entityCollection;
 		protected IStatLibrary statLibrary;
-		private RuntimeDataService runtimeDataService;
+		protected RuntimeDataService runtimeDataService;
+		private bool initialized;
 		private List<string> failedStats = new List<string>(); // Used to minimize error logs.
 
 		public void InjectDependencies(
@@ -81,7 +85,7 @@ namespace SpaxUtils
 		{
 			if (DependencyManager != null)
 			{
-				SpaxDebug.Error("Entity already had its dependencies injected! ", $"You were probably too late with injecting and the Entity already took care of it itself. Next time, take a look at the DependencyUtils class.", GameObject);
+				SpaxDebug.Error("Entity already had its dependencies injected! ", $"You were probably too late with injecting and the Entity already took care of it itself. For more information, take a look at the DependencyUtils class.", this);
 				return;
 			}
 
@@ -181,10 +185,14 @@ namespace SpaxUtils
 				string dependencyManagerName = $"Entity:{Identification.Name}";
 				SpaxDebug.Log("Entity did not have its dependencies injected.", $"Creating new DependencyManager using Global, named; '{dependencyManagerName}'.", LogType.Notify, Color.yellow, GameObject);
 				DependencyUtils.Inject(GameObject, new DependencyManager(GlobalDependencyManager.Instance, dependencyManagerName), true, true);
+			}
 
+			if (!initialized)
+			{
 				gameObject.name = GameObjectName;
-				Alive = true; // Active entity is being initialized so we must assume its alive.
+				Alive = true; // Active entity is being initialized so we can assume its alive.
 				ApplyData();
+				initialized = true;
 			}
 		}
 
@@ -204,7 +212,7 @@ namespace SpaxUtils
 				RuntimeData = new RuntimeDataCollection(Identification.ID);
 			}
 
-			if (runtimeDataService.CurrentProfile.TryGetEntry(Identification.ID, out RuntimeDataCollection entityData))
+			if (runtimeDataService.EnsureCurrentProfile().TryGetEntry(Identification.ID, out RuntimeDataCollection entityData))
 			{
 				// Saved data was found in data service, append to existing data and overwrite duplicate data.
 				RuntimeData.Append(entityData, true);
@@ -230,7 +238,7 @@ namespace SpaxUtils
 			}
 
 			_age = RuntimeData.GetValue(EntityDataIdentifiers.AGE, 0d);
-			if (Age > 1f)
+			if (Age > 0d)
 			{
 				Transform.position = RuntimeData.GetValue(EntityDataIdentifiers.POSITION, transform.position);
 				Transform.eulerAngles = RuntimeData.GetValue(EntityDataIdentifiers.ROTATION, transform.eulerAngles);

@@ -12,10 +12,12 @@ namespace SpaxUtils.StateMachines
 	[NodeWidth(140)]
 	public abstract class ConditionNodeBase : TransitionNodeBase
 	{
+		private const string TT_COMPONENTS = "Linked components will be activated while the condition is valid.\nThis allows you to run condition consequences without transitioning to another state node.";
+
 		public override bool Valid => _valid;
 		public override float Validity => _rules.Sum((r) => r.Validity);
 
-		[SerializeField, Output(backingValue = ShowBackingValue.Never, typeConstraint = TypeConstraint.Inherited)] private Connections.StateComponent components;
+		[SerializeField, Output(backingValue = ShowBackingValue.Never, typeConstraint = TypeConstraint.Inherited), Tooltip(TT_COMPONENTS)] private Connections.StateComponent components;
 		[SerializeField, Output(backingValue = ShowBackingValue.Never, typeConstraint = TypeConstraint.Inherited)] protected Connections.Rule rules;
 
 		private IDependencyManager dependencyManager;

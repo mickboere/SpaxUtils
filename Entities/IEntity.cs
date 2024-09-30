@@ -8,7 +8,7 @@ namespace SpaxUtils
 	/// </summary>
 	/// <seealso cref="IGameObject"/>
 	/// <seealso cref="IDependency"/>
-	public interface IEntity : IGameObject, IDependency
+	public interface IEntity : IGameObject, IDependency, IIdentifiable
 	{
 		/// <summary>
 		/// Invoked when the entity is about to be saved.
