@@ -69,6 +69,7 @@ namespace SpaxUtils
 			int scans, LayerMask layerMask)
 		{
 			Vector3 scale = collider.transform.lossyScale;
+			float scaleMag = scale.magnitude;
 
 			switch (collider)
 			{
@@ -77,14 +78,28 @@ namespace SpaxUtils
 						Vector3 offset = boxCollider.center.Multiply(scale);
 						var a = (lastOrientation.pos + lastOrientation.rot * offset, lastOrientation.rot);
 						var b = (collider.transform.position + collider.transform.rotation * offset, collider.transform.rotation);
-						return BoxScan(orbitPoint, boxCollider.size.Multiply(scale), a, b, scans, layerMask);
+						return BoxScan(orbitPoint, boxCollider.size * scaleMag, a, b, scans, layerMask);
 					}
 				case SphereCollider sphereCollider:
 					{
 						Vector3 offset = sphereCollider.center.Multiply(scale);
 						var a = (lastOrientation.pos + lastOrientation.rot * offset, lastOrientation.rot);
 						var b = (collider.transform.position + collider.transform.rotation * offset, collider.transform.rotation);
-						return SphereScan(orbitPoint, sphereCollider.radius * scale.magnitude, a, b, scans, layerMask);
+						return SphereScan(orbitPoint, sphereCollider.radius * scaleMag, a, b, scans, layerMask);
+					}
+				case CapsuleCollider capsuleCollider:
+					{
+						Vector3 offset = capsuleCollider.center.Multiply(scale);
+						var a = (lastOrientation.pos + lastOrientation.rot * offset, lastOrientation.rot);
+						var b = (collider.transform.position + collider.transform.rotation * offset, collider.transform.rotation);
+						Vector3 axis;
+						switch (capsuleCollider.direction)
+						{
+							case 2: axis = Vector3.forward; break;
+							case 1: axis = Vector3.up; break;
+							default: axis = Vector3.right; break;
+						}
+						return CapsuleScan(orbitPoint, capsuleCollider.radius * scaleMag, capsuleCollider.height, axis, a, b, scans, layerMask);
 					}
 				default:
 					SpaxDebug.Error($"Collider not supported:", $"'{collider.GetType().Name}' Please add support or change the collider type.");
@@ -152,14 +167,52 @@ namespace SpaxUtils
 					if (DEBUG)
 					{
 						DbgDraw.WireSphere(current.Center, current.Rotation, new Vector3(radius, radius, radius), Color.cyan, DEBUG_DURATION);
-						DbgDraw.WireTube(current.Center + toNext * 0.5f, Quaternion.LookRotation(Vector3.up.Look(toNext.normalized)), new Vector3(radius, toNext.magnitude, radius), Color.blue, DEBUG_DURATION);
+						DbgDraw.WireTube(current.Center + toNext * 0.5f, Quaternion.LookRotation(Vector3.up.Look(toNext.normalized)), new Vector3(radius, toNext.magnitude, radius), Color.cyan, DEBUG_DURATION);
 					}
 #endif
 					return hits;
 				}
 			);
 		}
+
 		#endregion Sphere
+
+		#region Capsule
+
+		public static List<HitScanHitData> CapsuleScan(
+			Vector3 orbitPoint, float radius, float height, Vector3 axis,
+			(Vector3 pos, Quaternion rot) a, (Vector3 pos, Quaternion rot) b,
+			int scans, LayerMask layerMask)
+		{
+			List<HitScanPoint> scanPoints = GetHitScanPoints(orbitPoint, a, b, scans);
+			return CapsuleScan(scanPoints, radius, height, axis, layerMask);
+		}
+
+		public static List<HitScanHitData> CapsuleScan(List<HitScanPoint> scanPoints, float radius, float height, Vector3 axis, LayerMask layerMask)
+		{
+			return HitScan(scanPoints,
+				(HitScanPoint current, HitScanPoint next, Vector3 toNext) =>
+				{
+					if (toNext == Vector3.zero)
+					{
+						return new RaycastHit[0];
+					}
+
+					Vector3 direction = current.Rotation * axis * height * 0.5f;
+					RaycastHit[] hits = Physics.CapsuleCastAll(current.Center - direction, current.Center + direction, radius, toNext.normalized, toNext.magnitude, layerMask);
+#if UNITY_EDITOR
+					if (DEBUG)
+					{
+						// I believe the raycast is correct, but I can't figure out the proper corresponding debug rotation.
+						//DbgDraw.WireCapsule(current.Center, (current.Rotation * Vector3.up).LookRotation(axis), radius, height, Color.blue, DEBUG_DURATION);
+					}
+#endif
+					return hits;
+				}
+			);
+		}
+
+		#endregion Capsule
 
 		#endregion Hit Scans
 

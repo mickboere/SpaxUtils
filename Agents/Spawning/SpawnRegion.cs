@@ -27,8 +27,8 @@ namespace SpaxUtils
 		}
 
 		[SerializeField] private List<Region> regions;
-		[SerializeField] private bool drawGizmos;
-		[SerializeField, Conditional(nameof(drawGizmos), hide: true)] private Color gizmosColor;
+		[SerializeField] private Color gizmosColor;
+		[SerializeField] private bool alwaysDrawGizmos;
 
 		public bool IsInside(Vector3 point)
 		{
@@ -55,11 +55,22 @@ namespace SpaxUtils
 
 		protected void OnDrawGizmos()
 		{
-			if (!drawGizmos)
+			if (alwaysDrawGizmos)
 			{
-				return;
+				DrawGizmos();
 			}
+		}
 
+		protected void OnDrawGizmosSelected()
+		{
+			if (!alwaysDrawGizmos)
+			{
+				DrawGizmos();
+			}
+		}
+
+		private void DrawGizmos()
+		{
 			Color fill = new Color(gizmosColor.r, gizmosColor.g, gizmosColor.b, 0.1f);
 			Color wire = new Color(gizmosColor.r, gizmosColor.g, gizmosColor.b, 0.9f);
 

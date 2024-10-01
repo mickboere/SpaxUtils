@@ -181,7 +181,7 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
-		/// Have <paramref name="vector"/> look in <paramref name="forward"/>.
+		/// Have <paramref name="vector"/> look in <paramref name="forward"/>, assuming the vector is rotated relative to global forward.
 		/// </summary>
 		public static Vector3 Look(this Vector3 vector, Vector3 forward)
 		{
