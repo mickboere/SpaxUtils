@@ -22,7 +22,7 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public IReadOnlyCollection<RuntimeEquipedData> EquipedItems => equipedItems.Values;
 
-		private SharedRigHandler sharedRigHandler;
+		private EntityAppearanceHandler sharedRigHandler;
 		private ICommunicationChannel comms;
 		private InventoryComponent inventoryComponent;
 		private IEquipmentData[] injectedEquipment;
@@ -31,7 +31,7 @@ namespace SpaxUtils
 		private Dictionary<string, IEquipmentSlot> slots = new Dictionary<string, IEquipmentSlot>();
 		private Dictionary<string, RuntimeEquipedData> equipedItems = new Dictionary<string, RuntimeEquipedData>(); // string = slot.UID
 
-		public void InjectDependencies(SharedRigHandler sharedRigHandler,
+		public void InjectDependencies(EntityAppearanceHandler sharedRigHandler,
 			ICommunicationChannel comms, InventoryComponent inventoryComponent,
 			IEquipmentData[] injectedEquipment)
 		{
@@ -352,7 +352,7 @@ namespace SpaxUtils
 			}
 
 			// Apply the agent's rig when possible.
-			sharedRigHandler.Share(instance);
+			sharedRigHandler.Add(instance);
 
 			return instance;
 		}

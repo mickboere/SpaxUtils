@@ -22,7 +22,7 @@ namespace SpaxUtils
 		[Header("Equipment Data")]
 		[SerializeField] private GameObject equipedPrefab;
 		[SerializeField, Tooltip(TT_SLOT_TYPE), ConstDropdown(typeof(IEquipmentSlotTypeConstants))] private string slotType;
-		[SerializeField, Tooltip(TT_COVER), ConstDropdown(typeof(IBodyLocationConstants))] private List<string> coversLocations;
+		[SerializeField, Tooltip(TT_COVER), ConstDropdown(typeof(IBodyLocations))] private List<string> coversLocations;
 		[SerializeField, Expandable] private List<BehaviourAsset> equipedBehaviour;
 		[SerializeField, Expandable] private List<StatMappingSheet> equipedStatMappings;
 	}
