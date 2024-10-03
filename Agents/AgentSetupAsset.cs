@@ -41,6 +41,12 @@ namespace SpaxUtils
 				new List<object>().Concat(template.Dependencies).Concat(dependencies).ToList() :
 				new List<object>().Concat(dependencies).ToList();
 
+		/// <inheritdoc/>
+		public RuntimeDataCollection Data =>
+			template != null && template.Data != null ? data.ApplyToRuntimeDataCollection(template.Data) :
+			data.Count > 0 ? data.ToRuntimeDataCollection(identification.ID) :
+			null;
+
 		[SerializeField] private AgentSetupAsset template;
 		[SerializeField] private Identification identification;
 		[SerializeField] private Agent frame;
@@ -48,5 +54,6 @@ namespace SpaxUtils
 		[SerializeField] private List<StateMachineGraph> brainGraphs;
 		[SerializeField] private List<GameObject> children;
 		[SerializeField] private List<ScriptableObject> dependencies;
+		[SerializeField] private LabeledDataCollection data;
 	}
 }

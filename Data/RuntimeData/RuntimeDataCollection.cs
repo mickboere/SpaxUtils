@@ -368,7 +368,10 @@ namespace SpaxUtils
 		/// <param name="overwrite">If this collection already contains an entry with the same ID, should it be overwritten?</param>
 		public RuntimeDataCollection Append(RuntimeDataCollection runtimeDataCollection, bool overwrite = false)
 		{
-			CopyData(runtimeDataCollection, this, overwrite);
+			if (runtimeDataCollection != null && runtimeDataCollection.Data.Count > 0)
+			{
+				CopyData(runtimeDataCollection, this, overwrite);
+			}
 			return this;
 		}
 

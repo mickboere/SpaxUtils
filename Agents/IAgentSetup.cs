@@ -42,5 +42,10 @@ namespace SpaxUtils
 		/// Used to define loaded data or configurations for components.
 		/// </summary>
 		IList<object> Dependencies { get; }
+
+		/// <summary>
+		/// Pre-configured data to be used by the agent during runtime.
+		/// </summary>
+		RuntimeDataCollection Data { get; }
 	}
 }

@@ -6,7 +6,7 @@ namespace SpaxUtils
 	public interface IAgentBody : IEntityComponent, IHeadProvider
 	{
 		/// <summary>
-		/// Value that scales all operations which are relative to the body.
+		/// Value that (should) scale all operations which are relative to the body.
 		/// </summary>
 		float Scale { get; }
 

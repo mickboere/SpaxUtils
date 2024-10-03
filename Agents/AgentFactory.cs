@@ -22,12 +22,8 @@ namespace SpaxUtils
 			IEnumerable<object> dependencies = null,
 			Action<Callback> progressCallback = null)
 		{
-			return Create(setup.Identification, setup.Frame, setup.Body, dependencyManager, Vector3.zero, Quaternion.identity,
-				overrideName, labels,
-				brainGraphs == null ? setup.BrainGraphs : setup.BrainGraphs.Union(brainGraphs),
-				children == null ? setup.Children : setup.Children.Union(children),
-				dependencies == null ? setup.Dependencies : setup.Dependencies.Union(dependencies),
-				progressCallback);
+			return Create(setup, dependencyManager, Vector3.zero, Quaternion.identity,
+				overrideName, labels, brainGraphs, children, dependencies, progressCallback);
 		}
 
 		public static Agent Create(IAgentSetup setup, IDependencyManager dependencyManager, Vector3 position,
@@ -38,12 +34,8 @@ namespace SpaxUtils
 			IEnumerable<object> dependencies = null,
 			Action<Callback> progressCallback = null)
 		{
-			return Create(setup.Identification, setup.Frame, setup.Body, dependencyManager, position, Quaternion.identity,
-				overrideName, labels,
-				brainGraphs == null ? setup.BrainGraphs : setup.BrainGraphs.Union(brainGraphs),
-				children == null ? setup.Children : setup.Children.Union(children),
-				dependencies == null ? setup.Dependencies : setup.Dependencies.Union(dependencies),
-				progressCallback);
+			return Create(setup, dependencyManager, position, Quaternion.identity,
+				overrideName, labels, brainGraphs, children, dependencies, progressCallback);
 		}
 
 		public static Agent Create(IAgentSetup setup, IDependencyManager dependencyManager, Vector3 position, Quaternion rotation,
@@ -59,6 +51,7 @@ namespace SpaxUtils
 				brainGraphs == null ? setup.BrainGraphs : setup.BrainGraphs.Union(brainGraphs),
 				children == null ? setup.Children : setup.Children.Union(children),
 				dependencies == null ? setup.Dependencies : setup.Dependencies.Union(dependencies),
+				setup.Data,
 				progressCallback);
 		}
 
@@ -74,6 +67,7 @@ namespace SpaxUtils
 			IEnumerable<StateMachineGraph> brainGraphs = null,
 			IEnumerable<GameObject> children = null,
 			IEnumerable<object> dependencies = null,
+			RuntimeDataCollection data = null,
 			Action<Callback> progressCallback = null)
 		{
 			if (!dependencyManager.TryGetBinding(typeof(ICommunicationChannel), typeof(ICommunicationChannel), false, out _))
@@ -117,6 +111,10 @@ namespace SpaxUtils
 				{
 					dependencyManager.Bind(dependency);
 				}
+			}
+			if (data != null)
+			{
+				dependencyManager.Bind(data);
 			}
 
 			// Bind all dependency components.

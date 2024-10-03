@@ -1,15 +1,18 @@
-using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
-
 namespace SpaxUtils
 {
-	public class EntityDataIdentifiers
+	/// <summary>
+	/// Data identification labels unique to <see cref="IEntity"/>s.
+	/// </summary>
+	public class EntityDataIdentifiers : ILabeledDataIdentifiers
 	{
-		public const string NAME = "Name";
-		public const string ALIVE = "Alive";
-		public const string AGE = "Age";
-		public const string POSITION = "Pos";
-		public const string ROTATION = "Rot";
+		private const string ENTITY = "ENTITY/";
+
+		public const string NAME = ENTITY + "Name";
+		public const string ALIVE = ENTITY + "Alive";
+		public const string AGE = ENTITY + "Age";
+		public const string POSITION = ENTITY + "Pos";
+		public const string ROTATION = ENTITY + "Rot";
+		public const string SCALE = ENTITY + "Scale";
+		public const string HEIGHT = ENTITY + "Height";
 	}
 }

@@ -4,6 +4,9 @@ using System;
 
 namespace SpaxUtils
 {
+	/// <summary>
+	/// Object containing additional data for spawning agents.
+	/// </summary>
 	[Serializable]
 	public class AgentSpawnData
 	{
