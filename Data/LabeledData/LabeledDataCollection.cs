@@ -7,7 +7,9 @@ namespace SpaxUtils
 	[Serializable]
 	public class LabeledDataCollection
 	{
-		public int Count => BoolData.Count + FloatData.Count;
+		public int Count => BoolCount + FloatCount;
+		public int BoolCount => BoolData == null ? 0 : BoolData.Count;
+		public int FloatCount => FloatData == null ? 0 : FloatData.Count;
 
 		public List<LabeledBoolData> BoolData => boolData;
 		public List<LabeledFloatData> FloatData => floatData;
