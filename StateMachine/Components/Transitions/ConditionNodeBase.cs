@@ -25,7 +25,7 @@ namespace SpaxUtils.StateMachines
 
 		private bool _valid;
 		private List<IStateComponent> _components;
-		private List<RuleNodeBase> _rules;
+		private List<IRule> _rules;
 
 		public void InjectDependencies(IDependencyManager dependencyManager, CallbackService callbackService)
 		{
@@ -33,9 +33,9 @@ namespace SpaxUtils.StateMachines
 			this.callbackService = callbackService;
 
 			_components = GetOutputNodes<IStateComponent>(nameof(components));
-			_rules = GetOutputNodes<RuleNodeBase>(nameof(rules));
+			_rules = GetOutputNodes<IRule>(nameof(rules));
 
-			foreach (RuleNodeBase rule in _rules)
+			foreach (IRule rule in _rules)
 			{
 				dependencyManager.Inject(rule);
 			}
@@ -49,7 +49,7 @@ namespace SpaxUtils.StateMachines
 			base.OnEnteringState();
 
 			callbackService.SubscribeUpdate(UpdateMode.Update, this, OnUpdate, 99998);
-			foreach (RuleNodeBase rule in _rules)
+			foreach (IRule rule in _rules)
 			{
 				rule.OnEnteringState();
 			}
@@ -60,7 +60,7 @@ namespace SpaxUtils.StateMachines
 		{
 			base.WhileEnteringState(transition);
 
-			foreach (RuleNodeBase rule in _rules)
+			foreach (IRule rule in _rules)
 			{
 				rule.WhileEnteringState(transition);
 			}
@@ -71,7 +71,7 @@ namespace SpaxUtils.StateMachines
 		{
 			base.OnStateEntered();
 
-			foreach (RuleNodeBase rule in _rules)
+			foreach (IRule rule in _rules)
 			{
 				rule.OnStateEntered();
 			}
@@ -84,7 +84,7 @@ namespace SpaxUtils.StateMachines
 
 			callbackService.UnsubscribeUpdate(UpdateMode.Update, this);
 
-			foreach (RuleNodeBase rule in _rules)
+			foreach (IRule rule in _rules)
 			{
 				rule.OnExitingState();
 			}
@@ -103,7 +103,7 @@ namespace SpaxUtils.StateMachines
 		{
 			base.WhileExitingState(transition);
 
-			foreach (RuleNodeBase rule in _rules)
+			foreach (IRule rule in _rules)
 			{
 				rule.WhileExitingState(transition);
 			}
@@ -122,7 +122,7 @@ namespace SpaxUtils.StateMachines
 		{
 			base.OnStateExit();
 
-			foreach (RuleNodeBase rule in _rules)
+			foreach (IRule rule in _rules)
 			{
 				rule.OnStateExit();
 			}

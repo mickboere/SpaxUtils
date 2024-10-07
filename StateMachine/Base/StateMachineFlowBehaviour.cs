@@ -4,7 +4,7 @@ namespace SpaxUtils.StateMachines
 {
 	public class StateMachineFlowBehaviour : MonoBehaviour
 	{
-		[SerializeField] private StateMachineGraph stateMachine;
+		[SerializeField] private FlowGraph flowGraph;
 
 		private IDependencyManager dependencies;
 		private Flow flow;
@@ -18,7 +18,7 @@ namespace SpaxUtils.StateMachines
 
 		protected void Start()
 		{
-			flow = new Flow(stateMachine, dependencies, history);
+			flow = new Flow(flowGraph, dependencies, history);
 			flow.StartFlow();
 		}
 	}

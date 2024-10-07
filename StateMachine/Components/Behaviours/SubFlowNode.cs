@@ -3,19 +3,19 @@
 namespace SpaxUtils.StateMachines
 {
 	/// <summary>
-	/// Node that runs a sub-state-machine.
+	/// Node that runs a another flow state machine.
 	/// </summary>
 	[NodeTint("#6d88a6"), NodeWidth(200)]
-	public class SubStateMachineNode : StateMachineNodeBase, IRule
+	public class SubFlowNode : StateMachineNodeBase, IRule
 	{
-		public override string UserFacingName => flow != null ? flow.name : "Empty";
+		public override string UserFacingName => flowGraph != null ? flowGraph.name : "Empty";
 
 		public bool Valid => !subFlow.Running;
 		public float Validity => 1f;
 
 		[SerializeField, Input(backingValue = ShowBackingValue.Never)] protected Connections.StateComponent inConnection;
 		[SerializeField, Input(backingValue = ShowBackingValue.Never)] protected Connections.Rule exitedFlowRule;
-		[SerializeField] private StateMachineGraph flow;
+		[SerializeField] private FlowGraph flowGraph;
 
 		private IDependencyManager dependencyManager;
 		private IHistory history;
@@ -37,7 +37,7 @@ namespace SpaxUtils.StateMachines
 		{
 			base.OnStateEntered();
 
-			subFlow = new Flow(flow, dependencyManager, history);
+			subFlow = new Flow(flowGraph, dependencyManager, history);
 			subFlow.StartFlow();
 		}
 

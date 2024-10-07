@@ -3,7 +3,7 @@
 	/// <summary>
 	/// Rule interface containing a "Valid" bool and a "Validity" float amount.
 	/// </summary>
-	public interface IRule
+	public interface IRule : IStateComponent
 	{
 		/// <summary>
 		/// Does this rule meet the requirements?

@@ -22,5 +22,18 @@ namespace SpaxUtils
 				Entity.Identification.ID = identifier;
 			}
 		}
+
+		public void OnDrawGizmos()
+		{
+			Gizmos.matrix = transform.localToWorldMatrix;
+			Gizmos.color = Color.red;
+			Gizmos.DrawSphere(Vector3.zero, 0.1f);
+			Gizmos.color = Color.blue;
+			Gizmos.DrawLine(Vector3.zero, Vector3.forward * 0.5f);
+			Gizmos.color = Color.magenta;
+			Gizmos.DrawWireSphere(Vector3.zero, 0.5f);
+			Gizmos.color = Color.blue;
+			Gizmos.DrawCube(Vector3.forward * 0.5f, Vector3.one * 0.1f);
+		}
 	}
 }

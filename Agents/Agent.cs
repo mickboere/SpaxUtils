@@ -42,7 +42,7 @@ namespace SpaxUtils
 		protected override string GameObjectNamePrefix => "[Agent]";
 
 		[SerializeField, ConstDropdown(typeof(IStateIdentifierConstants))] private string state;
-		[SerializeField] private List<StateMachineGraph> brainGraphs;
+		[SerializeField] private List<BrainGraph> brainGraphs;
 
 		private CallbackService callbackService;
 		private AEMOISettings aemoiSettings;
@@ -53,7 +53,7 @@ namespace SpaxUtils
 		public void InjectDependencies(
 			IAgentBody body, ITargetable targetableComponent, ITargeter targeterComponent,
 			CallbackService callbackService, AEMOISettings aemoiSettings, InputToActMap inputToActMap,
-			IPerformer[] performers, IRelationData[] relationData)
+			IPerformer[] performers, IRelationData[] relationData, BrainGraph[] brainGraphs)
 		{
 			Body = body;
 			Targetable = targetableComponent;
@@ -63,6 +63,14 @@ namespace SpaxUtils
 			this.inputToActMap = inputToActMap;
 			this.performers = performers;
 			this.relationData = relationData;
+
+			foreach (BrainGraph brainGraph in brainGraphs)
+			{
+				if (!this.brainGraphs.Contains(brainGraph))
+				{
+					this.brainGraphs.Add(brainGraph);
+				}
+			}
 		}
 
 		protected override void Awake()
@@ -82,7 +90,7 @@ namespace SpaxUtils
 			Brain = new Brain(DependencyManager, callbackService, state, null, brainGraphs);
 			LoadRelations();
 
-			// Start the Brain to become alive.
+			// Start the Brain to come to life.
 			Brain.EnteredStateEvent += OnEnteredStateEvent;
 			Brain.Start();
 		}
@@ -113,27 +121,6 @@ namespace SpaxUtils
 				Alive = true;
 				Actor.Blocked = false;
 				RevivedEvent?.Invoke(this);
-			}
-		}
-
-		/// <summary>
-		/// Will store <paramref name="graphs"/> during initialization to inject them during the Brain's creation.
-		/// </summary>
-		/// <param name="graphs">The <see cref="StateMachineGraph"/>(s) to initialize the brain with.</param>
-		public void AddInitialBrainGraphs(IEnumerable<StateMachineGraph> graphs)
-		{
-			if (Brain != null)
-			{
-				SpaxDebug.Error("Brain graphs cannot be added to Agent because the Brain has already been initialized.", "Use Brain.AppendGraph() instead.");
-				return;
-			}
-
-			foreach (StateMachineGraph graph in graphs)
-			{
-				if (!brainGraphs.Contains(graph))
-				{
-					brainGraphs.Add(graph);
-				}
 			}
 		}
 

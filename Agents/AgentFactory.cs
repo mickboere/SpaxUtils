@@ -17,38 +17,34 @@ namespace SpaxUtils
 		public static Agent Create(IAgentSetup setup, IDependencyManager dependencyManager,
 			string overrideName = null,
 			IEnumerable<string> labels = null,
-			IEnumerable<StateMachineGraph> brainGraphs = null,
 			IEnumerable<GameObject> children = null,
 			IEnumerable<object> dependencies = null,
 			Action<Callback> progressCallback = null)
 		{
 			return Create(setup, dependencyManager, Vector3.zero, Quaternion.identity,
-				overrideName, labels, brainGraphs, children, dependencies, progressCallback);
+				overrideName, labels, children, dependencies, progressCallback);
 		}
 
 		public static Agent Create(IAgentSetup setup, IDependencyManager dependencyManager, Vector3 position,
 			string overrideName = null,
 			IEnumerable<string> labels = null,
-			IEnumerable<StateMachineGraph> brainGraphs = null,
 			IEnumerable<GameObject> children = null,
 			IEnumerable<object> dependencies = null,
 			Action<Callback> progressCallback = null)
 		{
 			return Create(setup, dependencyManager, position, Quaternion.identity,
-				overrideName, labels, brainGraphs, children, dependencies, progressCallback);
+				overrideName, labels, children, dependencies, progressCallback);
 		}
 
 		public static Agent Create(IAgentSetup setup, IDependencyManager dependencyManager, Vector3 position, Quaternion rotation,
 			string overrideName = null,
 			IEnumerable<string> labels = null,
-			IEnumerable<StateMachineGraph> brainGraphs = null,
 			IEnumerable<GameObject> children = null,
 			IEnumerable<object> dependencies = null,
 			Action<Callback> progressCallback = null)
 		{
 			return Create(setup.Identification, setup.Frame, setup.Body, dependencyManager, position, rotation,
 				overrideName, labels,
-				brainGraphs == null ? setup.BrainGraphs : setup.BrainGraphs.Union(brainGraphs),
 				children == null ? setup.Children : setup.Children.Union(children),
 				dependencies == null ? setup.Dependencies : setup.Dependencies.Union(dependencies),
 				setup.Data,
@@ -64,7 +60,6 @@ namespace SpaxUtils
 			Quaternion rotation,
 			string overrideName = null,
 			IEnumerable<string> labels = null,
-			IEnumerable<StateMachineGraph> brainGraphs = null,
 			IEnumerable<GameObject> children = null,
 			IEnumerable<object> dependencies = null,
 			RuntimeDataCollection data = null,
@@ -123,12 +118,6 @@ namespace SpaxUtils
 			// Inject all dependencies.
 			progressCallback?.Invoke(Callback.OnInject);
 			DependencyUtils.Inject(rootGo, dependencyManager, includeChildren: true, bindComponents: false);
-
-			// Initialize the brain.
-			if (brainGraphs != null)
-			{
-				agent.AddInitialBrainGraphs(brainGraphs);
-			}
 
 			// Activate Agent and return.
 			progressCallback?.Invoke(Callback.OnActivate);

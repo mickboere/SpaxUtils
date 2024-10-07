@@ -4,7 +4,7 @@ using System.Collections.Generic;
 namespace SpaxUtils.StateMachines
 {
 	/// <summary>
-	/// Static multi-layered state machine that requires a <see cref="StateMachineGraph"/> asset to run.
+	/// Static multi-layered state machine that requires a <see cref="FlowGraph"/> asset to run.
 	/// Transitions are generally done through <see cref="IStateTransition"/> (nodes).
 	/// </summary>
 	public class Flow : IDisposable
@@ -13,14 +13,14 @@ namespace SpaxUtils.StateMachines
 
 		public bool Running => instance != null;
 
-		private StateMachineGraph graph;
+		private FlowGraph graph;
 		private IDependencyManager dependencyManager;
 		private IHistory history;
 
-		private StateMachineGraph instance;
+		private FlowGraph instance;
 		private List<StateMachine> layers = new List<StateMachine>();
 
-		public Flow(StateMachineGraph graph, IDependencyManager dependencyManager, IHistory history)
+		public Flow(FlowGraph graph, IDependencyManager dependencyManager, IHistory history)
 		{
 			this.graph = graph;
 			this.dependencyManager = new DependencyManager(dependencyManager, $"Flow_{graph.name}");
@@ -40,7 +40,7 @@ namespace SpaxUtils.StateMachines
 				return;
 			}
 
-			instance = (StateMachineGraph)graph.Copy();
+			instance = (FlowGraph)graph.Copy();
 
 			// Collect starting states and create a flow layer for each.
 			List<FlowStateNode> startStates = instance.GetStartStates();

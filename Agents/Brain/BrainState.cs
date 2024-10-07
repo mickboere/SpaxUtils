@@ -1,8 +1,6 @@
 ﻿using SpaxUtils.StateMachines;
 using System.Collections.Generic;
 using System;
-using System.Linq;
-using UnityEngine;
 
 namespace SpaxUtils
 {
@@ -23,9 +21,8 @@ namespace SpaxUtils
 		private string defaultChild;
 		private Dictionary<string, IState> children;
 		private List<IStateComponent> components;
-		
+
 		private IDependencyManager dependencyManager;
-		private IAgent agent;
 
 		public BrainState(string id,
 			IState parent = null, string defaultChild = null,
@@ -43,10 +40,9 @@ namespace SpaxUtils
 			SetParent(null);
 		}
 
-		public void InjectDependencies(IDependencyManager dependencyManager, IAgent agent)
+		public void InjectDependencies(IDependencyManager dependencyManager)
 		{
 			this.dependencyManager = dependencyManager;
-			this.agent = agent;
 			foreach (IStateComponent component in components)
 			{
 				dependencyManager.Inject(component);

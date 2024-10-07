@@ -7,6 +7,7 @@ namespace SpaxUtils
 	{
 		public float BaseMass => baseMass;
 		public float BaseSpeed => baseSpeed;
+		public Vector3 BaseSize => baseSize;
 		public float Scale => scale;
 
 		public RigidbodyWrapper RigidbodyWrapper => RefComponentRelative(ref rigidbodyWrapper);
@@ -26,9 +27,9 @@ namespace SpaxUtils
 		[Header("Base Values")]
 		[SerializeField] private float baseMass = 100f;
 		[SerializeField] private float baseSpeed = 4f;
-		[SerializeField] private float baseHeight = 1.8f;
+		[SerializeField] private Vector3 baseSize = new Vector3(0.5f, 1.8f, 0.5f);
+		[Header("Active Values")]
 		[SerializeField] private float scale = 1f;
-		[SerializeField] private bool scaleHead;
 		[Header("References")]
 		[SerializeField] private RigidbodyWrapper rigidbodyWrapper;
 		[SerializeField] private CapsuleCollider bumper;
@@ -66,7 +67,7 @@ namespace SpaxUtils
 			{
 				if (runtimeData.TryGetValue(EntityDataIdentifiers.HEIGHT, out float height))
 				{
-					scale = height / baseHeight;
+					scale = height / baseSize.y;
 				}
 				else if (runtimeData.TryGetValue(EntityDataIdentifiers.SCALE, out float scale))
 				{
@@ -76,11 +77,8 @@ namespace SpaxUtils
 
 			// Apply scale.
 			transform.localScale = Vector3.one * Scale;
-			if (scaleHead)
-			{
-				// Scale head size to compensate for body scale.
-				head.localScale = Vector3.one / Scale * Mathf.Lerp(1f, 0.5f, Scale.InvertClamped());
-			}
+			// Scale head size to compensate for body scale.
+			head.localScale = Vector3.one / Scale * Mathf.Lerp(1f, 0.5f, Scale.InvertClamped());
 		}
 
 		protected void OnValidate()
@@ -119,6 +117,8 @@ namespace SpaxUtils
 		{
 			Gizmos.color = Color.magenta;
 			Gizmos.DrawSphere(Center, 0.05f * Scale);
+			Gizmos.color = Color.white;
+			Gizmos.DrawWireCube(transform.position + Vector3.up * BaseSize.y * 0.5f * Scale, BaseSize * Scale);
 		}
 	}
 }
