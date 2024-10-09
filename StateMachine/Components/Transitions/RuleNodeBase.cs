@@ -8,5 +8,6 @@
 	{
 		public abstract bool Valid { get; }
 		public virtual float Validity => 1f;
+		public virtual bool IsPureRule => true;
 	}
 }

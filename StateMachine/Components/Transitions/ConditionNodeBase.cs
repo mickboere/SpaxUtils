@@ -24,7 +24,7 @@ namespace SpaxUtils.StateMachines
 		private CallbackService callbackService;
 
 		private bool _valid;
-		private List<IStateComponent> _components;
+		private List<IStateListener> _components;
 		private List<IRule> _rules;
 
 		public void InjectDependencies(IDependencyManager dependencyManager, CallbackService callbackService)
@@ -32,8 +32,8 @@ namespace SpaxUtils.StateMachines
 			this.dependencyManager = dependencyManager;
 			this.callbackService = callbackService;
 
-			_components = GetOutputNodes<IStateComponent>(nameof(components));
-			_rules = GetOutputNodes<IRule>(nameof(rules));
+			_components = GetOutputNodes<IStateListener>(nameof(components));
+			_rules = GetOutputNodes<IRule>(nameof(rules), (e) => e.IsPureRule);
 
 			foreach (IRule rule in _rules)
 			{
@@ -91,7 +91,7 @@ namespace SpaxUtils.StateMachines
 
 			if (Valid)
 			{
-				foreach (IStateComponent component in _components)
+				foreach (IStateListener component in _components)
 				{
 					component.OnExitingState();
 				}
@@ -110,7 +110,7 @@ namespace SpaxUtils.StateMachines
 
 			if (Valid)
 			{
-				foreach (IStateComponent component in _components)
+				foreach (IStateListener component in _components)
 				{
 					component.WhileExitingState(transition);
 				}
@@ -129,7 +129,7 @@ namespace SpaxUtils.StateMachines
 
 			if (Valid)
 			{
-				foreach (IStateComponent component in _components)
+				foreach (IStateListener component in _components)
 				{
 					component.OnStateExit();
 				}
@@ -150,7 +150,7 @@ namespace SpaxUtils.StateMachines
 				if (_valid)
 				{
 					// Became valid, activate subcomponents.
-					foreach (IStateComponent component in _components)
+					foreach (IStateListener component in _components)
 					{
 						dependencyManager.Inject(component);
 						component.OnEnteringState();
@@ -160,7 +160,7 @@ namespace SpaxUtils.StateMachines
 				else
 				{
 					// Became invalid, deactivate subcomponents.
-					foreach (IStateComponent component in _components)
+					foreach (IStateListener component in _components)
 					{
 						component.OnExitingState();
 						component.OnStateExit();

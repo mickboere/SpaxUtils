@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using XNode;
@@ -13,16 +14,20 @@ namespace SpaxUtils.StateMachines
 		/// <summary>
 		/// Gets all of the nodes connected to the specified input port.
 		/// </summary>
-		public static List<T> GetInputNodes<T>(this Node current, string port) where T : class
+		public static List<T> GetInputNodes<T>(this Node current, string port, Func<T, bool> evaluation = null) where T : class
 		{
-			List<T> castedNodes = new List<T>();
+			List<T> result = new List<T>();
+			if (evaluation == null)
+			{
+				evaluation = (n) => true;
+			}
 
 			IEnumerable<Node> inputNodes = current.GetInputPort(port).GetConnections().Select((c) => c.node);
 			foreach (Node node in inputNodes)
 			{
-				if (node is T castedNode)
+				if (node is T castedNode && evaluation(castedNode))
 				{
-					castedNodes.Add(castedNode);
+					result.Add(castedNode);
 				}
 				else
 				{
@@ -30,7 +35,7 @@ namespace SpaxUtils.StateMachines
 				}
 			}
 
-			return castedNodes;
+			return result;
 		}
 
 		/// <summary>
@@ -62,24 +67,28 @@ namespace SpaxUtils.StateMachines
 		/// <summary>
 		/// Gets all of the nodes connected to the specified output port.
 		/// </summary>
-		public static List<T> GetOutputNodes<T>(this Node current, string port) where T : class
+		public static List<T> GetOutputNodes<T>(this Node current, string port, Func<T, bool> evaluation = null) where T : class
 		{
-			List<T> castedNodes = new List<T>();
+			List<T> result = new List<T>();
+			if (evaluation == null)
+			{
+				evaluation = (n) => true;
+			}
 
 			IEnumerable<Node> outputNodes = current.GetOutputPort(port).GetConnections().Select((c) => c.node);
 			foreach (Node node in outputNodes)
 			{
-				if (node is T castedNode)
+				if (node is T castedNode && evaluation(castedNode))
 				{
-					castedNodes.Add(castedNode);
+					result.Add(castedNode);
 				}
-				else
-				{
-					Debug.LogError($"Connected node could not be cast to target type. Typeof: {node.GetType()}", current);
-				}
+				//else
+				//{
+				//	Debug.LogError($"Connected node could not be cast to target type. Typeof: {node.GetType()}", current);
+				//}
 			}
 
-			return castedNodes;
+			return result;
 		}
 
 		/// <summary>

@@ -5,7 +5,7 @@ namespace SpaxUtils.StateMachines
 	/// <summary>
 	/// Interface for a single state within a state machine.
 	/// </summary>
-	public interface IState : IStateComponent, IIdentifiable
+	public interface IState : IStateListener, IIdentifiable
 	{
 		bool Active { get; }
 
@@ -27,7 +27,7 @@ namespace SpaxUtils.StateMachines
 		/// <summary>
 		/// All direct child components of this state.
 		/// </summary>
-		IReadOnlyCollection<IStateComponent> Components { get; }
+		IReadOnlyCollection<IStateListener> Components { get; }
 
 		#region Hierarchy Management
 

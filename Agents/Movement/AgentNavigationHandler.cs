@@ -36,7 +36,7 @@ namespace SpaxUtils
 
 			if (IsInRange(range, navMesh, targetPosition))
 			{
-				movementHandler.MovementInputRaw = Vector3.zero;
+				movementHandler.InputRaw = Vector3.zero;
 				return true;
 			}
 			else if (navMesh)
@@ -50,7 +50,7 @@ namespace SpaxUtils
 				// Set direction as target movement direction.
 				movementHandler.InputAxis = direction;
 				// Order NPC to move forwards towards target direction.
-				movementHandler.MovementInputRaw = Vector3.forward * speed;
+				movementHandler.InputRaw = Vector3.forward * speed;
 			}
 
 			return false;
@@ -90,10 +90,10 @@ namespace SpaxUtils
 		/// <summary>
 		/// Returns the closest <see cref="ITargetable"/>.
 		/// </summary>
-		public bool TryGetClosestTarget(IEnumerable<ITargetable> targetables, out ITargetable closest, out float distance)
+		public bool TryGetClosestTarget(IEnumerable<ITargetable> targetables, bool navmesh, out ITargetable closest, out float closestDistance)
 		{
 			closest = null;
-			distance = float.MaxValue;
+			closestDistance = float.MaxValue;
 
 			foreach (ITargetable targetable in targetables)
 			{
@@ -102,13 +102,11 @@ namespace SpaxUtils
 					continue;
 				}
 
-				// Utilize Look-direction. For player: camera direction. For NPC: facing direction.
-
-				float d = Distance(false, targetable.Position);
-				if (d < distance)
+				float distance = Distance(agent.GameObject.transform.position, targetable.Position, navmesh);
+				if (distance < closestDistance)
 				{
 					closest = targetable;
-					distance = d;
+					closestDistance = distance;
 				}
 			}
 
@@ -155,7 +153,9 @@ namespace SpaxUtils
 
 		public Vector3 GetTargetPosition(Vector3? target = null)
 		{
-			return target ?? agent.Targeter.Target.Position;
+			return target.HasValue ? target.Value :
+				agent.Targeter.Target != null ? agent.Targeter.Target.Position :
+				agent.GameObject.transform.position;
 		}
 	}
 }

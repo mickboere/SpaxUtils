@@ -42,7 +42,7 @@ namespace SpaxUtils.StateMachines
 
 			instance = (FlowGraph)graph.Copy();
 
-			// Collect starting states and create a flow layer for each.
+			// Collect starting-point-states and create a state machine layer for each.
 			List<FlowStateNode> startStates = instance.GetStartStates();
 			foreach (FlowStateNode startState in startStates)
 			{

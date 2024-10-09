@@ -30,9 +30,8 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public virtual IEntity Entity { get; private set; }
 
-		//[SerializeField, Randomizable, ReadOnly] private int seed;
-		//[SerializeField, ConstDropdown(typeof(IIdentificationIdentifiers), includeEmpty: true)] private string id;
-		[SerializeField, ReadOnly] private string id;
+		[SerializeField, ConstDropdown(typeof(IIdentificationIdentifiers), includeEmpty: true)] private string id;
+		//[SerializeField, ReadOnly] private string id;
 		[SerializeField] private string name;
 		[SerializeField, ConstDropdown(typeof(IIdentificationLabels))] private List<string> labels;
 

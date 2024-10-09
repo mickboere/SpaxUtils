@@ -3,7 +3,7 @@
 	/// <summary>
 	/// Rule interface containing a "Valid" bool and a "Validity" float amount.
 	/// </summary>
-	public interface IRule : IStateComponent
+	public interface IRule : IStateListener
 	{
 		/// <summary>
 		/// Does this rule meet the requirements?
@@ -15,5 +15,10 @@
 		/// Used to determine the correct transition when multiple transitions are valid.
 		/// </summary>
 		float Validity { get; }
+
+		/// <summary>
+		/// Whether this rule needs external callback (true) or if this rule is part of a component node that already receives callbacks (false).
+		/// </summary>
+		bool IsPureRule { get; }
 	}
 }

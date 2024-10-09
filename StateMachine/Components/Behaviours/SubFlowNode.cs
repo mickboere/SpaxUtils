@@ -12,6 +12,7 @@ namespace SpaxUtils.StateMachines
 
 		public bool Valid => !subFlow.Running;
 		public float Validity => 1f;
+		public virtual bool IsPureRule => false;
 
 		[SerializeField, Input(backingValue = ShowBackingValue.Never)] protected Connections.StateComponent inConnection;
 		[SerializeField, Input(backingValue = ShowBackingValue.Never)] protected Connections.Rule exitedFlowRule;

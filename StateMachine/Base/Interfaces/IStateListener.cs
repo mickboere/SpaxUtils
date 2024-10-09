@@ -1,9 +1,9 @@
 ﻿namespace SpaxUtils.StateMachines
 {
 	/// <summary>
-	/// State component interface, contains several callbacks relating to the current state.
+	/// Interface for objects that need to listen to callbacks relating to the current state.
 	/// </summary>
-	public interface IStateComponent
+	public interface IStateListener
 	{
 		/// <summary>
 		/// Called once before entering a state.

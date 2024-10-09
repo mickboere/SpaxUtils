@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using XNode;
 
@@ -6,9 +7,9 @@ namespace SpaxUtils.StateMachines
 {
 	/// <summary>
 	/// Abstract <see cref="Node"/> implementation for <see cref="StateMachines"/>.
-	/// Implements <see cref="IStateComponent"/>.
+	/// Implements <see cref="IStateListener"/>.
 	/// </summary>
-	public abstract class StateMachineNodeBase : Node, IStateComponent
+	public abstract class StateMachineNodeBase : Node, IStateListener
 	{
 		/// <summary>
 		/// Name string used in the editor.
@@ -55,11 +56,11 @@ namespace SpaxUtils.StateMachines
 		#region Connections
 
 		/// <summary>
-		/// Maps to <see cref="XNodeExtensions.GetInputNodes{T}(Node, string){T}(StateMachineNodeBase, string)"/>.
+		/// Maps to <see cref="XNodeExtensions.GetInputNodes{T}(Node, string, Func{T, bool})"/>.
 		/// </summary>
-		public List<T> GetInputNodes<T>(string port) where T : class
+		public List<T> GetInputNodes<T>(string port, Func<T, bool> evaluation = null) where T : class
 		{
-			return XNodeExtensions.GetInputNodes<T>(this, port);
+			return XNodeExtensions.GetInputNodes<T>(this, port, evaluation);
 		}
 
 		/// <summary>
@@ -71,15 +72,15 @@ namespace SpaxUtils.StateMachines
 		}
 
 		/// <summary>
-		/// Maps to <see cref="XNodeExtensions.GetOutputNodes{T}(StateMachineNodeBase, string)"/>.
+		/// Maps to <see cref="XNodeExtensions.GetOutputNodes{T}(Node, string, Func{T, bool})"/>.
 		/// </summary>
-		public List<T> GetOutputNodes<T>(string port) where T : class
+		public List<T> GetOutputNodes<T>(string port, Func<T, bool> evaluation = null) where T : class
 		{
-			return XNodeExtensions.GetOutputNodes<T>(this, port);
+			return XNodeExtensions.GetOutputNodes<T>(this, port, evaluation);
 		}
 
 		/// <summary>
-		/// Maps to <see cref="XNodeExtensions.GetOutputNode{T}(StateMachineNodeBase, string)"/>.
+		/// Maps to <see cref="XNodeExtensions.GetOutputNode{T}(Node, string)"/>.
 		/// </summary>
 		public T GetOutputNode<T>(string port) where T : class
 		{
@@ -88,9 +89,9 @@ namespace SpaxUtils.StateMachines
 
 		#endregion Connections
 
-		public IReadOnlyCollection<IStateComponent> GetComponents()
+		public IReadOnlyCollection<IStateListener> GetComponents()
 		{
-			return XNodeExtensions.GetAllOutputNodes(this).Cast<IStateComponent>().Where((c) => c is not IState).ToHashSet();
+			return XNodeExtensions.GetAllOutputNodes(this).Cast<IStateListener>().Where((c) => c is not IState).ToHashSet();
 		}
 	}
 }

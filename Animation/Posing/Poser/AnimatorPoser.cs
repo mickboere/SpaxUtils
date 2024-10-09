@@ -16,6 +16,7 @@ namespace SpaxUtils
 		[SerializeField] private PoserComponentSettings settings;
 		[SerializeField] private RuntimeAnimatorController animatorController;
 		[SerializeField] private int frameRate;
+		[SerializeField] private bool debug;
 
 		private AnimatorWrapper animatorWrapper;
 		private CallbackService callbackService;
@@ -180,7 +181,10 @@ namespace SpaxUtils
 					int toPoseIndex = (i + 1) * 2 - 1;
 					animatorWrapper.SetFloat(settings.GetInterpolationParam(toPoseIndex - 1, toPoseIndex), Control.Instructions[i].Transition.Transition);
 					animatorWrapper.SetFloat(settings.GetWeightParam(toPoseIndex - 1, toPoseIndex), Control.Instructions[i].Weight);
-					//SpaxDebug.Log("Apply Instruction", $"({settings.GetInterpolationParam(toPoseIndex - 1, toPoseIndex)} = {control.Instructions[i].Transition.Transition}, {settings.GetWeightParam(toPoseIndex - 1, toPoseIndex)} = {control.Instructions[i].Weight})");
+					if (debug)
+					{
+						SpaxDebug.Log("Apply Instruction", $"({settings.GetInterpolationParam(toPoseIndex - 1, toPoseIndex)} = {Control.Instructions[i].Transition.Transition}, {settings.GetWeightParam(toPoseIndex - 1, toPoseIndex)} = {Control.Instructions[i].Weight})");
+					}
 				}
 			}
 
@@ -191,7 +195,10 @@ namespace SpaxUtils
 					return;
 				}
 
-				//SpaxDebug.Log($"Apply Pose [{index}]", $"{poseName} = {pose.Clip.name}. {mirroringParam} = {pose.Mirror}");
+				if (debug)
+				{
+					SpaxDebug.Log($"Apply Pose [{index}]", $"{poseName} = {pose.Clip.name}. {mirroringParam} = {pose.Mirror}");
+				}
 				overrides[poseName] = pose.Clip;
 				animatorWrapper.SetFloat(mirroringParam, pose.Mirror ? 1f : 0f);
 			}
@@ -225,8 +232,11 @@ namespace SpaxUtils
 						weight *= totalWeight < 1f ? 1f - totalWeight : 0f;
 					}
 
-					//SpaxDebug.Log($"Add Instruction", $"prio={collection[i].prio}, weight={weight}, oldTotal={totalWeight}, newTotal={totalWeight + weight}\n" +
-					//	$"({collection[i].poser.Instructions[j].Transition.FromPose.Clip.name} <{collection[i].poser.Instructions[j].Weight}> {collection[i].poser.Instructions[j].Transition.ToPose.Clip.name})");
+					if (debug)
+					{
+						SpaxDebug.Log($"Add Instruction", $"prio={collection[i].prio}, weight={weight}, oldTotal={totalWeight}, newTotal={totalWeight + weight}\n" +
+							$"({collection[i].poser.Instructions[j].Transition.FromPose.Clip.name} <{collection[i].poser.Instructions[j].Weight}> {collection[i].poser.Instructions[j].Transition.ToPose.Clip.name})");
+					}
 
 					totalWeight += weight;
 
@@ -255,17 +265,12 @@ namespace SpaxUtils
 		{
 			if (animatorWrapper == null)
 			{
-				animatorWrapper = GetComponentInParent<AnimatorWrapper>();
+				animatorWrapper = gameObject.GetComponentRelative<AnimatorWrapper>();
 
 				if (animatorWrapper == null)
 				{
-					animatorWrapper = GetComponentInChildren<AnimatorWrapper>();
-
-					if (animatorWrapper == null)
-					{
-						SpaxDebug.Error("AnimatorPoser requires an AnimatorWrapper.");
-						return;
-					}
+					SpaxDebug.Error("AnimatorPoser requires an AnimatorWrapper.");
+					return;
 				}
 			}
 

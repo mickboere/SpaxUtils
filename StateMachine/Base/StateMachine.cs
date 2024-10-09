@@ -7,7 +7,7 @@ using UnityEngine;
 namespace SpaxUtils.StateMachines
 {
 	/// <summary>
-	/// A single state machine layer, always has a single active <see cref="IState"/> of which the <see cref="IStateComponent"/>s are run.
+	/// A single state machine layer, always has a single active <see cref="IState"/> of which the <see cref="IStateListener"/>s are run.
 	/// </summary>
 	public class StateMachine : IDisposable
 	{
@@ -259,10 +259,13 @@ namespace SpaxUtils.StateMachines
 			exiting = hierarchy.Except(newHierarchy).ToList();
 			entering = newHierarchy.Except(hierarchy).ToList();
 
+			// Exit old.
 			foreach (IState state in exiting)
 			{
 				state.OnExitingState();
 			}
+
+			// Enter new.
 			foreach (IState state in entering)
 			{
 				dependencyManager.Inject(state);

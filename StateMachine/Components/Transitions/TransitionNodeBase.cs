@@ -10,6 +10,8 @@ namespace SpaxUtils.StateMachines
 	{
 		public abstract bool Valid { get; }
 		public abstract float Validity { get; }
+		public virtual bool IsPureRule => false;
+
 		public virtual string NextState => _nextState == null ? null : _nextState.ID;
 		private IState _nextState;
 		public virtual float EntryProgress => 1f;

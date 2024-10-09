@@ -5,19 +5,19 @@ namespace SpaxUtils
 	public interface IAgentMovementHandler : IEntityComponent
 	{
 		/// <summary>
-		/// The forward axis in relation to the <see cref="MovementInputRaw"/>.
+		/// The forward axis in relation to the <see cref="InputRaw"/>.
 		/// </summary>
 		Vector3 InputAxis { get; set; }
 
 		/// <summary>
 		/// The current movement input. Can be set externally at any point to alter the Agent's desired movement.
 		/// </summary>
-		Vector3 MovementInputRaw { get; set; }
+		Vector3 InputRaw { get; set; }
 
 		/// <summary>
-		/// The current smoothed-out movement input. Get-only, updated once every fixed update using <see cref="MovementInputRaw"/>.
+		/// The current smoothed-out movement input. Get-only, updated once every fixed update using <see cref="InputRaw"/>.
 		/// </summary>
-		Vector3 MovementInputSmooth { get; }
+		Vector3 InputSmooth { get; }
 
 		/// <summary>
 		/// The agent's desired forward direction.

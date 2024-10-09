@@ -31,9 +31,9 @@ namespace SpaxUtils
 			base.Start();
 			callbackService.SubscribeUpdate(UpdateMode.FixedUpdate, this, OnUpdate);
 
-			Vector3 startVelocity = movementHandler.MovementInputRaw == Vector3.zero ?
+			Vector3 startVelocity = movementHandler.InputRaw == Vector3.zero ?
 				RigidbodyWrapper.Forward * dashSpeed :
-				Quaternion.LookRotation(movementHandler.InputAxis) * movementHandler.MovementInputRaw.normalized * dashSpeed;
+				Quaternion.LookRotation(movementHandler.InputAxis) * movementHandler.InputRaw.normalized * dashSpeed;
 			RigidbodyWrapper.Push(startVelocity);
 		}
 
@@ -79,7 +79,7 @@ namespace SpaxUtils
 				return;
 			}
 
-			Vector3 velocity = Quaternion.LookRotation(movementHandler.InputAxis) * movementHandler.MovementInputRaw * glideSpeed;
+			Vector3 velocity = Quaternion.LookRotation(movementHandler.InputAxis) * movementHandler.InputRaw * glideSpeed;
 			RigidbodyWrapper.ApplyMovement(velocity, controlForce, brakeForce, power, true);
 			movementHandler.UpdateRotation(delta, null, true);
 		}

@@ -173,13 +173,13 @@ namespace SpaxUtils
 		#region Components
 
 		/// <inheritdoc/>
-		public bool TryAddComponent(string id, IStateComponent component)
+		public bool TryAddComponent(string id, IStateListener component)
 		{
 			return EnsureState(id).TryAddComponent(component);
 		}
 
 		/// <inheritdoc/>
-		public bool TryRemoveComponent(string id, IStateComponent component)
+		public bool TryRemoveComponent(string id, IStateListener component)
 		{
 			return EnsureState(id).TryRemoveComponent(component);
 		}

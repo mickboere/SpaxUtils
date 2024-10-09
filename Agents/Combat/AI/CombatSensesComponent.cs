@@ -75,11 +75,11 @@ namespace SpaxUtils
 					agent.Targeter.SetTarget(agent.Mind.Motivation.target.GetEntityComponent<ITargetable>());
 				}
 			}
-			else
-			{
-				// There is no motivation target.
-				agent.Targeter.SetTarget(null);
-			}
+			//else
+			//{
+			//	// There is no motivation target.
+			//	agent.Targeter.SetTarget(null);
+			//}
 		}
 
 		private void OnMindUpdating(float delta)

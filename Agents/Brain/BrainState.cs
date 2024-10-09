@@ -16,23 +16,23 @@ namespace SpaxUtils
 		public IState DefaultChild => defaultChild != null && children.ContainsKey(defaultChild) ? children[defaultChild] : null;
 		public IReadOnlyDictionary<string, IState> Children => children;
 
-		public IReadOnlyCollection<IStateComponent> Components => components;
+		public IReadOnlyCollection<IStateListener> Components => components;
 
 		private string defaultChild;
 		private Dictionary<string, IState> children;
-		private List<IStateComponent> components;
+		private List<IStateListener> components;
 
 		private IDependencyManager dependencyManager;
 
 		public BrainState(string id,
 			IState parent = null, string defaultChild = null,
-			IEnumerable<IStateComponent> components = null)
+			IEnumerable<IStateListener> components = null)
 		{
 			ID = id;
 			SetParent(parent);
 			this.defaultChild = defaultChild;
 			children = new Dictionary<string, IState>();
-			this.components = components == null ? new List<IStateComponent>() : new List<IStateComponent>(components);
+			this.components = components == null ? new List<IStateListener>() : new List<IStateListener>(components);
 		}
 
 		public virtual void Dispose()
@@ -43,7 +43,7 @@ namespace SpaxUtils
 		public void InjectDependencies(IDependencyManager dependencyManager)
 		{
 			this.dependencyManager = dependencyManager;
-			foreach (IStateComponent component in components)
+			foreach (IStateListener component in components)
 			{
 				dependencyManager.Inject(component);
 			}
@@ -98,7 +98,7 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public virtual void OnEnteringState()
 		{
-			foreach (IStateComponent component in components)
+			foreach (IStateListener component in components)
 			{
 				component.OnEnteringState();
 			}
@@ -107,7 +107,7 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public virtual void WhileEnteringState(ITransition transition)
 		{
-			foreach (IStateComponent component in components)
+			foreach (IStateListener component in components)
 			{
 				component.WhileEnteringState(transition);
 			}
@@ -117,7 +117,7 @@ namespace SpaxUtils
 		public virtual void OnStateEntered()
 		{
 			Active = true;
-			foreach (IStateComponent component in components)
+			foreach (IStateListener component in components)
 			{
 				component.OnStateEntered();
 			}
@@ -126,7 +126,7 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public virtual void OnExitingState()
 		{
-			foreach (IStateComponent component in components)
+			foreach (IStateListener component in components)
 			{
 				component.OnExitingState();
 			}
@@ -135,7 +135,7 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public virtual void WhileExitingState(ITransition transition)
 		{
-			foreach (IStateComponent component in components)
+			foreach (IStateListener component in components)
 			{
 				component.WhileExitingState(transition);
 			}
@@ -145,7 +145,7 @@ namespace SpaxUtils
 		public virtual void OnStateExit()
 		{
 			Active = false;
-			foreach (IStateComponent component in components)
+			foreach (IStateListener component in components)
 			{
 				component.OnStateExit();
 			}
@@ -156,11 +156,11 @@ namespace SpaxUtils
 		#region Component Management
 
 		/// <summary>
-		/// Try to add a new <see cref="IStateComponent"/> to this state.
+		/// Try to add a new <see cref="IStateListener"/> to this state.
 		/// </summary>
-		/// <param name="component">The <see cref="IStateComponent"/> to attempt to add.</param>
+		/// <param name="component">The <see cref="IStateListener"/> to attempt to add.</param>
 		/// <returns>TRUE if it was able to be added, FALSE if it wasn't.</returns>
-		public bool TryAddComponent(IStateComponent component)
+		public bool TryAddComponent(IStateListener component)
 		{
 			if (component is IState state)
 			{
@@ -184,14 +184,14 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
-		/// Try to add a collection of new <see cref="IStateComponent"/>s to this state.
+		/// Try to add a collection of new <see cref="IStateListener"/>s to this state.
 		/// </summary>
-		/// <param name="components">The list of <see cref="IStateComponent"/>s to attempt to add.</param>
+		/// <param name="components">The list of <see cref="IStateListener"/>s to attempt to add.</param>
 		/// <returns>TRUE if it all components were successfully added, FALSE if one or multiple were not.</returns>
-		public bool TryAddComponents(IEnumerable<IStateComponent> components)
+		public bool TryAddComponents(IEnumerable<IStateListener> components)
 		{
 			bool success = true;
-			foreach (IStateComponent component in components)
+			foreach (IStateListener component in components)
 			{
 				if (!TryAddComponent(component))
 				{
@@ -203,11 +203,11 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
-		/// Try to remove a <see cref="IStateComponent"/> from this state.
+		/// Try to remove a <see cref="IStateListener"/> from this state.
 		/// </summary>
 		/// <param name="component"></param>
 		/// <returns></returns>
-		public bool TryRemoveComponent(IStateComponent component)
+		public bool TryRemoveComponent(IStateListener component)
 		{
 			if (components.Contains(component))
 			{
@@ -224,14 +224,14 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
-		/// Try to remove a collection of <see cref="IStateComponent"/>s from this state.
+		/// Try to remove a collection of <see cref="IStateListener"/>s from this state.
 		/// </summary>
-		/// <param name="components">The list of <see cref="IStateComponent"/>s to try and remove.</param>
+		/// <param name="components">The list of <see cref="IStateListener"/>s to try and remove.</param>
 		/// <returns>TRUE if it all components were successfully removed, FALSE if one or more were not.</returns>
-		public bool TryRemoveComponents(IEnumerable<IStateComponent> components)
+		public bool TryRemoveComponents(IEnumerable<IStateListener> components)
 		{
 			bool success = true;
-			foreach (IStateComponent component in components)
+			foreach (IStateListener component in components)
 			{
 				if (!TryRemoveComponent(component))
 				{

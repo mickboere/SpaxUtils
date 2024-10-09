@@ -19,10 +19,19 @@ namespace SpaxUtils
 		private Vector3 _inputAxis = Vector3.forward;
 
 		/// <inheritdoc/>
-		public Vector3 MovementInputRaw { get; set; }
+		public Vector3 InputRaw
+		{
+			get { return _inputRaw; }
+			set
+			{
+				_inputRaw = value;
+				//SpaxDebug.Log($"[{Agent.Identification.Name}] Set InputRaw", value.ToString());
+			}
+		}
+		private Vector3 _inputRaw;
 
 		/// <inheritdoc/>
-		public Vector3 MovementInputSmooth { get; private set; }
+		public Vector3 InputSmooth { get; private set; }
 
 		/// <inheritdoc/>
 		public Vector3 TargetDirection
@@ -94,24 +103,24 @@ namespace SpaxUtils
 
 			// Calculate appropriate input value according to stats.
 			Vector3 input = Entity.TryGetStat(sprintCost.Stat, out EntityStat cost) ?
-					(cost > 0f || MovementInputRaw == Vector3.zero ? MovementInputRaw : MovementInputRaw.ClampMagnitude(tiredInputLimiter)) :
-					MovementInputRaw;
+					(cost > 0f || InputRaw == Vector3.zero ? InputRaw : InputRaw.ClampMagnitude(tiredInputLimiter)) :
+					InputRaw;
 			// Update smooth input value.
-			MovementInputSmooth = inputHelper.Update(input, delta);
+			InputSmooth = inputHelper.Update(input, delta);
 
 			if (!targetVelocity.HasValue)
 			{
 				// Calculate target velocity from current input.
-				rigidbodyWrapper.TargetVelocity = MovementInputRaw == Vector3.zero ? Vector3.zero : Quaternion.LookRotation(InputAxis) * MovementInputSmooth * MovementSpeed;
+				rigidbodyWrapper.TargetVelocity = InputRaw == Vector3.zero ? Vector3.zero : Quaternion.LookRotation(InputAxis) * InputSmooth * MovementSpeed;
 			}
 
 			if (!grounder.Sliding)
 			{
 				rigidbodyWrapper.ApplyMovement(targetVelocity, controlForce, brakeForce, power, ignoreControl, grounder.Mobility);
 
-				if (MovementInputRaw.magnitude > 1.01f)
+				if (InputRaw.magnitude > 1.01f)
 				{
-					Entity.TryApplyStatCost(sprintCost, rigidbodyWrapper.Speed * rigidbodyWrapper.Mass * (MovementInputRaw.magnitude - 1f) * delta, out bool drained);
+					Entity.TryApplyStatCost(sprintCost, rigidbodyWrapper.Speed * rigidbodyWrapper.Mass * (InputRaw.magnitude - 1f) * delta, out bool drained);
 				}
 			}
 			//else
@@ -122,7 +131,7 @@ namespace SpaxUtils
 			if (!LockRotation)
 			{
 				TargetDirection = Vector3.Lerp(
-					Vector3.Lerp(Transform.forward, rigidbodyWrapper.Velocity, MovementInputRaw.magnitude.Clamp01()),
+					Vector3.Lerp(Transform.forward, rigidbodyWrapper.Velocity, InputRaw.magnitude.Clamp01()),
 					rigidbodyWrapper.TargetVelocity,
 					rigidbodyWrapper.Grip);
 			}
