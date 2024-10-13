@@ -11,6 +11,9 @@ namespace SpaxUtils
 	public abstract class InteractableBase : EntityComponentBase, IInteractable
 	{
 		/// <inheritdoc/>
+		public event Action<IInteraction> InteractableEvent;
+
+		/// <inheritdoc/>
 		public virtual Vector3 InteractablePoint => targetable == null ? transform.position : targetable.Center;
 
 		/// <inheritdoc/>
@@ -34,23 +37,24 @@ namespace SpaxUtils
 		}
 
 		/// <inheritdoc/>
-		public abstract bool Supports(string interactionType);
+		public abstract bool IsInteractable(string interactionType);
 
 		/// <inheritdoc/>
 		public bool TryInteract(IInteraction interaction)
 		{
-			if (Interactable && Supports(interaction.Type))
+			if (Interactable && IsInteractable(interaction.Type) && OnTryInteract(interaction))
 			{
-				return OnInteract(interaction);
+				InteractableEvent?.Invoke(interaction);
+				return true;
 			}
 
-			interaction.Conclude(false);
+			//interaction.Conclude(false);
 			return false;
 		}
 
 		/// <summary>
 		/// Called from <see cref="TryInteract(IInteraction)"/> if interaction type is supported.
 		/// </summary>
-		protected abstract bool OnInteract(IInteraction interaction);
+		protected abstract bool OnTryInteract(IInteraction interaction);
 	}
 }

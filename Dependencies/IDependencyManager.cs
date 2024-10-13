@@ -82,6 +82,9 @@ namespace SpaxUtils
 
 		#endregion
 
+		/// <summary>
+		/// Returns a string summarizing all data stored within this dependency manager.
+		/// </summary>
 		string GetDebugOutput();
 	}
 }

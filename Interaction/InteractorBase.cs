@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using System;
+using UnityEngine;
 
 namespace SpaxUtils
 {
@@ -7,6 +8,9 @@ namespace SpaxUtils
 	/// </summary>
 	public abstract class InteractorBase : EntityComponentBase, IInteractor
 	{
+		/// <inheritdoc/>
+		public event Action<IInteraction> InteractorEvent;
+
 		/// <inheritdoc/>
 		public virtual Vector3 InteractorPoint => targetable == null ? transform.position : targetable.Center;
 
@@ -22,24 +26,25 @@ namespace SpaxUtils
 		}
 
 		/// <inheritdoc/>
-		public abstract bool Able(string interactionType);
+		public abstract bool CanInteract(string interactionType);
 
 		/// <inheritdoc/>
-		public bool AttemptInteraction(string interactionType, IInteractable interactable, object data, out IInteraction interaction)
+		public bool TryCreateInteraction(string interactionType, IInteractable interactable, out IInteraction interaction, object data = null)
 		{
 			interaction = null;
-			if (Able(interactionType) && interactable.Interactable)
+			if (CanInteract(interactionType) && interactable.Interactable && CreateInteraction(interactionType, interactable, data, out interaction))
 			{
-				return Attempt(interactionType, interactable, data, out interaction);
+				InteractorEvent?.Invoke(interaction);
+				return true;
 			}
 
 			return false;
 		}
 
 		/// <summary>
-		/// Called from <see cref="AttemptInteraction(string, IInteractable, object, out IInteraction)"/> if <see cref="Able(string)"/> and
+		/// Called from <see cref="AttemptInteraction(string, IInteractable, object, out IInteraction)"/> if <see cref="CanInteract(string)"/> and
 		/// <paramref name="interactable"/>.<see cref="IInteractable.IsInteractable(IInteractor, string)"/> return true.
 		/// </summary>
-		protected abstract bool Attempt(string interactionType, IInteractable interactable, object data, out IInteraction interaction);
+		protected abstract bool CreateInteraction(string interactionType, IInteractable interactable, object data, out IInteraction interaction);
 	}
 }

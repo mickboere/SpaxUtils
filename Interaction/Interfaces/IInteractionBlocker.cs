@@ -21,6 +21,6 @@ namespace SpaxUtils
 		/// <summary>
 		/// The reason for blocking these interactions.
 		/// </summary>
-		string Reason { get; }
+		string BlockReason { get; }
 	}
 }

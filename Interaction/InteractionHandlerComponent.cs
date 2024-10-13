@@ -11,13 +11,19 @@ namespace SpaxUtils
 	public class InteractionHandlerComponent : EntityComponentBase, IInteractionHandler
 	{
 		/// <inheritdoc/>
-		public event Action<IInteraction> EnteredInteractionEvent;
+		public event Action<IInteraction> InteractableEvent;
+
+		/// <inheritdoc/>
+		public event Action<IInteraction> InteractorEvent;
+
+		/// <inheritdoc/>
+		public event Action<IInteraction> InteractionEvent;
 
 		/// <inheritdoc/>
 		public virtual Vector3 InteractorPoint => targetable == null ? Entity.GameObject.transform.position : targetable.Center;
 
 		/// <inheritdoc/>
-		public virtual float InteractorRange => targetable == null ? defaultInteractorRange : targetable.Size.Max() * 0.75f;
+		public virtual float InteractorRange => targetable == null ? defaultInteractorRange : targetable.Size.Max() * 0.8f;
 
 		/// <inheritdoc/>
 		public virtual Vector3 InteractablePoint => targetable == null ? transform.position : targetable.Center;
@@ -31,9 +37,9 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public string[] InteractableTypes { get; protected set; } = new string[] { };
 
-		protected IList<IInteractor> interactors;
-		protected IList<IInteractable> interactables;
-		protected IList<IInteractionBlocker> blockers;
+		private List<IInteractor> interactors = new List<IInteractor>();
+		private List<IInteractable> interactables = new List<IInteractable>();
+		private List<IInteractionBlocker> blockers;
 
 		[SerializeField, Tooltip("Picked if there is no targetable attached to the entity.")] private float defaultInteractorRange = 1.5f;
 
@@ -41,116 +47,22 @@ namespace SpaxUtils
 
 		public void InjectDependencies(IInteractor[] interactors, IInteractable[] interactables, IInteractionBlocker[] blockers, ITargetable targetable)
 		{
-			this.interactors = new List<IInteractor>(interactors);
-			this.interactors.Remove(this);
-			this.interactables = new List<IInteractable>(interactables);
-			this.interactables.Remove(this);
-			this.blockers = new List<IInteractionBlocker>(blockers);
-			this.targetable = targetable;
-		}
-
-		/// <inheritdoc/>
-		public bool Supports(string interactionType)
-		{
-			return interactables.Any((i) => i.Supports(interactionType));
-		}
-
-		/// <inheritdoc/>
-		public bool TryInteract(IInteraction interaction)
-		{
-			if (!Interactable)
+			foreach (IInteractor interactor in interactors)
 			{
-				return false;
+				if (interactor != this)
+				{
+					AddInteractor(interactor);
+				}
 			}
-
-			// Attempt the interaction with each handler until one succeeds.
 			foreach (IInteractable interactable in interactables)
 			{
-				if (interactable.TryInteract(interaction))
+				if (interactable != this)
 				{
-					return true;
+					AddInteractable(interactable);
 				}
 			}
-
-			return false;
-		}
-
-		/// <inheritdoc/>
-		public bool Able(string interactionType)
-		{
-			// Check for blockers.
-			if (GetBlockers(interactionType).Count > 0)
-			{
-				return false;
-			}
-
-			// Ask of each handler if they are able until one accepts.
-			foreach (IInteractor interactor in interactors)
-			{
-				if (interactor.Able(interactionType))
-				{
-					return true;
-				}
-			}
-
-			return false;
-		}
-
-		/// <inheritdoc/>
-		public bool AttemptInteraction(string interactionType, IInteractable interactable, object data, out IInteraction interaction)
-		{
-			interaction = null;
-			if (!Able(interactionType))
-			{
-				return false;
-			}
-
-			// Ask each handler to set up the interaction until one succeeds.
-			foreach (IInteractor interactor in interactors)
-			{
-				if (interactor.AttemptInteraction(interactionType, interactable, data, out interaction))
-				{
-					return true;
-				}
-			}
-
-			return false;
-		}
-
-		/// <inheritdoc/>
-		public void AddInteractor(IInteractor interactor)
-		{
-			if (!interactors.Contains(interactor))
-			{
-				interactors.Add(interactor);
-			}
-		}
-
-		/// <inheritdoc/>
-		public void RemoveInteractor(IInteractor interactor)
-		{
-			if (interactors.Contains(interactor))
-			{
-				interactors.Remove(interactor);
-			}
-		}
-
-		/// <inheritdoc/>
-		public void AddInteractable(IInteractable interactable)
-		{
-			if (!interactables.Contains(interactable))
-			{
-				interactables.Add(interactable);
-			}
-		}
-
-		/// <inheritdoc/>
-		public void RemoveInteractable(IInteractable interactable)
-		{
-			if (interactables.Contains(interactable))
-			{
-				interactables.Remove(interactable);
-			}
+			this.blockers = new List<IInteractionBlocker>(blockers);
+			this.targetable = targetable;
 		}
 
 		/// <inheritdoc/>
@@ -181,6 +93,134 @@ namespace SpaxUtils
 		public bool IsBlocked(string interactionType)
 		{
 			return GetBlockers(interactionType).Count > 0;
+		}
+
+		#region Interactor
+
+		/// <inheritdoc/>
+		public bool CanInteract(string interactionType)
+		{
+			// Check for blockers.
+			if (IsBlocked(interactionType))
+			{
+				return false;
+			}
+
+			// Ask of each handler if they are able until one accepts.
+			foreach (IInteractor interactor in interactors)
+			{
+				if (interactor.CanInteract(interactionType))
+				{
+					return true;
+				}
+			}
+
+			return false;
+		}
+
+		/// <inheritdoc/>
+		public bool TryCreateInteraction(string interactionType, IInteractable interactable, out IInteraction interaction, object data = null)
+		{
+			interaction = null;
+			if (!CanInteract(interactionType))
+			{
+				return false;
+			}
+
+			// Ask each handler to set up the interaction until one succeeds.
+			foreach (IInteractor interactor in interactors)
+			{
+				if (interactor.TryCreateInteraction(interactionType, interactable, out interaction, data))
+				{
+					return true;
+				}
+			}
+
+			return false;
+		}
+
+		/// <inheritdoc/>
+		public void AddInteractor(IInteractor interactor)
+		{
+			if (!interactors.Contains(interactor))
+			{
+				interactors.Add(interactor);
+				interactor.InteractorEvent += OnInteractorEvent;
+			}
+		}
+
+		/// <inheritdoc/>
+		public void RemoveInteractor(IInteractor interactor)
+		{
+			if (interactors.Contains(interactor))
+			{
+				interactors.Remove(interactor);
+				interactor.InteractorEvent -= OnInteractorEvent;
+			}
+		}
+
+		#endregion
+
+		#region Interactable
+
+		/// <inheritdoc/>
+		public bool IsInteractable(string interactionType)
+		{
+			return interactables.Any((i) => i.IsInteractable(interactionType));
+		}
+
+		/// <inheritdoc/>
+		public bool TryInteract(IInteraction interaction)
+		{
+			if (!Interactable)
+			{
+				return false;
+			}
+
+			// Attempt the interaction with each handler until one succeeds.
+			foreach (IInteractable interactable in interactables)
+			{
+				if (interactable.TryInteract(interaction))
+				{
+					return true;
+				}
+			}
+
+			return false;
+		}
+
+		/// <inheritdoc/>
+		public void AddInteractable(IInteractable interactable)
+		{
+			if (!interactables.Contains(interactable))
+			{
+				interactables.Add(interactable);
+				interactable.InteractableEvent += OnInteractableEvent;
+			}
+		}
+
+		/// <inheritdoc/>
+		public void RemoveInteractable(IInteractable interactable)
+		{
+			if (interactables.Contains(interactable))
+			{
+				interactables.Remove(interactable);
+				interactable.InteractableEvent -= OnInteractableEvent;
+			}
+		}
+
+		#endregion
+
+		private void OnInteractableEvent(IInteraction interaction)
+		{
+			InteractableEvent?.Invoke(interaction);
+			InteractionEvent?.Invoke(interaction);
+		}
+
+		private void OnInteractorEvent(IInteraction interaction)
+		{
+			InteractorEvent?.Invoke(interaction);
+			InteractionEvent?.Invoke(interaction);
 		}
 	}
 }

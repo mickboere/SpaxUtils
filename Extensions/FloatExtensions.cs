@@ -119,6 +119,22 @@ namespace SpaxUtils
 			return curve.Evaluate(f);
 		}
 
+		public static float Decimal(this float f, DecimalMethod method)
+		{
+			switch (method)
+			{
+				case DecimalMethod.Floor:
+					return Mathf.Floor(f);
+				case DecimalMethod.Round:
+					return Mathf.Round(f);
+				case DecimalMethod.Ceil:
+					return Mathf.Ceil(f);
+				case DecimalMethod.Decimal:
+				default:
+					return f;
+			}
+		}
+
 		#region Easing functions
 
 		#region Sine

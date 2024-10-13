@@ -51,7 +51,7 @@ namespace SpaxUtils
 		}
 
 		/// <inheritdoc/>
-		public override bool Supports(string interactionType)
+		public override bool IsInteractable(string interactionType)
 		{
 			switch (interactionType)
 			{
@@ -64,7 +64,7 @@ namespace SpaxUtils
 		}
 
 		/// <inheritdoc/>
-		protected override bool OnInteract(IInteraction interaction)
+		protected override bool OnTryInteract(IInteraction interaction)
 		{
 			interaction.Data = RuntimeItemData;
 			interaction.Conclude(true);

@@ -24,7 +24,16 @@ namespace SpaxUtils
 		public object Data { get; set; }
 
 		/// <inheritdoc/>
-		public bool Concluded { get; private set; }
+		public bool Concluded
+		{
+			get { return _concluded; }
+			set
+			{
+				SpaxDebug.Error("Set Interaction.Concluded", this.ToString());
+				_concluded = value;
+			}
+		}
+		private bool _concluded;
 
 		/// <inheritdoc/>
 		public bool Success { get; private set; }
@@ -63,6 +72,11 @@ namespace SpaxUtils
 			{
 				Conclude(false);
 			}
+		}
+
+		public override string ToString()
+		{
+			return $"Interaction(type={Type}, interactor={Interactor.Entity.Identification.Name}, interactable={Interactable.Entity.Identification.Name}, data={Data}, concluded={Concluded}, success={Success})";
 		}
 	}
 }

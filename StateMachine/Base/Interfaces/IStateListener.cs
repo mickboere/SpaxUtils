@@ -5,6 +5,16 @@
 	/// </summary>
 	public interface IStateListener
 	{
+		public enum Callback
+		{
+			OnEnteringState,
+			WhileEnteringState,
+			OnStateEntered,
+			OnExitingState,
+			WhileExitingState,
+			OnStateExit
+		}
+
 		/// <summary>
 		/// Called once before entering a state.
 		/// </summary>

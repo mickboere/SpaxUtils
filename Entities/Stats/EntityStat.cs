@@ -22,9 +22,10 @@ namespace SpaxUtils
 			}
 			set
 			{
-				if (!data.Value.Equals(value))
+				float clamp = ClampValue(value);
+				if (!data.Value.Equals(clamp))
 				{
-					data.Value = value;
+					data.Value = clamp;
 					// No need to call ValueChanged() here as that will happen automatically after the data's ValueChangedEvent.
 				}
 			}
@@ -56,28 +57,7 @@ namespace SpaxUtils
 
 		public override float GetValue()
 		{
-			float value = base.GetValue();
-			if (minValue.HasValue && value < minValue.Value)
-			{
-				value = minValue.Value;
-			}
-			if (maxValue.HasValue && value > maxValue.Value)
-			{
-				value = maxValue.Value;
-			}
-
-			switch (decimals)
-			{
-				case DecimalMethod.Floor:
-					return Mathf.Floor(value);
-				case DecimalMethod.Round:
-					return Mathf.Round(value);
-				case DecimalMethod.Ceil:
-					return Mathf.Ceil(value);
-				case DecimalMethod.Decimal:
-				default:
-					return value;
-			}
+			return ClampValue(base.GetValue()).Decimal(decimals);
 		}
 
 		public override void Dispose()
@@ -120,6 +100,19 @@ namespace SpaxUtils
 		}
 
 		#endregion Damage
+
+		private float ClampValue(float value)
+		{
+			if (minValue.HasValue && value < minValue.Value)
+			{
+				value = minValue.Value;
+			}
+			else if (maxValue.HasValue && value > maxValue.Value)
+			{
+				value = maxValue.Value;
+			}
+			return value;
+		}
 
 		private void OnDataValueChanged(object newValue)
 		{

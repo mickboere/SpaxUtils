@@ -30,6 +30,8 @@ namespace SpaxUtils.StateMachines
 		[SerializeField, Input(backingValue = ShowBackingValue.Never)] private Connections.State inConnection;
 		[SerializeField, Output(backingValue = ShowBackingValue.Never, typeConstraint = TypeConstraint.Inherited)] private Connections.StateComponent components;
 
+		private StateCallbackHelper callbackHelper;
+
 		protected override void Init()
 		{
 			EnsureUniqueId();
@@ -41,11 +43,8 @@ namespace SpaxUtils.StateMachines
 			_parent = GetInputNode<IState>(nameof(inConnection));
 			_children = GetAllChildStates().ToDictionary((s) => s.ID);
 			_components = GetComponents().ToList();
-
-			foreach (IStateListener component in _components)
-			{
-				dependencyManager.Inject(component);
-			}
+			callbackHelper = new StateCallbackHelper(dependencyManager, _components);
+			callbackHelper.Inject();
 		}
 
 		#region Callbacks
@@ -54,20 +53,14 @@ namespace SpaxUtils.StateMachines
 		public override void OnEnteringState()
 		{
 			base.OnEnteringState();
-			foreach (IStateListener component in _components)
-			{
-				component.OnEnteringState();
-			}
+			callbackHelper.OnEnteringState();
 		}
 
 		/// <inheritdoc/>
 		public override void WhileEnteringState(ITransition transition)
 		{
 			base.WhileEnteringState(transition);
-			foreach (IStateListener component in _components)
-			{
-				component.WhileEnteringState(transition);
-			}
+			callbackHelper.WhileEnteringState(transition);
 		}
 
 		/// <inheritdoc/>
@@ -75,30 +68,21 @@ namespace SpaxUtils.StateMachines
 		{
 			base.OnStateEntered();
 			Active = true;
-			foreach (IStateListener component in _components)
-			{
-				component.OnStateEntered();
-			}
+			callbackHelper.OnStateEntered();
 		}
 
 		/// <inheritdoc/>
 		public override void OnExitingState()
 		{
 			base.OnExitingState();
-			foreach (IStateListener component in _components)
-			{
-				component.OnExitingState();
-			}
+			callbackHelper.OnExitingState();
 		}
 
 		/// <inheritdoc/>
 		public override void WhileExitingState(ITransition transition)
 		{
 			base.WhileExitingState(transition);
-			foreach (IStateListener component in _components)
-			{
-				component.WhileExitingState(transition);
-			}
+			callbackHelper.WhileExitingState(transition);
 		}
 
 		/// <inheritdoc/>
@@ -106,13 +90,10 @@ namespace SpaxUtils.StateMachines
 		{
 			base.OnStateExit();
 			Active = false;
-			foreach (IStateListener component in _components)
-			{
-				component.OnStateExit();
-			}
+			callbackHelper.OnStateExit();
 		}
 
-		#endregion
+		#endregion Callbacks
 
 		public void SetParent(IState parent)
 		{

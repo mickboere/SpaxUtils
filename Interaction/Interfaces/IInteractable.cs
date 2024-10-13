@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace SpaxUtils
@@ -8,6 +9,11 @@ namespace SpaxUtils
 	/// </summary>
 	public interface IInteractable : IEntityComponent
 	{
+		/// <summary>
+		/// Invoked when this interactable enters an interaction.
+		/// </summary>
+		event Action<IInteraction> InteractableEvent;
+
 		/// <summary>
 		/// The interactor's interaction point in world-space.
 		/// </summary>
@@ -33,7 +39,7 @@ namespace SpaxUtils
 		/// </summary>
 		/// <param name="interactionType"></param>
 		/// <returns></returns>
-		bool Supports(string interactionType);
+		bool IsInteractable(string interactionType);
 
 		/// <summary>
 		/// Try to interact with this object using <paramref name="interaction"/>.

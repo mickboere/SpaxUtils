@@ -51,5 +51,33 @@ namespace SpaxUtils.StateMachines
 			}
 			return list;
 		}
+
+		public static void Invoke(this IStateListener listener, IStateListener.Callback method, ITransition transition = null)
+		{
+			switch (method)
+			{
+				case IStateListener.Callback.OnEnteringState:
+					listener.OnEnteringState();
+					break;
+				case IStateListener.Callback.WhileEnteringState:
+					listener.WhileEnteringState(transition);
+					break;
+				case IStateListener.Callback.OnStateEntered:
+					listener.OnStateEntered();
+					break;
+				case IStateListener.Callback.OnExitingState:
+					listener.OnExitingState();
+					break;
+				case IStateListener.Callback.WhileExitingState:
+					listener.WhileExitingState(transition);
+					break;
+				case IStateListener.Callback.OnStateExit:
+					listener.OnStateExit();
+					break;
+				default:
+					SpaxDebug.Error("Callback method extension is not implemented for:", method.ToString());
+					return;
+			}
+		}
 	}
 }

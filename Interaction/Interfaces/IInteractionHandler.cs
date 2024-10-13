@@ -10,6 +10,11 @@ namespace SpaxUtils
 	public interface IInteractionHandler : IInteractor, IInteractable
 	{
 		/// <summary>
+		/// Invoked when either an <see cref="IInteractable"/> or <see cref="IInteractor"/> enters an interaction.
+		/// </summary>
+		event Action<IInteraction> InteractionEvent;
+
+		/// <summary>
 		/// Adds an <see cref="IInteractor"/> to this component.
 		/// </summary>
 		void AddInteractor(IInteractor interactor);

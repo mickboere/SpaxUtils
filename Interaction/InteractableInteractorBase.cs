@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using System;
+using UnityEngine;
 
 namespace SpaxUtils
 {
@@ -8,30 +9,33 @@ namespace SpaxUtils
 	public abstract class InteractableInteractorBase : InteractableBase, IInteractor
 	{
 		/// <inheritdoc/>
+		public event Action<IInteraction> InteractorEvent;
+
+		/// <inheritdoc/>
 		public virtual Vector3 InteractorPoint => InteractablePoint;
 
 		/// <inheritdoc/>
 		public virtual float InteractorRange => targetable == null ? 1f : targetable.Size.Max();
 
 		/// <inheritdoc/>
-		public abstract bool Able(string interactionType);
+		public abstract bool CanInteract(string interactionType);
 
 		/// <inheritdoc/>
-		public bool AttemptInteraction(string interactionType, IInteractable interactable, object data, out IInteraction interaction)
+		public bool TryCreateInteraction(string interactionType, IInteractable interactable,  out IInteraction interaction, object data = null)
 		{
 			interaction = null;
-			if (Able(interactionType) && interactable.Interactable)
+			if (CanInteract(interactionType) && interactable.Interactable)
 			{
-				return OnAttempt(interactionType, interactable, data, out interaction);
+				return OnTryCreateInteraction(interactionType, interactable, out interaction, data);
 			}
 
 			return false;
 		}
 
 		/// <summary>
-		/// Called from <see cref="AttemptInteraction(string, IInteractable, object, out IInteraction)"/> if <see cref="Able(string)"/> and
-		/// <paramref name="interactable"/>.<see cref="IInteractable.Supports(string)"/> return true.
+		/// Called from <see cref="AttemptInteraction(string, IInteractable, object, out IInteraction)"/> if <see cref="CanInteract(string)"/> and
+		/// <paramref name="interactable"/>.<see cref="IInteractable.IsInteractable(string)"/> return true.
 		/// </summary>
-		protected abstract bool OnAttempt(string interactionType, IInteractable interactable, object data, out IInteraction interaction);
+		protected abstract bool OnTryCreateInteraction(string interactionType, IInteractable interactable, out IInteraction interaction, object data = null);
 	}
 }

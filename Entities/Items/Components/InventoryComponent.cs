@@ -49,7 +49,7 @@ namespace SpaxUtils
 			Inventory.Dispose();
 		}
 
-		public override bool Supports(string interactionType)
+		public override bool IsInteractable(string interactionType)
 		{
 			return interactionType == BaseInteractionTypes.INVENTORY;
 		}
@@ -58,7 +58,7 @@ namespace SpaxUtils
 		/// <summary>
 		/// Attempts to retrieve <see cref="IRuntimeItemData"/> from the interaction data and adds it to the inventory.
 		/// </summary>
-		protected override bool OnInteract(IInteraction interaction)
+		protected override bool OnTryInteract(IInteraction interaction)
 		{
 			if (interaction.Data is IRuntimeItemData itemData)
 			{
@@ -71,13 +71,13 @@ namespace SpaxUtils
 		}
 
 		/// <inheritdoc/>
-		public override bool Able(string interactionType)
+		public override bool CanInteract(string interactionType)
 		{
 			return interactionType == BaseInteractionTypes.INVENTORY;
 		}
 
 		/// <inheritdoc/>
-		protected override bool OnAttempt(string interactionType, IInteractable interactable, object data, out IInteraction interaction)
+		protected override bool OnTryCreateInteraction(string interactionType, IInteractable interactable, out IInteraction interaction, object data = null)
 		{
 			SpaxDebug.Log($"OnAttempt {interactionType}");
 

@@ -297,13 +297,13 @@ namespace SpaxUtils
 		#region IInteractor
 
 		/// <inheritdoc/>
-		public override bool Able(string interactionType)
+		public override bool CanInteract(string interactionType)
 		{
 			return interactionType == BaseInteractionTypes.EQUIP;
 		}
 
 		/// <inheritdoc/>
-		protected override bool Attempt(string interactionType, IInteractable interactable, object data, out IInteraction interaction)
+		protected override bool CreateInteraction(string interactionType, IInteractable interactable, object data, out IInteraction interaction)
 		{
 			// Create and execute interaction.
 			interaction = new Interaction(interactionType, this, interactable, null,

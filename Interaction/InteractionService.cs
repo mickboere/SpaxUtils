@@ -47,7 +47,7 @@ namespace SpiritAxis
 				}
 
 				// Ask interactable for consent.
-				if (interactable.Interactable && (string.IsNullOrEmpty(interactionType) || interactable.Supports(interactionType)))
+				if (interactable.Interactable && (string.IsNullOrEmpty(interactionType) || interactable.IsInteractable(interactionType)))
 				{
 					// TODO: Develop "InteractionBridge" for needing to interact over a counter or some other gap over which interaction should still be possible.
 					float dist = Vector3.Distance(interactor.InteractorPoint, interactable.InteractablePoint);
