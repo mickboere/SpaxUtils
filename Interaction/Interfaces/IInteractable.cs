@@ -25,11 +25,6 @@ namespace SpaxUtils
 		float InteractableRange { get; }
 
 		/// <summary>
-		/// Whether this <see cref="IInteractable"/> is currently able to be interacted with.
-		/// </summary>
-		bool Interactable { get; }
-
-		/// <summary>
 		/// Gets all interaction types this interactable supports.
 		/// </summary>
 		string[] InteractableTypes { get; }

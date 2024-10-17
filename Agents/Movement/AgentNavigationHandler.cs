@@ -9,7 +9,7 @@ namespace SpaxUtils
 	/// Agent component that handles NPC movement and navigation.
 	/// </summary>
 	[DefaultExecutionOrder(29)]
-	public class AgentNavigationHandler : EntityComponentBase, IDependency
+	public class AgentNavigationHandler : EntityComponentMono, IDependency
 	{
 		private IAgent agent;
 		private IAgentMovementHandler movementHandler;

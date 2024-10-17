@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace SpaxUtils
 {
-	public class ProcLeaningAnimation : EntityComponentBase
+	public class ProcLeaningAnimation : EntityComponentMono
 	{
 		[SerializeField] private float sensitivity = 30f;
 		[SerializeField] private float speed = 6f;

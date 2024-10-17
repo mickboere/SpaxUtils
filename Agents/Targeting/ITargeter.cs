@@ -25,9 +25,19 @@ namespace SpaxUtils
 		ITargetable Target { get; }
 
 		/// <summary>
+		/// The <see cref="Target"/> as an <see cref="IEntity"/>, if possible.
+		/// </summary>
+		IEntity TargetEntity => Target == null ? null : Target.Entity;
+
+		/// <summary>
+		/// The <see cref="Target"/> as an <see cref="IAgent"/>, if possible.
+		/// </summary>
+		IAgent TargetAgent => Target == null ? null : Target.Entity is IAgent agent ? agent : null;
+
+		/// <summary>
 		/// Whether this targeter currently has a target.
 		/// </summary>
-		bool Targeting { get; }
+		bool Targeting => Target != null;
 
 		/// <summary>
 		/// A collection of all the agent's enemy targets.

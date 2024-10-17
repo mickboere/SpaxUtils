@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace SpaxUtils
 {
-	public class AgentStunHandlerComponent : EntityComponentBase, IStunHandler
+	public class AgentStunHandlerComponent : EntityComponentMono, IStunHandler
 	{
 		public event Action EnteredStunEvent;
 		public event Action ExitedStunEvent;
@@ -121,7 +121,7 @@ namespace SpaxUtils
 			this.stunHit = stunHit;
 			stunTimer = new TimerStruct(minStunTime);
 			controlMod.SetValue(0f);
-			agent.Actor.Blocked = true;
+			agent.Actor.AddBlocker(this);
 			getUpTimer = null;
 			crashTimer = null;
 
@@ -143,7 +143,7 @@ namespace SpaxUtils
 			armsMod.SetValue(1f);
 			gravityMod.SetValue(1f);
 
-			agent.Actor.Blocked = false;
+			agent.Actor.RemoveBlocker(this);
 
 			ExitedStunEvent?.Invoke();
 		}

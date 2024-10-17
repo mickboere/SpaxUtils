@@ -3,9 +3,9 @@
 namespace SpaxUtils
 {
 	/// <summary>
-	/// Base implementation for <see cref="IEntityComponent"/>.
+	/// Base monobehaviour implementation for <see cref="IEntityComponent"/>.
 	/// </summary>
-	public abstract class EntityComponentBase : MonoBehaviour, IEntityComponent
+	public abstract class EntityComponentMono : MonoBehaviour, IEntityComponent
 	{
 		public GameObject GameObject => Entity.GameObject;
 		public Transform Transform => Entity.GameObject.transform;

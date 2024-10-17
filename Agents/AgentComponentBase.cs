@@ -1,9 +1,9 @@
 namespace SpaxUtils
 {
 	/// <summary>
-	/// Base class for components attached to an <see cref="IAgent"/>. Implements <see cref="EntityComponentBase"/>.
+	/// Base class for components attached to an <see cref="IAgent"/>. Implements <see cref="EntityComponentMono"/>.
 	/// </summary>
-	public abstract class AgentComponentBase : EntityComponentBase
+	public abstract class AgentComponentBase : EntityComponentMono
 	{
 		public IAgent Agent
 		{

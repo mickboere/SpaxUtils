@@ -7,7 +7,7 @@ namespace SpaxUtils
 	/// <summary>
 	/// Entity component responsible for handling hits coming through in the <see cref="IHittable"/> component.
 	/// </summary>
-	public class AgentHitHandlerComponent : EntityComponentBase
+	public class AgentHitHandlerComponent : EntityComponentMono
 	{
 		[SerializeField] private float deathDuration = 0.5f;
 

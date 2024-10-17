@@ -6,7 +6,7 @@ namespace SpaxUtils
 	/// <summary>
 	/// Abstract entity component class implementing both <see cref="IInteractable"/> and <see cref="IInteractor"/>.
 	/// </summary>
-	public abstract class InteractableInteractorBase : InteractableBase, IInteractor
+	public abstract class InteractorableComponent : InteractableComponent, IInteractor
 	{
 		/// <inheritdoc/>
 		public event Action<IInteraction> InteractorEvent;
@@ -21,10 +21,10 @@ namespace SpaxUtils
 		public abstract bool CanInteract(string interactionType);
 
 		/// <inheritdoc/>
-		public bool TryCreateInteraction(string interactionType, IInteractable interactable,  out IInteraction interaction, object data = null)
+		public bool TryCreateInteraction(string interactionType, IInteractable interactable, out IInteraction interaction, object data = null)
 		{
 			interaction = null;
-			if (CanInteract(interactionType) && interactable.Interactable)
+			if (CanInteract(interactionType) && interactable.IsInteractable(interactionType))
 			{
 				return OnTryCreateInteraction(interactionType, interactable, out interaction, data);
 			}

@@ -108,7 +108,7 @@ namespace SpaxUtils
 			{
 				Alive = false;
 				Actor.TryCancel(true);
-				Actor.Blocked = true;
+				Actor.AddBlocker(this);
 				DiedEvent?.Invoke(this);
 			}
 		}
@@ -119,7 +119,7 @@ namespace SpaxUtils
 			if (!Alive && Brain.TryTransition(StateIdentifiers.ACTIVE, transition))
 			{
 				Alive = true;
-				Actor.Blocked = false;
+				Actor.RemoveBlocker(this);
 				RevivedEvent?.Invoke(this);
 			}
 		}

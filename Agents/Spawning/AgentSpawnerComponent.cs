@@ -4,7 +4,7 @@ using UnityEngine;
 namespace SpaxUtils
 {
 	[RequireComponent(typeof(Entity))]
-	public class AgentSpawnerComponent : EntityComponentBase
+	public class AgentSpawnerComponent : EntityComponentMono
 	{
 		[SerializeField] private AgentSetupAsset agentSetup;
 		[SerializeField] AgentSpawnData spawnData;

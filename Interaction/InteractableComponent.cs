@@ -8,7 +8,7 @@ namespace SpaxUtils
 	/// <summary>
 	/// Abstract entity component with a base implementation for <see cref="IInteractable"/>.
 	/// </summary>
-	public abstract class InteractableBase : EntityComponentBase, IInteractable
+	public abstract class InteractableComponent : EntityComponentMono, IInteractable
 	{
 		/// <inheritdoc/>
 		public event Action<IInteraction> InteractableEvent;
@@ -18,9 +18,6 @@ namespace SpaxUtils
 
 		/// <inheritdoc/>
 		public virtual float InteractableRange => targetable == null ? 0f : targetable.Size.Average();
-
-		/// <inheritdoc/>
-		public virtual bool Interactable { get; protected set; } = true;
 
 		/// <inheritdoc/>
 		public abstract string[] InteractableTypes { get; protected set; }
@@ -42,7 +39,7 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public bool TryInteract(IInteraction interaction)
 		{
-			if (Interactable && IsInteractable(interaction.Type) && OnTryInteract(interaction))
+			if (IsInteractable(interaction.Type) && OnTryInteract(interaction))
 			{
 				InteractableEvent?.Invoke(interaction);
 				return true;

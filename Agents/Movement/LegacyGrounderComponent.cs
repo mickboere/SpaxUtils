@@ -7,7 +7,7 @@ using UnityEngine;
 
 namespace SpaxUtils
 {
-	public class LegacyGrounderComponent : EntityComponentBase//, IAgentGrounderComponent
+	public class LegacyGrounderComponent : EntityComponentMono//, IAgentGrounderComponent
 	{
 		private const float CENTIMETER = 0.01f;
 

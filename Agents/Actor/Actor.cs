@@ -20,7 +20,7 @@ namespace SpaxUtils
 		public IPerformer MainPerformer => activePerformers.Count > 0 ? activePerformers[activePerformers.Count - 1] : null;
 
 		/// <inheritdoc/>
-		public bool Blocked { get; set; } = false;
+		public bool Blocked => blockers.Count > 0;
 
 		/// <inheritdoc/>
 		public int Priority => int.MaxValue;
@@ -40,6 +40,7 @@ namespace SpaxUtils
 		private List<IPerformer> activePerformers = new List<IPerformer>();
 		private Act<bool>? lastPerformedInput;
 		private (Act<bool> act, TimerStruct timer)? lastFailedAttempt;
+		private List<object> blockers = new List<object>();
 
 		public Actor(string identifier, CallbackService callbackService, InputToActMap inputToActMap = null,
 			IEnumerable<IPerformer> performers = null) : base(identifier)
@@ -295,6 +296,28 @@ namespace SpaxUtils
 		}
 
 		#endregion Performance
+
+		#region Blocking
+
+		/// <inheritdoc/>
+		public void AddBlocker(object blocker)
+		{
+			if (!blockers.Contains(blocker))
+			{
+				blockers.Add(blocker);
+			}
+		}
+
+		/// <inheritdoc/>
+		public void RemoveBlocker(object blocker)
+		{
+			if (blockers.Contains(blocker))
+			{
+				blockers.Remove(blocker);
+			}
+		}
+
+		#endregion Blocking
 
 		private void RetryLastFailedAttempt()
 		{

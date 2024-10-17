@@ -5,7 +5,7 @@ namespace SpaxUtils
 	/// <summary>
 	/// Entity component that tracks all combat variables and sends appropriate stimuli to the mind so the agent can react to them.
 	/// </summary>
-	public class CombatSensesComponent : EntityComponentBase
+	public class CombatSensesComponent : EntityComponentMono
 	{
 		public EnemySense EnemySense { get; private set; }
 		public ProjectileSense ProjectileSense { get; private set; }

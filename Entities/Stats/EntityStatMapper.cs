@@ -8,7 +8,7 @@ namespace SpiritAxis
 	/// Stats that do not exist yet will be created.
 	/// </summary>
 	[DefaultExecutionOrder(-999)]
-	public class EntityStatMapper : EntityComponentBase
+	public class EntityStatMapper : EntityComponentMono
 	{
 		[SerializeField] private StatMappingSheet[] mappingSheets;
 

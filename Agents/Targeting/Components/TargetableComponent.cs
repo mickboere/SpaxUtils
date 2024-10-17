@@ -8,7 +8,7 @@ namespace SpaxUtils
 	/// <see cref="ITargetable"/> <see cref="IEntityComponent"/> implementation.
 	/// Provides basic data required for targetting an entity.
 	/// </summary>
-	public class TargetableComponent : EntityComponentBase, ITargetable
+	public class TargetableComponent : EntityComponentMono, ITargetable
 	{
 		private const string TOOLTIP_LAZY_CENTER = "Caches the entity's Size on Start() and uses it to calculate the center.\n" +
 			"Useful when being used as follow target while animating to prevent jittery movement.";

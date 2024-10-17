@@ -6,7 +6,7 @@ namespace SpaxUtils
 	/// <summary>
 	/// <see cref="IVisionComponent"/> implementation with configurable eyes.
 	/// </summary>
-	public class VisionComponent : EntityComponentBase, IVisionComponent
+	public class VisionComponent : EntityComponentMono, IVisionComponent
 	{
 		/// <inheritdoc/>
 		public Transform ViewPoint

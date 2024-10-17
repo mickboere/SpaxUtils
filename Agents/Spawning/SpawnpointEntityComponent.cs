@@ -4,7 +4,7 @@ using UnityEngine;
 namespace SpaxUtils
 {
 	[RequireComponent(typeof(Entity))]
-	public class SpawnpointEntityComponent : EntityComponentBase, ISpawnpoint
+	public class SpawnpointEntityComponent : EntityComponentMono, ISpawnpoint
 	{
 		public string ID => identifier;
 		public Vector3 Position => overridePoint == null ? transform.position : overridePoint.position;

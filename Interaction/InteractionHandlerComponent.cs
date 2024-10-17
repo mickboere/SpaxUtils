@@ -8,7 +8,7 @@ namespace SpaxUtils
 	/// <summary>
 	/// <see cref="IEntityComponent"/> implementing <see cref="IInteractionHandler"/> that can handle <see cref="IInteraction"/>s by passing them to appropriate .
 	/// </summary>
-	public class InteractionHandlerComponent : EntityComponentBase, IInteractionHandler
+	public class InteractionHandlerComponent : EntityComponentMono, IInteractionHandler
 	{
 		/// <inheritdoc/>
 		public event Action<IInteraction> InteractableEvent;
@@ -30,9 +30,6 @@ namespace SpaxUtils
 
 		/// <inheritdoc/>
 		public virtual float InteractableRange => targetable == null ? 0f : targetable.Size.Average();
-
-		/// <inheritdoc/>
-		public bool Interactable => interactables.Any((i) => i.Interactable);
 
 		/// <inheritdoc/>
 		public string[] InteractableTypes { get; protected set; } = new string[] { };
@@ -172,7 +169,7 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public bool TryInteract(IInteraction interaction)
 		{
-			if (!Interactable)
+			if (!IsInteractable(interaction.Type))
 			{
 				return false;
 			}

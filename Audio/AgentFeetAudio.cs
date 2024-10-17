@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace SpaxUtils
 {
-	public class AgentFeetAudio : EntityComponentBase
+	public class AgentFeetAudio : EntityComponentMono
 	{
 		[SerializeField] private AudioSource feetAudioSource;
 		[SerializeField, Tooltip("X is agent velocity, Y is step volume. X=1 when agent is moving at 'max' speed * 1.5f.")] private AnimationCurve intensityCurve;

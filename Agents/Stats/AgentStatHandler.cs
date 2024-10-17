@@ -7,7 +7,7 @@ namespace SpaxUtils
 	/// <summary>
 	/// Component handling an agent's grouped stat data.
 	/// </summary>
-	public class AgentStatHandler : EntityComponentBase
+	public class AgentStatHandler : EntityComponentMono
 	{
 		public PointStatOcton PointStatOcton => pointStatOcton;
 

@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace SpaxUtils
 {
-	public class FootstepEffectsComponent : EntityComponentBase
+	public class FootstepEffectsComponent : EntityComponentMono
 	{
 		[SerializeField] private ParticleSystem stepEffect;
 		[SerializeField, Range(0f, 100f)] private float minParticleRate = 10f;

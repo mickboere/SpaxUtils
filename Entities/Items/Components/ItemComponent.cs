@@ -8,7 +8,7 @@ namespace SpaxUtils
 	/// <see cref="IRuntimeItemDataComponent"/> implementation, containing a reference to an <see cref="IRuntimeItemData"/>.
 	/// Component implements <see cref="IInteractable"/>, once sucessfully interacted with the Entity will be destroyed.
 	/// </summary>
-	public class ItemComponent : InteractableBase, IRuntimeItemDataComponent
+	public class ItemComponent : InteractableComponent, IRuntimeItemDataComponent
 	{
 		/// <inheritdoc/>
 		public IRuntimeItemData RuntimeItemData { get; private set; }

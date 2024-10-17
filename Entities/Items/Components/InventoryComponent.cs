@@ -6,7 +6,7 @@ namespace SpaxUtils
 	/// <summary>
 	/// Entity component wrapping around an <see cref="ItemInventory"/> in order to handle interactions and manage data loading.
 	/// </summary>
-	public class InventoryComponent : InteractableInteractorBase
+	public class InventoryComponent : InteractorableComponent
 	{
 		public const string INVENTORY_DATA_ID = "Inventory";
 

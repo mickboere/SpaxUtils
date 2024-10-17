@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace SpaxUtils
 {
-	public class AgentLegsComponent : EntityComponentBase, ILegsComponent
+	public class AgentLegsComponent : EntityComponentMono, ILegsComponent
 	{
 		public event Action<ILeg, bool> FootstepEvent;
 

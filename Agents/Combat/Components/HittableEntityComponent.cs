@@ -7,7 +7,7 @@ namespace SpaxUtils
 	/// <summary>
 	/// <see cref="IHittable"/> implementation that passes along incoming hits.
 	/// </summary>
-	public class HittableEntityComponent : EntityComponentBase, IHittable
+	public class HittableEntityComponent : EntityComponentMono, IHittable
 	{
 		/// <inheritdoc/>
 		public bool IsHittable { get { return hittable; } set { hittable = value; } }

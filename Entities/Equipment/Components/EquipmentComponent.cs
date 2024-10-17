@@ -9,7 +9,7 @@ namespace SpaxUtils
 	/// <see cref="IEntityComponent"/> that handles equipment data and visuals.
 	/// </summary>
 	[DefaultExecutionOrder(100)]
-	public class EquipmentComponent : InteractorBase, IEquipmentComponent
+	public class EquipmentComponent : InteractorComponent, IEquipmentComponent
 	{
 		public const string EQUIPMENT_DATA_ID = "Equipment";
 

@@ -4,25 +4,25 @@ using UnityEngine;
 namespace SpaxUtils
 {
 	/// <summary>
-	/// Abstract entity component with a base implementation for <see cref="IInteractor"/>.
+	/// Abstract base implementation for <see cref="IInteractor"/>.
 	/// </summary>
-	public abstract class InteractorBase : EntityComponentBase, IInteractor
+	public abstract class Interactor : EntityComponent, IInteractor
 	{
 		/// <inheritdoc/>
 		public event Action<IInteraction> InteractorEvent;
 
 		/// <inheritdoc/>
-		public virtual Vector3 InteractorPoint => targetable == null ? transform.position : targetable.Center;
+		public virtual Vector3 InteractorPoint => targetable == null ? Transform.position : targetable.Center;
 
 		/// <inheritdoc/>
 		public virtual float InteractorRange => targetable == null ? 1f : targetable.Size.Max();
 
 		protected ITargetable targetable;
 
-		public void InjectDependencies(IDependencyManager dependencyManager)
+		public Interactor(IEntity entity, IDependencyManager dependencyManager) : base(entity, dependencyManager)
 		{
 			// Targetable is optional, therefore retrieve manually.
-			targetable = dependencyManager.Get<ITargetable>(true, false);
+			targetable = entity.GetEntityComponent<ITargetable>();
 		}
 
 		/// <inheritdoc/>
@@ -32,7 +32,7 @@ namespace SpaxUtils
 		public bool TryCreateInteraction(string interactionType, IInteractable interactable, out IInteraction interaction, object data = null)
 		{
 			interaction = null;
-			if (CanInteract(interactionType) && interactable.Interactable && CreateInteraction(interactionType, interactable, data, out interaction))
+			if (CanInteract(interactionType) && interactable.IsInteractable(interactionType) && CreateInteraction(interactionType, interactable, data, out interaction))
 			{
 				InteractorEvent?.Invoke(interaction);
 				return true;

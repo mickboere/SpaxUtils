@@ -6,7 +6,7 @@ using RootMotion.FinalIK;
 namespace SpaxUtils
 {
 	//[DefaultExecutionOrder(9000)]
-	public class AgentLegIKComponent : EntityComponentBase
+	public class AgentLegIKComponent : EntityComponentMono
 	{
 		[Serializable]
 		public class LegIK

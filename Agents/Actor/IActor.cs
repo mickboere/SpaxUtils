@@ -16,7 +16,7 @@ namespace SpaxUtils
 		/// <summary>
 		/// Whether the actor is currently blocked from performing.
 		/// </summary>
-		bool Blocked { get; set; }
+		bool Blocked { get; }
 
 		/// <summary>
 		/// Sends a new act to the actor.
@@ -43,5 +43,16 @@ namespace SpaxUtils
 		/// Removes a registered performer.
 		/// </summary>
 		void RemovePerformer(IPerformer performer);
+
+		/// <summary>
+		/// Make <paramref name="blocker"/> block this actor from performing.
+		/// </summary>
+		void AddBlocker(object blocker);
+
+		/// <summary>
+		/// Remove <paramref name="blocker"/> from preventing this actor from performing.
+		/// </summary>
+		/// <param name="blocker"></param>
+		void RemoveBlocker(object blocker);
 	}
 }

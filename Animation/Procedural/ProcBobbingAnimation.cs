@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace SpaxUtils
 {
-	public class ProcBobbingAnimation : EntityComponentBase
+	public class ProcBobbingAnimation : EntityComponentMono
 	{
 		[SerializeField] private float cycleOffset;
 		[SerializeField] private float sensitivity = 0.5f;

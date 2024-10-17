@@ -6,7 +6,7 @@ namespace SpaxUtils
 	/// Surveyor wheel implementation that simulates foot movement of an entity to dictate more accurate movement animation.
 	/// </summary>
 	/// https://github.com/mickboere/SpaxUtils/blob/master/Animation/Procedural/LegWalkerComponent.cs
-	public class SurveyorComponent : EntityComponentBase
+	public class SurveyorComponent : EntityComponentMono
 	{
 		public float Effect { get; private set; }
 		public float Stride { get; private set; }
