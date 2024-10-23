@@ -1,5 +1,6 @@
 ﻿using SpaxUtils.StateMachines;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -20,15 +21,35 @@ namespace SpaxUtils
 		[SerializeField] private bool eatInput;
 		[SerializeField] private int prio = 0;
 		[SerializeField, ConstDropdown(typeof(IStateIdentifierConstants))] private string nextState;
+		[SerializeField, Output(backingValue = ShowBackingValue.Never, typeConstraint = TypeConstraint.Inherited)] protected Connections.Rule rules;
 
 		private Brain brain;
 		private PlayerInputWrapper playerInputWrapper;
 		private Dictionary<object, Option> options = new Dictionary<object, Option>();
 
-		public void InjectDependencies(Brain brain, PlayerInputWrapper playerInputWrapper)
+		private List<IRule> _rules;
+		private StateCallbackHelper ruleCallbacks;
+
+		public void InjectDependencies(Brain brain, PlayerInputWrapper playerInputWrapper, IDependencyManager dependencyManager)
 		{
 			this.brain = brain;
 			this.playerInputWrapper = playerInputWrapper;
+
+			_rules = GetOutputNodes<IRule>(nameof(rules));
+			ruleCallbacks = new StateCallbackHelper(dependencyManager, _rules.Where(r => r.IsPureRule).ToList());
+			ruleCallbacks.Inject();
+		}
+
+		public override void OnEnteringState()
+		{
+			base.OnEnteringState();
+			ruleCallbacks.OnEnteringState();
+		}
+
+		public override void WhileEnteringState(ITransition transition)
+		{
+			base.WhileEnteringState(transition);
+			ruleCallbacks.WhileEnteringState(transition);
 		}
 
 		public override void OnStateEntered()
@@ -41,6 +62,19 @@ namespace SpaxUtils
 				options[action] = new Option(nextState, action, OnInputReceived, playerInputWrapper, eatInput, prio);
 				options[action].MakeAvailable();
 			}
+			ruleCallbacks.OnStateEntered();
+		}
+
+		public override void OnExitingState()
+		{
+			base.OnExitingState();
+			ruleCallbacks.OnExitingState();
+		}
+
+		public override void WhileExitingState(ITransition transition)
+		{
+			base.WhileExitingState(transition);
+			ruleCallbacks.WhileExitingState(transition);
 		}
 
 		public override void OnStateExit()
@@ -53,14 +87,30 @@ namespace SpaxUtils
 			}
 			options.Clear();
 			playerInputWrapper.CompleteActionMapRequest(this);
+			ruleCallbacks.OnStateExit();
 		}
 
 		private void OnInputReceived(InputAction.CallbackContext context)
 		{
-			if (context.phase == phase)
+			if (context.phase == phase && IsValid())
 			{
 				brain.TryTransition(nextState);
 			}
+		}
+
+		private bool IsValid()
+		{
+			if (_rules.Count > 0)
+			{
+				foreach (IRule rule in _rules)
+				{
+					if (!rule.Valid)
+					{
+						return false;
+					}
+				}
+			}
+			return true;
 		}
 	}
 }
