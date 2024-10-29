@@ -20,9 +20,9 @@ namespace SpaxUtils.StateMachines
 
 		protected virtual bool RunComponents => true;
 
-		[SerializeField, Output(backingValue = ShowBackingValue.Never, typeConstraint = TypeConstraint.Inherited), Tooltip(TT_COMPONENTS)] private Connections.StateComponent components;
 		[SerializeField, Output(backingValue = ShowBackingValue.Never, typeConstraint = TypeConstraint.Inherited)] protected Connections.Rule rules;
-
+		[SerializeField, Output(backingValue = ShowBackingValue.Never, typeConstraint = TypeConstraint.Inherited), Tooltip(TT_COMPONENTS)] private Connections.StateComponent components;
+		
 		private CallbackService callbackService;
 
 		private bool _valid;

@@ -6,7 +6,6 @@ namespace SpaxUtils.StateMachines
 	public class BackToStartNode : StateMachineNodeBase
 	{
 		[SerializeField, Input(backingValue = ShowBackingValue.Never)] protected Connections.StateComponent inConnection;
-		[SerializeField] private bool immediate;
 
 		private StateMachine stateMachine;
 

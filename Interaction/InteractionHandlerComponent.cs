@@ -34,9 +34,13 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public string[] InteractableTypes { get; protected set; } = new string[] { };
 
+		/// <inheritdoc/>
+		public IReadOnlyList<IInteraction> Interactions => interactions;
+
 		private List<IInteractor> interactors = new List<IInteractor>();
 		private List<IInteractable> interactables = new List<IInteractable>();
 		private List<IInteractionBlocker> blockers;
+		private List<IInteraction> interactions = new List<IInteraction>();
 
 		[SerializeField, Tooltip("Picked if there is no targetable attached to the entity.")] private float defaultInteractorRange = 1.5f;
 
@@ -129,6 +133,7 @@ namespace SpaxUtils
 			{
 				if (interactor.TryCreateInteraction(interactionType, interactable, out interaction, data))
 				{
+					OnNewInteraction(interaction);
 					return true;
 				}
 			}
@@ -179,6 +184,7 @@ namespace SpaxUtils
 			{
 				if (interactable.TryInteract(interaction))
 				{
+					OnNewInteraction(interaction);
 					return true;
 				}
 			}
@@ -207,6 +213,27 @@ namespace SpaxUtils
 		}
 
 		#endregion
+
+		private void OnNewInteraction(IInteraction interaction)
+		{
+			if (interactions.Contains(interaction))
+			{
+				// Double.
+				return;
+			}
+
+			interactions.Add(interaction);
+			interaction.ConcludedEvent += OnInteractionConcludedEvent;
+		}
+
+		private void OnInteractionConcludedEvent(IInteraction interaction, bool success)
+		{
+			if (interactions.Contains(interaction))
+			{
+				interaction.ConcludedEvent -= OnInteractionConcludedEvent;
+				interactions.Remove(interaction);
+			}
+		}
 
 		private void OnInteractableEvent(IInteraction interaction)
 		{

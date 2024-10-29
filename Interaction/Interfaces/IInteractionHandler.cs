@@ -15,6 +15,11 @@ namespace SpaxUtils
 		event Action<IInteraction> InteractionEvent;
 
 		/// <summary>
+		/// All currently active (non-concluded) interactions.
+		/// </summary>
+		IReadOnlyList<IInteraction> Interactions { get; }
+
+		/// <summary>
 		/// Adds an <see cref="IInteractor"/> to this component.
 		/// </summary>
 		void AddInteractor(IInteractor interactor);

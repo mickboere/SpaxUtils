@@ -223,5 +223,14 @@ namespace SpaxUtils
 		{
 			return s + "/" + subStat.LastDivision();
 		}
+
+		#region Char
+
+		public static bool IsNewLine(this char c)
+		{
+			return c == '\n' || c == '\r';
+		}
+
+		#endregion
 	}
 }

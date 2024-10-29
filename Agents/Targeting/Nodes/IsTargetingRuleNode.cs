@@ -7,7 +7,7 @@ namespace SpaxUtils
 	/// Turns valid when the <see cref="ITargeter"/> is currently targetting its target.
 	/// </summary>
 	[NodeWidth(200)]
-	public class AgentIsTargetingRuleNode : RuleNodeBase
+	public class IsTargetingRuleNode : RuleNodeBase
 	{
 		public override bool Valid => targeter.Target != null != invert;
 
