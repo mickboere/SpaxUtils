@@ -22,6 +22,11 @@ namespace SpaxUtils
 			this.movementHandler = movementHandler;
 		}
 
+		public void ResetInput()
+		{
+			movementHandler.InputRaw = Vector3.zero;
+		}
+
 		/// <summary>
 		/// Has the agent navigate towards the target's position.
 		/// </summary>
@@ -36,7 +41,7 @@ namespace SpaxUtils
 
 			if (IsInRange(range, navMesh, targetPosition))
 			{
-				movementHandler.InputRaw = Vector3.zero;
+				ResetInput();
 				return true;
 			}
 			else if (navMesh)

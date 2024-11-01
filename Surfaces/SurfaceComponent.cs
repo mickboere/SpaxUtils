@@ -158,10 +158,10 @@ namespace SpaxUtils
 			{
 				// Collect vertex color at point and create channel ordered blend of it.
 				Color color = GetVertexColorAtPoint(transform, mesh, triangleIndex, point);
-				Color blend = new Color(color.r, 0f, 0f, 0f)
-					.Lerp(new Color(0f, 1f, 0f, 0f), color.g)
-					.Lerp(new Color(0f, 0f, 1f, 0f), color.b)
-					.Lerp(new Color(0f, 0f, 0f, 1f), color.a);
+				Color blend = new Color(color.r.OutQuad(), 0f, 0f, 0f)
+					.Lerp(new Color(0f, 1f, 0f, 0f), color.g.OutQuad())
+					.Lerp(new Color(0f, 0f, 1f, 0f), color.b.OutQuad())
+					.Lerp(new Color(0f, 0f, 0f, 1f), color.a.OutQuad());
 
 				// For each surface, add it's color channel value to the surface values.
 				foreach (SurfaceData surface in surfaces)

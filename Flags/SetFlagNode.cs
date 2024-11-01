@@ -1,16 +1,16 @@
 ﻿using UnityEngine;
 using SpaxUtils.StateMachines;
+using System.Collections.Generic;
 
 namespace SpaxUtils
 {
 	/// <summary>
-	/// <see cref="BehaviourNodeBase"/> implementation that sets the configured flags upon entering the state.
+	/// Sets the configured flags upon entering the state.
 	/// </summary>
-	[NodeWidth(400)]
-	public class SetFlagNode : StateMachineNodeBase
+	[NodeWidth(300)]
+	public class SetFlagNode : StateComponentNodeBase
 	{
-		[SerializeField, Input(backingValue = ShowBackingValue.Never)] private Connections.StateComponent inConnection;
-		[SerializeField, ConstDropdown(typeof(IGameFlagConstants))] private string[] flags;
+		[SerializeField, ConstDropdown(typeof(IFlags))] private string[] flags;
 
 		private FlagService flagsService;
 
@@ -19,9 +19,9 @@ namespace SpaxUtils
 			this.flagsService = flagsService;
 		}
 
-		public override void OnStateEntered()
+		public override void OnEnteringState()
 		{
-			base.OnStateEntered();
+			base.OnEnteringState();
 			flagsService.SetFlags(flags);
 		}
 	}

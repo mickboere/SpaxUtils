@@ -13,17 +13,19 @@ namespace SpaxUtils
 
 		public List<LabeledBoolData> BoolData => boolData;
 		public List<LabeledFloatData> FloatData => floatData;
+		public List<LabeledIntData> IntData => intData;
 
 		[SerializeField] private List<LabeledBoolData> boolData;
 		[SerializeField] private List<LabeledFloatData> floatData;
+		[SerializeField] private List<LabeledIntData> intData;
 
 		/// <summary>
 		/// Convert this labeled data collection to a <see cref="RuntimeDataCollection"/>.
 		/// </summary>
-		/// <param name="id">The desired identifier to give to the data collection.</param>
-		public RuntimeDataCollection ToRuntimeDataCollection(string id)
+		/// <param name="id">The identifier to give to the data collection. If null, a new Guid will be generated.</param>
+		public RuntimeDataCollection ToRuntimeDataCollection(string id = null)
 		{
-			return ApplyToRuntimeDataCollection(new RuntimeDataCollection(id), true);
+			return ApplyToRuntimeDataCollection(new RuntimeDataCollection(id ?? Guid.NewGuid().ToString()), true);
 		}
 
 		/// <summary>

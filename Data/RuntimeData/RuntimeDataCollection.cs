@@ -67,6 +67,24 @@ namespace SpaxUtils
 			base.Dispose();
 		}
 
+		public RuntimeDataEntry this[string id]
+		{
+			get
+			{
+				if (ContainsEntry(id))
+				{
+					return GetEntry(id);
+				}
+
+				SpaxDebug.Error("No entry present for ID:", id);
+				return null;
+			}
+			set
+			{
+				TryAdd(value, true);
+			}
+		}
+
 		#region Static Functions
 
 		/// <summary>

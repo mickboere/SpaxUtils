@@ -7,7 +7,7 @@ using UnityEngine.Serialization;
 namespace SpaxUtils
 {
 	[CreateAssetMenu(fileName = "SurfaceLibrary", menuName = "ScriptableObjects/SurfaceLibrary")]
-	public class SurfaceLibrary : ScriptableObject
+	public class SurfaceLibrary : ScriptableObject, IService
 	{
 		[SerializeField] private List<SurfaceConfiguration> surfaces;
 

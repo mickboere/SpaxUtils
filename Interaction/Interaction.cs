@@ -29,7 +29,7 @@ namespace SpaxUtils
 			get { return _concluded; }
 			set
 			{
-				SpaxDebug.Error("Set Interaction.Concluded", this.ToString());
+				SpaxDebug.Log("Set Interaction.Concluded", ToString());
 				_concluded = value;
 			}
 		}

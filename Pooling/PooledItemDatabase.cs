@@ -8,7 +8,7 @@ namespace SpaxUtils
 	/// Database asset containing all (generic) pooled item prefabs.
 	/// </summary>
 	[CreateAssetMenu(fileName = "PooledItemDatabase", menuName = "ScriptableObjects/PooledItemDatabase")]
-	public class PooledItemDatabase : ScriptableObject
+	public class PooledItemDatabase : ScriptableObject, IService
 	{
 		[SerializeField] private List<PooledItemBase> pooledItems;
 

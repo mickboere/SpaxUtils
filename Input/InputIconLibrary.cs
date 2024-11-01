@@ -12,7 +12,7 @@ namespace SpaxUtils
 	/// Library that matches input bindings with icons.
 	/// </summary>
 	[CreateAssetMenu(fileName = "InputIconLibrary", menuName = "ScriptableObjects/Input Icon Library")]
-	public class InputIconLibrary : ScriptableObject
+	public class InputIconLibrary : ScriptableObject, IService
 	{
 		[SerializeField] private GamepadIcons xbox;
 		[SerializeField] private GamepadIcons playstation;

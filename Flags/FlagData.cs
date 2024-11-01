@@ -1,5 +1,8 @@
-﻿namespace SpaxUtils
+﻿using System;
+
+namespace SpaxUtils
 {
+	[Serializable]
 	public class FlagData
 	{
 		/// <summary>

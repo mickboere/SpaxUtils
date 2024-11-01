@@ -3,7 +3,7 @@
 namespace SpaxUtils
 {
 	[CreateAssetMenu(fileName = "CombatSensesSettings", menuName = "ScriptableObjects/CombatSensesSettings")]
-	public class CombatSensesSettings : ScriptableObject
+	public class CombatSensesSettings : ScriptableObject, IService
 	{
 		[Tooltip("Relative to view distance, within which range does an agent pose a threat."), Range(0f, 1f)] public float ThreatRange = 1f;
 		public AnimationCurve ThreatCurve = new AnimationCurve(new Keyframe(0f, 0f), new Keyframe(1f, 1f));

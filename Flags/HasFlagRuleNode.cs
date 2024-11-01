@@ -7,14 +7,14 @@ namespace SpaxUtils
 	/// <summary>
 	/// <see cref="IRule"/> <see cref="RuleNodeBase"/> implementation that is valid when the configured flags are set.
 	/// </summary>
-	[NodeWidth(400)]
+	[NodeWidth(300)]
 	public class HasFlagRuleNode : RuleNodeBase
 	{
 		public override bool Valid => valid;
 		public override float Validity => flags.Length;
 
 		[SerializeField, Input(backingValue = ShowBackingValue.Never)] protected Connections.Rule inConnection;
-		[SerializeField, ConstDropdown(typeof(IGameFlagConstants))] private string[] flags;
+		[SerializeField, ConstDropdown(typeof(IFlags))] private string[] flags;
 		[SerializeField] private bool invert;
 
 		private FlagService flagsService;
