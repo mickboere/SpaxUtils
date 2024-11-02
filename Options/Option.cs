@@ -18,7 +18,7 @@ namespace SpaxUtils
 		public string Description { get; }
 		public string InputAction { get; }
 		public bool HasInputAction => !string.IsNullOrEmpty(InputAction);
-		public bool Available { get; private set; }
+		public bool Active { get; private set; }
 
 		private readonly bool pickOnInput;
 		private readonly bool eatInput;
@@ -26,7 +26,13 @@ namespace SpaxUtils
 		private readonly Action<Option> onPickedCallback;
 		private readonly Action<CallbackContext> onInputCallback;
 
+		private readonly IContextManager contextManager;
+		private readonly string context;
+
 		private PlayerInputWrapper playerInputWrapper;
+
+		private bool enabled;
+		private bool contextActive;
 
 		public Option(
 			string title,
@@ -37,7 +43,9 @@ namespace SpaxUtils
 			bool eatInput = false,
 			int prio = 0,
 			Action<CallbackContext> onInputCallback = null,
-			PlayerInputWrapper playerInputWrapper = null)
+			PlayerInputWrapper playerInputWrapper = null,
+			IContextManager contextManager = null,
+			string context = "")
 		{
 			Title = title;
 			Description = description;
@@ -48,12 +56,28 @@ namespace SpaxUtils
 			this.prio = prio;
 			this.onInputCallback = onInputCallback;
 			this.playerInputWrapper = playerInputWrapper;
+			this.contextManager = contextManager;
+			this.context = context;
+
+			VerifyContext();
+			if (contextManager != null)
+			{
+				contextManager.ContextChangedEvent += OnContextChangedEvent;
+			}
 		}
 
 		/// <summary>
 		/// Create a new input-callback-only option.
 		/// </summary>
-		public Option(string title, string inputAction, Action<CallbackContext> onInputCallback, PlayerInputWrapper playerInputWrapper, bool eatInput = false, int prio = 0)
+		public Option(
+			string title,
+			string inputAction,
+			Action<CallbackContext> onInputCallback,
+			PlayerInputWrapper playerInputWrapper,
+			bool eatInput = false,
+			int prio = 0,
+			IContextManager contextManager = null,
+			string context = "")
 		{
 			Title = title;
 			InputAction = inputAction;
@@ -61,41 +85,89 @@ namespace SpaxUtils
 			this.playerInputWrapper = playerInputWrapper;
 			this.eatInput = eatInput;
 			this.prio = prio;
+			this.contextManager = contextManager;
+			this.context = context;
 
 			Description = "";
 			onPickedCallback = null;
 			pickOnInput = false;
+
+			VerifyContext();
+			if(contextManager != null)
+			{
+				contextManager.ContextChangedEvent += OnContextChangedEvent;
+			}
 		}
 
 		public void Dispose()
 		{
-			MakeUnavailable();
+			Deactivate();
+			if (contextManager != null)
+			{
+				contextManager.ContextChangedEvent -= OnContextChangedEvent;
+			}
 		}
 
 		/// <summary>
-		/// Makes this option available and starts listening for input.
+		/// Enables this option to allow it to start listening for input while the context is active.
 		/// </summary>
-		public void MakeAvailable(PlayerInputWrapper playerInputWrapper = null)
+		public void Enable(PlayerInputWrapper playerInputWrapper = null)
 		{
+			if (enabled)
+			{
+				return;
+			}
+
+			enabled = true;
+
 			if (playerInputWrapper != null)
 			{
 				this.playerInputWrapper = playerInputWrapper;
 			}
 
-			if (Available)
+			if (!Active && contextActive)
 			{
-				SpaxDebug.Error("Option is already available.", ToString());
+				Activate();
+			}
+		}
+
+		/// <summary>
+		/// Disables this option to make it stop listening for input.
+		/// </summary>
+		public void Disable()
+		{
+			if (!enabled)
+			{
 				return;
 			}
 
-			if (HasInputAction && this.playerInputWrapper == null)
+			enabled = false;
+
+			if (Active)
 			{
-				SpaxDebug.Error("Option has an input action but no PlayerInputWrapper.", ToString());
+				Deactivate();
+			}
+		}
+
+		/// <summary>
+		/// Pick this option and invoke its callback.
+		/// </summary>
+		public void Pick()
+		{
+			PickedEvent?.Invoke(this);
+			onPickedCallback?.Invoke(this);
+		}
+
+		private void Activate()
+		{
+			if (Active || !HasInputAction)
+			{
 				return;
 			}
 
-			if (!HasInputAction)
+			if (this.playerInputWrapper == null)
 			{
+				SpaxDebug.Error("Option could not be activated: has an input action but no PlayerInputWrapper.", ToString());
 				return;
 			}
 
@@ -114,35 +186,45 @@ namespace SpaxUtils
 				},
 				prio);
 
-			Available = true;
+			Active = true;
 			MadeAvailableEvent?.Invoke(this);
 		}
 
-		/// <summary>
-		/// Makes this option unavailable and stops listening for input.
-		/// </summary>
-		public void MakeUnavailable()
+		private void Deactivate()
 		{
-			if (!Available)
+			if (!Active)
 			{
 				return;
 			}
 
-			if (playerInputWrapper != null)
-			{
-				playerInputWrapper.Unsubscribe(this);
-			}
-			Available = false;
+			playerInputWrapper.Unsubscribe(this);
+			Active = false;
 			MadeUnavailableEvent?.Invoke(this);
 		}
 
-		/// <summary>
-		/// Pick this option and invoke its callback.
-		/// </summary>
-		public void Pick()
+		private void VerifyContext()
 		{
-			PickedEvent?.Invoke(this);
-			onPickedCallback?.Invoke(this);
+			if (contextManager == null || string.IsNullOrEmpty(context))
+			{
+				contextActive = true;
+			}
+			else
+			{
+				contextActive = contextManager.IsActive(context);
+				if (!Active && enabled && contextActive)
+				{
+					Activate();
+				}
+				else if (Active && !contextActive)
+				{
+					Deactivate();
+				}
+			}
+		}
+
+		private void OnContextChangedEvent()
+		{
+			VerifyContext();
 		}
 
 		public override string ToString()

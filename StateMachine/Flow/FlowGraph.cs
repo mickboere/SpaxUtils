@@ -4,6 +4,7 @@ using UnityEngine;
 
 namespace SpaxUtils.StateMachines
 {
+	[CreateAssetMenu(fileName = "FlowGraph", menuName = "StateMachine/FlowGraph")]
 	public class FlowGraph : StateMachineGraph
 	{
 		public enum FlowType

@@ -16,6 +16,11 @@ namespace SpaxUtils.StateMachines
 		/// </summary>
 		public virtual string UserFacingName => string.Join(" ", new List<string>(GetType().Name.SplitCamelCase()).Where((n) => n != "Node"));
 
+		/// <summary>
+		/// The state currently responsible for invoking this node's callbacks.
+		/// </summary>
+		protected IState State { get; private set; }
+
 		#region Node Config
 
 		public override object GetValue(NodePort port)
@@ -32,6 +37,12 @@ namespace SpaxUtils.StateMachines
 		#endregion Node Config
 
 		#region Callbacks
+
+		/// <inheritdoc/>
+		public virtual void Initialize(IState state)
+		{
+			State = state;
+		}
 
 		/// <inheritdoc/>
 		public virtual void OnEnteringState() { }

@@ -15,9 +15,9 @@ namespace SpaxUtils
 		public override string UserFacingName => identifier;
 		protected override string _defaultChild => hasDefaultChild ? defaultChild : null;
 
-		[SerializeField, ConstDropdown(typeof(IStateIdentifierConstants)), FormerlySerializedAs("state")] private string identifier;
+		[SerializeField, ConstDropdown(typeof(IStateIdentifiers)), FormerlySerializedAs("state")] private string identifier;
 		[SerializeField, HideInInspector] private bool hasDefaultChild;
-		[SerializeField, Conditional(nameof(hasDefaultChild), drawToggle: true), ConstDropdown(typeof(IStateIdentifierConstants))] private string defaultChild;
+		[SerializeField, Conditional(nameof(hasDefaultChild), drawToggle: true), ConstDropdown(typeof(IStateIdentifiers))] private string defaultChild;
 		[SerializeField, Output(backingValue = ShowBackingValue.Never, typeConstraint = TypeConstraint.Inherited)] private Connections.State children;
 	}
 }

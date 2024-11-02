@@ -10,16 +10,16 @@ namespace SpaxUtils
 	{
 		[SerializeField, Input(backingValue = ShowBackingValue.Never)] protected Connections.StateComponent inConnection;
 
-		private IEntity entity;
+		private IAgent agent;
 		private PlayerInputWrapper playerInputWrapper;
 		private PlayerAgentService playerAgentService;
 
 		public void InjectDependencies(
-			IEntity entity,
+			IAgent agent,
 			PlayerInputWrapper playerInputWrapper,
 			PlayerAgentService playerAgentService)
 		{
-			this.entity = entity;
+			this.agent = agent;
 			this.playerInputWrapper = playerInputWrapper;
 			this.playerAgentService = playerAgentService;
 		}
@@ -27,7 +27,7 @@ namespace SpaxUtils
 		public override void OnStateEntered()
 		{
 			base.OnStateEntered();
-			playerAgentService.MarkPlayerEntity(entity, playerInputWrapper.PlayerIndex);
+			playerAgentService.MarkPlayerAgent(agent, playerInputWrapper.PlayerIndex);
 		}
 	}
 }

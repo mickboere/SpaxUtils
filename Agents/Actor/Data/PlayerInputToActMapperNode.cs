@@ -28,7 +28,7 @@ namespace SpaxUtils
 
 			foreach (InputToActMapping mapping in map.Mappings)
 			{
-				mappers.Add(new PlayerInputToActMapper(agent.Actor, mapping, playerInputWrapper));
+				mappers.Add(new PlayerInputToActMapper(agent, mapping, playerInputWrapper));
 			}
 
 			callbackService.SubscribeUpdate(UpdateMode.Update, this, OnUpdate);

@@ -7,6 +7,7 @@ namespace SpaxUtils
 	public class SpawnpointEntityComponent : EntityComponentMono, ISpawnpoint
 	{
 		public string ID => identifier;
+		public override Transform Transform => overridePoint == null ? transform : overridePoint;
 		public Vector3 Position => overridePoint == null ? transform.position : overridePoint.position;
 		public Quaternion Rotation => overridePoint == null ? transform.rotation : overridePoint.rotation;
 		public SpawnRegion Region => region;
@@ -15,7 +16,7 @@ namespace SpaxUtils
 		[SerializeField] private Transform overridePoint;
 		[SerializeField] private SpawnRegion region;
 
-		public void OnValidate()
+		protected virtual void OnValidate()
 		{
 			if (!Application.isPlaying && isActiveAndEnabled)
 			{
@@ -23,9 +24,9 @@ namespace SpaxUtils
 			}
 		}
 
-		public void OnDrawGizmos()
+		protected virtual void OnDrawGizmos()
 		{
-			Gizmos.matrix = transform.localToWorldMatrix;
+			Gizmos.matrix = Transform.localToWorldMatrix;
 			Gizmos.color = Color.red;
 			Gizmos.DrawSphere(Vector3.zero, 0.1f);
 			Gizmos.color = Color.blue;

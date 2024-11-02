@@ -20,7 +20,7 @@ namespace SpaxUtils
 		[SerializeField] private InputActionPhase phase;
 		[SerializeField] private bool eatInput;
 		[SerializeField] private int prio = 0;
-		[SerializeField, ConstDropdown(typeof(IStateIdentifierConstants))] private string nextState;
+		[SerializeField, ConstDropdown(typeof(IStateIdentifiers))] private string nextState;
 		[SerializeField, Output(backingValue = ShowBackingValue.Never, typeConstraint = TypeConstraint.Inherited)] protected Connections.Rule rules;
 
 		private Brain brain;
@@ -36,7 +36,7 @@ namespace SpaxUtils
 			this.playerInputWrapper = playerInputWrapper;
 
 			_rules = GetOutputNodes<IRule>(nameof(rules));
-			ruleCallbacks = new StateCallbackHelper(dependencyManager, _rules.Where(r => r.IsPureRule).ToList());
+			ruleCallbacks = new StateCallbackHelper(dependencyManager, State, _rules.Where(r => r.IsPureRule).ToList());
 			ruleCallbacks.Inject();
 		}
 
@@ -60,7 +60,7 @@ namespace SpaxUtils
 			foreach (string action in actions)
 			{
 				options[action] = new Option(nextState, action, OnInputReceived, playerInputWrapper, eatInput, prio);
-				options[action].MakeAvailable();
+				options[action].Enable();
 			}
 			ruleCallbacks.OnStateEntered();
 		}

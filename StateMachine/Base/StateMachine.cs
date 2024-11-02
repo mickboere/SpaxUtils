@@ -269,6 +269,7 @@ namespace SpaxUtils.StateMachines
 			foreach (IState state in entering)
 			{
 				dependencyManager.Inject(state);
+				state.Initialize(state);
 				state.OnEnteringState();
 			}
 		}

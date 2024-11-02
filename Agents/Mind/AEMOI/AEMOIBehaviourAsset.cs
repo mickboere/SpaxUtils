@@ -25,7 +25,7 @@ namespace SpaxUtils
 		[SerializeField] protected int priority;
 		[SerializeField, FormerlySerializedAs("motivation")] protected Vector8 trigger;
 		[SerializeField, HideInInspector] protected bool requireState;
-		[SerializeField, Conditional(nameof(requireState), drawToggle: true), ConstDropdown(typeof(IStateIdentifierConstants))] protected string brainState;
+		[SerializeField, Conditional(nameof(requireState), drawToggle: true), ConstDropdown(typeof(IStateIdentifiers))] protected string brainState;
 
 		public void InjectDependencies(IAgent agent, CallbackService callbackService, AgentStatHandler agentStatHandler, CombatSensesComponent combatSenses)
 		{

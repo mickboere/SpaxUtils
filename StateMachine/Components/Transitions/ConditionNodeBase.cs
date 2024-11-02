@@ -37,9 +37,9 @@ namespace SpaxUtils.StateMachines
 			this.callbackService = callbackService;
 
 			_rules = GetOutputNodes<IRule>(nameof(rules));
-			ruleCallbacks = new StateCallbackHelper(dependencyManager, _rules.Where(r => r.IsPureRule).ToList());
+			ruleCallbacks = new StateCallbackHelper(dependencyManager, State, _rules.Where(r => r.IsPureRule).ToList());
 			_components = GetOutputNodes<IStateListener>(nameof(components));
-			componentCallbacks = new StateCallbackHelper(dependencyManager, _components);
+			componentCallbacks = new StateCallbackHelper(dependencyManager, State, _components);
 
 			ruleCallbacks.Inject();
 

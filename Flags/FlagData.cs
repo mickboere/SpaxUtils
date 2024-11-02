@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Newtonsoft.Json;
+using System;
 
 namespace SpaxUtils
 {
@@ -8,11 +9,13 @@ namespace SpaxUtils
 		/// <summary>
 		/// The ID of the object that set this flag.
 		/// </summary>
+		//[JsonProperty]
 		public string Owner { get; }
 
 		/// <summary>
 		/// The type of time used for determining this flag's expiration.
 		/// </summary>
+		//[JsonProperty]
 		public TimeType TimeType { get; }
 
 		/// <summary>

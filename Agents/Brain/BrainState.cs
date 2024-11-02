@@ -96,6 +96,15 @@ namespace SpaxUtils
 		#region Callbacks
 
 		/// <inheritdoc/>
+		public virtual void Initialize(IState state)
+		{
+			foreach (IStateListener component in components)
+			{
+				component.Initialize(state);
+			}
+		}
+
+		/// <inheritdoc/>
 		public virtual void OnEnteringState()
 		{
 			foreach (IStateListener component in components)

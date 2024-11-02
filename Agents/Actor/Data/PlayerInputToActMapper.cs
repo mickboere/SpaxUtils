@@ -11,7 +11,7 @@ namespace SpaxUtils
 		private PlayerInputWrapper playerInputWrapper;
 		private Option option;
 
-		public PlayerInputToActMapper(IActor actor, InputToActMapping mapping, PlayerInputWrapper playerInputWrapper) : base(actor, mapping)
+		public PlayerInputToActMapper(IAgent agent, InputToActMapping mapping, PlayerInputWrapper playerInputWrapper) : base(agent.Actor, mapping)
 		{
 			this.playerInputWrapper = playerInputWrapper;
 
@@ -29,8 +29,9 @@ namespace SpaxUtils
 						Release();
 					}
 				},
-			playerInputWrapper, mapping.EatInput, mapping.InputPrio);
-			option.MakeAvailable();
+			playerInputWrapper, mapping.EatInput, mapping.InputPrio,
+			agent.Context, mapping.Context);
+			option.Enable();
 		}
 
 		public override void Dispose()

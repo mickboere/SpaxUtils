@@ -43,7 +43,7 @@ namespace SpaxUtils.StateMachines
 			_parent = GetInputNode<IState>(nameof(inConnection));
 			_children = GetAllChildStates().ToDictionary((s) => s.ID);
 			_components = GetComponents().ToList();
-			callbackHelper = new StateCallbackHelper(dependencyManager, _components);
+			callbackHelper = new StateCallbackHelper(dependencyManager, this, _components);
 			callbackHelper.Inject();
 		}
 

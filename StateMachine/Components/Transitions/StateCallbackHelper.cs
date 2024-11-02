@@ -10,10 +10,15 @@ namespace SpaxUtils.StateMachines
 		private readonly IDependencyManager dependencyManager;
 		private readonly IEnumerable<IStateListener> listeners;
 
-		public StateCallbackHelper(IDependencyManager dependencyManager, IEnumerable<IStateListener> listeners)
+		public StateCallbackHelper(IDependencyManager dependencyManager, IState state, IEnumerable<IStateListener> listeners)
 		{
 			this.dependencyManager = dependencyManager;
 			this.listeners = listeners;
+
+			foreach (IStateListener component in listeners)
+			{
+				component.Initialize(state);
+			}
 		}
 
 		public void Dispose()

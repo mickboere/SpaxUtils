@@ -16,6 +16,11 @@
 		}
 
 		/// <summary>
+		/// Registers <paramref name="state"/> to be the owner of this listener.
+		/// </summary>
+		void Initialize(IState state);
+
+		/// <summary>
 		/// Called once before entering a state.
 		/// </summary>
 		void OnEnteringState();

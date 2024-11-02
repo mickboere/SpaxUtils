@@ -7,8 +7,8 @@ namespace SpaxUtils
 	/// </summary>
 	public abstract class EntityComponentMono : MonoBehaviour, IEntityComponent
 	{
-		public GameObject GameObject => Entity.GameObject;
-		public Transform Transform => Entity.GameObject.transform;
+		public virtual GameObject GameObject => Entity.GameObject;
+		public virtual Transform Transform => Entity.GameObject.transform;
 
 		public IEntity Entity
 		{

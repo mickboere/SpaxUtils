@@ -9,6 +9,12 @@ namespace SpaxUtils
 	{
 		private const string ID_PLAYER_COLLECTION = "PLAYER_ENTITIES";
 
+		/// <summary>
+		/// All currently marked player agents.
+		/// </summary>
+		public IReadOnlyDictionary<int, IAgent> Agents => _agents;
+		private Dictionary<int, IAgent> _agents = new Dictionary<int, IAgent>();
+
 		private RuntimeDataService runtimeDataService;
 
 		public PlayerAgentService(RuntimeDataService runtimeDataService)
@@ -43,12 +49,14 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
-		/// Mark an entity as being controlled by a player.
+		/// Mark an agent as being controlled by a player.
 		/// </summary>
-		/// <param name="entity">The entity now under control by a player.</param>
-		/// <param name="playerIndex">The index of the player controlling the entity.</param>
-		public void MarkPlayerEntity(IEntity entity, int playerIndex)
+		/// <param name="agent">The agent currently under control by player <paramref name="playerIndex"/>.</param>
+		/// <param name="playerIndex">The index of the player controlling the agent.</param>
+		public void MarkPlayerAgent(IAgent agent, int playerIndex)
 		{
+			_agents[playerIndex] = agent;
+
 			// Load player collection.
 			List<string> playerCollection = new List<string>();
 			if (runtimeDataService.CurrentProfile.ContainsEntry(ID_PLAYER_COLLECTION))
@@ -59,13 +67,13 @@ namespace SpaxUtils
 			if (playerIndex < playerCollection.Count)
 			{
 				// Overwrite entity at player index.
-				playerCollection[playerIndex] = entity.Identification.ID;
+				playerCollection[playerIndex] = agent.Identification.ID;
 				runtimeDataService.CurrentProfile.SetValue(ID_PLAYER_COLLECTION, playerCollection);
 			}
 			else
 			{
 				// Expand player collection.
-				playerCollection.Add(entity.Identification.ID);
+				playerCollection.Add(agent.Identification.ID);
 				runtimeDataService.CurrentProfile.SetValue(ID_PLAYER_COLLECTION, playerCollection);
 			}
 		}

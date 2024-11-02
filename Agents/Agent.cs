@@ -23,6 +23,9 @@ namespace SpaxUtils
 		public IBrain Brain { get; private set; }
 
 		/// <inheritdoc/>
+		public IContextManager Context { get; private set; }
+
+		/// <inheritdoc/>
 		public IMind Mind { get; private set; }
 
 		/// <inheritdoc/>
@@ -41,10 +44,11 @@ namespace SpaxUtils
 
 		protected override string GameObjectNamePrefix => "[Agent]";
 
-		[SerializeField, ConstDropdown(typeof(IStateIdentifierConstants))] private string state;
+		[SerializeField, ConstDropdown(typeof(IStateIdentifiers))] private string state;
 		[SerializeField] private List<BrainGraph> brainGraphs;
 
 		private CallbackService callbackService;
+		private GlobalContextService globalContextService;
 		private AEMOISettings aemoiSettings;
 		private InputToActMap inputToActMap;
 		private IPerformer[] performers;
@@ -52,12 +56,14 @@ namespace SpaxUtils
 
 		public void InjectDependencies(
 			IAgentBody body, ITargetable targetableComponent, ITargeter targeterComponent,
-			CallbackService callbackService, AEMOISettings aemoiSettings, InputToActMap inputToActMap,
+			CallbackService callbackService, GlobalContextService globalContextService, AEMOISettings aemoiSettings, InputToActMap inputToActMap,
 			IPerformer[] performers, IRelationData[] relationData, BrainGraph[] brainGraphs)
 		{
 			Body = body;
 			Targetable = targetableComponent;
 			Targeter = targeterComponent;
+
+			this.callbackService = callbackService;
 			this.callbackService = callbackService;
 			this.aemoiSettings = aemoiSettings;
 			this.inputToActMap = inputToActMap;
@@ -88,6 +94,7 @@ namespace SpaxUtils
 			Actor = new Actor($"ACTOR_{Identification.ID}", callbackService, inputToActMap, performers);
 			Mind = new AEMOI(DependencyManager, aemoiSettings, new StatOcton(this, aemoiSettings.Personality, Vector8.Half));
 			Brain = new Brain(DependencyManager, callbackService, state, null, brainGraphs);
+			Context = new ContextManager(globalContextService);
 			LoadRelations();
 
 			// Start the Brain to come to life.
@@ -158,7 +165,7 @@ namespace SpaxUtils
 		private void OnEnteredStateEvent(IState state)
 		{
 			this.state = state.ID;
-
+			Context.Switch(Brain.StateHierarchy.Select(s => s.ID).ToArray());
 			SpaxDebug.Notify($"[{Identification.Name}]", $"OnEnteredStateEvent({string.Join(", ", Brain.StateHierarchy.Select(s => s.ID))})");
 		}
 	}

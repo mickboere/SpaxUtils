@@ -1,6 +1,6 @@
 ﻿namespace SpaxUtils.StateMachines
 {
-	public class StateIdentifiers : IStateIdentifierConstants
+	public class StateIdentifiers : IStateIdentifiers
 	{
 		public const string INACTIVE = "Inactive";
 		public const string ACTIVE = "Active";
