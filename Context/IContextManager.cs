@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace SpaxUtils
@@ -13,6 +14,11 @@ namespace SpaxUtils
 		/// Invoked whenever any change has occured in the context stack.
 		/// </summary>
 		event Action ContextChangedEvent;
+
+		/// <summary>
+		/// Returns the full context stack.
+		/// </summary>
+		List<string> GetStack();
 
 		/// <summary>
 		/// Returns whether <paramref name="context"/> is present in the context stack and active.

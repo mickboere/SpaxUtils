@@ -4,7 +4,7 @@ using System.Linq;
 
 namespace SpaxUtils
 {
-	public class ContextManager : IContextManager
+	public class ContextManager : IContextManager, IDisposable
 	{
 		public event Action ContextChangedEvent;
 
@@ -20,7 +20,32 @@ namespace SpaxUtils
 
 		public ContextManager(IContextManager parent)
 		{
-			this.parent = parent;
+			if (parent != null)
+			{
+				this.parent = parent;
+				parent.ContextChangedEvent += OnParentContextChangedEvent;
+			}
+		}
+
+		public void Dispose()
+		{
+			if (parent != null)
+			{
+				parent.ContextChangedEvent -= OnParentContextChangedEvent;
+			}
+		}
+
+		private void OnParentContextChangedEvent()
+		{
+			OnChange();
+		}
+
+		/// <inheritdoc/>
+		public List<string> GetStack()
+		{
+			List<string> result = parent == null ? new List<string>() : parent.GetStack();
+			result.AddRange(contextStack);
+			return result;
 		}
 
 		/// <inheritdoc/>

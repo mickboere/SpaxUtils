@@ -77,6 +77,25 @@ namespace SpaxUtils
 					this.brainGraphs.Add(brainGraph);
 				}
 			}
+
+			if (Actor != null)
+			{
+				SpaxDebug.Error("Double injection on Agent!");
+				return;
+			}
+
+			// Initialize all Agent components.
+			Actor = new Actor($"ACTOR_{Identification.ID}", callbackService, inputToActMap, performers);
+			Brain = new Brain(DependencyManager, callbackService, state, null, brainGraphs);
+			Context = new ContextManager(globalContextService);
+			Mind = new AEMOI(DependencyManager, aemoiSettings, new StatOcton(this, aemoiSettings.Personality, Vector8.Half));
+			LoadRelations();
+
+			// Bind Agent components so that later injections can retrieve them easily (this is meant for Nodes, not EntityComponents as they may already be injected before this).
+			DependencyManager.Bind(Actor);
+			DependencyManager.Bind(Mind);
+			DependencyManager.Bind(Brain);
+			DependencyManager.Bind(Context);
 		}
 
 		protected override void Awake()
@@ -90,13 +109,6 @@ namespace SpaxUtils
 			}
 #endif
 
-			// Initialize all Agent components.
-			Actor = new Actor($"ACTOR_{Identification.ID}", callbackService, inputToActMap, performers);
-			Mind = new AEMOI(DependencyManager, aemoiSettings, new StatOcton(this, aemoiSettings.Personality, Vector8.Half));
-			Brain = new Brain(DependencyManager, callbackService, state, null, brainGraphs);
-			Context = new ContextManager(globalContextService);
-			LoadRelations();
-
 			// Start the Brain to come to life.
 			Brain.EnteredStateEvent += OnEnteredStateEvent;
 			Brain.Start();
@@ -106,6 +118,7 @@ namespace SpaxUtils
 		{
 			((Actor)Actor)?.Dispose();
 			Brain?.Dispose();
+			((ContextManager)Context)?.Dispose();
 		}
 
 		/// <inheritdoc/>
