@@ -1,6 +1,6 @@
 ﻿namespace SpaxUtils.StateMachines
 {
-	public interface IStateIdentifiers : IContextIdentifiers
+	public interface IStateIdentifiers
 	{
 	}
 }

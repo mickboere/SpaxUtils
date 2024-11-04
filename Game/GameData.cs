@@ -8,8 +8,6 @@ namespace SpaxUtils
 	[CreateAssetMenu(fileName = nameof(GameData), menuName = "ScriptableObjects/GameData")]
 	public class GameData : ScriptableObject, IService
 	{
-		public UIRoot UIRoot;
-
 		public string CharacterCreatorScene = "CharacterCreator";
 		public string FirstLevelScene = "";
 	}

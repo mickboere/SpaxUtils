@@ -10,11 +10,10 @@ namespace SpaxUtils
 	/// Class that listens for user-input in order to progress the brain state.
 	/// </summary>
 	[NodeTint("#eb34e8"), NodeWidth(225)]
-	public class BrainStateInputControllerNode : StateMachineNodeBase
+	public class BrainStateInputControllerNode : StateComponentNodeBase
 	{
 		public override string UserFacingName => $"[{string.Join(",", actions)}] > {nextState}";
 
-		[SerializeField, Input(backingValue = ShowBackingValue.Never)] private Connections.StateComponent inConnection;
 		[SerializeField, ConstDropdown(typeof(IInputActionMaps))] private string actionMap;
 		[SerializeField, ConstDropdown(typeof(IInputActions))] private List<string> actions;
 		[SerializeField] private InputActionPhase phase;

@@ -29,8 +29,7 @@ namespace SpaxUtils
 						Release();
 					}
 				},
-			playerInputWrapper, mapping.EatInput, mapping.InputPrio,
-			agent.Context, mapping.Context);
+			playerInputWrapper, mapping.EatInput, mapping.InputPrio);
 			option.Enable();
 		}
 

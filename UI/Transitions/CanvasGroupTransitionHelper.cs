@@ -23,13 +23,13 @@ namespace SpaxUtils.UI
 			this.canvasGroup = canvasGroup;
 		}
 
-		//public override void Fill(Action callback = null, float overrideTime = -1)
-		//{
-		//	// Activate gameObject to allow its update loop to run in case needed.
-		//	canvasGroup.gameObject.SetActive(true);
+		public override void Fill(Action callback = null, float delay = 0f, float overrideTime = -1)
+		{
+			// Activate gameObject to allow its update loop to run in case needed.
+			canvasGroup.gameObject.SetActive(true);
 
-		//	base.Fill(callback, overrideTime);
-		//}
+			base.Fill(callback, delay, overrideTime);
+		}
 
 		protected override void OnProgressed()
 		{

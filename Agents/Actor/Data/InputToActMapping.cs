@@ -1,6 +1,5 @@
 ﻿using System;
 using UnityEngine;
-using UnityEngine.Serialization;
 
 namespace SpaxUtils
 {
@@ -13,7 +12,6 @@ namespace SpaxUtils
 		public float Buffer => hasCustomBuffer ? customBuffer : Act<bool>.DEFAULT_BUFFER;
 
 		public string ActionMap => actionMap;
-		public string Context => context;
 		public string Input => input;
 		public bool EatInput => eatInput;
 		public int InputPrio => inputPrio;
@@ -22,7 +20,6 @@ namespace SpaxUtils
 		[SerializeField, ConstDropdown(typeof(IActTitles))] private string act;
 		[SerializeField, ConstDropdown(typeof(IInputActions))] private string input;
 		[SerializeField, ConstDropdown(typeof(IInputActionMaps))] private string actionMap;
-		[SerializeField, ConstDropdown(typeof(IContextIdentifiers), true)] private string context;
 		[SerializeField] private bool eatInput;
 		[SerializeField] private int inputPrio;
 		[SerializeField] private bool interuptable;

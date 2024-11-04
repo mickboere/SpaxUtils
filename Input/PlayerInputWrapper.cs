@@ -192,7 +192,9 @@ namespace SpaxUtils
 		/// </summary>
 		/// <param name="listener">The subscriber object, used for unsubscribing.</param>
 		/// <param name="inputAction">The name of the <see cref="InputAction"/> you want to subscribe to.</param>
-		/// <param name="callback">The callback that gets invoked when the input action is triggered.</param>
+		/// <param name="callback">The callback that gets invoked when the input action is triggered.
+		/// The bool return type should specify whether the input was eaten up (TRUE) or if other listeners should still be allowed to receive the callback.</param>
+		/// <param name="prio">Callback priority, higher priority is invoked first.</param>
 		public void Subscribe(object listener, string inputAction, Func<CallbackContext, bool> callback, int prio = 0)
 		{
 			SpaxDebug.Log($"P{PlayerIndex} Subscribed: ", $"[{inputAction}], {listener}", LogType.Notify, Color.blue, gameObject, 2);
@@ -402,6 +404,5 @@ namespace SpaxUtils
 		}
 
 		#endregion
-
 	}
 }

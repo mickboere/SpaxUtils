@@ -1,77 +1,87 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
+using static UnityEngine.InputSystem.InputAction;
 
 namespace SpaxUtils.UI
 {
 	public class UIScreenManager : MonoBehaviour
 	{
+		[SerializeField, ReadOnly] private string context;
 		[SerializeField] private RectTransform screenParent;
+		[SerializeField, ConstDropdown(typeof(IContextIdentifiers), true)] private string defaultContext;
+		[SerializeField, ConstDropdown(typeof(IInputActionMaps))] private string shortcutActionMap;
 
 		private IDependencyManager dependencyManager;
-		private IContextManager contextManager;
-		private UIScreenContextLibrary screenContextLibrary;
+		private TimeService timeService;
+		private PlayerInputWrapper playerInputWrapper;
+		private UIScreen[] screens;
+		
+		private List<Option> shortcuts = new List<Option>();
 
-		private Dictionary<string, UIScreen> screens = new Dictionary<string, UIScreen>();
-
-		public void InjectDependencies(IDependencyManager dependencyManager, IContextManager contextManager,
-			UIScreenContextLibrary screenContextLibrary)
+		public void InjectDependencies(IDependencyManager dependencyManager, TimeService timeService, PlayerInputWrapper playerInputWrapper)
 		{
 			this.dependencyManager = dependencyManager;
-			this.contextManager = contextManager;
-			this.screenContextLibrary = screenContextLibrary;
+			this.timeService = timeService;
+			this.playerInputWrapper = playerInputWrapper;
 		}
 
-		protected void OnEnable()
+		protected void Awake()
 		{
-			contextManager.ContextChangedEvent += OnContextChanged;
-		}
-
-		protected void OnDisable()
-		{
-			contextManager.ContextChangedEvent -= OnContextChanged;
-		}
-
-		private void OnContextChanged()
-		{
-			List<string> stack = contextManager.GetStack();
-			List<string> active = new List<string>();
-			float delay = 0f;
-
-			// Ensure all required screens are present.
-			foreach (string context in stack)
+			screens = screenParent.GetComponentsInChildren<UIScreen>(true);
+			foreach (UIScreen screen in screens)
 			{
-				if (!screens.ContainsKey(context) && screenContextLibrary.Screens.ContainsKey(context))
+				if (!string.IsNullOrEmpty(screen.Shortcut))
 				{
-					CreateScreen(context, screenContextLibrary.Screens[context]);
-				}
-				if (contextManager.IsActive(context))
-				{
-					active.Add(context);
-				}
-				if (screens.ContainsKey(context) && !active.Contains(context))
-				{
-					delay = delay.Max(screens[context].TransitionSettings.OutTime * screens[context].Transition.Progress);
+					shortcuts.Add(new Option(screen.Context, screen.Shortcut, (CallbackContext c) => { SwitchContext(screen.Context); }, playerInputWrapper, enable: true));
 				}
 			}
+			playerInputWrapper.RequestActionMaps(this, 0, shortcutActionMap);
+			SwitchContext(defaultContext);
+		}
 
-			// Only show screens that are active, hide others.
-			foreach (KeyValuePair<string, UIScreen> item in screens)
+		protected void OnDestroy()
+		{
+			playerInputWrapper.CompleteActionMapRequest(this);
+			timeService.CompletePauseRequest(this);
+
+			foreach (Option shortcut in shortcuts)
 			{
-				if (active.Contains(item.Key))
+				shortcut.Dispose();
+			}
+		}
+
+		private void SwitchContext(string context)
+		{
+			if (context == this.context)
+			{
+				// Toggle.
+				context = defaultContext;
+			}
+
+			float hideDelay = screens.Max(s => s.TransitionSettings.OutTime * s.Transition.Progress);
+
+			foreach (UIScreen screen in screens)
+			{
+				if (screen.Context == context)
 				{
-					item.Value.Show(null, delay);
+					screen.Show(null, hideDelay);
+					if (screen.Pause)
+					{
+						timeService.RequestPause(this);
+					}
+					else
+					{
+						timeService.CompletePauseRequest(this);
+					}
 				}
 				else
 				{
-					item.Value.Hide();
+					screen.Hide();
 				}
 			}
-		}
 
-		private void CreateScreen(string context, UIScreen prefab)
-		{
-			screens.Add(context, DependencyUtils.InstantiateAndInject(prefab.gameObject, screenParent, dependencyManager, true, false).GetComponent<UIScreen>());
-			screens[context].HideImmediately();
+			this.context = context;
 		}
 	}
 }

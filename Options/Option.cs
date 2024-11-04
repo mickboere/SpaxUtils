@@ -26,13 +26,9 @@ namespace SpaxUtils
 		private readonly Action<Option> onPickedCallback;
 		private readonly Action<CallbackContext> onInputCallback;
 
-		private readonly IContextManager contextManager;
-		private readonly string context;
-
 		private PlayerInputWrapper playerInputWrapper;
 
 		private bool enabled;
-		private bool contextActive;
 
 		public Option(
 			string title,
@@ -43,9 +39,7 @@ namespace SpaxUtils
 			bool eatInput = false,
 			int prio = 0,
 			Action<CallbackContext> onInputCallback = null,
-			PlayerInputWrapper playerInputWrapper = null,
-			IContextManager contextManager = null,
-			string context = "")
+			PlayerInputWrapper playerInputWrapper = null)
 		{
 			Title = title;
 			Description = description;
@@ -56,14 +50,6 @@ namespace SpaxUtils
 			this.prio = prio;
 			this.onInputCallback = onInputCallback;
 			this.playerInputWrapper = playerInputWrapper;
-			this.contextManager = contextManager;
-			this.context = context;
-
-			VerifyContext();
-			if (contextManager != null)
-			{
-				contextManager.ContextChangedEvent += OnContextChangedEvent;
-			}
 		}
 
 		/// <summary>
@@ -76,8 +62,7 @@ namespace SpaxUtils
 			PlayerInputWrapper playerInputWrapper,
 			bool eatInput = false,
 			int prio = 0,
-			IContextManager contextManager = null,
-			string context = "")
+			bool enable = false)
 		{
 			Title = title;
 			InputAction = inputAction;
@@ -85,27 +70,20 @@ namespace SpaxUtils
 			this.playerInputWrapper = playerInputWrapper;
 			this.eatInput = eatInput;
 			this.prio = prio;
-			this.contextManager = contextManager;
-			this.context = context;
 
 			Description = "";
 			onPickedCallback = null;
 			pickOnInput = false;
 
-			VerifyContext();
-			if(contextManager != null)
+			if (enable)
 			{
-				contextManager.ContextChangedEvent += OnContextChangedEvent;
+				Enable();
 			}
 		}
 
 		public void Dispose()
 		{
 			Deactivate();
-			if (contextManager != null)
-			{
-				contextManager.ContextChangedEvent -= OnContextChangedEvent;
-			}
 		}
 
 		/// <summary>
@@ -125,7 +103,7 @@ namespace SpaxUtils
 				this.playerInputWrapper = playerInputWrapper;
 			}
 
-			if (!Active && contextActive)
+			if (!Active)
 			{
 				Activate();
 			}
@@ -200,31 +178,6 @@ namespace SpaxUtils
 			playerInputWrapper.Unsubscribe(this);
 			Active = false;
 			MadeUnavailableEvent?.Invoke(this);
-		}
-
-		private void VerifyContext()
-		{
-			if (contextManager == null || string.IsNullOrEmpty(context))
-			{
-				contextActive = true;
-			}
-			else
-			{
-				contextActive = contextManager.IsActive(context);
-				if (!Active && enabled && contextActive)
-				{
-					Activate();
-				}
-				else if (Active && !contextActive)
-				{
-					Deactivate();
-				}
-			}
-		}
-
-		private void OnContextChangedEvent()
-		{
-			VerifyContext();
 		}
 
 		public override string ToString()

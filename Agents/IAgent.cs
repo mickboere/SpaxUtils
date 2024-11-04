@@ -33,11 +33,6 @@ namespace SpaxUtils
 		IBrain Brain { get; }
 
 		/// <summary>
-		/// The context stack of this agent.
-		/// </summary>
-		IContextManager Context { get; }
-
-		/// <summary>
 		/// The desire manager of this agent, controls the <see cref="Brain"/>'s state when active.
 		/// </summary>
 		IMind Mind { get; }

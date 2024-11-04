@@ -140,13 +140,7 @@ namespace SpaxUtils
 			{
 				// Spawn the object deactivated so that we can inject dependencies before Awake is called.
 				gameObject.SetActive(false);
-				instance = GameObject.Instantiate(gameObject);
-
-				// Parent and position.
-				if (parent != null)
-				{
-					instance.transform.SetParent(parent);
-				}
+				instance = parent == null ? GameObject.Instantiate(gameObject) : GameObject.Instantiate(gameObject, parent);
 				instance.transform.localPosition = position;
 				instance.transform.localRotation = rotation;
 			}
@@ -161,12 +155,12 @@ namespace SpaxUtils
 
 		public static GameObject InstantiateDeactivated(GameObject gameObject)
 		{
-			return InstantiateDeactivated(gameObject, null, Vector3.zero, Quaternion.identity);
+			return InstantiateDeactivated(gameObject, null, gameObject.transform.position, gameObject.transform.rotation);
 		}
 
 		public static GameObject InstantiateDeactivated(GameObject gameObject, Transform parent)
 		{
-			return InstantiateDeactivated(gameObject, parent, Vector3.zero, Quaternion.identity);
+			return InstantiateDeactivated(gameObject, parent, gameObject.transform.position, gameObject.transform.rotation);
 		}
 
 		public static GameObject InstantiateDeactivated(GameObject gameObject, Vector3 position, Quaternion rotation)
@@ -196,12 +190,12 @@ namespace SpaxUtils
 
 		public static GameObject InstantiateAndInject(GameObject gameObject, IDependencyManager dependencies, bool includeChildren = true, bool bindComponents = true)
 		{
-			return InstantiateAndInject(gameObject, null, Vector3.zero, Quaternion.identity, dependencies, includeChildren, bindComponents);
+			return InstantiateAndInject(gameObject, null, gameObject.transform.position, gameObject.transform.rotation, dependencies, includeChildren, bindComponents);
 		}
 
 		public static GameObject InstantiateAndInject(GameObject gameObject, Transform parent, IDependencyManager dependencies, bool includeChildren = true, bool bindComponents = true)
 		{
-			return InstantiateAndInject(gameObject, parent, Vector3.zero, Quaternion.identity, dependencies, includeChildren, bindComponents);
+			return InstantiateAndInject(gameObject, parent, gameObject.transform.position, gameObject.transform.rotation, dependencies, includeChildren, bindComponents);
 		}
 
 		public static GameObject InstantiateAndInject(GameObject gameObject, Vector3 position, Quaternion rotation, IDependencyManager dependencies, bool includeChildren = true, bool bindComponents = true)

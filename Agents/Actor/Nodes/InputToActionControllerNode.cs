@@ -53,8 +53,7 @@ namespace SpaxUtils
 					agent.Actor.Send(new Act<bool>(act, false, interuptable, interuptor, customBuffer ? buffer : Act<bool>.DEFAULT_BUFFER));
 					holding = false;
 				}
-			}, playerInputWrapper,
-			contextManager: agent.Context, context: State.ID);
+			}, playerInputWrapper);
 			option.Enable();
 			callbackService.SubscribeUpdate(UpdateMode.Update, this, OnUpdate);
 		}
