@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 
 namespace SpaxUtils
 {
@@ -16,7 +17,23 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public void Send<T>(T message, TimerStruct timer = default)
 		{
-			base.Send<T>(typeof(T), message, timer);
+			//base.Send<T>(typeof(T), message, timer);
+
+			Type key = typeof(T);
+			history[key] = (message, timer);
+			OnReceived(key, message);
+
+			foreach (KeyValuePair<Type, Dictionary<object, Action<object>>> subscription in subscriptions)
+			{
+				if (subscription.Key.IsAssignableFrom(key))
+				{
+					foreach (KeyValuePair<object, Action<object>> listener in subscription.Value)
+					{
+						listener.Value(message);
+					}
+				}
+			}
+
 		}
 
 		/// <inheritdoc/>

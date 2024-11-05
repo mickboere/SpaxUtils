@@ -14,8 +14,8 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public string Identifier { get; }
 
-		private Dictionary<Key, Dictionary<object, Action<Val>>> subscriptions;
-		private Dictionary<Key, (Val, TimerStruct)> history;
+		protected Dictionary<Key, Dictionary<object, Action<Val>>> subscriptions;
+		protected Dictionary<Key, (Val, TimerStruct)> history;
 
 		public ChannelBase(string identifier)
 		{
