@@ -59,7 +59,6 @@ namespace SpaxUtils.UI
 		[Header("Group")]
 		[SerializeField] protected TransitionSettings transitionSettings;
 		[SerializeField, Tooltip(TT_FS)] protected GameObject firstSelectable;
-		[SerializeField] private UIGroup[] children;
 
 		protected virtual void OnDestroy()
 		{
@@ -74,44 +73,29 @@ namespace SpaxUtils.UI
 		public virtual void ShowImmediately()
 		{
 			Transition.FillImmediately();
-			foreach (UIGroup child in children)
-			{
-				child.ShowImmediately();
-			}
 			SelectFirstSelectable();
 		}
 
 		public virtual void HideImmediately()
 		{
 			Transition.EmptyImmediately();
-			foreach (UIGroup child in children)
-			{
-				child.HideImmediately();
-			}
 		}
 
 		public virtual void Show(Action callback = null, float delay = 0f)
 		{
+			OnShow();
 			Transition.Fill(() =>
 			{
 				SelectFirstSelectable();
 				callback?.Invoke();
 			}, delay);
-
-			foreach (UIGroup child in children)
-			{
-				child.Show(null, delay + TransitionSettings.InTime * Transition.Progress.Invert());
-			}
 		}
 
 		public virtual void Hide(Action callback = null, float delay = 0f)
 		{
+			OnHide();
 			Transition.Empty(() =>
 			{
-				foreach (UIGroup child in children)
-				{
-					child.HideImmediately();
-				}
 				callback?.Invoke();
 			}, delay);
 		}
@@ -119,6 +103,14 @@ namespace SpaxUtils.UI
 		public virtual void SelectFirstSelectable()
 		{
 			FirstSelectable?.Select();
+		}
+
+		protected virtual void OnShow()
+		{
+		}
+
+		protected virtual void OnHide()
+		{
 		}
 
 		protected virtual void OnFilled()

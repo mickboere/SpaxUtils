@@ -5,7 +5,7 @@ using static UnityEngine.InputSystem.InputAction;
 
 namespace SpaxUtils.UI
 {
-	public class UIScreenManager : MonoBehaviour
+	public class UIScreenManager : MonoBehaviour, IDependency
 	{
 		[SerializeField, ReadOnly] private string context;
 		[SerializeField] private RectTransform screenParent;
@@ -13,8 +13,6 @@ namespace SpaxUtils.UI
 		[SerializeField, ConstDropdown(typeof(IInputActionMaps))] private string shortcutActionMap;
 		[SerializeField, ConstDropdown(typeof(IInputActionMaps))] private string uiActionMap;
 
-		private IAgent agent;
-		private ICommunicationChannel comms;
 		private TimeService timeService;
 		private PlayerInputWrapper playerInputWrapper;
 		private CursorService cursorService;
@@ -23,10 +21,8 @@ namespace SpaxUtils.UI
 		private UIScreen[] screens;
 		private List<Option> shortcuts = new List<Option>();
 
-		public void InjectDependencies(IAgent agent, ICommunicationChannel comms, TimeService timeService, PlayerInputWrapper playerInputWrapper, CursorService cursorService, RuntimeDataService runtimeDataService)
+		public void InjectDependencies(TimeService timeService, PlayerInputWrapper playerInputWrapper, CursorService cursorService, RuntimeDataService runtimeDataService)
 		{
-			this.agent = agent;
-			this.comms = comms;
 			this.timeService = timeService;
 			this.playerInputWrapper = playerInputWrapper;
 			this.cursorService = cursorService;
@@ -43,8 +39,8 @@ namespace SpaxUtils.UI
 					shortcuts.Add(new Option(screen.Context, screen.Shortcut, (CallbackContext c) => { SwitchContext(screen.Context); }, playerInputWrapper, enable: true));
 				}
 			}
+
 			playerInputWrapper.RequestActionMaps(this, 0, shortcutActionMap);
-			comms.Listen<IRequestOptionsMsg>(this, OnRequestMenuOptionsMsg); // TODO: Make elegant.
 			SwitchContext(defaultContext);
 		}
 
@@ -52,7 +48,6 @@ namespace SpaxUtils.UI
 		{
 			playerInputWrapper.CompleteActionMapRequest(this);
 			timeService.CompletePauseRequest(this);
-			comms.StopListening(this);
 
 			foreach (Option shortcut in shortcuts)
 			{
@@ -60,9 +55,9 @@ namespace SpaxUtils.UI
 			}
 		}
 
-		private void SwitchContext(string context)
+		public void SwitchContext(string context)
 		{
-			if (context == this.context)
+			if (context == this.context || context == null)
 			{
 				// Toggle.
 				context = defaultContext;
@@ -105,39 +100,6 @@ namespace SpaxUtils.UI
 			}
 
 			this.context = context;
-		}
-
-		private void OnRequestMenuOptionsMsg(IRequestOptionsMsg msg)
-		{
-			// If the OptionsMenu requesting options is the pause menu, provide it with all configured menus.
-			if (msg.Context == ContextIdentifiers.PAUSED)
-			{
-				// Add Resume option.
-				msg.AddOption(new Option("Resume", "", (option) => SwitchContext(defaultContext)));
-
-				// Add saving option.
-				msg.AddOption(new Option("Save", "", (option) =>
-				{
-					agent.SaveData();
-					runtimeDataService.SaveProfileToDisk();
-					SwitchContext(defaultContext);
-				}));
-
-				// Add all other menus as options.
-				foreach (UIScreen screen in screens)
-				{
-					if (screen.Context != ContextIdentifiers.PAUSED)
-					{
-						msg.AddOption(new Option(screen.Context, "", (option) => SwitchContext(screen.Context)));
-					}
-				}
-
-				// Add Quit option.
-				msg.AddOption(new Option("Quit", "", (option) =>
-				{
-					Application.Quit();
-				}));
-			}
 		}
 	}
 }
