@@ -8,7 +8,7 @@ namespace SpaxUtils
 	{
 		public GameObject EquipedPrefab => equipedPrefab;
 		public string SlotType => slotType;
-		public IReadOnlyList<string> CoversLocations => coversLocations;
+		public IReadOnlyList<string> CoversLocations => equipedPrefab != null && equipedPrefab.TryGetComponent(out IEntityApparel a) ? a.Locations : new List<string>();
 		public IReadOnlyList<BehaviourAsset> EquipedBehaviour => equipedBehaviour;
 		public IReadOnlyList<StatMappingSheet> EquipedStatMappings => equipedStatMappings;
 
@@ -22,7 +22,6 @@ namespace SpaxUtils
 		[Header("Equipment Data")]
 		[SerializeField] private GameObject equipedPrefab;
 		[SerializeField, Tooltip(TT_SLOT_TYPE), ConstDropdown(typeof(IEquipmentSlotTypeConstants))] private string slotType;
-		[SerializeField, Tooltip(TT_COVER), ConstDropdown(typeof(IBodyLocations))] private List<string> coversLocations;
 		[SerializeField, Expandable] private List<BehaviourAsset> equipedBehaviour;
 		[SerializeField, Expandable] private List<StatMappingSheet> equipedStatMappings;
 	}

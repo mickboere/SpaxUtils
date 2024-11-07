@@ -22,7 +22,9 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public IReadOnlyCollection<RuntimeEquipedData> EquipedItems => equipedItems.Values;
 
-		private EntityAppearanceHandler sharedRigHandler;
+		[SerializeField, ConstDropdown(typeof(IEquipmentSlotTypeConstants))] private string[] defaultSlots;
+
+		private EntityAppearanceHandler appearanceHandler;
 		private ICommunicationChannel comms;
 		private InventoryComponent inventoryComponent;
 		private IEquipmentData[] injectedEquipment;
@@ -35,10 +37,18 @@ namespace SpaxUtils
 			ICommunicationChannel comms, InventoryComponent inventoryComponent,
 			IEquipmentData[] injectedEquipment)
 		{
-			this.sharedRigHandler = sharedRigHandler;
+			this.appearanceHandler = sharedRigHandler;
 			this.comms = comms;
 			this.inventoryComponent = inventoryComponent;
 			this.injectedEquipment = injectedEquipment;
+		}
+
+		protected void Awake()
+		{
+			for (int i = 0; i < defaultSlots.Length; i++)
+			{
+				AddSlot(new EquipmentSlot(i.ToString(), defaultSlots[i]));
+			}
 		}
 
 		protected void Start()
@@ -169,12 +179,21 @@ namespace SpaxUtils
 			out IEquipmentSlot slot, out List<RuntimeEquipedData> overlap,
 			string slotId = null, bool overwriting = false)
 		{
+			return CanEquip(runtimeItemData, out slot, out overlap, out _, slotId, overwriting);
+		}
+
+		/// <inheritdoc/>
+		public bool CanEquip(RuntimeItemData runtimeItemData,
+			out IEquipmentSlot slot, out List<RuntimeEquipedData> overlap, out string reason,
+			string slotId = null, bool overwriting = false)
+		{
 			slot = null;
 
 			// Make sure item data is equipment to begin with.
 			if (runtimeItemData.ItemData is not IEquipmentData equipmentData)
 			{
 				overlap = new List<RuntimeEquipedData>();
+				reason = "Item data does not implement IEquipmentData.";
 				return false;
 			}
 
@@ -187,14 +206,17 @@ namespace SpaxUtils
 				if (slots.ContainsKey(slotId))
 				{
 					slot = slots[slotId];
+					reason = $"Couldn't overwrite item in slot '{slotId}'";
 					return !equipedItems.ContainsKey(slotId) || overwriting;
 				}
 				else
 				{
+					reason = $"No slot exists for '{slotId}'";
 					return false;
 				}
 			}
 
+			reason = $"Slot could not be retrieved for type: {equipmentData.SlotType}";
 			return TryGetSlotFromType(equipmentData.SlotType, out slot, overwriting ? null : (s) => !equipedItems.ContainsKey(s.ID));
 		}
 
@@ -202,7 +224,7 @@ namespace SpaxUtils
 		public bool TryEquip(RuntimeItemData runtimeItemData, out RuntimeEquipedData equipedData, string slotId = null)
 		{
 			// First make sure we can equip this item.
-			if (CanEquip(runtimeItemData, out IEquipmentSlot slot, out List<RuntimeEquipedData> overlap, slotId, true))
+			if (CanEquip(runtimeItemData, out IEquipmentSlot slot, out List<RuntimeEquipedData> overlap, out string reason, slotId, true))
 			{
 				IEquipmentData itemData = runtimeItemData.ItemData as IEquipmentData;
 
@@ -247,7 +269,7 @@ namespace SpaxUtils
 				return true;
 			}
 
-			SpaxDebug.Error("Couldn't equip item.", $"Item=({runtimeItemData})");
+			SpaxDebug.Error("Couldn't equip item.", $"Reason: {reason}\nItem=({runtimeItemData})");
 			equipedData = null;
 			return false;
 		}
@@ -263,7 +285,7 @@ namespace SpaxUtils
 				if (equipedData.EquipedInstance != null)
 				{
 					// Destroy the equiped object.
-					sharedRigHandler.Remove(equipedData.EquipedInstance);
+					appearanceHandler.Remove(equipedData.EquipedInstance);
 					Destroy(equipedData.EquipedInstance);
 				}
 
@@ -352,7 +374,7 @@ namespace SpaxUtils
 			}
 
 			// Apply the agent's rig when possible.
-			sharedRigHandler.Add(instance);
+			appearanceHandler.Add(instance);
 
 			return instance;
 		}
