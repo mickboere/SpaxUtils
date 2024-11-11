@@ -13,20 +13,23 @@ namespace SpaxUtils.UI
 		[SerializeField, ConstDropdown(typeof(IInputActionMaps))] private string shortcutActionMap;
 		[SerializeField, ConstDropdown(typeof(IInputActionMaps))] private string uiActionMap;
 
+		private string baseContextOverride = null;
+		private object subscriber = new object();
+
+		private ICommunicationChannel comms;
 		private TimeService timeService;
 		private PlayerInputWrapper playerInputWrapper;
 		private CursorService cursorService;
-		private RuntimeDataService runtimeDataService;
 
 		private UIScreen[] screens;
 		private List<Option> shortcuts = new List<Option>();
 
-		public void InjectDependencies(TimeService timeService, PlayerInputWrapper playerInputWrapper, CursorService cursorService, RuntimeDataService runtimeDataService)
+		public void InjectDependencies(ICommunicationChannel comms, TimeService timeService, PlayerInputWrapper playerInputWrapper, CursorService cursorService)
 		{
+			this.comms = comms;
 			this.timeService = timeService;
 			this.playerInputWrapper = playerInputWrapper;
 			this.cursorService = cursorService;
-			this.runtimeDataService = runtimeDataService;
 		}
 
 		protected void Awake()
@@ -39,7 +42,7 @@ namespace SpaxUtils.UI
 					shortcuts.Add(new Option(screen.Context, screen.Shortcut, (CallbackContext c) => { SwitchContext(screen.Context); }, playerInputWrapper, enable: true));
 				}
 			}
-
+			comms.Listen<SwitchBaseContextMsg>(this, OnSwitchBaseContextMsg);
 			playerInputWrapper.RequestActionMaps(this, 0, shortcutActionMap);
 			SwitchContext(defaultContext);
 		}
@@ -48,7 +51,7 @@ namespace SpaxUtils.UI
 		{
 			playerInputWrapper.CompleteActionMapRequest(this);
 			timeService.CompletePauseRequest(this);
-
+			comms.StopListening(this);
 			foreach (Option shortcut in shortcuts)
 			{
 				shortcut.Dispose();
@@ -60,7 +63,7 @@ namespace SpaxUtils.UI
 			if (context == this.context || context == null)
 			{
 				// Toggle.
-				context = defaultContext;
+				context = baseContextOverride ?? defaultContext;
 			}
 
 			float hideDelay = screens.Max(s => s.TransitionSettings.OutTime * s.Transition.Progress);
@@ -85,12 +88,12 @@ namespace SpaxUtils.UI
 					if (screen.RequireInput && playerInputWrapper.CurrentControlScheme == ControlSchemes.KEYBOARD_AND_MOUSE)
 					{
 						cursorService.RequestCursor(this);
-						playerInputWrapper.RequestActionMaps(this.context, 0, uiActionMap);
+						playerInputWrapper.RequestActionMaps(subscriber, 1, uiActionMap, shortcutActionMap);
 					}
 					else
 					{
 						cursorService.CompleteRequest(this);
-						playerInputWrapper.CompleteActionMapRequest(this.context);
+						playerInputWrapper.CompleteActionMapRequest(subscriber);
 					}
 				}
 				else
@@ -100,6 +103,12 @@ namespace SpaxUtils.UI
 			}
 
 			this.context = context;
+		}
+
+		private void OnSwitchBaseContextMsg(SwitchBaseContextMsg msg)
+		{
+			baseContextOverride = msg.Context;
+			SwitchContext(baseContextOverride);
 		}
 	}
 }
