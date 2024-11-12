@@ -93,20 +93,20 @@ namespace SpaxUtils
 		/// Sets flag with id <paramref name="flag"/>.
 		/// Creates a new <see cref="FlagData"/> object using the optional parameters.
 		/// </summary>
-		public void SetFlag(string flag, string owner = "", TimeType timeType = TimeType.ScaledPlaytime, float expiration = 0f, bool overwrite = false)
+		public void SetFlag(string flag, string setterID = "", TimeType timeType = TimeType.ScaledPlaytime, float expiration = 0f, bool overwrite = false)
 		{
-			SetFlag(flag, new FlagData(owner, timeService.Time(timeType), timeType, expiration), overwrite);
+			SetFlag(flag, new FlagData(setterID, timeService.Time(timeType), timeType, expiration), overwrite);
 		}
 
 		/// <summary>
 		/// Sets all of the flags in params <paramref name="flags"/> with default settings.
 		/// </summary>
 		/// <param name="flags">The flags to set.</param>
-		public void SetFlags(params string[] flags)
+		public void SetFlags(string setterID, params string[] flags)
 		{
 			foreach (string flag in flags)
 			{
-				SetFlag(flag);
+				SetFlag(flag, setterID);
 			}
 		}
 
@@ -114,11 +114,11 @@ namespace SpaxUtils
 		/// Sets all of the flags in params <paramref name="flags"/> with default settings.
 		/// </summary>
 		/// <param name="flags">The flags to set.</param>
-		public void SetFlags(IEnumerable<string> flags)
+		public void SetFlags(string setterID, IEnumerable<string> flags)
 		{
 			foreach (string flag in flags)
 			{
-				SetFlag(flag);
+				SetFlag(flag, setterID);
 			}
 		}
 

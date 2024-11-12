@@ -30,9 +30,9 @@ namespace SpaxUtils
 		/// </summary>
 		public float Expiration { get; }
 
-		public FlagData(string owner, float time, TimeType timeType = TimeType.ScaledPlaytime, float expiration = 0f)
+		public FlagData(string setter, float time, TimeType timeType = TimeType.ScaledPlaytime, float expiration = 0f)
 		{
-			Setter = owner;
+			Setter = setter;
 			TimeType = timeType;
 			Time = time;
 			Expiration = expiration;
@@ -41,16 +41,17 @@ namespace SpaxUtils
 		public RuntimeDataCollection ToRuntimeDataCollection(string id)
 		{
 			List<RuntimeDataEntry> data = new List<RuntimeDataEntry>();
-			data.Add(new RuntimeDataEntry(nameof(Setter), Setter));
-			data.Add(new RuntimeDataEntry(nameof(Time), Time));
-			if (TimeType != TimeType.ScaledPlaytime)
+			if (!string.IsNullOrEmpty(Setter)) // No need to store setter if there is none.
 			{
-				// No need to store time type if it is the default type.
+				data.Add(new RuntimeDataEntry(nameof(Setter), Setter));
+			}
+			data.Add(new RuntimeDataEntry(nameof(Time), Time));
+			if (TimeType != TimeType.ScaledPlaytime) // No need to store time type if it is the default type.
+			{
 				data.Add(new RuntimeDataEntry(nameof(TimeType), TimeType));
 			}
-			if (Expiration > 0)
+			if (Expiration > 0) // No need to store expiration if there is no expiration.
 			{
-				// No need to store expiration if there is no expiration.
 				data.Add(new RuntimeDataEntry(nameof(Expiration), Expiration));
 			}
 			return new RuntimeDataCollection(id, data);

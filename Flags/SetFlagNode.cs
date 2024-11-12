@@ -14,6 +14,13 @@ namespace SpaxUtils
 
 		private FlagService flagsService;
 
+		private IEntity entity;
+
+		public void InjectDependencies(IEntity entity)
+		{
+			this.entity = entity;
+		}
+
 		public void InjectDependencies(FlagService flagsService)
 		{
 			this.flagsService = flagsService;
@@ -22,7 +29,7 @@ namespace SpaxUtils
 		public override void OnEnteringState()
 		{
 			base.OnEnteringState();
-			flagsService.SetFlags(flags);
+			flagsService.SetFlags(entity.ID, flags);
 		}
 	}
 }
