@@ -23,6 +23,13 @@ namespace SpiritAxis
 			interactables.Dispose();
 		}
 
+		public static bool InRange(IInteractor interactor, IInteractable interactable, out float distance)
+		{
+			// TODO: Develop "InteractionBridge" for needing to interact over a counter or some other gap over which interaction should still be possible.
+			distance = Vector3.Distance(interactor.InteractorPoint, interactable.InteractablePoint);
+			return distance < interactor.InteractorRange + interactable.InteractableRange;
+		}
+
 		/// <summary>
 		/// Finds all <see cref="IInteractionHandler"/>s in range of <paramref name="interactor"/>.
 		/// </summary>
@@ -47,14 +54,9 @@ namespace SpiritAxis
 				}
 
 				// Ask interactable for consent.
-				if (string.IsNullOrEmpty(interactionType) || interactable.IsInteractable(interactionType))
+				if ((string.IsNullOrEmpty(interactionType) || interactable.IsInteractable(interactionType)) && InRange(interactor, interactable, out float dist))
 				{
-					// TODO: Develop "InteractionBridge" for needing to interact over a counter or some other gap over which interaction should still be possible.
-					float dist = Vector3.Distance(interactor.InteractorPoint, interactable.InteractablePoint);
-					if (dist < interactor.InteractorRange + interactable.InteractableRange)
-					{
-						results.Add((interactable, dist));
-					}
+					results.Add((interactable, dist));
 				}
 			}
 

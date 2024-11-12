@@ -11,12 +11,11 @@ namespace SpaxUtils
 	{
 		private const string DATA_FLAGS = "FLAGS";
 
-		public Action<string, FlagData> SetFlagEvent;
+		public event Action<string, FlagData> SetFlagEvent;
 
 		public IReadOnlyDictionary<string, FlagData> Flags => flags;
 
 		private Dictionary<string, FlagData> flags;
-		private RuntimeDataCollection data;
 
 		private TimeService timeService;
 		private RuntimeDataService runtimeDataService;
@@ -25,8 +24,11 @@ namespace SpaxUtils
 		{
 			this.timeService = timeService;
 			this.runtimeDataService = runtimeDataService;
+
+			runtimeDataService.CurrentProfileChangedEvent += OnProfileChangedEvent;
+			runtimeDataService.SavingCurrentToDisk += OnSavingCurrentToDisk;
+
 			Load();
-			Save();
 		}
 
 		/// <summary>
@@ -35,18 +37,17 @@ namespace SpaxUtils
 		/// </summary>
 		public void Load()
 		{
-			if (runtimeDataService.CurrentProfile.TryGetEntry(DATA_FLAGS, out data))
+			if (runtimeDataService.CurrentProfile.TryGetEntry(DATA_FLAGS, out RuntimeDataCollection data))
 			{
 				flags = new Dictionary<string, FlagData>();
-				foreach (RuntimeDataEntry entry in data.Data)
+				foreach (RuntimeDataCollection entry in data.Data)
 				{
-					flags.Add(entry.ID, (FlagData)entry.Value);
+					flags.Add(entry.ID, FlagData.FromRuntimeDataCollection(entry));
 				}
 			}
 			else
 			{
 				flags = new Dictionary<string, FlagData>();
-				data = new RuntimeDataCollection(DATA_FLAGS);
 			}
 		}
 
@@ -56,7 +57,12 @@ namespace SpaxUtils
 		/// </summary>
 		public void Save()
 		{
-			runtimeDataService.CurrentProfile.TryAdd(data, true);
+			RuntimeDataCollection data = new RuntimeDataCollection(DATA_FLAGS);
+			foreach (KeyValuePair<string, FlagData> flag in flags)
+			{
+				data.TryAdd(flag.Value.ToRuntimeDataCollection(flag.Key));
+			}
+			runtimeDataService.SaveDataToProfile(data);
 		}
 
 		/// <summary>
@@ -73,13 +79,12 @@ namespace SpaxUtils
 		/// </summary>
 		public void SetFlag(string flag, FlagData flagData, bool overwrite = false)
 		{
-			if (Flags.ContainsKey(flag) && !overwrite)
+			if (flags.ContainsKey(flag) && !overwrite)
 			{
 				return;
 			}
 
 			flags[flag] = flagData;
-			data[flag] = new RuntimeDataEntry(flag, flagData);
 			SpaxDebug.Log("SetFlag:", $"{flag}\n{SpaxJsonUtils.Serialize(flagData)}");
 			SetFlagEvent?.Invoke(flag, flagData);
 		}
@@ -88,9 +93,9 @@ namespace SpaxUtils
 		/// Sets flag with id <paramref name="flag"/>.
 		/// Creates a new <see cref="FlagData"/> object using the optional parameters.
 		/// </summary>
-		public void SetFlag(string flag, string owner = "", TimeType timeType = TimeType.ScaledPlaytime, float expiration = -1f, bool overwrite = false)
+		public void SetFlag(string flag, string owner = "", TimeType timeType = TimeType.ScaledPlaytime, float expiration = 0f, bool overwrite = false)
 		{
-			SetFlag(flag, new FlagData(owner, timeType, timeService.Time(timeType), expiration), overwrite);
+			SetFlag(flag, new FlagData(owner, timeService.Time(timeType), timeType, expiration), overwrite);
 		}
 
 		/// <summary>
@@ -115,6 +120,16 @@ namespace SpaxUtils
 			{
 				SetFlag(flag);
 			}
+		}
+
+		private void OnProfileChangedEvent(RuntimeDataCollection profile)
+		{
+			Load();
+		}
+
+		private void OnSavingCurrentToDisk(RuntimeDataCollection profile)
+		{
+			Save();
 		}
 	}
 }

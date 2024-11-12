@@ -23,6 +23,16 @@ namespace SpaxUtils
 		public event Action<RuntimeDataCollection> CurrentProfileChangedEvent;
 
 		/// <summary>
+		/// Invoked just before a profile is saved to the disk.
+		/// </summary>
+		public event Action<RuntimeDataCollection> SavingToDisk;
+
+		/// <summary>
+		/// Invoked just before a profile is saved to the disk.
+		/// </summary>
+		public event Action<RuntimeDataCollection> SavingCurrentToDisk;
+
+		/// <summary>
 		/// The global data profile used for storing settings across all profiles.
 		/// </summary>
 		public RuntimeDataCollection GlobalData { get; private set; }
@@ -226,6 +236,12 @@ namespace SpaxUtils
 			SpaxDebug.Log("Unloaded profile:", profileId);
 		}
 
+		/// <summary>
+		/// Ensure a current profile is loaded.
+		/// </summary>
+		/// <param name="useLastSave">Whether to try and load the last saved profile if there is no current profile.</param>
+		/// <param name="defaultIfNull">The default profile ID to load if there is no available profile.</param>
+		/// <returns>The current loaded profile.</returns>
 		public RuntimeDataCollection EnsureCurrentProfile(bool useLastSave = true, string defaultIfNull = DEFAULT_PROFILE_ID)
 		{
 			if (CurrentProfile != null)
@@ -327,7 +343,11 @@ namespace SpaxUtils
 				CurrentProfile.TryAdd(data, overwrite);
 				return;
 			}
-
+			if (profileId == GLOBAL_DATA_ID)
+			{
+				GlobalData.TryAdd(data, overwrite);
+				return;
+			}
 			if (!Profiles.ContainsKey(profileId))
 			{
 				SpaxDebug.Error("Couldn't save data.", $"No profile loaded with ID <color=red>\"{profileId}\"</color=red>.");
@@ -364,7 +384,7 @@ namespace SpaxUtils
 			}
 
 			// Retrieve the profile that will be saved to the disk.
-			RuntimeDataCollection profileData = null;
+			RuntimeDataCollection profileData;
 			if (profileId != GLOBAL_DATA_ID)
 			{
 				if (!Profiles.ContainsKey(profileId))
@@ -388,6 +408,12 @@ namespace SpaxUtils
 			else
 			{
 				profileData = GlobalData;
+			}
+
+			SavingToDisk?.Invoke(profileData);
+			if (profileId == CurrentProfile.ID)
+			{
+				SavingCurrentToDisk?.Invoke(profileData);
 			}
 
 			// Save data to disk.
