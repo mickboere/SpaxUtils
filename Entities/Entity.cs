@@ -240,7 +240,7 @@ namespace SpaxUtils
 			_age = RuntimeData.GetValue(EntityDataIdentifiers.AGE, 0d);
 			if (Age > 0d)
 			{
-				Transform.position = RuntimeData.GetValue(EntityDataIdentifiers.POSITION, transform.position);
+				Transform.position = RuntimeData.GetValue(EntityDataIdentifiers.POSITION, transform.position) + Vector3.up * 0.5f; // hack
 				Transform.eulerAngles = RuntimeData.GetValue(EntityDataIdentifiers.ROTATION, transform.eulerAngles);
 			}
 		}

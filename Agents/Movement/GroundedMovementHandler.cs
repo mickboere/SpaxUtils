@@ -31,7 +31,8 @@ namespace SpaxUtils
 		private Vector3 _inputRaw;
 
 		/// <inheritdoc/>
-		public Vector3 InputSmooth { get; private set; }
+		public Vector3 InputSmooth { get { return _inputSmooth; } set { _inputSmooth = value; } }
+		private Vector3 _inputSmooth;
 
 		/// <inheritdoc/>
 		public Vector3 TargetDirection

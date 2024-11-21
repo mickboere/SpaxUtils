@@ -117,7 +117,7 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public void Die(ITransition transition = null)
 		{
-			if (Alive && Brain.TryTransition(StateIdentifiers.DEAD, transition))
+			if (Alive && Brain.TryTransition(AgentStateIdentifiers.DEAD, transition))
 			{
 				Alive = false;
 				Actor.TryCancel(true);
@@ -129,7 +129,7 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public void Revive(ITransition transition = null)
 		{
-			if (!Alive && Brain.TryTransition(StateIdentifiers.ACTIVE, transition))
+			if (!Alive && Brain.TryTransition(AgentStateIdentifiers.ACTIVE, transition))
 			{
 				Alive = true;
 				Actor.RemoveBlocker(this);

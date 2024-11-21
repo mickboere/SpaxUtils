@@ -95,6 +95,8 @@ namespace SpaxUtils.StateMachines
 
 		#endregion Callbacks
 
+		#region IState implementation
+
 		public void SetParent(IState parent)
 		{
 			SpaxDebug.Error("Nodes are not dynamic.", "Could not set parent.");
@@ -115,20 +117,19 @@ namespace SpaxUtils.StateMachines
 			SpaxDebug.Error("Nodes are not dynamic.", "Could not remove child.");
 		}
 
+		#endregion IState implementation
+
 		private void EnsureUniqueId()
 		{
 			if (!Application.isPlaying)
 			{
-				if (id == null)
+				if (string.IsNullOrEmpty(id))
 				{
 					id = Guid.NewGuid().ToString();
 				}
-				else
+				else if (graph.nodes.Any((node) => node is StateNodeBase state && state != this && state.id == id))
 				{
-					if (graph.nodes.Any((node) => node is IState state && state != this && state.ID == id))
-					{
-						id = Guid.NewGuid().ToString();
-					}
+					id = Guid.NewGuid().ToString();
 				}
 			}
 		}

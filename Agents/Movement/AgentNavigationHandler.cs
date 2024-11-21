@@ -1,4 +1,5 @@
 using SpaxUtils;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -11,8 +12,12 @@ namespace SpaxUtils
 	[DefaultExecutionOrder(29)]
 	public class AgentNavigationHandler : EntityComponentMono, IDependency
 	{
+		private const float DEFAULT_ACCURACY = 0.1f;
+
 		private IAgent agent;
 		private IAgentMovementHandler movementHandler;
+
+		private Coroutine coroutine;
 
 		public void InjectDependencies(
 			Agent agent,
@@ -22,10 +27,36 @@ namespace SpaxUtils
 			this.movementHandler = movementHandler;
 		}
 
-		public void ResetInput()
+		public void ResetInput(bool resetSmoothInput = false)
 		{
 			movementHandler.InputRaw = Vector3.zero;
+			if (resetSmoothInput)
+			{
+				movementHandler.InputSmooth = Vector3.zero;
+				agent.Body.RigidbodyWrapper.Velocity = Vector3.zero;
+			}
 		}
+
+		#region Coroutines
+
+		private void StartEnumerator(IEnumerator enumerator)
+		{
+			StopEnumerator();
+			coroutine = StartCoroutine(enumerator);
+		}
+
+		private void StopEnumerator()
+		{
+			if (coroutine != null)
+			{
+				StopCoroutine(coroutine);
+				coroutine = null;
+			}
+		}
+
+		#endregion
+
+		#region Targeting
 
 		/// <summary>
 		/// Has the agent navigate towards the target's position.
@@ -142,7 +173,7 @@ namespace SpaxUtils
 		public float Distance(bool navMesh = false, Vector3? target = null)
 		{
 			Vector3 targetPosition = GetTargetPosition(target);
-			return Distance(agent.GameObject.transform.position, targetPosition, navMesh);
+			return Distance(agent.Transform.position, targetPosition, navMesh);
 		}
 
 		public Vector3 Direction(Vector3 from, Vector3 to)
@@ -162,5 +193,49 @@ namespace SpaxUtils
 				agent.Targeter.Target != null ? agent.Targeter.Target.Position :
 				agent.GameObject.transform.position;
 		}
+
+		#endregion
+
+		#region Aligning
+
+		public bool IsAlignedApprox(Vector3 position, Vector3 direction, float accuracy = DEFAULT_ACCURACY)
+		{
+			return Distance(agent.Transform.position, position) < accuracy &&
+				agent.Transform.forward.Dot(direction) > 1f - accuracy;
+		}
+
+		public void ForceAlign(Vector3 position, Vector3 direction)
+		{
+			agent.Transform.position = position;
+			agent.Transform.forward = direction;
+			ResetInput(true);
+		}
+
+		public void AlignWithPoint(Vector3 position, Vector3 direction, float speed = 1f, bool navMesh = false, Action callback = null)
+		{
+			StopEnumerator();
+
+			if (IsAlignedApprox(position, direction))
+			{
+				ForceAlign(position, direction);
+				callback?.Invoke();
+			}
+			else
+			{
+				StartEnumerator(AlignEnumerator());
+			}
+
+			IEnumerator AlignEnumerator()
+			{
+				while (!MoveInRange(DEFAULT_ACCURACY, speed, navMesh, position))
+				{
+					yield return null;
+				}
+				ForceAlign(position, direction);
+				callback?.Invoke();
+			}
+		}
+
+		#endregion
 	}
 }

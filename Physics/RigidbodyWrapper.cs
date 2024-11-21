@@ -64,6 +64,11 @@ namespace SpaxUtils
 		/// </summary>
 		public Vector3 AngularVelocity { get => Rigidbody.angularVelocity; set => Rigidbody.angularVelocity = value; }
 
+		/// <summary>
+		/// Whether the rigidbody should be exempt from the effects of the physics simulation.
+		/// </summary>
+		public bool IsKinematic { get => Rigidbody.isKinematic; set => Rigidbody.isKinematic = value; }
+
 		#endregion // Property Wrappers.
 
 		/// <summary>

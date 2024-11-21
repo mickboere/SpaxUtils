@@ -17,7 +17,7 @@ namespace SpaxUtils
 		/// <summary>
 		/// The current smoothed-out movement input. Get-only, updated once every fixed update using <see cref="InputRaw"/>.
 		/// </summary>
-		Vector3 InputSmooth { get; }
+		Vector3 InputSmooth { get; set; }
 
 		/// <summary>
 		/// The agent's desired forward direction.

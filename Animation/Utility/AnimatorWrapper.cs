@@ -10,8 +10,9 @@ namespace SpaxUtils
 	/// </summary>
 	public class AnimatorWrapper : MonoBehaviour, IDependency
 	{
-		public event Action OnAnimatorMoveEvent;
-		public event Action OnAnimatorIKEvent;
+		public event Action AnimatorMoveEvent;
+		public event Action AnimatorIKEvent;
+		public event Action<string> AnimationEvent;
 
 		private const string X = "X";
 		private const string Y = "Y";
@@ -50,12 +51,12 @@ namespace SpaxUtils
 
 		protected void OnAnimatorMove()
 		{
-			OnAnimatorMoveEvent?.Invoke();
+			AnimatorMoveEvent?.Invoke();
 		}
 
 		protected void OnAnimatorIK()
 		{
-			OnAnimatorIKEvent?.Invoke();
+			AnimatorIKEvent?.Invoke();
 		}
 
 		private Animator GetAnimator()
@@ -178,6 +179,20 @@ namespace SpaxUtils
 			}
 
 			return cachedParameters.Contains(param);
+		}
+
+		#endregion
+
+		#region Triggers
+
+		/// <summary>
+		/// Sets trigger parameter <paramref name="param"/>.
+		/// </summary>
+		/// <param name="param">The trigger parameter to set.</param>
+		public void SetTrigger(string param)
+		{
+			int paramHash = GetParamHash(param);
+			animator.SetTrigger(paramHash);
 		}
 
 		#endregion
@@ -380,6 +395,14 @@ namespace SpaxUtils
 		public Transform GetHumanBone(HumanBodyBones bone)
 		{
 			return animator.GetBoneTransform(bone);
+		}
+
+		/// <summary>
+		/// (Should) be invoked by an animation event to pass on parameters.
+		/// </summary>
+		public void OnAnimationEvent(string param)
+		{
+			AnimationEvent?.Invoke(param);
 		}
 
 		private IEnumerator TriggerBoolForFrames(int paramHash, int frames)

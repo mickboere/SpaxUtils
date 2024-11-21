@@ -20,18 +20,18 @@ namespace SpaxUtils.StateMachines
 
 		private IDependencyManager dependencyManager;
 		private IHistory history;
-		private Flow mainFlow;
 
 		private Flow subFlow;
 
-		public void InjectDependencies(
-			IDependencyManager dependencyManager,
-			IHistory history,
-			Flow mainFlow)
+		public void InjectDependencies(IDependencyManager dependencyManager, IHistory history)
 		{
 			this.dependencyManager = dependencyManager;
 			this.history = history;
-			this.mainFlow = mainFlow;
+		}
+
+		protected void OnValidate()
+		{
+			Init();
 		}
 
 		public override void OnStateEntered()

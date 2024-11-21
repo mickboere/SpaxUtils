@@ -109,13 +109,25 @@ namespace SpaxUtils
 			}
 
 			EditorGUI.BeginProperty(position, label, property);
-			string value = storedOptions[EditorGUI.Popup(position, label.text, optionIndex,
-				constDropdownAttribute.ShowAdress ? fullAdressConsts.ToArray() : noAdressConsts.ToArray())];
-			if (value == constDropdownAttribute.EmptyOption)
+			EditorGUI.showMixedValue = property.hasMultipleDifferentValues;
+			if (!error && currentOption != EMPTY && constDropdownAttribute.ShowAdress && !constDropdownAttribute.StoreAdress)
 			{
-				value = EMPTY;
+				// Only show adress in dropdown menu, not in field value.
+				fullAdressConsts.Insert(0, currentOption);
+				noAdressConsts.Insert(0, currentOption);
+				optionIndex = 0;
 			}
-			property.stringValue = value;
+			List<string> popupOptions = constDropdownAttribute.ShowAdress ? fullAdressConsts : noAdressConsts;
+			int popup = EditorGUI.Popup(position, label.text, optionIndex, popupOptions.ToArray());
+			if (!property.hasMultipleDifferentValues)
+			{
+				string value = storedOptions[popup];
+				if (value == constDropdownAttribute.EmptyOption)
+				{
+					value = EMPTY;
+				}
+				property.stringValue = value;
+			}
 			EditorGUI.EndProperty();
 
 			// Show a tooltip with the full stored property value.

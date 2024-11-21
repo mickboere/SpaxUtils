@@ -26,6 +26,16 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
+		/// Shorthand for <see cref="string.IsNullOrEmpty(string)"/>.
+		/// </summary>
+		/// <param name="s"></param>
+		/// <returns></returns>
+		public static bool IsNullOrEmpty(this string s)
+		{
+			return string.IsNullOrEmpty(s);
+		}
+
+		/// <summary>
 		/// Returns the last character in this string.
 		/// </summary>
 		public static char Last(this string s)
