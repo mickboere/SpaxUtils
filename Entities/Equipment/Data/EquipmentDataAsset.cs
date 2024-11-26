@@ -10,7 +10,7 @@ namespace SpaxUtils
 		public string SlotType => slotType;
 		public IReadOnlyList<string> CoversLocations => equipedPrefab != null && equipedPrefab.TryGetComponent(out IEntityApparel a) ? a.Locations : new List<string>();
 		public IReadOnlyList<BehaviourAsset> EquipedBehaviour => equipedBehaviour;
-		public IReadOnlyList<StatMappingSheet> EquipedStatMappings => equipedStatMappings;
+		public IReadOnlyList<StatMap> EquipedStatMappings => equipedStatMappings;
 
 		private const string TT_SLOT_TYPE =
 			"The type of slot this equipment must be equiped in." +
@@ -23,6 +23,6 @@ namespace SpaxUtils
 		[SerializeField] private GameObject equipedPrefab;
 		[SerializeField, Tooltip(TT_SLOT_TYPE), ConstDropdown(typeof(IEquipmentSlotTypeConstants))] private string slotType;
 		[SerializeField, Expandable] private List<BehaviourAsset> equipedBehaviour;
-		[SerializeField, Expandable] private List<StatMappingSheet> equipedStatMappings;
+		[SerializeField, Expandable] private List<StatMap> equipedStatMappings;
 	}
 }

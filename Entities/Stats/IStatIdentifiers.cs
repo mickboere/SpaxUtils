@@ -1,6 +1,6 @@
 namespace SpaxUtils
 {
-	public interface IStatIdentifierConstants : ILabeledDataIdentifiers
+	public interface IStatIdentifiers : ILabeledDataIdentifiers
 	{
 		/// <summary>
 		/// Category for all Stats.

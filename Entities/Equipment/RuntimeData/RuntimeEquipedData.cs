@@ -94,7 +94,7 @@ namespace SpaxUtils
 		{
 			Agent agent = DependencyManager.Get<Agent>(true, false);
 
-			foreach (StatMappingSheet statMappingSheet in EquipmentData.EquipedStatMappings)
+			foreach (StatMap statMappingSheet in EquipmentData.EquipedStatMappings)
 			{
 				foreach (StatMapping mapping in statMappingSheet.Mappings)
 				{

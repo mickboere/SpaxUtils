@@ -29,8 +29,8 @@ namespace SpaxUtils
 		IReadOnlyList<BehaviourAsset> EquipedBehaviour { get; }
 
 		/// <summary>
-		/// <see cref="StatMappingSheet"/>s which map <see cref="IItemData.FloatStats"/> to the entity upon equiping.
+		/// <see cref="StatMap"/>s which map <see cref="IItemData.FloatStats"/> to the entity upon equiping.
 		/// </summary>
-		IReadOnlyList<StatMappingSheet> EquipedStatMappings { get; }
+		IReadOnlyList<StatMap> EquipedStatMappings { get; }
 	}
 }

@@ -46,7 +46,7 @@ namespace SpaxUtils
 		/// </summary>
 		public bool IsRecovering => HasRecovery && (recoveryTimer == null || recoveryTimer.Expired) && !PercentileRecoverable.Approx(1f);
 
-		[SerializeField, ConstDropdown(typeof(IStatIdentifierConstants), includeEmpty: true)] private string stat;
+		[SerializeField, ConstDropdown(typeof(IStatIdentifiers), includeEmpty: true)] private string stat;
 		[SerializeField, Tooltip(TT_hasRecovery)] private bool hasMax = true;
 		[SerializeField, Conditional(nameof(hasMax), hide: true), Tooltip(TT_hasRecovery)] private bool hasRecovery;
 		[SerializeField, Conditional(nameof(hasMax), hide: true), Tooltip(TT_isRecoverable)] private bool isRecoverable;

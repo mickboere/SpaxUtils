@@ -18,11 +18,11 @@ namespace SpaxUtils
 			public string LIMB => limb;
 
 			[SerializeField, ConstDropdown(typeof(IEquipmentSlotTypeConstants))] private string slot;
-			[SerializeField, ConstDropdown(typeof(IStatIdentifierConstants), filter: AgentStatIdentifiers.SUB_STAT)] private string limb;
+			[SerializeField, ConstDropdown(typeof(IStatIdentifiers), filter: AgentStatIdentifiers.SUB_STAT)] private string limb;
 		}
 
 		[SerializeField] private List<SlotToLimb> slotToLimbMap;
-		[SerializeField, ConstDropdown(typeof(IStatIdentifierConstants))] private List<string> limbStats;
+		[SerializeField, ConstDropdown(typeof(IStatIdentifiers))] private List<string> limbStats;
 
 		private IAgent agent;
 		private RuntimeEquipedData runtimeEquipedData;

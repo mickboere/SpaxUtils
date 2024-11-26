@@ -3,7 +3,7 @@
 	/// <summary>
 	/// All the base attributes and stats used in Spirit Axis.
 	/// </summary>
-	public class AgentStatIdentifiers : IStatIdentifierConstants
+	public class AgentStatIdentifiers : IStatIdentifiers
 	{
 		// < Attributes >
 		// Attributes are measured in EXP and converted to LEVELS.
@@ -16,6 +16,7 @@
 		private const string BODY_ATTRIBUTE = ATTRIBUTES + "BODY/";
 		public const string BODY_EXPERIENCE = BODY_ATTRIBUTE + "Body_Experience"; // All atributes combined.
 		public const string BODY_LEVEL = BODY_ATTRIBUTE + "Body_Level"; // All attribute levels combined.
+
 		// Earth
 		public const string TENACITY = BODY_ATTRIBUTE + "Tenacity";
 		public const string TENACITY_LEVEL = BODY_ATTRIBUTE + "Tenacity_Level";
@@ -58,16 +59,26 @@
 		// Soul Attributes
 		#region Soul Attributes
 		private const string SOUL_ATTRIBUTE = ATTRIBUTES + "SOUL/";
-		public const string SOUL_LEVEL = SOUL_ATTRIBUTE + "Soul_Level"; // All soul attributes combined.
+		public const string SOUL_EXPERIENCE = SOUL_ATTRIBUTE + "Soul_Experience"; // All soul attributes combined.
+		public const string SOUL_LEVEL = SOUL_ATTRIBUTE + "Soul_Level"; // All soul attribute levels combined.
+
 		// Attributes
 		public const string GRAVITY = SOUL_ATTRIBUTE + "Gravity"; // Make heavy
-		public const string AVIDITY = SOUL_ATTRIBUTE + "Avidity"; // Experience gain
+		public const string GRAVITY_LEVEL = SOUL_ATTRIBUTE + "Gravity_Level";
+		public const string ACUITY = SOUL_ATTRIBUTE + "Acuity"; // Experience gain
+		public const string ACUITY_LEVEL = SOUL_ATTRIBUTE + "Acuity_Level";
 		public const string INTENSITY = SOUL_ATTRIBUTE + "Intensity"; // Magic Power
+		public const string INTENSITY_LEVEL = SOUL_ATTRIBUTE + "Intensity_Level";
 		public const string FACILITY = SOUL_ATTRIBUTE + "Facility"; // Magic Casting Speed
+		public const string FACILITY_LEVEL = SOUL_ATTRIBUTE + "Facility_Level";
 		public const string LEVITY = SOUL_ATTRIBUTE + "Levity"; // Make light
+		public const string LEVITY_LEVEL = SOUL_ATTRIBUTE + "Levity_Level";
 		public const string PURITY = SOUL_ATTRIBUTE + "Purity"; // Luck
+		public const string PURITY_LEVEL = SOUL_ATTRIBUTE + "Purity_Level";
 		public const string SENSITIVITY = SOUL_ATTRIBUTE + "Sensitivity"; // Magic Efficiency
+		public const string SENSITIVITY_LEVEL = SOUL_ATTRIBUTE + "Sensitivity_Level";
 		public const string CREATIVITY = SOUL_ATTRIBUTE + "Creativity"; // Recovery Speed
+		public const string CREATIVITY_LEVEL = SOUL_ATTRIBUTE + "Creativity_Level";
 		#endregion Soul Attributes
 
 		// < Stats >
@@ -75,7 +86,7 @@
 
 		// Body stats
 		#region Body Stats
-		private const string BODY_STAT = IStatIdentifierConstants.STATS + "BODY/";
+		private const string BODY_STAT = IStatIdentifiers.STATS + "BODY/";
 
 		// Earth
 		public const string MASS = BODY_STAT + "Mass"; // Total body mass.
@@ -84,14 +95,14 @@
 		public const string DEFENCE = BODY_STAT + "Defence"; // Total amount of passive defence.
 		public const string GUARD = BODY_STAT + "Guard"; // Total amount of active (guarding) defence.
 		public const string HARDNESS = BODY_STAT + "Hardness"; // The hardness of the body's exterior (0-1~). Hard bodies take less piercing damage but more force damage.
-		// Daeth
+															   // Daeth
 		public const string OFFENCE = BODY_STAT + "Offence"; // Total damage output.
 		public const string PIERCING = BODY_STAT + "Piercing"; // Piercing power of attacks (0-1~). Piercing attacks deal damage by penetrating soft bodies.
 		public const string REACH = BODY_STAT + "Reach"; // The agent's base melee reach (should be as large as the idle collision radius, limbs define actual reach.).
-		// Fire
+														 // Fire
 		public const string ENERGY = BODY_STAT + "Energy"; // Amount of spendable force-points.
 		public const string STRENGTH = BODY_STAT + "Strength"; // The body's maximum force output.
-		// Light
+															   // Light
 		public const string STATIC = BODY_STAT + "Static"; // Amount of available charge.
 		public const string ATTACK_CHARGE_SPEED = BODY_STAT + "Attack_Charge_Speed";
 		public const string ATTACK_PERFORM_SPEED = BODY_STAT + "Attack_Perform_Speed";
@@ -110,12 +121,12 @@
 
 		// Soul Stats
 		#region Soul Stats
-		private const string SOUL_STAT = IStatIdentifierConstants.STATS + "SOUL/";
+		private const string SOUL_STAT = IStatIdentifiers.STATS + "SOUL/";
 
 		public const string SPIRIT = SOUL_STAT + "Spirit"; // Spendable soul experience points.
 		public const string VIRTUE = SOUL_STAT + "Virtue"; // Total amount of virtuous spirit gained.
 		public const string SIN = SOUL_STAT + "Sin"; // Total amount of sinful spirit gained.
-		
+
 		#endregion Soul Stats
 
 		#region Sub Stats
@@ -123,7 +134,7 @@
 		/// <summary>
 		/// <see cref="StringExtensions.SubStat(string, string)"/>.
 		/// </summary>
-		public const string SUB_STAT = IStatIdentifierConstants.STATS + "SUB/";
+		public const string SUB_STAT = IStatIdentifiers.STATS + "SUB/";
 
 		// Point-stats
 		public const string SUB_MAX = SUB_STAT + "Max";

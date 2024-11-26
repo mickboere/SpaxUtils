@@ -12,21 +12,21 @@ namespace SpaxUtils
 		public Vector8 Vector8 => this;
 
 		public EntityStat N { get; private set; }
-		[SerializeField, ConstDropdown(typeof(IStatIdentifierConstants), includeEmpty: true)] private string north;
+		[SerializeField, ConstDropdown(typeof(IStatIdentifiers), includeEmpty: true)] private string north;
 		public EntityStat NE { get; private set; }
-		[SerializeField, ConstDropdown(typeof(IStatIdentifierConstants), includeEmpty: true)] private string northEast;
+		[SerializeField, ConstDropdown(typeof(IStatIdentifiers), includeEmpty: true)] private string northEast;
 		public EntityStat E { get; private set; }
-		[SerializeField, ConstDropdown(typeof(IStatIdentifierConstants), includeEmpty: true)] private string east;
+		[SerializeField, ConstDropdown(typeof(IStatIdentifiers), includeEmpty: true)] private string east;
 		public EntityStat SE { get; private set; }
-		[SerializeField, ConstDropdown(typeof(IStatIdentifierConstants), includeEmpty: true)] private string southEast;
+		[SerializeField, ConstDropdown(typeof(IStatIdentifiers), includeEmpty: true)] private string southEast;
 		public EntityStat S { get; private set; }
-		[SerializeField, ConstDropdown(typeof(IStatIdentifierConstants), includeEmpty: true)] private string south;
+		[SerializeField, ConstDropdown(typeof(IStatIdentifiers), includeEmpty: true)] private string south;
 		public EntityStat SW { get; private set; }
-		[SerializeField, ConstDropdown(typeof(IStatIdentifierConstants), includeEmpty: true)] private string southWest;
+		[SerializeField, ConstDropdown(typeof(IStatIdentifiers), includeEmpty: true)] private string southWest;
 		public EntityStat W { get; private set; }
-		[SerializeField, ConstDropdown(typeof(IStatIdentifierConstants), includeEmpty: true)] private string west;
+		[SerializeField, ConstDropdown(typeof(IStatIdentifiers), includeEmpty: true)] private string west;
 		public EntityStat NW { get; private set; }
-		[SerializeField, ConstDropdown(typeof(IStatIdentifierConstants), includeEmpty: true)] private string northWest;
+		[SerializeField, ConstDropdown(typeof(IStatIdentifiers), includeEmpty: true)] private string northWest;
 
 		public StatOctad(EntityStat north, EntityStat northEast, EntityStat east, EntityStat southEast,
 			EntityStat south, EntityStat southWest, EntityStat west, EntityStat northWest)

@@ -15,7 +15,15 @@ namespace SpaxUtils
 				method;
 
 		public Operation Operation => operation;
-		public float Value => value;
+		public float Value
+		{
+			get { return value; }
+			set
+			{
+				this.value = value;
+				Recalculate();
+			}
+		}
 
 		[SerializeField] private ModMethod method;
 		[SerializeField] private Operation operation;
