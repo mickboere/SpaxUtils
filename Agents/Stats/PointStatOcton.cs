@@ -4,7 +4,7 @@ using UnityEngine;
 namespace SpaxUtils
 {
 	[Serializable]
-	public class PointStatOcton : IOcton
+	public class PointStatOcton : IOctad
 	{
 		public Vector8 Vector8 => Current;
 		public Vector8 Current => new Vector8(N, NE, E, SE, S, SW, W, NW);

@@ -77,6 +77,15 @@ namespace SpaxUtils.StateMachines
 		{
 			CancelTransition();
 			callbackService.UnsubscribeUpdate(UpdateMode.Update, this);
+
+			foreach (IState state in hierarchy)
+			{
+				state.OnExitingState();
+			}
+			foreach (IState state in hierarchy)
+			{
+				state.OnStateExit();
+			}
 		}
 
 		private void OnUpdate(float delta)

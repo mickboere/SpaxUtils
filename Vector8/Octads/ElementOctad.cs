@@ -8,7 +8,7 @@ namespace SpaxUtils
 	/// Each element has their own characteristics and dynamics with other elements.
 	/// </summary>
 	[Serializable]
-	public class ElementOcton : IOcton
+	public class ElementOctad : IOctad
 	{
 		public Vector8 Vector8 => new Vector8(fire, light, air, faeth, water, nature, earth, daeth);
 
@@ -68,7 +68,7 @@ namespace SpaxUtils
 		/// </summary>
 		[SerializeField] private float daeth;
 
-		public ElementOcton(float fire, float light, float air, float faeth, float water, float nature, float earth, float daeth)
+		public ElementOctad(float fire, float light, float air, float faeth, float water, float nature, float earth, float daeth)
 		{
 			this.fire = fire;
 			this.light = light;
@@ -80,7 +80,7 @@ namespace SpaxUtils
 			this.daeth = daeth;
 		}
 
-		public static implicit operator Vector8(ElementOcton octon)
+		public static implicit operator Vector8(ElementOctad octon)
 		{
 			return octon.Vector8;
 		}

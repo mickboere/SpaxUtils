@@ -109,14 +109,29 @@ namespace SpaxUtils
 			return Mathf.Lerp(a, b, Mathf.InverseLerp(fromA, fromB, f));
 		}
 
+		public static float Evaluate(this float f, AnimationCurve curve)
+		{
+			return curve.Evaluate(f);
+		}
+
 		public static float Round(this float f)
 		{
 			return Mathf.Round(f);
 		}
 
-		public static float Evaluate(this float f, AnimationCurve curve)
+		public static int RoundToInt(this float f)
 		{
-			return curve.Evaluate(f);
+			return Mathf.RoundToInt(f);
+		}
+
+		public static float Floor(this float f)
+		{
+			return Mathf.Floor(f);
+		}
+
+		public static float Ceil(this float f)
+		{
+			return Mathf.Ceil(f);
 		}
 
 		public static float Decimal(this float f, DecimalMethod method)

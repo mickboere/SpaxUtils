@@ -83,7 +83,7 @@ namespace SpaxUtils
 			// Initialize all Agent components.
 			Actor = new Actor($"ACTOR_{Identification.ID}", callbackService, inputToActMap, performers);
 			Brain = new Brain(DependencyManager, callbackService, state, null, brainGraphs);
-			Mind = new AEMOI(DependencyManager, aemoiSettings, new StatOcton(this, aemoiSettings.Personality, Vector8.Half));
+			Mind = new AEMOI(DependencyManager, aemoiSettings, new StatOctad(this, aemoiSettings.Personality, Vector8.Half));
 			LoadRelations();
 
 			// Bind Agent components so that later injections can retrieve them easily (this is meant for Nodes, not EntityComponents as they may already be injected before this).

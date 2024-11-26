@@ -7,7 +7,7 @@ namespace SpaxUtils
 	/// Class that behaves as a <see cref="SpaxUtils.Vector8"/>, assigning a ranged float (0-1) to each member.
 	/// </summary>
 	[Serializable]
-	public class RangedOcton : IOcton
+	public class RangedOctad : IOctad
 	{
 		public Vector8 Vector8 => new Vector8(north, northEast, east, southEast, south, southWest, west, northWest);
 
@@ -20,7 +20,7 @@ namespace SpaxUtils
 		[SerializeField, Range(0f, 1f)] private float west = 0.5f;
 		[SerializeField, Range(0f, 1f)] private float northWest = 0.5f;
 
-		public RangedOcton(float fire, float light, float air, float faeth, float water, float nature, float earth, float daeth)
+		public RangedOctad(float fire, float light, float air, float faeth, float water, float nature, float earth, float daeth)
 		{
 			this.north = fire;
 			this.northEast = light;
@@ -32,7 +32,7 @@ namespace SpaxUtils
 			this.northWest = daeth;
 		}
 
-		public static implicit operator Vector8(RangedOcton octon)
+		public static implicit operator Vector8(RangedOctad octon)
 		{
 			return octon.Vector8;
 		}

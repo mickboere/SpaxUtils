@@ -45,12 +45,12 @@ namespace SpaxUtils
 
 		private IDependencyManager dependencyManager;
 		private AEMOISettings settings;
-		private IOcton personality;
+		private IOctad personality;
 		private List<IMindBehaviour> behaviours;
 
 		private Dictionary<IEntity, Vector8> stimuli = new Dictionary<IEntity, Vector8>();
 
-		public AEMOI(IDependencyManager dependencyManager, AEMOISettings settings, IOcton personality, IEnumerable<IMindBehaviour> behaviours = null)
+		public AEMOI(IDependencyManager dependencyManager, AEMOISettings settings, IOctad personality, IEnumerable<IMindBehaviour> behaviours = null)
 		{
 			this.dependencyManager = dependencyManager;
 			this.settings = settings;

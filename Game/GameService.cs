@@ -4,6 +4,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using UnityEngine.EventSystems;
 
 namespace SpaxUtils
 {
@@ -12,6 +13,7 @@ namespace SpaxUtils
 	/// </summary>
 	public class GameService : IService
 	{
+		public EventSystem EventSystem { get; }
 		public Brain Brain { get; }
 
 		private GameData gameData;
@@ -28,6 +30,7 @@ namespace SpaxUtils
 			this.callbackService = callbackService;
 			this.sceneService = sceneService;
 
+			EventSystem = GameObject.Instantiate(gameData.EventSystem);
 			Brain = new Brain(dependencyManager, callbackService, GameStateIdentifiers.LOADING, null, new List<StateMachineGraph>() { gameData.GameBrainGraph });
 			Brain.Start();
 

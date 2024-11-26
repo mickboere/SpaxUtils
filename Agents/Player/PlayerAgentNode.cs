@@ -29,5 +29,11 @@ namespace SpaxUtils
 			base.OnStateEntered();
 			playerAgentService.MarkPlayerAgent(agent, playerInputWrapper.PlayerIndex);
 		}
+
+		public override void OnExitingState()
+		{
+			base.OnExitingState();
+			playerAgentService.DismissPlayerAgent(playerInputWrapper.PlayerIndex);
+		}
 	}
 }

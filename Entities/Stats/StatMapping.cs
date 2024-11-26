@@ -47,6 +47,25 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public float GetModifierValue(float input)
 		{
+			return GetModifierValue(input, formula);
+		}
+
+		public float GetInverseModifierValue(float output)
+		{
+			switch (formula)
+			{
+				case FormulaType.Exp:
+					return GetModifierValue(output, FormulaType.InvExp);
+				case FormulaType.InvExp:
+					return GetModifierValue(output, FormulaType.Exp);
+				default:
+					SpaxDebug.Error($"Inverse modifier not supported for: {formula}");
+					return 0f;
+			}
+		}
+
+		private float GetModifierValue(float input, FormulaType formula)
+		{
 			switch (formula)
 			{
 				case FormulaType.Exp:

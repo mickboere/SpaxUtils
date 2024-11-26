@@ -1,4 +1,7 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.Rendering.Universal;
 
 namespace SpaxUtils
 {
@@ -76,6 +79,112 @@ namespace SpaxUtils
 				playerCollection.Add(agent.Identification.ID);
 				runtimeDataService.CurrentProfile.SetValue(ID_PLAYER_COLLECTION, playerCollection);
 			}
+		}
+
+		/// <summary>
+		/// Remove an agent from the tracked player agents list.
+		/// </summary>
+		public void DismissPlayerAgent(int index)
+		{
+			_agents.Remove(index);
+		}
+
+		public IAgent SpawnPlayer(IDependencyManager dependencyManager, PlayerConfig config, AgentSpawnData spawnData, Transform spawnpoint, out List<GameObject> instances)
+		{
+			instances = new List<GameObject>();
+
+			// Ensure all the required assets are present.
+			if (config.AgentSetup == null ||
+				config.InputActionAsset == null)
+			{
+				SpaxDebug.Error("One or more required player assets are missing.");
+				return null;
+			}
+
+			// Create dependency managers for entities.
+			DependencyManager playerDependencies = new DependencyManager(dependencyManager, "Player");
+			DependencyManager cameraDependencies = null;
+
+			// Create deactivated instances.
+			GameObject cameraInstance = null;
+			Camera cameraComponent = null;
+			if (config.CameraPrefab != null)
+			{
+				cameraInstance = DependencyUtils.InstantiateDeactivated(config.CameraPrefab, spawnpoint.position, spawnpoint.rotation);
+				instances.Add(cameraInstance);
+
+				cameraComponent = cameraInstance.GetComponentInChildren<Camera>();
+				cameraDependencies = new DependencyManager(playerDependencies, "PlayerCamera");
+				playerDependencies.Bind(EntityLabels.CAMERA, cameraComponent);
+				playerDependencies.Bind(cameraComponent);
+			}
+			GameObject hudInstance = null;
+			if (config.UIPrefab != null)
+			{
+				hudInstance = DependencyUtils.InstantiateDeactivated(config.UIPrefab);
+				instances.Add(hudInstance);
+			}
+
+			// Create player input
+			PlayerInputWrapper playerInputWrapper = PlayerInputWrapper.Create(config.InputActionAsset, dependencyManager, cameraComponent);
+			instances.Add(playerInputWrapper.gameObject);
+
+			// Bind necessary data to dependency managers.
+			RuntimeDataCollection entityData;
+			if (TryRetrievePlayerEntityData(playerInputWrapper.PlayerIndex, out entityData))
+			{
+				playerDependencies.Bind(entityData);
+			}
+			else if (playerInputWrapper.PlayerIndex == 0)
+			{
+				// The main player character is being spawned for the first time, give it the correct data to initialize.
+				entityData = new RuntimeDataCollection(Guid.NewGuid().ToString(), new List<RuntimeDataEntry>()
+					{
+						new RuntimeDataEntry(EntityDataIdentifiers.NAME, runtimeDataService.CurrentProfile.ID)
+					});
+				playerDependencies.Bind(entityData);
+			}
+
+			// Create player setup with loaded ID, if any.
+			IIdentification identification =
+				entityData == null ?
+					config.AgentSetup.Identification :
+					new Identification(entityData.ID, config.AgentSetup.Identification.Name, config.AgentSetup.Identification.Labels, null);
+			AgentSetup setup = new AgentSetup(config.AgentSetup, identification);
+
+			// Create player agent.
+			Agent playerAgent = spawnData.Spawn(setup, playerDependencies, spawnpoint.position, spawnpoint.rotation);
+			instances.Add(playerAgent.gameObject);
+
+			// Set up player camera.
+			if (cameraInstance != null)
+			{
+				string camName = $"PLAYER_CAMERA_{playerInputWrapper.PlayerIndex}";
+				var cameraIdentification = new Identification(camName, camName, new List<string>() { EntityLabels.CAMERA }, cameraInstance.GetComponent<IEntity>());
+				cameraDependencies.Bind(cameraIdentification);
+				DependencyUtils.BindMonoBehaviours(cameraInstance, cameraDependencies, includeChildren: true);
+				DependencyUtils.Inject(cameraInstance, cameraDependencies, includeChildren: true, bindComponents: false);
+				cameraInstance.SetActive(true);
+			}
+
+			// Set up UI.
+			if (hudInstance != null)
+			{
+				DependencyManager hudDependencies = new DependencyManager(playerDependencies, "PlayerHUD");
+				DependencyUtils.BindMonoBehaviours(hudInstance, hudDependencies, includeChildren: true);
+				DependencyUtils.Inject(hudInstance, hudDependencies, includeChildren: true, bindComponents: false);
+				hudInstance.SetActive(true);
+
+				Camera uiCamera = hudInstance.GetComponentInChildren<Camera>();
+				if (uiCamera != null)
+				{
+					// Add UI camera to main camera stack.
+					var cameraData = cameraComponent.GetUniversalAdditionalCameraData();
+					cameraData.cameraStack.Add(uiCamera);
+				}
+			}
+
+			return playerAgent;
 		}
 	}
 }

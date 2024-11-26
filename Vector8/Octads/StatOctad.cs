@@ -7,7 +7,7 @@ namespace SpaxUtils
 	/// Class that behaves as a <see cref="SpaxUtils.Vector8"/>, assigning an <see cref="EntityStat"/> to each member.
 	/// </summary>
 	[Serializable]
-	public class StatOcton : IOcton
+	public class StatOctad : IOctad
 	{
 		public Vector8 Vector8 => this;
 
@@ -28,7 +28,7 @@ namespace SpaxUtils
 		public EntityStat NW { get; private set; }
 		[SerializeField, ConstDropdown(typeof(IStatIdentifierConstants), includeEmpty: true)] private string northWest;
 
-		public StatOcton(EntityStat north, EntityStat northEast, EntityStat east, EntityStat southEast,
+		public StatOctad(EntityStat north, EntityStat northEast, EntityStat east, EntityStat southEast,
 			EntityStat south, EntityStat southWest, EntityStat west, EntityStat northWest)
 		{
 			N = north;
@@ -49,7 +49,7 @@ namespace SpaxUtils
 			this.northWest = northWest.Identifier;
 		}
 
-		public StatOcton(IEntity entity, string north, string northEast, string east, string southEast,
+		public StatOctad(IEntity entity, string north, string northEast, string east, string southEast,
 			string south, string southWest, string west, string northWest, Vector8 defaultValues)
 		{
 			this.north = north;
@@ -64,13 +64,33 @@ namespace SpaxUtils
 			Initialize(entity, defaultValues);
 		}
 
-		public StatOcton(IEntity entity, StatOcton copy, Vector8 defaultValues)
+		public StatOctad(IEntity entity, StatOctad copy, Vector8 defaultValues)
 			: this(entity, copy.north, copy.northEast, copy.east, copy.southEast, copy.south, copy.southWest, copy.west, copy.northWest, defaultValues)
 		{
 		}
 
+		public EntityStat this[int index]
+		{
+			get
+			{
+				switch (index)
+				{
+					case 0: return N;
+					case 1: return NE;
+					case 2: return E;
+					case 3: return SE;
+					case 4: return S;
+					case 5: return SW;
+					case 6: return W;
+					case 7: return NW;
+					default:
+						throw new ArgumentOutOfRangeException("index", $"Vector8 index needs to be between 0 and 7, but ({index}) was given!");
+				}
+			}
+		}
+
 		/// <summary>
-		/// Initialize an existing <see cref="StatOcton"/> by retrieving the defined stats from <paramref name="entity"/>.
+		/// Initialize an existing <see cref="StatOctad"/> by retrieving the defined stats from <paramref name="entity"/>.
 		/// </summary>
 		/// <param name="entity">The entity to initialize the octon with.</param>
 		public void Initialize(IEntity entity)
@@ -79,7 +99,7 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
-		/// Initialize an existing <see cref="StatOcton"/> by retrieving the defined stats from <paramref name="entity"/>.
+		/// Initialize an existing <see cref="StatOctad"/> by retrieving the defined stats from <paramref name="entity"/>.
 		/// </summary>
 		/// <param name="entity">The entity to initialize the octon with.</param>
 		public void Initialize(IEntity entity, Vector8 defaultValues)
@@ -97,9 +117,9 @@ namespace SpaxUtils
 		/// <summary>
 		/// Implicit <see cref="Vector8"/> conversion.
 		/// </summary>
-		public static implicit operator Vector8(StatOcton octon)
+		public static implicit operator Vector8(StatOctad octad)
 		{
-			return new Vector8(octon.N, octon.NE, octon.E, octon.SE, octon.S, octon.SW, octon.W, octon.NW);
+			return new Vector8(octad.N, octad.NE, octad.E, octad.SE, octad.S, octad.SW, octad.W, octad.NW);
 		}
 
 		public override string ToString()

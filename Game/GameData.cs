@@ -4,6 +4,7 @@ using UnityEngine;
 using SpaxUtils.StateMachines;
 using SpaxUtils.UI;
 using System;
+using UnityEngine.EventSystems;
 
 namespace SpaxUtils
 {
@@ -21,6 +22,7 @@ namespace SpaxUtils
 			[SerializeField] private string scene;
 		}
 
+		public EventSystem EventSystem => eventSystem;
 		public BrainGraph GameBrainGraph => gameBrainGraph;
 		public float TransitionTime => transitionTime;
 		public IReadOnlyDictionary<string, GameState> StateData
@@ -41,6 +43,7 @@ namespace SpaxUtils
 		private Dictionary<string, GameState> _stateData;
 		public IList<string> Levels => levels;
 
+		[SerializeField] private EventSystem eventSystem;
 		[SerializeField] private BrainGraph gameBrainGraph;
 		[SerializeField] private float transitionTime = 3f;
 		[SerializeField] private List<GameState> stateData;

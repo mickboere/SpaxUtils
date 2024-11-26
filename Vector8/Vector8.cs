@@ -146,6 +146,12 @@ namespace SpaxUtils
 		/// <returns>An array of <see cref="Vector3"/> positions where Z is 0.</returns>
 		public Vector3[] GetPositions3D() => GetPositions3D(this);
 
+		/// <summary>
+		/// Get the positions of all members arranged in a circle within <paramref name="rect"/>.
+		/// </summary>
+		/// <returns>An array of <see cref="Vector3"/> positions contained within <paramref name="rect"/> where Z is 0.</returns>
+		public Vector3[] GetPositions3DRect(float scale, Rect rect) => GetPositions3DRect(this, scale, rect);
+
 		#endregion Public Functions
 
 		#region Static Functions
@@ -401,6 +407,22 @@ namespace SpaxUtils
 				new Vector2(-v.W, 0f),
 				new Vector2(-v.NW, v.NW) * DIAGONAL
 			};
+		}
+
+		/// <summary>
+		/// Get the positions of all members arranged in a circle within <paramref name="rect"/>.
+		/// </summary>
+		/// <returns>An array of <see cref="Vector3"/> positions contained within <paramref name="rect"/> where Z is 0.</returns>
+		public static Vector3[] GetPositions3DRect(Vector8 v, float scale, Rect rect)
+		{
+			Vector3[] positions = v.GetPositions3D();
+			float s = 0.5f * scale;
+			for (int i = 0; i < positions.Length; i++)
+			{
+				positions[i].x *= rect.size.x * s;
+				positions[i].y *= rect.size.y * s;
+			}
+			return positions;
 		}
 
 		#endregion
