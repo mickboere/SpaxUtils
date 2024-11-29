@@ -72,10 +72,6 @@ namespace SpaxUtils.StateMachines
 
 		public void OnEnteringState(ITransition transition)
 		{
-			if (Running)
-			{
-				return;
-			}
 			foreach (IStateListener component in listeners)
 			{
 				component.OnEnteringState(transition);
@@ -85,10 +81,6 @@ namespace SpaxUtils.StateMachines
 
 		public void WhileEnteringState(ITransition transition)
 		{
-			if (Running)
-			{
-				return;
-			}
 			foreach (IStateListener component in listeners)
 			{
 				component.WhileEnteringState(transition);
@@ -97,10 +89,6 @@ namespace SpaxUtils.StateMachines
 
 		public void OnStateEntered()
 		{
-			if (Running)
-			{
-				return;
-			}
 			foreach (IStateListener component in listeners)
 			{
 				component.OnStateEntered();
@@ -109,10 +97,6 @@ namespace SpaxUtils.StateMachines
 
 		public void OnExitingState(ITransition transition)
 		{
-			if (!Running)
-			{
-				return;
-			}
 			foreach (IStateListener component in listeners)
 			{
 				component.OnExitingState(transition);
@@ -121,10 +105,6 @@ namespace SpaxUtils.StateMachines
 
 		public void WhileExitingState(ITransition transition)
 		{
-			if (!Running)
-			{
-				return;
-			}
 			foreach (IStateListener component in listeners)
 			{
 				component.WhileExitingState(transition);
@@ -133,10 +113,6 @@ namespace SpaxUtils.StateMachines
 
 		public void OnStateExit()
 		{
-			if (!Running)
-			{
-				return;
-			}
 			foreach (IStateListener component in listeners)
 			{
 				component.OnStateExit();

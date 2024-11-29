@@ -13,6 +13,8 @@ namespace SpaxUtils.StateMachines
 
 		public bool Running => instance != null;
 
+		public IReadOnlyList<StateMachine> Layers => layers;
+
 		private FlowGraph graph;
 		private IDependencyManager dependencyManager;
 		private IHistory history;

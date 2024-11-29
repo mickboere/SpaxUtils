@@ -131,7 +131,7 @@ namespace SpaxUtils
 			PlayerInputWrapper playerInputWrapper = PlayerInputWrapper.Create(config.InputActionAsset, playerDependencies, inputCam);
 			instances.Add(playerInputWrapper.gameObject);
 
-			SpaxDebug.Log($"Spawn Player [{playerInputWrapper.PlayerIndex}]");
+			//SpaxDebug.Log($"Spawn Player [{playerInputWrapper.PlayerIndex}]");
 
 			// Bind necessary data to dependency managers.
 			RuntimeDataCollection entityData;

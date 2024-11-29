@@ -41,7 +41,6 @@ namespace SpaxUtils.StateMachines
 		public override void OnEnteringState(ITransition transition)
 		{
 			base.OnEnteringState(transition);
-			SpaxDebug.Log($"OnEnteringState({transition})");
 			coroutine = callbackService.StartCoroutine(DelayedStart(transition));
 		}
 

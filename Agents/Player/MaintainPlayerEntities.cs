@@ -36,8 +36,6 @@ namespace SpaxUtils
 		{
 			base.OnEnteringState(transition);
 
-			SpaxDebug.Log($"OnEnteringState({transition})");
-
 			List<IEntity> foundSpawnpoints = entityCollection.Get<IEntity>((entity) => entity.ID == defaultSpawnpoint);
 			Transform spawnpoint = foundSpawnpoints.FirstOrDefault()?.GameObject.transform;
 			if (spawnpoint != null)
