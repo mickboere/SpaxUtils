@@ -108,10 +108,12 @@ namespace SpaxUtils
 			Brain.Start();
 		}
 
-		protected void OnDestroy()
+		protected override void OnDestroy()
 		{
 			((Actor)Actor)?.Dispose();
 			Brain?.Dispose();
+			Mind?.Dispose();
+			base.OnDestroy();
 		}
 
 		/// <inheritdoc/>

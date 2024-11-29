@@ -23,7 +23,8 @@ namespace SpaxUtils
 			{
 				DependencyManager agentDependencyManager = new DependencyManager(dependencyManager, agentSetup.Identification.Name);
 				agentDependencyManager.Bind(spawnpoint);
-				spawnData.Spawn(agentSetup, agentDependencyManager, spawnpoint.Position, spawnpoint.Rotation);
+				Agent agent = spawnData.Spawn(agentSetup, agentDependencyManager, spawnpoint.Position, spawnpoint.Rotation);
+				agent.Brain.TryTransition(AgentStateIdentifiers.ACTIVE);
 			}
 			else
 			{

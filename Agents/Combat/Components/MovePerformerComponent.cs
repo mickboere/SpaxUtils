@@ -77,7 +77,7 @@ namespace SpaxUtils
 			UpdateMoveset();
 		}
 
-		protected void OnDisable()
+		protected void OnDestroy()
 		{
 			foreach (MovePerformer helper in helpers)
 			{

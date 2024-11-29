@@ -32,7 +32,7 @@ namespace SpaxUtils.StateMachines
 		/// <summary>
 		/// Creates a new instance of the <see cref="StateMachineGraph"/> and starts a new flow layer for every startnode.
 		/// </summary>
-		public void StartFlow()
+		public void StartFlow(ITransition transition = null)
 		{
 			if (Running)
 			{
@@ -50,7 +50,7 @@ namespace SpaxUtils.StateMachines
 				layers.Add(layer);
 				history.Add(startState.ID);
 				layer.EnteredStateEvent += OnEnteredStateEvent;
-				layer.TransitionToDefaultState();
+				layer.TransitionToDefaultState(transition);
 			}
 		}
 

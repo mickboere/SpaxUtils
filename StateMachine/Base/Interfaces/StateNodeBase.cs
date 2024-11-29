@@ -50,10 +50,10 @@ namespace SpaxUtils.StateMachines
 		#region Callbacks
 
 		/// <inheritdoc/>
-		public override void OnEnteringState()
+		public override void OnEnteringState(ITransition transition)
 		{
-			base.OnEnteringState();
-			callbackHelper.OnEnteringState();
+			base.OnEnteringState(transition);
+			callbackHelper.OnEnteringState(transition);
 		}
 
 		/// <inheritdoc/>
@@ -72,10 +72,10 @@ namespace SpaxUtils.StateMachines
 		}
 
 		/// <inheritdoc/>
-		public override void OnExitingState()
+		public override void OnExitingState(ITransition transition)
 		{
-			base.OnExitingState();
-			callbackHelper.OnExitingState();
+			base.OnExitingState(transition);
+			callbackHelper.OnExitingState(transition);
 		}
 
 		/// <inheritdoc/>

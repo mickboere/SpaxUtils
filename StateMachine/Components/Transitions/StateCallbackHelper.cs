@@ -46,7 +46,7 @@ namespace SpaxUtils.StateMachines
 				{
 					dependencyManager.Inject(listener);
 				}
-				listener.OnEnteringState();
+				listener.OnEnteringState(null);
 				listener.WhileEnteringState(null);
 				listener.OnStateEntered();
 			}
@@ -61,7 +61,7 @@ namespace SpaxUtils.StateMachines
 			}
 			foreach (IStateListener listener in listeners)
 			{
-				listener.OnExitingState();
+				listener.OnExitingState(null);
 				listener.WhileExitingState(null);
 				listener.OnStateExit();
 			}
@@ -70,7 +70,7 @@ namespace SpaxUtils.StateMachines
 
 		#region Callbacks
 
-		public void OnEnteringState()
+		public void OnEnteringState(ITransition transition)
 		{
 			if (Running)
 			{
@@ -78,8 +78,9 @@ namespace SpaxUtils.StateMachines
 			}
 			foreach (IStateListener component in listeners)
 			{
-				component.OnEnteringState();
+				component.OnEnteringState(transition);
 			}
+			Running = true;
 		}
 
 		public void WhileEnteringState(ITransition transition)
@@ -104,10 +105,9 @@ namespace SpaxUtils.StateMachines
 			{
 				component.OnStateEntered();
 			}
-			Running = true;
 		}
 
-		public void OnExitingState()
+		public void OnExitingState(ITransition transition)
 		{
 			if (!Running)
 			{
@@ -115,7 +115,7 @@ namespace SpaxUtils.StateMachines
 			}
 			foreach (IStateListener component in listeners)
 			{
-				component.OnExitingState();
+				component.OnExitingState(transition);
 			}
 		}
 

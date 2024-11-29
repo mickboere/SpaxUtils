@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace SpaxUtils
@@ -7,46 +8,53 @@ namespace SpaxUtils
 	/// Class that behaves as a <see cref="SpaxUtils.Vector8"/>, assigning an <see cref="EntityStat"/> to each member.
 	/// </summary>
 	[Serializable]
-	public class StatOctad : IOctad
+	public class StatOctad : IOctad, IDisposable
 	{
+		public event Action<EntityStat> StatChangedEvent;
+
 		public Vector8 Vector8 => this;
 
-		public EntityStat N { get; private set; }
+		public EntityStat N => stats[0];
 		[SerializeField, ConstDropdown(typeof(IStatIdentifiers), includeEmpty: true)] private string north;
-		public EntityStat NE { get; private set; }
+		public EntityStat NE => stats[1];
 		[SerializeField, ConstDropdown(typeof(IStatIdentifiers), includeEmpty: true)] private string northEast;
-		public EntityStat E { get; private set; }
+		public EntityStat E => stats[2];
 		[SerializeField, ConstDropdown(typeof(IStatIdentifiers), includeEmpty: true)] private string east;
-		public EntityStat SE { get; private set; }
+		public EntityStat SE => stats[3];
 		[SerializeField, ConstDropdown(typeof(IStatIdentifiers), includeEmpty: true)] private string southEast;
-		public EntityStat S { get; private set; }
+		public EntityStat S => stats[4];
 		[SerializeField, ConstDropdown(typeof(IStatIdentifiers), includeEmpty: true)] private string south;
-		public EntityStat SW { get; private set; }
+		public EntityStat SW => stats[5];
 		[SerializeField, ConstDropdown(typeof(IStatIdentifiers), includeEmpty: true)] private string southWest;
-		public EntityStat W { get; private set; }
+		public EntityStat W => stats[6];
 		[SerializeField, ConstDropdown(typeof(IStatIdentifiers), includeEmpty: true)] private string west;
-		public EntityStat NW { get; private set; }
+		public EntityStat NW => stats[7];
 		[SerializeField, ConstDropdown(typeof(IStatIdentifiers), includeEmpty: true)] private string northWest;
+
+		private EntityStat[] stats;
 
 		public StatOctad(EntityStat north, EntityStat northEast, EntityStat east, EntityStat southEast,
 			EntityStat south, EntityStat southWest, EntityStat west, EntityStat northWest)
 		{
-			N = north;
+			stats = new EntityStat[8];
+			stats[0] = north;
 			this.north = north.Identifier;
-			NE = northEast;
+			stats[1] = northEast;
 			this.northEast = northEast.Identifier;
-			E = east;
+			stats[2] = east;
 			this.east = east.Identifier;
-			SE = southEast;
+			stats[3] = southEast;
 			this.southEast = southEast.Identifier;
-			S = south;
+			stats[4] = south;
 			this.south = south.Identifier;
-			SW = southWest;
+			stats[5] = southWest;
 			this.southWest = southWest.Identifier;
-			W = west;
+			stats[6] = west;
 			this.west = west.Identifier;
-			NW = northWest;
+			stats[7] = northWest;
 			this.northWest = northWest.Identifier;
+
+			Subscribe();
 		}
 
 		public StatOctad(IEntity entity, string north, string northEast, string east, string southEast,
@@ -104,14 +112,46 @@ namespace SpaxUtils
 		/// <param name="entity">The entity to initialize the octon with.</param>
 		public void Initialize(IEntity entity, Vector8 defaultValues)
 		{
-			N = entity.GetStat(north, true, defaultValues.N);
-			NE = entity.GetStat(northEast, true, defaultValues.NE);
-			E = entity.GetStat(east, true, defaultValues.E);
-			SE = entity.GetStat(southEast, true, defaultValues.SE);
-			S = entity.GetStat(south, true, defaultValues.S);
-			SW = entity.GetStat(southWest, true, defaultValues.SW);
-			W = entity.GetStat(west, true, defaultValues.W);
-			NW = entity.GetStat(northWest, true, defaultValues.NW);
+			if (stats != null)
+			{
+				Unsubscribe();
+			}
+			stats = new EntityStat[8];
+			stats[0] = entity.GetStat(north, true, defaultValues.N);
+			stats[1] = entity.GetStat(northEast, true, defaultValues.NE);
+			stats[2] = entity.GetStat(east, true, defaultValues.E);
+			stats[3] = entity.GetStat(southEast, true, defaultValues.SE);
+			stats[4] = entity.GetStat(south, true, defaultValues.S);
+			stats[5] = entity.GetStat(southWest, true, defaultValues.SW);
+			stats[6] = entity.GetStat(west, true, defaultValues.W);
+			stats[7] = entity.GetStat(northWest, true, defaultValues.NW);
+			Subscribe();
+		}
+
+		private void Subscribe()
+		{
+			foreach (EntityStat stat in stats)
+			{
+				stat.CompositeChangedEvent += OnStatChange;
+			}
+		}
+
+		private void Unsubscribe()
+		{
+			foreach (EntityStat stat in stats)
+			{
+				stat.CompositeChangedEvent -= OnStatChange;
+			}
+		}
+
+		public void Dispose()
+		{
+			Unsubscribe();
+		}
+
+		private void OnStatChange(CompositeFloatBase stat)
+		{
+			StatChangedEvent?.Invoke((EntityStat)stat);
 		}
 
 		/// <summary>

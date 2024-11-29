@@ -322,7 +322,12 @@ namespace SpaxUtils
 			{
 				// Try to load the scriptable object from resources.
 				dependency = Resources.Load(type.Name, type);
-				return dependency != null;
+				if (dependency != null)
+				{
+					Inject(dependency);
+					return true;
+				}
+				return false;
 			}
 			// Regular dependency
 			else

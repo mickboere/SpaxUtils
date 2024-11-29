@@ -31,6 +31,7 @@ namespace SpaxUtils
 			this.sceneService = sceneService;
 
 			EventSystem = GameObject.Instantiate(gameData.EventSystem);
+			GameObject.DontDestroyOnLoad(EventSystem.gameObject);
 			Brain = new Brain(dependencyManager, callbackService, GameStateIdentifiers.LOADING, null, new List<StateMachineGraph>() { gameData.GameBrainGraph });
 			Brain.Start();
 

@@ -39,10 +39,10 @@ namespace SpaxUtils
 			ruleCallbacks.Inject();
 		}
 
-		public override void OnEnteringState()
+		public override void OnEnteringState(ITransition transition)
 		{
-			base.OnEnteringState();
-			ruleCallbacks.OnEnteringState();
+			base.OnEnteringState(transition);
+			ruleCallbacks.OnEnteringState(transition);
 		}
 
 		public override void WhileEnteringState(ITransition transition)
@@ -64,10 +64,10 @@ namespace SpaxUtils
 			ruleCallbacks.OnStateEntered();
 		}
 
-		public override void OnExitingState()
+		public override void OnExitingState(ITransition transition)
 		{
-			base.OnExitingState();
-			ruleCallbacks.OnExitingState();
+			base.OnExitingState(transition);
+			ruleCallbacks.OnExitingState(transition);
 		}
 
 		public override void WhileExitingState(ITransition transition)

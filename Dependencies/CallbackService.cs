@@ -316,6 +316,7 @@ namespace SpaxUtils
 					last = Time.unscaledTime;
 					foreach (KeyValuePair<object, Action<float>> callback in loops[milliseconds])
 					{
+						// TODO: Spread out callbacks over the entirety of the interval.
 						callback.Value.Invoke(delta);
 					}
 				}

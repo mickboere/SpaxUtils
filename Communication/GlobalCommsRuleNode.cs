@@ -23,15 +23,15 @@ namespace SpaxUtils
 			_valid = false;
 		}
 
-		public override void OnEnteringState()
+		public override void OnEnteringState(ITransition transition)
 		{
-			base.OnEnteringState();
+			base.OnEnteringState(transition);
 			globalComms.Listen<CommsMsg>(this, OnMsg);
 		}
 
-		public override void OnExitingState()
+		public override void OnExitingState(ITransition transition)
 		{
-			base.OnExitingState();
+			base.OnExitingState(transition);
 			globalComms.StopListening(this);
 		}
 

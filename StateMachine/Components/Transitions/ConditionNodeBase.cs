@@ -22,7 +22,7 @@ namespace SpaxUtils.StateMachines
 
 		[SerializeField, Output(backingValue = ShowBackingValue.Never, typeConstraint = TypeConstraint.Inherited)] protected Connections.Rule rules;
 		[SerializeField, Output(backingValue = ShowBackingValue.Never, typeConstraint = TypeConstraint.Inherited), Tooltip(TT_COMPONENTS)] private Connections.StateComponent components;
-		
+
 		private CallbackService callbackService;
 
 		private bool _valid;
@@ -54,16 +54,16 @@ namespace SpaxUtils.StateMachines
 		#region Callbacks
 
 		/// <inheritdoc/>
-		public override void OnEnteringState()
+		public override void OnEnteringState(ITransition transition)
 		{
-			base.OnEnteringState();
+			base.OnEnteringState(transition);
 
 			callbackService.SubscribeUpdate(UpdateMode.Update, this, OnUpdate, 99998);
 
-			ruleCallbacks.OnEnteringState();
+			ruleCallbacks.OnEnteringState(transition);
 			if (Valid && RunComponents)
 			{
-				componentCallbacks.OnEnteringState();
+				componentCallbacks.OnEnteringState(transition);
 			}
 		}
 
@@ -92,16 +92,16 @@ namespace SpaxUtils.StateMachines
 		}
 
 		/// <inheritdoc/>
-		public override void OnExitingState()
+		public override void OnExitingState(ITransition transition)
 		{
-			base.OnExitingState();
+			base.OnExitingState(transition);
 
 			callbackService.UnsubscribeUpdate(UpdateMode.Update, this);
 
-			ruleCallbacks.OnExitingState();
+			ruleCallbacks.OnExitingState(transition);
 			if (Valid && RunComponents)
 			{
-				componentCallbacks.OnExitingState();
+				componentCallbacks.OnExitingState(transition);
 			}
 		}
 

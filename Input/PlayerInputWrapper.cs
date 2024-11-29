@@ -76,7 +76,7 @@ namespace SpaxUtils
 		/// <summary>
 		/// The currently enabled <see cref="InputActionMap"/>s.
 		/// </summary>
-		public string[] ActiveActionMaps => actionMapsCache.Where((m) => m.Value.enabled).Select((n) => n.Key).ToArray();
+		public string[] ActiveActionMaps { get; private set; }
 
 		#endregion
 
@@ -331,7 +331,7 @@ namespace SpaxUtils
 				actionMapRequests.Remove(context);
 			}
 
-			if (actionMaps == null || actionMaps.Length < 1)
+			if (actionMaps == null || actionMaps.Length == 0)
 			{
 				return;
 			}
@@ -355,26 +355,27 @@ namespace SpaxUtils
 		{
 			int highestPrio = actionMapRequests.Count > 0 ? actionMapRequests.Max((h) => h.Value.prio) : 0;
 
-			if (highestPrio == 0)
+			HashSet<string> actionMaps = new HashSet<string>();
+			foreach (KeyValuePair<object, (int prio, string[] maps)> request in actionMapRequests)
 			{
-				HashSet<string> actionMaps = new HashSet<string>();
-				foreach (KeyValuePair<object, (int prio, string[] maps)> request in actionMapRequests)
+				if (request.Value.prio == highestPrio)
 				{
 					foreach (string map in request.Value.maps)
 					{
 						actionMaps.Add(map);
 					}
 				}
-				SwitchActionMaps(actionMaps.ToArray());
 			}
-			else
-			{
-				SwitchActionMaps(actionMapRequests.LastOrDefault((r) => r.Value.prio == highestPrio).Value.maps);
-			}
+			SwitchActionMaps(actionMaps.ToArray());
 		}
 
 		private void SwitchActionMaps(params string[] actionMaps)
 		{
+			if (PlayerIndex == -1)
+			{
+				return;
+			}
+
 			switchingActionMaps = true;
 			foreach (KeyValuePair<string, InputActionMap> map in actionMapsCache)
 			{
@@ -387,12 +388,14 @@ namespace SpaxUtils
 					map.Value.Disable();
 				}
 			}
+			ActiveActionMaps = actionMaps;
 			switchingActionMaps = false;
 			SwitchedActionMapsEvent?.Invoke();
-			if (PlayerInput != null)
-			{
-				//SpaxDebug.Log($"P{PlayerIndex} InputActionMaps changed. ", $"Enabled maps: ({string.Join(", ", ActiveActionMaps)}).");
-			}
+			//if (PlayerInput != null)
+			//{
+			//	SpaxDebug.Log($"P{PlayerIndex} InputActionMaps changed. ", $"Active: [{string.Join(", ", ActiveActionMaps)})].\n" +
+			//		$"Requests: [\n\t{string.Join("\n\t", actionMapRequests.Select((r) => $"({r.Key}{r.Value.prio}:{(string.Join(",", r.Value.maps))})"))}\n]");
+			//}
 		}
 
 		private void CollectActionMaps()

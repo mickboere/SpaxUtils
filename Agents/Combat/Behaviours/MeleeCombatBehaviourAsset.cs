@@ -124,6 +124,8 @@ namespace SpaxUtils
 			movementHandler.ForceRotation();
 
 			// STAT COST:
+			//if (massStat == null) SpaxDebug.Error("massStat NULL");
+			//if (limbMassStat == null) SpaxDebug.Error("limbMassStat NULL");
 			Agent.TryApplyStatCost(Move.PerformCost, (massStat - limbMassStat) * 0.5f + limbMassStat * 2f, out bool drained);
 
 			momentumTimer = new TimerClass(move.ForceDelay, () => timescaleStat, callbackService);

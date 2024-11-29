@@ -30,5 +30,11 @@ namespace SpaxUtils
 		{
 			return $"<color=#{ColorUtility.ToHtmlStringRGB(color)}>{wrap}</color>";
 		}
+
+		public static Color SetA(this Color color, float a)
+		{
+			color.a = a;
+			return color;
+		}
 	}
 }

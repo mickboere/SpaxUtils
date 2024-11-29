@@ -150,6 +150,11 @@ namespace SpaxUtils
 		/// <param name="provider">The object the instructions were provided with.</param>
 		public void RevokeInstructions(object provider)
 		{
+			if (layers == null)
+			{
+				return;
+			}
+
 			foreach ((Poser main, Dictionary<object, (IPoserInstructions instructions, int prio, float weight)> providers) layer in layers.Values)
 			{
 				if (layer.providers.ContainsKey(provider))

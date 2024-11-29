@@ -9,7 +9,7 @@ namespace SpaxUtils
 	/// Interface for an <see cref="IAgent"/>'s mind.
 	/// Keeps track of the agent's emotions, objectives and memories.
 	/// </summary>
-	public interface IMind
+	public interface IMind : IDisposable
 	{
 		/// <summary>
 		/// Invoked when the mind is activated.

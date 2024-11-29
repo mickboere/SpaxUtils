@@ -45,7 +45,7 @@ namespace SpaxUtils.StateMachines
 		}
 
 		/// <inheritdoc/>
-		public virtual void OnEnteringState() { }
+		public virtual void OnEnteringState(ITransition transition) { }
 
 		/// <inheritdoc/>
 		public virtual void WhileEnteringState(ITransition transition) { }
@@ -54,7 +54,7 @@ namespace SpaxUtils.StateMachines
 		public virtual void OnStateEntered() { }
 
 		/// <inheritdoc/>
-		public virtual void OnExitingState() { }
+		public virtual void OnExitingState(ITransition transition) { }
 
 		/// <inheritdoc/>
 		public virtual void WhileExitingState(ITransition transition) { }

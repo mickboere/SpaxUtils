@@ -58,9 +58,9 @@ namespace SpaxUtils
 			callbackService.SubscribeUpdate(UpdateMode.Update, this, OnUpdate);
 		}
 
-		public override void OnExitingState()
+		public override void OnExitingState(ITransition transition)
 		{
-			base.OnExitingState();
+			base.OnExitingState(transition);
 			if (holding)
 			{
 				agent.Actor.Send(new Act<bool>(act, false, interuptable, interuptor, customBuffer ? buffer : Act<bool>.DEFAULT_BUFFER));

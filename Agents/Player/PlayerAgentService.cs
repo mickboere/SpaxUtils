@@ -1,4 +1,5 @@
-﻿using System;
+﻿using SpaxUtils.UI;
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
@@ -33,7 +34,7 @@ namespace SpaxUtils
 		/// <returns>Whether retrieving the player entity data was a success.</returns>
 		public bool TryRetrievePlayerEntityData(int playerIndex, out RuntimeDataCollection data)
 		{
-			if (runtimeDataService.CurrentProfile.ContainsEntry(ID_PLAYER_COLLECTION))
+			if (runtimeDataService.CurrentProfile != null && runtimeDataService.CurrentProfile.ContainsEntry(ID_PLAYER_COLLECTION))
 			{
 				List<string> playerCollection = runtimeDataService.CurrentProfile.GetValue<List<string>>(ID_PLAYER_COLLECTION);
 				if (playerIndex < playerCollection.Count)
@@ -89,7 +90,7 @@ namespace SpaxUtils
 			_agents.Remove(index);
 		}
 
-		public IAgent SpawnPlayer(IDependencyManager dependencyManager, PlayerConfig config, AgentSpawnData spawnData, Transform spawnpoint, out List<GameObject> instances)
+		public IAgent SpawnPlayer(IDependencyManager dependencyManager, PlayerConfig config, AgentSpawnData spawnData, Transform spawnpoint, out List<GameObject> instances, Camera inputCamOverride = null)
 		{
 			instances = new List<GameObject>();
 
@@ -118,16 +119,19 @@ namespace SpaxUtils
 				playerDependencies.Bind(EntityLabels.CAMERA, cameraComponent);
 				playerDependencies.Bind(cameraComponent);
 			}
-			GameObject hudInstance = null;
+			UIRoot hudInstance = null;
 			if (config.UIPrefab != null)
 			{
-				hudInstance = DependencyUtils.InstantiateDeactivated(config.UIPrefab);
-				instances.Add(hudInstance);
+				hudInstance = DependencyUtils.InstantiateDeactivated(config.UIPrefab.gameObject).GetComponent<UIRoot>();
+				instances.Add(hudInstance.gameObject);
 			}
 
 			// Create player input
-			PlayerInputWrapper playerInputWrapper = PlayerInputWrapper.Create(config.InputActionAsset, dependencyManager, cameraComponent);
+			Camera inputCam = inputCamOverride != null ? inputCamOverride : cameraComponent != null ? cameraComponent : hudInstance != null ? hudInstance.Camera : null;
+			PlayerInputWrapper playerInputWrapper = PlayerInputWrapper.Create(config.InputActionAsset, playerDependencies, inputCam);
 			instances.Add(playerInputWrapper.gameObject);
+
+			SpaxDebug.Log($"Spawn Player [{playerInputWrapper.PlayerIndex}]");
 
 			// Bind necessary data to dependency managers.
 			RuntimeDataCollection entityData;
@@ -171,9 +175,9 @@ namespace SpaxUtils
 			if (hudInstance != null)
 			{
 				DependencyManager hudDependencies = new DependencyManager(playerDependencies, "PlayerHUD");
-				DependencyUtils.BindMonoBehaviours(hudInstance, hudDependencies, includeChildren: true);
-				DependencyUtils.Inject(hudInstance, hudDependencies, includeChildren: true, bindComponents: false);
-				hudInstance.SetActive(true);
+				DependencyUtils.BindMonoBehaviours(hudInstance.gameObject, hudDependencies, includeChildren: true);
+				DependencyUtils.Inject(hudInstance.gameObject, hudDependencies, includeChildren: true, bindComponents: false);
+				hudInstance.gameObject.SetActive(true);
 
 				Camera uiCamera = hudInstance.GetComponentInChildren<Camera>();
 				if (uiCamera != null)

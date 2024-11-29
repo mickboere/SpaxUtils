@@ -12,7 +12,7 @@ namespace SpaxUtils
 	/// <summary>
 	/// Base implementation for an <see cref="IEntity"/>, wraps around Unity's GameObject.
 	/// </summary>
-	[DefaultExecutionOrder(-9999), ExecuteInEditMode]
+	[DefaultExecutionOrder(-10000), ExecuteInEditMode]
 	public class Entity : MonoBehaviour, IEntity
 	{
 		/// <inheritdoc/>
@@ -159,6 +159,19 @@ namespace SpaxUtils
 			entityCollection.Remove(this);
 		}
 
+		protected virtual void OnDestroy()
+		{
+#if UNITY_EDITOR
+			if (!Application.isPlaying)
+			{
+				return;
+			}
+#endif
+
+			Identification.IdentificationUpdatedEvent -= OnIdentificationUpdatedEvent;
+			entityCollection.Remove(this);
+		}
+
 		protected void Update()
 		{
 #if UNITY_EDITOR
@@ -237,12 +250,15 @@ namespace SpaxUtils
 				RuntimeData.SetValue(EntityDataIdentifiers.NAME, Identification.Name);
 			}
 
+			Alive = RuntimeData.GetValue(EntityDataIdentifiers.ALIVE, false);
 			_age = RuntimeData.GetValue(EntityDataIdentifiers.AGE, 0d);
-			if (Age > 0d)
+			if (Alive)
 			{
 				Transform.position = RuntimeData.GetValue(EntityDataIdentifiers.POSITION, transform.position) + Vector3.up * 0.5f; // hack
 				Transform.eulerAngles = RuntimeData.GetValue(EntityDataIdentifiers.ROTATION, transform.eulerAngles);
 			}
+
+			Alive = true;
 		}
 
 		/// <inheritdoc/>
@@ -256,7 +272,7 @@ namespace SpaxUtils
 
 			OnSaveEvent?.Invoke(RuntimeData);
 
-			// TODO: Only save entity stats that do no match the default value in order to reduce filesize.
+			// TODO: Only save entity stats that do not match the default value in order to reduce filesize.
 			runtimeDataService.SaveDataToProfile(RuntimeData);
 		}
 

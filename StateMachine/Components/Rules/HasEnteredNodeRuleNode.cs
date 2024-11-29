@@ -29,9 +29,9 @@ namespace SpiritAxis
 			this.history = history;
 		}
 
-		public override void OnEnteringState()
+		public override void OnEnteringState(ITransition transition)
 		{
-			base.OnEnteringState();
+			base.OnEnteringState(transition);
 			nodeIDs = nodes.Select((node) => node.ID).ToArray();
 		}
 

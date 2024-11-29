@@ -1,4 +1,5 @@
 ﻿using SpaxUtils;
+using SpaxUtils.UI;
 using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -11,11 +12,11 @@ namespace SpaxUtils
 		public AgentSetupAsset AgentSetup => agentSetup;
 		public InputActionAsset InputActionAsset => inputActionAsset;
 		public GameObject CameraPrefab => cameraPrefab;
-		public GameObject UIPrefab => uiPrefab;
+		public UIRoot UIPrefab => uiPrefab;
 
 		[SerializeField] private AgentSetupAsset agentSetup;
 		[SerializeField] private InputActionAsset inputActionAsset;
 		[SerializeField] private GameObject cameraPrefab;
-		[SerializeField] private GameObject uiPrefab;
+		[SerializeField] private UIRoot uiPrefab;
 	}
 }

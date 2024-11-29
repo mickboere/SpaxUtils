@@ -40,8 +40,9 @@ namespace SpaxUtils
 			entityTimeScale = entity.GetStat(EntityStatIdentifiers.TIMESCALE, false);
 		}
 
-		public override void OnEnteringState()
+		public override void OnEnteringState(ITransition transition)
 		{
+			base.OnEnteringState(transition);
 			if (animateControl)
 			{
 				controlMod = new FloatOperationModifier(ModMethod.Absolute, Operation.Multiply, 1f);

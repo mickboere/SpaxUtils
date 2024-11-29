@@ -25,9 +25,9 @@ namespace SpaxUtils
 			this.flagsService = flagsService;
 		}
 
-		public override void OnEnteringState()
+		public override void OnEnteringState(ITransition transition)
 		{
-			base.OnEnteringState();
+			base.OnEnteringState(transition);
 			valid = false;
 		}
 

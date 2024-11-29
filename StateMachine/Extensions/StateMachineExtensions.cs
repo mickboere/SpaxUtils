@@ -57,7 +57,7 @@ namespace SpaxUtils.StateMachines
 			switch (method)
 			{
 				case IStateListener.Callback.OnEnteringState:
-					listener.OnEnteringState();
+					listener.OnEnteringState(transition);
 					break;
 				case IStateListener.Callback.WhileEnteringState:
 					listener.WhileEnteringState(transition);
@@ -66,7 +66,7 @@ namespace SpaxUtils.StateMachines
 					listener.OnStateEntered();
 					break;
 				case IStateListener.Callback.OnExitingState:
-					listener.OnExitingState();
+					listener.OnExitingState(transition);
 					break;
 				case IStateListener.Callback.WhileExitingState:
 					listener.WhileExitingState(transition);

@@ -17,9 +17,9 @@ namespace SpaxUtils
 			this.animatorPoser = animatorPoser;
 		}
 
-		public override void OnEnteringState()
+		public override void OnEnteringState(ITransition transition)
 		{
-			base.OnEnteringState();
+			base.OnEnteringState(transition);
 			rigidbodyWrapper.IsKinematic = true;
 		}
 

@@ -80,7 +80,7 @@ namespace SpaxUtils.StateMachines
 
 			foreach (IState state in hierarchy)
 			{
-				state.OnExitingState();
+				state.OnExitingState(null);
 			}
 			foreach (IState state in hierarchy)
 			{
@@ -202,7 +202,7 @@ namespace SpaxUtils.StateMachines
 			}
 
 			CancelTransition();
-			PrepareState(states[state]);
+			PrepareState(states[state], null);
 			EnterState(states[state]);
 		}
 
@@ -216,7 +216,7 @@ namespace SpaxUtils.StateMachines
 		{
 			if (states.ContainsKey(state) && !Transitioning)
 			{
-				PrepareState(states[state]);
+				PrepareState(states[state], transition);
 
 				if (transition == null || transition.Completed)
 				{
@@ -241,7 +241,7 @@ namespace SpaxUtils.StateMachines
 			if (Transitioning)
 			{
 				DisposeTransition();
-				PrepareState(HeadState);
+				PrepareState(HeadState, null);
 				EnterState(HeadState);
 			}
 		}
@@ -262,7 +262,7 @@ namespace SpaxUtils.StateMachines
 			entering = null;
 		}
 
-		private void PrepareState(IState toState)
+		private void PrepareState(IState toState, ITransition transition)
 		{
 			newHierarchy = toState.CollectActiveHierarchyRecursively();
 			exiting = hierarchy.Except(newHierarchy).ToList();
@@ -271,7 +271,7 @@ namespace SpaxUtils.StateMachines
 			// Exit old.
 			foreach (IState state in exiting)
 			{
-				state.OnExitingState();
+				state.OnExitingState(transition);
 			}
 
 			// Enter new.
@@ -279,7 +279,7 @@ namespace SpaxUtils.StateMachines
 			{
 				dependencyManager.Inject(state);
 				state.Initialize(state);
-				state.OnEnteringState();
+				state.OnEnteringState(transition);
 			}
 		}
 

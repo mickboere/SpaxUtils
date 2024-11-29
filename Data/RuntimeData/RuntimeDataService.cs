@@ -25,12 +25,17 @@ namespace SpaxUtils
 		/// <summary>
 		/// Invoked just before a profile is saved to the disk.
 		/// </summary>
-		public event Action<RuntimeDataCollection> SavingToDisk;
+		public event Action<RuntimeDataCollection> SavingToDiskEvent;
 
 		/// <summary>
 		/// Invoked just before a profile is saved to the disk.
 		/// </summary>
-		public event Action<RuntimeDataCollection> SavingCurrentToDisk;
+		public event Action<RuntimeDataCollection> SavingCurrentToDiskEvent;
+
+		/// <summary>
+		/// Whether auto save is enabled or disabled.
+		/// </summary>
+		public bool AutoSave { get; }
 
 		/// <summary>
 		/// The global data profile used for storing settings across all profiles.
@@ -410,16 +415,27 @@ namespace SpaxUtils
 				profileData = GlobalData;
 			}
 
-			SavingToDisk?.Invoke(profileData);
+			SavingToDiskEvent?.Invoke(profileData);
 			if (profileId == CurrentProfile.ID)
 			{
-				SavingCurrentToDisk?.Invoke(profileData);
+				SavingCurrentToDiskEvent?.Invoke(profileData);
 			}
 
 			// Save data to disk.
 			//SpaxDebug.Notify($"Saving data for profile: {profileId}\n{profileData}");
 			SpaxJsonUtils.StreamWrite(profileData, PROFILES_PATH + profileData.ID + PROFILE_FILE_TYPE);
 			return true;
+		}
+
+		/// <summary>
+		/// Create an automatic save to the disk, if <see cref="AutoSave"/> is enabled.
+		/// </summary>
+		public void AutoSaveToDisk()
+		{
+			if (AutoSave)
+			{
+				SaveProfileToDisk();
+			}
 		}
 
 		#endregion Saving

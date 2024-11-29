@@ -40,7 +40,10 @@ namespace SpaxUtils
 		{
 			base.OnStateExit();
 
-			callbackService.RemoveCustom(this);
+			if (callbackService != null)
+			{
+				callbackService.RemoveCustom(this);
+			}
 			targetables.Dispose();
 		}
 

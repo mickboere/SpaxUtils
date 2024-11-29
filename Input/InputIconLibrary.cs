@@ -19,6 +19,11 @@ namespace SpaxUtils
 
 		public Sprite GetIcon(InputAction action, string controlScheme)
 		{
+			if (action == null || controlScheme.IsNullOrEmpty())
+			{
+				return null;
+			}
+
 			// Retrieve the first binding in this action that is active for the given control scheme.
 			InputBinding binding = action.bindings.FirstOrDefault((b) => b.groups.Contains(controlScheme));
 			return GetIcon(binding);

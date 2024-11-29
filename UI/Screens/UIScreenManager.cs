@@ -14,7 +14,8 @@ namespace SpaxUtils.UI
 		[SerializeField, ConstDropdown(typeof(IInputActionMaps))] private string uiActionMap;
 
 		private string baseContextOverride = null;
-		private object subscriber = new object();
+		private object subscriberA = new object();
+		private object subscriberB = new object();
 
 		private ICommunicationChannel comms;
 		private TimeService timeService;
@@ -43,13 +44,14 @@ namespace SpaxUtils.UI
 				}
 			}
 			comms.Listen<SwitchBaseContextMsg>(this, OnSwitchBaseContextMsg);
-			playerInputWrapper.RequestActionMaps(this, 0, shortcutActionMap);
+			playerInputWrapper.RequestActionMaps(subscriberA, 0, shortcutActionMap);
 			SwitchContext(defaultContext);
 		}
 
 		protected void OnDestroy()
 		{
-			playerInputWrapper.CompleteActionMapRequest(this);
+			playerInputWrapper.CompleteActionMapRequest(subscriberA);
+			playerInputWrapper.CompleteActionMapRequest(subscriberB);
 			timeService.CompletePauseRequest(this);
 			comms.StopListening(this);
 			foreach (Option shortcut in shortcuts)
@@ -88,12 +90,12 @@ namespace SpaxUtils.UI
 					if (screen.RequireInput && playerInputWrapper.CurrentControlScheme == ControlSchemes.KEYBOARD_AND_MOUSE)
 					{
 						cursorService.RequestCursor(this);
-						playerInputWrapper.RequestActionMaps(subscriber, 1, uiActionMap, shortcutActionMap);
+						playerInputWrapper.RequestActionMaps(subscriberB, 0, uiActionMap);
 					}
 					else
 					{
 						cursorService.CompleteRequest(this);
-						playerInputWrapper.CompleteActionMapRequest(subscriber);
+						playerInputWrapper.CompleteActionMapRequest(subscriberB);
 					}
 				}
 				else

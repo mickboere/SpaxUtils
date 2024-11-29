@@ -71,6 +71,11 @@ namespace SpaxUtils
 
 		private void GetRenderers()
 		{
+			if(this == null)
+			{
+				SpaxDebug.Error("Fetching renderers from non-existing targetable.", $"Entity: {Entity.Identification}", Entity.GameObject);
+			}
+
 			if (renderersAtStart == null || renderersAtStart.Any(r => r == null))
 			{
 				renderersAtStart = GetComponentsInChildren<Renderer>(); ;

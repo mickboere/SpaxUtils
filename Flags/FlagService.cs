@@ -26,7 +26,7 @@ namespace SpaxUtils
 			this.runtimeDataService = runtimeDataService;
 
 			runtimeDataService.CurrentProfileChangedEvent += OnProfileChangedEvent;
-			runtimeDataService.SavingCurrentToDisk += OnSavingCurrentToDisk;
+			runtimeDataService.SavingCurrentToDiskEvent += OnSavingCurrentToDisk;
 
 			Load();
 		}

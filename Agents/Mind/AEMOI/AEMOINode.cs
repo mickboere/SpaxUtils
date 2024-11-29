@@ -45,7 +45,10 @@ namespace SpaxUtils
 
 			agent.Mind.Deactivate();
 			agent.Mind.RemoveBehaviours(behaviourInstances);
-			callbackService.RemoveCustom(this);
+			if (callbackService != null)
+			{
+				callbackService.RemoveCustom(this);
+			}
 		}
 
 		private void OnUpdate(float delta)

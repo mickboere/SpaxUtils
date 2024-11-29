@@ -105,11 +105,11 @@ namespace SpaxUtils
 		}
 
 		/// <inheritdoc/>
-		public virtual void OnEnteringState()
+		public virtual void OnEnteringState(ITransition transition)
 		{
 			foreach (IStateListener component in components)
 			{
-				component.OnEnteringState();
+				component.OnEnteringState(transition);
 			}
 		}
 
@@ -133,11 +133,11 @@ namespace SpaxUtils
 		}
 
 		/// <inheritdoc/>
-		public virtual void OnExitingState()
+		public virtual void OnExitingState(ITransition transition)
 		{
 			foreach (IStateListener component in components)
 			{
-				component.OnExitingState();
+				component.OnExitingState(transition);
 			}
 		}
 
@@ -186,7 +186,7 @@ namespace SpaxUtils
 			if (Active)
 			{
 				dependencyManager.Inject(component);
-				component.OnEnteringState();
+				component.OnEnteringState(null);
 				component.OnStateEntered();
 			}
 			return true;
@@ -223,7 +223,7 @@ namespace SpaxUtils
 				components.Remove(component);
 				if (Active)
 				{
-					component.OnExitingState();
+					component.OnExitingState(null);
 					component.OnStateExit();
 				}
 				return true;

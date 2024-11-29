@@ -23,7 +23,7 @@
 		/// <summary>
 		/// Called once before entering a state.
 		/// </summary>
-		void OnEnteringState();
+		void OnEnteringState(ITransition transition);
 
 		/// <summary>
 		/// Called every frame while entering the state.
@@ -38,7 +38,7 @@
 		/// <summary>
 		/// Called once before exiting a state.
 		/// </summary>
-		void OnExitingState();
+		void OnExitingState(ITransition transition);
 
 		/// <summary>
 		/// Called every frame while the state is being exited.

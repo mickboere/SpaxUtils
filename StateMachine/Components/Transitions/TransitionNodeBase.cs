@@ -36,9 +36,9 @@ namespace SpaxUtils.StateMachines
 			stateMachine.AddStateTransition(this);
 		}
 
-		public override void OnExitingState()
+		public override void OnExitingState(ITransition transition)
 		{
-			base.OnExitingState();
+			base.OnExitingState(transition);
 
 			stateMachine.RemoveStateTransition(this);
 		}

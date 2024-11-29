@@ -58,6 +58,11 @@ namespace SpaxUtils
 			this.behaviours = behaviours == null ? new List<IMindBehaviour>() : new List<IMindBehaviour>(behaviours);
 		}
 
+		public void Dispose()
+		{
+			StopBehaviour();
+		}
+
 		#region Activity
 
 		/// <inheritdoc/>

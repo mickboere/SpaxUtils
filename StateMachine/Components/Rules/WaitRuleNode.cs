@@ -24,9 +24,9 @@ namespace SpaxUtils.StateMachines
 			this.callbackService = callbackService;
 		}
 
-		public override void OnEnteringState()
+		public override void OnEnteringState(ITransition transition)
 		{
-			base.OnEnteringState();
+			base.OnEnteringState(transition);
 			valid = false;
 		}
 
