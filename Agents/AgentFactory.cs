@@ -11,7 +11,7 @@ namespace SpaxUtils
 		public enum Callback
 		{
 			OnInject,
-			OnActivate
+			OnInjected
 		}
 
 		public static Agent Create(IAgentSetup setup, IDependencyManager dependencyManager,
@@ -19,10 +19,11 @@ namespace SpaxUtils
 			IEnumerable<string> labels = null,
 			IEnumerable<GameObject> children = null,
 			IEnumerable<object> dependencies = null,
-			Action<Callback> progressCallback = null)
+			Action<Callback> progressCallback = null,
+			bool activate = true)
 		{
 			return Create(setup, dependencyManager, Vector3.zero, Quaternion.identity,
-				overrideName, labels, children, dependencies, progressCallback);
+				overrideName, labels, children, dependencies, progressCallback, activate);
 		}
 
 		public static Agent Create(IAgentSetup setup, IDependencyManager dependencyManager, Vector3 position,
@@ -30,10 +31,11 @@ namespace SpaxUtils
 			IEnumerable<string> labels = null,
 			IEnumerable<GameObject> children = null,
 			IEnumerable<object> dependencies = null,
-			Action<Callback> progressCallback = null)
+			Action<Callback> progressCallback = null,
+			bool activate = true)
 		{
 			return Create(setup, dependencyManager, position, Quaternion.identity,
-				overrideName, labels, children, dependencies, progressCallback);
+				overrideName, labels, children, dependencies, progressCallback, activate);
 		}
 
 		public static Agent Create(IAgentSetup setup, IDependencyManager dependencyManager, Vector3 position, Quaternion rotation,
@@ -41,14 +43,16 @@ namespace SpaxUtils
 			IEnumerable<string> labels = null,
 			IEnumerable<GameObject> children = null,
 			IEnumerable<object> dependencies = null,
-			Action<Callback> progressCallback = null)
+			Action<Callback> progressCallback = null,
+			bool activate = true)
 		{
 			return Create(setup.Identification, setup.Frame, setup.Body, dependencyManager, position, rotation,
 				overrideName, labels,
 				children == null ? setup.Children : setup.Children.Union(children),
 				dependencies == null ? setup.Dependencies : setup.Dependencies.Union(dependencies),
 				setup.Data,
-				progressCallback);
+				progressCallback,
+				activate);
 		}
 
 		public static Agent Create(
@@ -63,7 +67,8 @@ namespace SpaxUtils
 			IEnumerable<GameObject> children = null,
 			IEnumerable<object> dependencies = null,
 			RuntimeDataCollection data = null,
-			Action<Callback> progressCallback = null)
+			Action<Callback> progressCallback = null,
+			bool activate = true)
 		{
 			if (!dependencyManager.TryGetBinding(typeof(ICommunicationChannel), typeof(ICommunicationChannel), false, out _))
 			{
@@ -118,10 +123,14 @@ namespace SpaxUtils
 			// Inject all dependencies.
 			progressCallback?.Invoke(Callback.OnInject);
 			DependencyUtils.Inject(rootGo, dependencyManager, includeChildren: true, bindComponents: false);
+			progressCallback?.Invoke(Callback.OnInjected);
 
-			// Activate Agent and return.
-			progressCallback?.Invoke(Callback.OnActivate);
-			rootGo.SetActive(true);
+			// Complete.
+			if (activate)
+			{
+				rootGo.SetActive(true);
+			}
+
 			return agent;
 		}
 	}

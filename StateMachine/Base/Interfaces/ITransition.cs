@@ -13,7 +13,7 @@ namespace SpaxUtils.StateMachines
 		float EntryProgress { get; }
 
 		/// <summary>
-		/// Float ranging from 0 to 1 expressing the state exit transition progress (the inverse of <see cref="EntryProgress"/>).
+		/// Float ranging from 1 to 0 expressing the state exit transition progress (the inverse of <see cref="EntryProgress"/>).
 		/// </summary>
 		float ExitProgress { get; }
 

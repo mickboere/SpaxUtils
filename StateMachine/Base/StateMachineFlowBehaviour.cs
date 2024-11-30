@@ -6,7 +6,9 @@ namespace SpaxUtils.StateMachines
 	public class StateMachineFlowBehaviour : MonoBehaviour
 	{
 		[SerializeField] private FlowGraph flowGraph;
+#if UNITY_EDITOR
 		[SerializeField, ReadOnly] private string states;
+#endif
 
 		private IDependencyManager dependencies;
 		private Flow flow;
@@ -29,6 +31,7 @@ namespace SpaxUtils.StateMachines
 			flow?.Dispose();
 		}
 
+#if UNITY_EDITOR
 		protected void Update()
 		{
 			if (flow == null)
@@ -40,5 +43,6 @@ namespace SpaxUtils.StateMachines
 				states = string.Join(", ", flow.Layers.Select(l => l.HeadState).ToList());
 			}
 		}
+#endif
 	}
 }

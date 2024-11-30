@@ -16,7 +16,7 @@ namespace SpaxUtils
 		[SerializeField] private LabeledDataCollection data;
 		[SerializeField] private bool overwriteData;
 
-		public Agent Spawn(IAgentSetup agentSetup, IDependencyManager dependencyManager, Vector3 position, Quaternion rotation)
+		public Agent Spawn(IAgentSetup agentSetup, IDependencyManager dependencyManager, Vector3 position, Quaternion rotation, bool activate = true)
 		{
 			Agent agent = AgentFactory.Create(agentSetup, dependencyManager, position, rotation, overrideName: overrideName, labels: labels, dependencies: dependencies,
 				progressCallback: (AgentFactory.Callback callback) =>
@@ -35,7 +35,8 @@ namespace SpaxUtils
 							data.ApplyToRuntimeDataCollection(runtimeData, overwriteData);
 							break;
 					}
-				});
+				},
+				activate: true);
 			return agent;
 		}
 	}

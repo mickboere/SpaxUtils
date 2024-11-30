@@ -34,6 +34,7 @@ namespace SpaxUtils
 		private FinalIKComponent finalIK;
 		private CallbackService callbackService;
 
+		private bool initialized;
 		private bool isLeft;
 		private Transform hand;
 		private string ikChain;
@@ -43,8 +44,8 @@ namespace SpaxUtils
 		private Quaternion targetRotationSmooth;
 		private Quaternion rotVelocity;
 
-		public void InjectDependencies(RuntimeEquipedData equipedData, IAgent agent, IIKComponent ik, AgentArmsComponent arms,
-			TransformLookup lookup, RigidbodyWrapper rigidbodyWrapper, FinalIKComponent finalIK, CallbackService callbackService)
+		public void InjectDependencies(RuntimeEquipedData equipedData, IAgent agent, [Optional] IIKComponent ik, AgentArmsComponent arms,
+			TransformLookup lookup, RigidbodyWrapper rigidbodyWrapper, [Optional] FinalIKComponent finalIK, CallbackService callbackService)
 		{
 			this.equipedData = equipedData;
 			this.agent = agent;
@@ -54,11 +55,18 @@ namespace SpaxUtils
 			this.rigidbodyWrapper = rigidbodyWrapper;
 			this.finalIK = finalIK;
 			this.callbackService = callbackService;
+
+			initialized = ik != null && finalIK != null;
 		}
 
 		public override void Start()
 		{
 			base.Start();
+
+			if (!initialized)
+			{
+				return;
+			}
 
 			isLeft = equipedData.Slot.Type == EquipmentSlotTypes.LEFT_HAND;
 			hand = isLeft ? arms.LeftHand : arms.RightHand;
@@ -72,6 +80,11 @@ namespace SpaxUtils
 		public override void Stop()
 		{
 			base.Stop();
+
+			if (!initialized)
+			{
+				return;
+			}
 
 			callbackService.UnsubscribeUpdates(this);
 			arms.SheathedEvent -= OnSheathedEvent;

@@ -26,7 +26,7 @@ namespace SpaxUtils
 		public Transform LeftSheathe => lookup.Lookup(TransformLookupIdentifiers.LEFT_SHEATHE);
 		public Transform RightSheathe => lookup.Lookup(TransformLookupIdentifiers.RIGHT_SHEATHE);
 
-		public bool Sheathed { get; private set; }
+		public bool Sheathed { get; private set; } = true;
 		public RuntimeEquipedData LeftEquip => leftEquip;
 		public RuntimeEquipedData RightEquip => rightEquip;
 		public GameObject LeftVisual => LeftEquip == null ? null : LeftEquip.EquipedInstance;

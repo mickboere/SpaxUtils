@@ -11,5 +11,6 @@ namespace SpaxUtils
 		public const string COMBAT = "Combat";
 		public const string DEAD = "Dead";
 		public const string CUTSCENE = "Cutscene";
+		public const string LOBBY = "Lobby";
 	}
 }

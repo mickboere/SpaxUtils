@@ -7,14 +7,13 @@ namespace SpaxUtils
 {
 	public class AgentInactiveNode : StateComponentNodeBase
 	{
+		private IAgent agent;
 		private RigidbodyWrapper rigidbodyWrapper;
-		private AnimatorPoser animatorPoser;
 
-		public void InjectDependencies(RigidbodyWrapper rigidbodyWrapper,
-			[Optional] AnimatorPoser animatorPoser)
+		public void InjectDependencies(IAgent agent, RigidbodyWrapper rigidbodyWrapper)
 		{
+			this.agent = agent;
 			this.rigidbodyWrapper = rigidbodyWrapper;
-			this.animatorPoser = animatorPoser;
 		}
 
 		public override void OnEnteringState(ITransition transition)

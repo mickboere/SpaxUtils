@@ -18,6 +18,7 @@ namespace SpaxUtils
 		[SerializeField] private int frameRate;
 		[SerializeField] private bool debug;
 
+		private bool initialized;
 		private AnimatorWrapper animatorWrapper;
 		private CallbackService callbackService;
 		private Dictionary<string, (Poser main, Dictionary<object, (IPoserInstructions instructions, int prio, float weight)> providers)> layers;
@@ -32,18 +33,13 @@ namespace SpaxUtils
 			Initialize();
 		}
 
-		protected void OnEnable()
+		protected void Start()
 		{
 			Initialize();
 		}
 
-		protected void OnDisable()
+		protected void OnDestroy()
 		{
-			foreach (var layer in layers.Values)
-			{
-				layer.main.Stop();
-			}
-
 			Cleanup();
 		}
 
@@ -169,7 +165,7 @@ namespace SpaxUtils
 			foreach ((Poser main, Dictionary<object, (IPoserInstructions instructions, int prio, float weight)> providers) layer in layers.Values)
 			{
 				PoserSettings settings = layer.main.Settings;
-				Control = GetControl(layer.main, layer.providers.Values);
+				Control = CalculateInstructions(layer.main, layer.providers.Values);
 				posers[layer.main.Settings.Layer] = Control;
 
 				// Collect and override all pose clips and apply mirroring.
@@ -209,7 +205,7 @@ namespace SpaxUtils
 			}
 		}
 
-		private IPoserInstructions GetControl(Poser main, IEnumerable<(IPoserInstructions poser, int prio, float weight)> posers)
+		private IPoserInstructions CalculateInstructions(Poser main, IEnumerable<(IPoserInstructions poser, int prio, float weight)> posers)
 		{
 			List<(IPoserInstructions poser, int prio, float weight)> collection = new List<(IPoserInstructions poser, int prio, float weight)>();
 			collection.Add((main, 0, 1f));
@@ -225,7 +221,7 @@ namespace SpaxUtils
 				{
 					float weight = collection[i].weight * collection[i].poser.Instructions[j].Weight;
 
-					if (weight < Mathf.Epsilon)
+					if (weight < 0.01f)
 					{
 						// No weight is no use, continue.
 						continue;
@@ -268,6 +264,11 @@ namespace SpaxUtils
 
 		private void Initialize()
 		{
+			if (initialized)
+			{
+				return;
+			}
+
 			if (animatorWrapper == null)
 			{
 				animatorWrapper = gameObject.GetComponentRelative<AnimatorWrapper>();
@@ -278,9 +279,6 @@ namespace SpaxUtils
 					return;
 				}
 			}
-
-			// Clean up in unlikely case of double init.
-			Cleanup();
 
 			// Set up posers.
 			layers = new Dictionary<string, (Poser main, Dictionary<object, (IPoserInstructions instructions, int prio, float weight)> providers)>();
@@ -301,10 +299,17 @@ namespace SpaxUtils
 			{
 				callbackService.AddCustom(this, 1f / frameRate, UpdateAnimatorPose);
 			}
+
+			initialized = true;
 		}
 
 		private void Cleanup()
 		{
+			if (!initialized)
+			{
+				return;
+			}
+
 			if (layers != null)
 			{
 				foreach (var layer in layers.Values)
@@ -324,15 +329,11 @@ namespace SpaxUtils
 			{
 				callbackService.RemoveCustom(this);
 			}
+			initialized = false;
 		}
 
 		private bool ValidateRequest(string layer)
 		{
-			if (!isActiveAndEnabled)
-			{
-				return false;
-			}
-
 			if (!layers.ContainsKey(layer))
 			{
 				SpaxDebug.Error($"Poser '{layer}' not configured.", "", this);

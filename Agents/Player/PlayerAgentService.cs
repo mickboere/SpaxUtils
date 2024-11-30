@@ -90,7 +90,8 @@ namespace SpaxUtils
 			_agents.Remove(index);
 		}
 
-		public IAgent SpawnPlayer(IDependencyManager dependencyManager, PlayerConfig config, AgentSpawnData spawnData, Transform spawnpoint, out List<GameObject> instances, Camera inputCamOverride = null)
+		public IAgent SpawnPlayer(IDependencyManager dependencyManager, PlayerConfig config, AgentSpawnData spawnData, Transform spawnpoint,
+			out List<GameObject> instances, Camera inputCamOverride = null, bool activate = true)
 		{
 			instances = new List<GameObject>();
 
@@ -157,7 +158,7 @@ namespace SpaxUtils
 			AgentSetup setup = new AgentSetup(config.AgentSetup, identification);
 
 			// Create player agent.
-			Agent playerAgent = spawnData.Spawn(setup, playerDependencies, spawnpoint.position, spawnpoint.rotation);
+			Agent playerAgent = spawnData.Spawn(setup, playerDependencies, spawnpoint.position, spawnpoint.rotation, activate);
 			instances.Add(playerAgent.gameObject);
 
 			// Set up player camera.
