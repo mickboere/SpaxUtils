@@ -11,6 +11,7 @@ namespace SpaxUtils
 	/// - Ensuring all skinned renderers utilize the same rig;
 	/// - Ensuring all cloth renderers collide with the rig's colliders;
 	/// </summary>
+	[DefaultExecutionOrder(50)]
 	public class EntityAppearanceHandler : EntityComponentMono
 	{
 		[Serializable]

@@ -46,7 +46,7 @@ namespace SpaxUtils
 		[SerializeField] private Agent frame;
 		[SerializeField] private AgentBodyComponent body;
 		[SerializeField] private List<GameObject> children;
-		[SerializeField] private List<ScriptableObject> dependencies;
+		[SerializeField] private List<Object> dependencies;
 		[SerializeField] private LabeledDataCollection data;
 	}
 }

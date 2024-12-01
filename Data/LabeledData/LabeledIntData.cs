@@ -11,7 +11,7 @@ namespace SpaxUtils
 		public Type ValueType => typeof(int);
 		public int IntValue => value;
 
-		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifiers))] private string identifier;
+		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifiers), inputField: true)] private string identifier;
 		[SerializeField] private int value;
 	}
 }

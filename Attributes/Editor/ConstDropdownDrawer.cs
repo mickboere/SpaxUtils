@@ -10,6 +10,7 @@ namespace SpaxUtils
 	public class ConstDropdownDrawer : PropertyDrawer
 	{
 		private const string EMPTY = "";
+		private const float DROPDOWN_WIDTH = 35f;
 
 		public override void OnGUI(Rect position, SerializedProperty property, GUIContent label)
 		{
@@ -103,12 +104,23 @@ namespace SpaxUtils
 			// Finally draw the dropdown.
 
 			Color previousColor = GUI.color;
-			if (error)
+			if (constDropdownAttribute.InputField && error)
+			{
+				GUI.color = Color.yellow;
+			}
+			else if (error)
 			{
 				GUI.color = Color.red;
 			}
 
 			EditorGUI.BeginProperty(position, label, property);
+			Rect inputFieldPosition = position;
+			if (constDropdownAttribute.InputField)
+			{
+				// Make room for input field.
+				position.x = position.xMax - DROPDOWN_WIDTH + 2f;
+				position.width = DROPDOWN_WIDTH;
+			}
 			EditorGUI.showMixedValue = property.hasMultipleDifferentValues;
 			if (!error && currentOption != EMPTY && constDropdownAttribute.ShowAdress && !constDropdownAttribute.StoreAdress)
 			{
@@ -118,7 +130,7 @@ namespace SpaxUtils
 				optionIndex = 0;
 			}
 			List<string> popupOptions = constDropdownAttribute.ShowAdress ? fullAdressConsts : noAdressConsts;
-			int popup = EditorGUI.Popup(position, label.text, optionIndex, popupOptions.ToArray());
+			int popup = constDropdownAttribute.InputField ? EditorGUI.Popup(position, optionIndex, popupOptions.ToArray()) : EditorGUI.Popup(position, label.text, optionIndex, popupOptions.ToArray());
 			if (!property.hasMultipleDifferentValues)
 			{
 				string value = storedOptions[popup];
@@ -127,6 +139,12 @@ namespace SpaxUtils
 					value = EMPTY;
 				}
 				property.stringValue = value;
+			}
+			if (constDropdownAttribute.InputField)
+			{
+				// Draw inputfield.
+				inputFieldPosition.width -= DROPDOWN_WIDTH - 15f;
+				EditorGUI.PropertyField(inputFieldPosition, property);
 			}
 			EditorGUI.EndProperty();
 

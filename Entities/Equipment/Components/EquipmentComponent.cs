@@ -217,7 +217,12 @@ namespace SpaxUtils
 			}
 
 			reason = $"Slot could not be retrieved for type: {equipmentData.SlotType}";
-			return TryGetSlotFromType(equipmentData.SlotType, out slot, overwriting ? null : (s) => !equipedItems.ContainsKey(s.ID));
+			bool foundSlot = TryGetSlotFromType(equipmentData.SlotType, out slot, (s) => !equipedItems.ContainsKey(s.ID));
+			if (!foundSlot && overwriting)
+			{
+				return TryGetSlotFromType(equipmentData.SlotType, out slot, null);
+			}
+			return foundSlot;
 		}
 
 		/// <inheritdoc/>

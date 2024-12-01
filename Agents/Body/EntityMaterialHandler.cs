@@ -4,21 +4,43 @@ using UnityEngine;
 
 namespace SpaxUtils
 {
+	[DefaultExecutionOrder(40)] // Set materials before EntityAppearanceHandler requests them.
 	public class EntityMaterialHandler : EntityComponentMono
 	{
 		[SerializeField, ReadOnly] private Color currentColor;
 		[SerializeField] private bool hasDefaultColor;
 		[SerializeField, Conditional(nameof(hasDefaultColor))] private Color defaultColor;
-		
-		private EntityAppearanceHandler appearanceHandler;
 
-		public void InjectDependencies(EntityAppearanceHandler appearanceHandler)
+		private EntityAppearanceHandler appearanceHandler;
+		private EntityMaterialLibrary materialLibrary;
+
+		public void InjectDependencies(EntityAppearanceHandler appearanceHandler, EntityMaterialLibrary materialLibrary)
 		{
 			this.appearanceHandler = appearanceHandler;
+			this.materialLibrary = materialLibrary;
 		}
 
 		protected void Start()
 		{
+			Load();
+		}
+
+		private void Load()
+		{
+			// Load materials.
+			foreach (EntityAppearanceHandler.BodyPart bodyPart in appearanceHandler.BodyParts)
+			{
+				string matId = bodyPart.Skin.material.name;
+				matId = matId.Substring(0, matId.Length - 11); // Remove " (Instanced)" from the end.
+				if (Entity.RuntimeData.TryGetValue(matId, out int matIndex) &&
+					materialLibrary.Materials.ContainsKey(matId) &&
+					materialLibrary.Materials[matId].replacements.Count > matIndex)
+				{
+					bodyPart.Skin.material = materialLibrary.Materials[matId].replacements[matIndex];
+				}
+			}
+
+			// Load color.
 			if (Entity.RuntimeData.TryGetValue(EntityDataIdentifiers.COLOR, out string colString))
 			{
 				if (ColorUtility.TryParseHtmlString($"#{colString}", out Color color))

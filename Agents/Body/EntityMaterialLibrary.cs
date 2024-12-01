@@ -7,7 +7,7 @@ using UnityEngine;
 namespace SpaxUtils
 {
 	[CreateAssetMenu(fileName = nameof(EntityMaterialLibrary), menuName = "ScriptableObjects/" + nameof(EntityMaterialLibrary))]
-	public class EntityMaterialLibrary : ScriptableObject
+	public class EntityMaterialLibrary : ScriptableObject, IService
 	{
 		[Serializable]
 		public class MaterialList
@@ -16,18 +16,18 @@ namespace SpaxUtils
 			public List<Material> replacements;
 		}
 
-		IReadOnlyDictionary<string, MaterialList> Dictionary
+		public IReadOnlyDictionary<string, MaterialList> Materials
 		{
 			get
 			{
-				if (_dictionary == null)
+				if (_materials == null)
 				{
-					_dictionary = materials.ToDictionary((m) => m.source.name, (m) => m);
+					_materials = materials.ToDictionary((m) => m.source.name, (m) => m);
 				}
-				return _dictionary;
+				return _materials;
 			}
 		}
-		private Dictionary<string, MaterialList> _dictionary;
+		private Dictionary<string, MaterialList> _materials;
 
 		[SerializeField] private List<MaterialList> materials;
 	}
