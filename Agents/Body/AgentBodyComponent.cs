@@ -78,7 +78,7 @@ namespace SpaxUtils
 			// Apply scale.
 			transform.localScale = Vector3.one * Scale;
 			// Scale head size to compensate for body scale.
-			head.localScale = Vector3.one / Scale * Mathf.Lerp(1f, 0.5f, Scale.InvertClamped());
+			head.localScale = Vector3.one / Scale.Min(1.1f) * Mathf.Lerp(1f, 0.5f, Scale.InvertClamped());
 		}
 
 		protected void OnValidate()

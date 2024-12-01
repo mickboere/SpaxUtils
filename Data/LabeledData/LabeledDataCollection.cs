@@ -7,17 +7,21 @@ namespace SpaxUtils
 	[Serializable]
 	public class LabeledDataCollection
 	{
-		public int Count => BoolCount + FloatCount;
+		public int Count => BoolCount + FloatCount + IntCount + StringCount;
 		public int BoolCount => BoolData == null ? 0 : BoolData.Count;
 		public int FloatCount => FloatData == null ? 0 : FloatData.Count;
+		public int IntCount => IntData == null ? 0 : IntData.Count;
+		public int StringCount => StringData == null ? 0 : StringData.Count;
 
 		public List<LabeledBoolData> BoolData => boolData;
 		public List<LabeledFloatData> FloatData => floatData;
 		public List<LabeledIntData> IntData => intData;
+		public List<LabeledStringData> StringData => stringData;
 
 		[SerializeField] private List<LabeledBoolData> boolData;
 		[SerializeField] private List<LabeledFloatData> floatData;
 		[SerializeField] private List<LabeledIntData> intData;
+		[SerializeField] private List<LabeledStringData> stringData;
 
 		/// <summary>
 		/// Convert this labeled data collection to a <see cref="RuntimeDataCollection"/>.
@@ -36,7 +40,7 @@ namespace SpaxUtils
 			// Bools
 			foreach (LabeledBoolData b in boolData)
 			{
-				if (overwrite || runtimeDataCollection.GetEntry(b.ID) != null)
+				if (overwrite || runtimeDataCollection.GetEntry(b.ID) == null)
 				{
 					runtimeDataCollection.SetValue(b.ID, b.BoolValue);
 				}
@@ -45,9 +49,27 @@ namespace SpaxUtils
 			// Floats
 			foreach (LabeledFloatData f in floatData)
 			{
-				if (overwrite || runtimeDataCollection.GetEntry(f.ID) != null)
+				if (overwrite || runtimeDataCollection.GetEntry(f.ID) == null)
 				{
 					runtimeDataCollection.SetValue(f.ID, f.FloatValue);
+				}
+			}
+
+			// Ints
+			foreach (LabeledIntData i in intData)
+			{
+				if (overwrite || runtimeDataCollection.GetEntry(i.ID) == null)
+				{
+					runtimeDataCollection.SetValue(i.ID, i.IntValue);
+				}
+			}
+
+			// Strings
+			foreach (LabeledStringData s in stringData)
+			{
+				if (overwrite || runtimeDataCollection.GetEntry(s.ID) == null)
+				{
+					runtimeDataCollection.SetValue(s.ID, s.StringValue);
 				}
 			}
 
@@ -62,7 +84,7 @@ namespace SpaxUtils
 			// Bools
 			foreach (LabeledBoolData b in boolData)
 			{
-				if (overwrite || entity.GetDataValue(b.ID) != null)
+				if (overwrite || entity.GetDataValue(b.ID) == null)
 				{
 					entity.SetDataValue(b.ID, b.BoolValue);
 				}
@@ -71,9 +93,27 @@ namespace SpaxUtils
 			// Floats
 			foreach (LabeledFloatData f in floatData)
 			{
-				if (overwrite || entity.GetDataValue(f.ID) != null)
+				if (overwrite || entity.GetDataValue(f.ID) == null)
 				{
 					entity.SetDataValue(f.ID, f.FloatValue);
+				}
+			}
+
+			// Ints
+			foreach (LabeledIntData i in intData)
+			{
+				if (overwrite || entity.GetDataValue(i.ID) == null)
+				{
+					entity.SetDataValue(i.ID, i.IntValue);
+				}
+			}
+
+			// Strings
+			foreach (LabeledStringData s in stringData)
+			{
+				if (overwrite || entity.GetDataValue(s.ID) == null)
+				{
+					entity.SetDataValue(s.ID, s.StringValue);
 				}
 			}
 		}

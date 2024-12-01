@@ -14,5 +14,6 @@ namespace SpaxUtils
 		public const string ROTATION = ENTITY + "Rot";
 		public const string SCALE = ENTITY + "Scale";
 		public const string HEIGHT = ENTITY + "Height";
+		public const string COLOR = ENTITY + "Color";
 	}
 }

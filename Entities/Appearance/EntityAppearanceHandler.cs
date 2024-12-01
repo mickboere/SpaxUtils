@@ -23,6 +23,9 @@ namespace SpaxUtils
 			[SerializeField] private SkinnedMeshRenderer skin;
 		}
 
+		public IReadOnlyList<BodyPart> BodyParts => bodyParts;
+		public IReadOnlyDictionary<string, SkinnedMeshRenderer> Body => body;
+
 		[SerializeField] private Transform skeletonRoot;
 		[SerializeField] private SkinnedMeshRenderer reference;
 		[SerializeField] private List<BodyPart> bodyParts;
