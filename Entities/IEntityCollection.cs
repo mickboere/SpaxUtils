@@ -25,6 +25,15 @@ namespace SpaxUtils
 		void Remove(IEntity entity);
 
 		/// <summary>
+		/// Try to get entity with ID <paramref name="id"/>.
+		/// </summary>
+		/// <typeparam name="T"></typeparam>
+		/// <param name="id"></param>
+		/// <param name="entity"></param>
+		/// <returns></returns>
+		bool TryGet<T>(string id, out T entity) where T : class, IEntity;
+
+		/// <summary>
 		/// Returns entities implementing <typeparamref name="T"/>.
 		/// </summary>
 		/// <typeparam name="T">The type of <see cref="IEntity"/> implementation to look for.</typeparam>

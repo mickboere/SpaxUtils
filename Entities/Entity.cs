@@ -62,13 +62,15 @@ namespace SpaxUtils
 
 		protected virtual string GameObjectNamePrefix => "[Entity]";
 		protected virtual string GameObjectName =>
-			string.IsNullOrWhiteSpace(identification.Name) ?
-				string.IsNullOrWhiteSpace(identification.ID) ?
-					Identification.Labels.Count == 0 ?
-						gameObject.name :
-					$"{GameObjectNamePrefix} {identification.TagLabels()}" :
-				$"{GameObjectNamePrefix} {identification.ID}" :
-			$"{GameObjectNamePrefix} {identification.Name}";
+			identification != null ?
+				string.IsNullOrWhiteSpace(identification.Name) ?
+					string.IsNullOrWhiteSpace(identification.ID) ?
+						Identification.Labels.Count == 0 ?
+							gameObject.name :
+						$"{GameObjectNamePrefix} {identification.TagLabels()}" :
+					$"{GameObjectNamePrefix} {identification.ID}" :
+				$"{GameObjectNamePrefix} {identification.Name}" :
+			$"{GameObjectNamePrefix} UNKNOWN";
 
 		[SerializeField] protected Identification identification;
 

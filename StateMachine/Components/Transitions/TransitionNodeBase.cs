@@ -13,7 +13,7 @@ namespace SpaxUtils.StateMachines
 		public virtual bool IsPureRule => false;
 
 		public virtual string NextState => _nextState == null ? null : _nextState.ID;
-		private IState _nextState;
+		protected IState _nextState;
 		public virtual float EntryProgress => 1f;
 		public virtual float ExitProgress => 1f - EntryProgress;
 		public virtual bool Completed => true;

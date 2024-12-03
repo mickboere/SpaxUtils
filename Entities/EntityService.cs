@@ -14,10 +14,12 @@ namespace SpaxUtils
 		public event Action<IEntity> RemovedEntityEvent;
 
 		private HashSet<IEntity> entities;
+		private Dictionary<string, IEntity> identifiers;
 
 		public EntityService()
 		{
 			entities = new HashSet<IEntity>();
+			identifiers = new Dictionary<string, IEntity>();
 		}
 
 		/// <summary>
@@ -26,6 +28,7 @@ namespace SpaxUtils
 		public void Add(IEntity entity)
 		{
 			entities.Add(entity);
+			identifiers[entity.ID] = entity;
 			AddedEntityEvent?.Invoke(entity);
 		}
 
@@ -35,7 +38,22 @@ namespace SpaxUtils
 		public void Remove(IEntity entity)
 		{
 			entities.Remove(entity);
+			if (identifiers.ContainsKey(entity.ID))
+			{
+				identifiers.Remove(entity.ID);
+			}
 			RemovedEntityEvent?.Invoke(entity);
+		}
+
+		public bool TryGet<T>(string id, out T entity) where T : class, IEntity
+		{
+			if (identifiers.ContainsKey(id))
+			{
+				entity = (T)identifiers[id];
+				return true;
+			}
+			entity = null;
+			return false;
 		}
 
 		/// <summary>

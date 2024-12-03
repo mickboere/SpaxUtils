@@ -32,7 +32,7 @@ namespace SpaxUtils
 		public virtual float InteractableRange => targetable == null ? 0f : targetable.Size.Average();
 
 		/// <inheritdoc/>
-		public string[] InteractableTypes { get; protected set; } = new string[] { };
+		public string[] InteractableTypes => interactables.SelectMany(i => i.InteractableTypes).ToHashSet().ToArray();
 
 		/// <inheritdoc/>
 		public IReadOnlyList<IInteraction> Interactions => interactions;
