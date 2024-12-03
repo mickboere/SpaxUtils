@@ -87,9 +87,12 @@ namespace SpaxUtils.UI
 					}
 
 					// Request cursor control of screen requires cursor and control scheme is mouse and keyboard.
-					if (screen.RequireInput && playerInputWrapper.CurrentControlScheme == ControlSchemes.KEYBOARD_AND_MOUSE)
+					if (screen.RequireInput)
 					{
-						cursorService.RequestCursor(this);
+						if (playerInputWrapper.CurrentControlScheme == ControlSchemes.KEYBOARD_AND_MOUSE)
+						{
+							cursorService.RequestCursor(this);
+						}
 						playerInputWrapper.RequestActionMaps(subscriberB, 0, uiActionMap);
 					}
 					else

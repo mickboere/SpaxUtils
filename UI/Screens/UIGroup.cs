@@ -9,22 +9,10 @@ namespace SpaxUtils.UI
 	/// CanvasGroup wrapper component component that manages its own transitions.
 	/// </summary>
 	[RequireComponent(typeof(CanvasGroup))]
-	public class UIGroup : MonoBehaviour
+	public class UIGroup : UIMonoBehaviour
 	{
 		private const string TT_FS = "Can also be a root object as first child selectable will be selected.";
 
-		public RectTransform RectTransform
-		{
-			get
-			{
-				if (_rectTransform == null)
-				{
-					_rectTransform = GetComponent<RectTransform>();
-				}
-				return _rectTransform;
-			}
-		}
-		private RectTransform _rectTransform;
 		public CanvasGroup CanvasGroup
 		{
 			get
