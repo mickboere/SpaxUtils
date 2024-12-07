@@ -7,7 +7,7 @@ namespace SpaxUtils
 	/// <summary>
 	/// Interface for classes that are able to bind, inject, and locate dependencies.
 	/// </summary>
-	public interface IDependencyManager : IDisposable
+	public interface IDependencyManager : IDisposable, IIdentifiable
 	{
 		/// <summary>
 		/// The default method used for dependency injection.

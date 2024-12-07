@@ -77,6 +77,8 @@ namespace SpaxUtils
 				scene = gameData.StateData[state].Scene;
 			}
 
+			SpaxDebug.Log($"Enter: [{state}]", "//" + scene);
+
 			// Create a new transition, NULL if immediate.
 			ITransition transition = NewTransition();
 

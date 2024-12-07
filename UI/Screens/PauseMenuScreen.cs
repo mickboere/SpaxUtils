@@ -37,7 +37,7 @@ namespace SpaxUtils.UI
 		private void OnRequestMenuOptionsMsg(IRequestOptionsMsg msg)
 		{
 			// If the OptionsMenu requesting options is the pause menu, provide it with all configured menus.
-			if (msg.Context == ContextIdentifiers.PAUSED)
+			if (msg.Context == ContextIdentifiers.PAUSE)
 			{
 				// Add Resume option.
 				msg.AddOption(new Option("Resume", "", (option) => screenManager.SwitchContext(null)));

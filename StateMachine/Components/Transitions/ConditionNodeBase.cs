@@ -16,6 +16,7 @@ namespace SpaxUtils.StateMachines
 		private const string TT_COMPONENTS = "Linked components will be activated while the condition is valid.\nThis allows you to run condition consequences without transitioning to another state node.";
 
 		public override bool Valid => _valid;
+		protected bool _valid;
 		public override float Validity => _rules.Sum((r) => r.Validity);
 
 		protected virtual bool RunComponents => true;
@@ -24,8 +25,6 @@ namespace SpaxUtils.StateMachines
 		[SerializeField, Output(backingValue = ShowBackingValue.Never, typeConstraint = TypeConstraint.Inherited), Tooltip(TT_COMPONENTS)] private Connections.StateComponent components;
 
 		private CallbackService callbackService;
-
-		private bool _valid;
 
 		private List<IRule> _rules;
 		private StateCallbackHelper ruleCallbacks;
@@ -45,7 +44,7 @@ namespace SpaxUtils.StateMachines
 
 			_valid = IsValid();
 
-			if (Valid && RunComponents)
+			if (_valid && RunComponents)
 			{
 				componentCallbacks.Inject();
 			}
@@ -61,7 +60,7 @@ namespace SpaxUtils.StateMachines
 			callbackService.SubscribeUpdate(UpdateMode.Update, this, OnUpdate, 99998);
 
 			ruleCallbacks.OnEnteringState(transition);
-			if (Valid && RunComponents)
+			if (_valid && RunComponents)
 			{
 				componentCallbacks.OnEnteringState(transition);
 			}
@@ -73,7 +72,7 @@ namespace SpaxUtils.StateMachines
 			base.WhileEnteringState(transition);
 
 			ruleCallbacks.WhileEnteringState(transition);
-			if (Valid && RunComponents)
+			if (_valid && RunComponents)
 			{
 				componentCallbacks.WhileEnteringState(transition);
 			}
@@ -85,7 +84,7 @@ namespace SpaxUtils.StateMachines
 			base.OnStateEntered();
 
 			ruleCallbacks.OnStateEntered();
-			if (Valid && RunComponents)
+			if (_valid && RunComponents)
 			{
 				componentCallbacks.OnStateEntered();
 			}
@@ -99,7 +98,7 @@ namespace SpaxUtils.StateMachines
 			callbackService.UnsubscribeUpdate(UpdateMode.Update, this);
 
 			ruleCallbacks.OnExitingState(transition);
-			if (Valid && RunComponents)
+			if (_valid && RunComponents)
 			{
 				componentCallbacks.OnExitingState(transition);
 			}
@@ -111,7 +110,7 @@ namespace SpaxUtils.StateMachines
 			base.WhileExitingState(transition);
 
 			ruleCallbacks.WhileExitingState(transition);
-			if (Valid && RunComponents)
+			if (_valid && RunComponents)
 			{
 				componentCallbacks.WhileExitingState(transition);
 			}
@@ -123,7 +122,7 @@ namespace SpaxUtils.StateMachines
 			base.OnStateExit();
 
 			ruleCallbacks.OnStateExit();
-			if (Valid && RunComponents)
+			if (_valid && RunComponents)
 			{
 				componentCallbacks.OnStateExit();
 			}
@@ -134,9 +133,9 @@ namespace SpaxUtils.StateMachines
 		private void OnUpdate(float delta)
 		{
 			bool valid = IsValid();
-			if (Valid != valid || RunComponents != componentCallbacks.Running)
+			if (_valid != valid || RunComponents != componentCallbacks.Active)
 			{
-				if (Valid && RunComponents)
+				if (_valid && RunComponents)
 				{
 					// Became valid, activate subcomponents.
 					componentCallbacks.QuickEnter();

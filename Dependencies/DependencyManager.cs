@@ -19,16 +19,18 @@ namespace SpaxUtils
 		/// </summary>
 		public const string DEPENDENCY_OBJECT_PREFIX = "[Dependency] ";
 
+		public string ID => $"{GlobalIndex}_{name}";
+
 		/// <summary>
 		/// The index of this dependency manager, in order of creation with global being 0.
 		/// Used in the <see cref="IdentifierPrefix"/>, which is used for debugging.
 		/// </summary>
-		public int GlobalIndex => GlobalDependencyManager.AllLocators.IndexOf(this);
+		public int GlobalIndex => GlobalDependencyManager.AllManagers.IndexOf(this);
 
 		/// <summary>
 		/// Prefix used in all the debug logs.
 		/// </summary>
-		protected string IdentifierPrefix => $"[{GlobalIndex}_{name}] ";
+		protected string IdentifierPrefix => $"[{ID}] ";
 
 		/// <summary>
 		/// The list of bindings belonging to this <see cref="IDependencyManager"/>.
@@ -62,7 +64,7 @@ namespace SpaxUtils
 		/// <param name="name">The name of this manager, used for debugging.</param>
 		public DependencyManager(IDependencyManager parent = null, string name = "")
 		{
-			GlobalDependencyManager.AllLocators.Add(this);
+			GlobalDependencyManager.AllManagers.Add(this);
 
 			this.parent = parent;
 			this.name = name;
@@ -77,6 +79,7 @@ namespace SpaxUtils
 		public virtual void Dispose()
 		{
 			bindings.Clear();
+			GlobalDependencyManager.AllManagers.Remove(this);
 		}
 
 		#region Public Methods

@@ -25,7 +25,7 @@ namespace SpaxUtils
 		float InteractorRange { get; }
 
 		/// <summary>
-		/// Returns whether this handler is able to set up a new interaction of type <paramref name="interactionType"/>.
+		/// Returns whether this interactor is able to set up a new interaction of type <paramref name="interactionType"/>.
 		/// </summary>
 		bool CanInteract(string interactionType);
 

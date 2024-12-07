@@ -2,6 +2,6 @@
 {
 	public class ContextIdentifiers : IContextIdentifiers
 	{
-		public const string PAUSED = "Paused";
+		public const string PAUSE = "Pause";
 	}
 }

@@ -7,7 +7,7 @@ namespace SpaxUtils.StateMachines
 	{
 		[SerializeField] private FlowGraph flowGraph;
 #if UNITY_EDITOR
-		[SerializeField, ReadOnly] private string states;
+		[SerializeField, TextArea, ReadOnly] private string states;
 #endif
 
 		private IDependencyManager dependencies;
@@ -20,10 +20,19 @@ namespace SpaxUtils.StateMachines
 			history = new StateMachineHistory();
 		}
 
-		protected void Start()
+		protected void Awake()
 		{
 			flow = new Flow(flowGraph, dependencies, history);
+		}
+
+		protected void OnEnable()
+		{
 			flow.StartFlow();
+		}
+
+		protected void OnDisable()
+		{
+			flow.StopFlow();
 		}
 
 		protected void OnDestroy()
@@ -40,7 +49,7 @@ namespace SpaxUtils.StateMachines
 			}
 			else
 			{
-				states = string.Join(", ", flow.Layers.Select(l => l.HeadState).ToList());
+				states = "[(" + string.Join(")]\n[(", flow.Layers.Select(l => string.Join("), (", l.StateHierarchy.Select(s => s.ID).ToList())).ToList()) + ")]";
 			}
 		}
 #endif

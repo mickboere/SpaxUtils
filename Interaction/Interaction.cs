@@ -29,8 +29,8 @@ namespace SpaxUtils
 			get { return _concluded; }
 			set
 			{
-				SpaxDebug.Log("Set Interaction.Concluded", ToString());
 				_concluded = value;
+				//SpaxDebug.Log("Set Interaction.Concluded", ToString());
 			}
 		}
 		private bool _concluded;

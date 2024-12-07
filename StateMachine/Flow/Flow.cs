@@ -74,7 +74,7 @@ namespace SpaxUtils.StateMachines
 			}
 			layers.Clear();
 
-			if (!instance)
+			if (instance == null)
 			{
 				SpaxDebug.Error("Attempting to stop flow but graph instance is null.");
 			}

@@ -17,8 +17,6 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public void Send<T>(T message, TimerStruct timer = default)
 		{
-			//base.Send<T>(typeof(T), message, timer);
-
 			Type key = typeof(T);
 			history[key] = (message, timer);
 			OnReceived(key, message);
@@ -33,13 +31,37 @@ namespace SpaxUtils
 					}
 				}
 			}
-
 		}
 
 		/// <inheritdoc/>
 		public void Listen<T>(object listener, Action<T> callback)
 		{
 			base.Listen<T>(listener, typeof(T), callback);
+		}
+
+		/// <inheritdoc/>
+		public void Link(ICommunicationChannel communicationChannel)
+		{
+			if (communicationChannel == this)
+			{
+				return;
+			}
+			communicationChannel.ReceivedEvent += OnLinkedMessageReceived;
+		}
+
+		/// <inheritdoc/>
+		public void Unlink(ICommunicationChannel communicationChannel)
+		{
+			if (communicationChannel == this)
+			{
+				return;
+			}
+			communicationChannel.ReceivedEvent -= OnLinkedMessageReceived;
+		}
+
+		private void OnLinkedMessageReceived(Type t, object o)
+		{
+			Send(t, o);
 		}
 	}
 }

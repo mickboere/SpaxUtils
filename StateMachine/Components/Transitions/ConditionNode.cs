@@ -9,7 +9,23 @@ namespace SpaxUtils.StateMachines
 	{
 		public override string UserFacingName => "Condition";
 
-		public override string NextState => _elseState == null || Valid ? base.NextState : _elseState.ID;
+		public override bool Valid => _elseState != null || _valid;
+		public override string NextState
+		{
+			get
+			{
+				if (_elseState == null)
+				{
+					// Has no else state.
+					return base.NextState;
+				}
+				else
+				{
+					// Has else state.
+					return _valid ? base.NextState : _elseState.ID;
+				}
+			}
+		}
 		private IState _elseState;
 
 		[SerializeField, Input(backingValue = ShowBackingValue.Never)] protected Connections.StateComponent inConnection;
@@ -17,7 +33,7 @@ namespace SpaxUtils.StateMachines
 
 		public void InjectDependencies()
 		{
-			_elseState = GetOutputNode<IState>(nameof(outConnection));
+			_elseState = GetOutputNode<IState>(nameof(elseConnection));
 		}
 	}
 }

@@ -28,9 +28,11 @@ namespace SpaxUtils
 		public bool TryCreateInteraction(string interactionType, IInteractable interactable, out IInteraction interaction, object data = null)
 		{
 			interaction = null;
-			if (CanInteract(interactionType) && interactable.IsInteractable(interactionType))
+			if (CanInteract(interactionType) && interactable.IsInteractable(interactionType) &&
+				OnTryCreateInteraction(interactionType, interactable, out interaction, data))
 			{
-				return OnTryCreateInteraction(interactionType, interactable, out interaction, data);
+				InteractorEvent?.Invoke(interaction);
+				return true;
 			}
 
 			return false;

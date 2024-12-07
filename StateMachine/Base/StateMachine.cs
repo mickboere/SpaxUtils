@@ -56,7 +56,7 @@ namespace SpaxUtils.StateMachines
 
 		public StateMachine(IDependencyManager dependencyManager, CallbackService callbackService, List<IState> states = null, string defaultState = null)
 		{
-			this.dependencyManager = new DependencyManager(dependencyManager, "StateMachineLayer");
+			this.dependencyManager = new DependencyManager(dependencyManager, $"StateMachineLayer\\{dependencyManager.ID}");
 			this.dependencyManager.Bind(this);
 			this.callbackService = callbackService;
 			this.states = new Dictionary<string, IState>();
@@ -90,6 +90,7 @@ namespace SpaxUtils.StateMachines
 
 		private void OnUpdate(float delta)
 		{
+			//SpaxDebug.Log($"[{dependencyManager.ID}] OnUpdate");
 			CheckTransitions();
 		}
 
@@ -241,6 +242,17 @@ namespace SpaxUtils.StateMachines
 			if (Transitioning)
 			{
 				DisposeTransition();
+
+				// Exit the states we were in the process of entering.
+				foreach (IState state in entering)
+				{
+					state.OnExitingState(null);
+				}
+				foreach (IState state in entering)
+				{
+					state.OnStateExit();
+				}
+
 				PrepareState(HeadState, null);
 				EnterState(HeadState);
 			}

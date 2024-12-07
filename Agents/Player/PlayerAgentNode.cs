@@ -33,7 +33,7 @@ namespace SpaxUtils
 		public override void OnExitingState(ITransition transition)
 		{
 			base.OnExitingState(transition);
-			playerAgentService.DismissPlayerAgent(playerInputWrapper.PlayerIndex);
+			playerAgentService.DismissPlayerAgent(agent);
 		}
 	}
 }

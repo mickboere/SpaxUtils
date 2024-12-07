@@ -1,3 +1,4 @@
+using System.Linq;
 using UnityEngine;
 
 namespace SpaxUtils
@@ -8,9 +9,22 @@ namespace SpaxUtils
 	[DefaultExecutionOrder(-100000)]
 	public class GameInitializer : MonoBehaviour
 	{
+#if UNITY_EDITOR
+		[SerializeField, ReadOnly] private string gameState;
+#endif
+
+		private GameService gameService;
+
 		protected void Awake()
 		{
-			GlobalDependencyManager.Instance.Get<GameService>();
+			gameService = GlobalDependencyManager.Instance.Get<GameService>();
 		}
+
+#if UNITY_EDITOR
+		protected void Update()
+		{
+			gameState = "[" + string.Join(", ", gameService.Brain.StateHierarchy.Select(s => s.ID).ToList()) + "]";
+		}
+#endif
 	}
 }

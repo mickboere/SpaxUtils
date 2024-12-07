@@ -34,7 +34,8 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public bool TryInteract(IInteraction interaction)
 		{
-			if (IsInteractable(interaction.Type) && OnTryInteract(interaction))
+			if (IsInteractable(interaction.Type) &&
+				OnTryInteract(interaction))
 			{
 				InteractableEvent?.Invoke(interaction);
 				return true;

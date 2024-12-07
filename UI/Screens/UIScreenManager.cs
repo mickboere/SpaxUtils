@@ -42,6 +42,8 @@ namespace SpaxUtils.UI
 				{
 					shortcuts.Add(new Option(screen.Context, screen.Shortcut, (CallbackContext c) => { SwitchContext(screen.Context); }, playerInputWrapper, enable: true));
 				}
+				screen.gameObject.SetActive(true);
+				screen.gameObject.SetActive(false);
 			}
 			comms.Listen<SwitchBaseContextMsg>(this, OnSwitchBaseContextMsg);
 			playerInputWrapper.RequestActionMaps(subscriberA, 0, shortcutActionMap);

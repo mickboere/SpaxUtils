@@ -5,7 +5,10 @@ namespace SpaxUtils.StateMachines
 {
 	public class StateCallbackHelper : IDisposable
 	{
-		public bool Running { get; private set; }
+		/// <summary>
+		/// Whether the listeners are currently activated (the parent state is entered/active).
+		/// </summary>
+		public bool Active { get; private set; }
 
 		private readonly IDependencyManager dependencyManager;
 		private readonly IEnumerable<IStateListener> listeners;
@@ -36,7 +39,7 @@ namespace SpaxUtils.StateMachines
 
 		public void QuickEnter(bool inject = true)
 		{
-			if (Running)
+			if (Active)
 			{
 				return;
 			}
@@ -50,12 +53,12 @@ namespace SpaxUtils.StateMachines
 				listener.WhileEnteringState(null);
 				listener.OnStateEntered();
 			}
-			Running = true;
+			Active = true;
 		}
 
 		public void QuickExit()
 		{
-			if (!Running)
+			if (!Active)
 			{
 				return;
 			}
@@ -65,7 +68,7 @@ namespace SpaxUtils.StateMachines
 				listener.WhileExitingState(null);
 				listener.OnStateExit();
 			}
-			Running = false;
+			Active = false;
 		}
 
 		#region Callbacks
@@ -76,7 +79,6 @@ namespace SpaxUtils.StateMachines
 			{
 				component.OnEnteringState(transition);
 			}
-			Running = true;
 		}
 
 		public void WhileEnteringState(ITransition transition)
@@ -93,6 +95,7 @@ namespace SpaxUtils.StateMachines
 			{
 				component.OnStateEntered();
 			}
+			Active = true;
 		}
 
 		public void OnExitingState(ITransition transition)
@@ -117,7 +120,7 @@ namespace SpaxUtils.StateMachines
 			{
 				component.OnStateExit();
 			}
-			Running = false;
+			Active = false;
 		}
 
 		#endregion Callbacks

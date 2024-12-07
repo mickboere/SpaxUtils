@@ -42,51 +42,31 @@ namespace SpaxUtils
 		private List<(Action<float> callback, int order)> orderedLateUpdateCallbacks = new List<(Action<float> callback, int order)>();
 		private Dictionary<object, int> orderedLateUpdateIndices = new Dictionary<object, int>();
 
-		private bool unsubscribed;
-
 		protected void FixedUpdate()
 		{
-			unsubscribed = false;
-			for (int i = 0; i < orderedFixedUpdateCallbacks.Count; i++)
-			{
-				orderedFixedUpdateCallbacks[i].callback(Time.fixedDeltaTime);
-				if (unsubscribed)
-				{
-					i--;
-					unsubscribed = false;
-				}
-			}
+			InvokeUpdates(orderedFixedUpdateCallbacks, Time.fixedDeltaTime);
 			FixedUpdateCallback?.Invoke();
 		}
 
 		protected void Update()
 		{
-			unsubscribed = false;
-			for (int i = 0; i < orderedUpdateCallbacks.Count; i++)
-			{
-				orderedUpdateCallbacks[i].callback(Time.deltaTime);
-				if (unsubscribed)
-				{
-					i--;
-					unsubscribed = false;
-				}
-			}
+			InvokeUpdates(orderedUpdateCallbacks, Time.deltaTime);
 			UpdateCallback?.Invoke();
 		}
 
 		protected void LateUpdate()
 		{
-			unsubscribed = false;
-			for (int i = 0; i < orderedLateUpdateCallbacks.Count; i++)
-			{
-				orderedLateUpdateCallbacks[i].callback(Time.deltaTime);
-				if (unsubscribed)
-				{
-					i--;
-					unsubscribed = false;
-				}
-			}
+			InvokeUpdates(orderedLateUpdateCallbacks, Time.deltaTime);
 			LateUpdateCallback?.Invoke();
+		}
+
+		private void InvokeUpdates(List<(Action<float> callback, int order)> callbacks, float delta)
+		{
+			List<(Action<float> callback, int order)> list = new List<(Action<float> callback, int order)>(callbacks);
+			foreach (var c in list)
+			{
+				c.callback(delta);
+			}
 		}
 
 		protected void OnDrawGizmos()
@@ -121,49 +101,49 @@ namespace SpaxUtils
 					break;
 			}
 
-			void Add(List<(Action<float> callback, int order)> list, Dictionary<object, int> dict, object subscriber, Action<float> callback, int order)
+			void Add(List<(Action<float> callback, int order)> callbacks, Dictionary<object, int> indices, object subscriber, Action<float> callback, int order)
 			{
 				// If empty just add.
-				if (list.Count == 0)
+				if (callbacks.Count == 0)
 				{
-					dict[subscriber] = 0;
-					list.Add((callback, order));
+					indices[subscriber] = 0;
+					callbacks.Add((callback, order));
 					return;
 				}
 
 				// Prevent duplicates.
-				if (dict.ContainsKey(subscriber))
+				if (indices.ContainsKey(subscriber))
 				{
 					SpaxDebug.Error($"Duplicate subscription!", $"Subscriber of type {subscriber.GetType().FullName} is already subscribed.");
 					return;
 				}
 
 				// If highest, add as last.
-				if (order >= list[list.Count - 1].order)
+				if (order >= callbacks[callbacks.Count - 1].order)
 				{
-					dict[subscriber] = list.Count;
-					list.Add((callback, order));
+					indices[subscriber] = callbacks.Count;
+					callbacks.Add((callback, order));
 					return;
 				}
 
 				// Else insert in correct place.
-				for (int i = 0; i < list.Count; i++)
+				for (int i = 0; i < callbacks.Count; i++)
 				{
-					if (order < list[i].order)
+					if (order < callbacks[i].order)
 					{
-						list.Insert(i, (callback, order));
+						callbacks.Insert(i, (callback, order));
 
 						// Shift dictionary entries by 1.
-						object[] keys = dict.Keys.ToArray();
+						object[] keys = indices.Keys.ToArray();
 						foreach (object key in keys)
 						{
-							int val = dict[key];
+							int val = indices[key];
 							if (val >= i)
 							{
-								dict[key] = val + 1;
+								indices[key] = val + 1;
 							}
 						}
-						dict[subscriber] = i;
+						indices[subscriber] = i;
 
 						return;
 					}
@@ -196,26 +176,24 @@ namespace SpaxUtils
 			RemoveSubscriber(orderedLateUpdateCallbacks, orderedLateUpdateIndices, subscriber);
 		}
 
-		private void RemoveSubscriber(List<(Action<float> callback, int order)> list, Dictionary<object, int> dict, object subscriber)
+		private void RemoveSubscriber(List<(Action<float> callback, int order)> callbacks, Dictionary<object, int> indices, object subscriber)
 		{
-			if (dict.ContainsKey(subscriber))
+			if (indices.ContainsKey(subscriber))
 			{
-				int index = dict[subscriber];
-				list.RemoveAt(index);
-				dict.Remove(subscriber);
+				int index = indices[subscriber];
+				callbacks.RemoveAt(index);
+				indices.Remove(subscriber);
 
 				// Shove dictionary entries back by 1.
-				object[] keys = dict.Keys.ToArray();
+				object[] keys = indices.Keys.ToArray();
 				foreach (object key in keys)
 				{
-					int val = dict[key];
+					int val = indices[key];
 					if (val > index)
 					{
-						dict[key] = val - 1;
+						indices[key] = val - 1;
 					}
 				}
-
-				unsubscribed = true;
 			}
 		}
 

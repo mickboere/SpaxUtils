@@ -59,7 +59,7 @@ namespace SpaxUtils
 		/// <summary>
 		/// A list containing all implementations of <see cref="IDependencyManager"/>
 		/// </summary>
-		public static List<IDependencyManager> AllLocators = new List<IDependencyManager>();
+		public static List<IDependencyManager> AllManagers = new List<IDependencyManager>();
 
 		[SerializeField] private bool debug;
 		[SerializeField] private bool test;

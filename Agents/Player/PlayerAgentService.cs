@@ -16,8 +16,8 @@ namespace SpaxUtils
 		/// <summary>
 		/// All currently marked player agents.
 		/// </summary>
-		public IReadOnlyDictionary<int, IAgent> Agents => _agents;
-		private Dictionary<int, IAgent> _agents = new Dictionary<int, IAgent>();
+		public IReadOnlyList<IAgent> Agents => _agents;
+		private List<IAgent> _agents = new List<IAgent>();
 
 		private RuntimeDataService runtimeDataService;
 
@@ -59,7 +59,14 @@ namespace SpaxUtils
 		/// <param name="playerIndex">The index of the player controlling the agent.</param>
 		public void MarkPlayerAgent(IAgent agent, int playerIndex)
 		{
-			_agents[playerIndex] = agent;
+			if (_agents.Count <= playerIndex)
+			{
+				_agents.Add(agent);
+			}
+			else
+			{
+				_agents[playerIndex] = agent;
+			}
 
 			// Load player collection.
 			List<string> playerCollection = new List<string>();
@@ -87,7 +94,15 @@ namespace SpaxUtils
 		/// </summary>
 		public void DismissPlayerAgent(int index)
 		{
-			_agents.Remove(index);
+			_agents.RemoveAt(index);
+		}
+
+		/// <summary>
+		/// Remove an agent from the tracked player agents list.
+		/// </summary>
+		public void DismissPlayerAgent(IAgent agent)
+		{
+			_agents.Remove(agent);
 		}
 
 		public IAgent SpawnPlayer(IDependencyManager dependencyManager, PlayerConfig config, AgentSpawnData spawnData, Transform spawnpoint,
