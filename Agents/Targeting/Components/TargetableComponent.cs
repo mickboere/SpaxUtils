@@ -10,9 +10,6 @@ namespace SpaxUtils
 	/// </summary>
 	public class TargetableComponent : EntityComponentMono, ITargetable
 	{
-		private const string TOOLTIP_LAZY_CENTER = "Caches the entity's Size on Start() and uses it to calculate the center.\n" +
-			"Useful when being used as follow target while animating to prevent jittery movement.";
-
 		/// <inheritdoc/>
 		public virtual Vector3 Position => transform.position;
 
@@ -46,7 +43,7 @@ namespace SpaxUtils
 		public Vector3 Size => Application.isPlaying && useSizeAtStart ? startingSize : Bounds.size;
 
 		/// <inheritdoc/>
-		public Vector3 Point => headProvider != null ? headProvider.Head.position : Center;
+		public Vector3 Point => headProvider != null && headProvider.Head != null ? headProvider.Head.position : Center;
 
 		/// <inheritdoc/>
 		public bool IsTargetable { get; private set; } = true;
@@ -71,7 +68,7 @@ namespace SpaxUtils
 
 		private void GetRenderers()
 		{
-			if(this == null)
+			if (this == null)
 			{
 				SpaxDebug.Error("Fetching renderers from non-existing targetable.", $"Entity: {Entity.Identification}", Entity.GameObject);
 			}

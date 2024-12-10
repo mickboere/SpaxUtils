@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Linq;
+using UnityEngine;
 
 namespace SpaxUtils
 {
@@ -16,7 +17,24 @@ namespace SpaxUtils
 		#region Properties
 
 		/// <inheritdoc/>
-		public ITargetable Target { get; private set; }
+		public ITargetable Target
+		{
+			get
+			{
+				if (_target != null && _target is MonoBehaviour mono && !mono)
+				{
+					// Fixes bug where target isn't null even though its destroyed.
+					Target = null;
+				}
+				return _target;
+			}
+			set
+			{
+				_target = value;
+				TargetChangedEvent?.Invoke(_target);
+			}
+		}
+		private ITargetable _target;
 
 		/// <inheritdoc/>
 		public IEntityComponentFilter<ITargetable> Enemies => enemies;
@@ -76,7 +94,6 @@ namespace SpaxUtils
 			}
 
 			Target = targetable;
-			TargetChangedEvent?.Invoke(Target);
 		}
 
 		private void OnRelationsUpdatedEvent()

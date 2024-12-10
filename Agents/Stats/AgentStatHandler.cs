@@ -51,16 +51,14 @@ namespace SpaxUtils
 			RecoverAll();
 		}
 
-		protected void Update()
+		public void UpdateStats(float delta)
 		{
 			if (recoveryMod != null)
 			{
 				recoveryMod.SetValue(agent.Body.RigidbodyWrapper.Control);
 			}
 
-			// Update state pairs to initiate recovery.
-			// TODO: MUST BE DONE THROUGH BRAIN NODE TO PREVENT RECOVERY DURING DEATH.
-			pointStatOcton.Update(Time.deltaTime);
+			pointStatOcton.Update(delta);
 		}
 
 		/// <summary>

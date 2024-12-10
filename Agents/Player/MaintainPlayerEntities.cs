@@ -40,7 +40,12 @@ namespace SpaxUtils
 			Transform spawnpoint = foundSpawnpoints.FirstOrDefault()?.GameObject.transform;
 			if (spawnpoint != null)
 			{
+				bool wasAlive = playerAgentService.IsAlive();
 				IAgent player = playerAgentService.SpawnPlayer(dependencyManager, playerConfig, spawnData, spawnpoint, out instances);
+				if (wasAlive && player.GameObject.TryGetComponent(out AgentStatHandler statHandler))
+				{
+					statHandler.RecoverAll();
+				}
 				player.Brain.TryTransition(AgentStateIdentifiers.ACTIVE);
 			}
 			else
@@ -52,7 +57,6 @@ namespace SpaxUtils
 		public override void OnStateExit()
 		{
 			base.OnStateExit();
-			//SpaxDebug.Log("Destroy player instances:", $"\n\t- { string.Join("\n\t- ", instances.Select(i => i.name))}");
 			foreach (GameObject instance in instances)
 			{
 				Destroy(instance);

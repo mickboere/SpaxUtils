@@ -37,7 +37,7 @@ namespace SpaxUtils
 
 		/// <inheritdoc/>
 		public RuntimeDataCollection Data =>
-			template != null && template.Data != null ? data.ApplyToRuntimeDataCollection(template.Data) :
+			template != null && template.Data != null ? data.ApplyToRuntimeDataCollection(template.Data, true) :
 			data.Count > 0 ? data.ToRuntimeDataCollection(identification.ID) :
 			null;
 

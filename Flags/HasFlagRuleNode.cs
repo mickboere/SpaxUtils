@@ -10,15 +10,16 @@ namespace SpaxUtils
 	[NodeWidth(300)]
 	public class HasFlagRuleNode : RuleNodeBase
 	{
-		public override bool Valid => valid;
+		public override bool Valid => _valid;
 		public override float Validity => flags.Length;
 
 		[SerializeField, Input(backingValue = ShowBackingValue.Never)] protected Connections.Rule inConnection;
 		[SerializeField, ConstDropdown(typeof(IFlags))] private string[] flags;
+		[SerializeField] private bool requireCompletion;
 		[SerializeField] private bool invert;
 
 		private FlagService flagsService;
-		private bool valid;
+		private bool _valid;
 
 		public void InjectDependencies(FlagService flagsService)
 		{
@@ -28,7 +29,7 @@ namespace SpaxUtils
 		public override void OnEnteringState(ITransition transition)
 		{
 			base.OnEnteringState(transition);
-			valid = false;
+			_valid = false;
 		}
 
 		public override void OnStateEntered()
@@ -56,7 +57,7 @@ namespace SpaxUtils
 
 		private void UpdateValidity()
 		{
-			valid = flagsService.HasFlags(flags) != invert;
+			_valid = requireCompletion ? flagsService.HasCompletedFlags(flags) != invert : flagsService.HasFlags(flags) != invert;
 		}
 	}
 }

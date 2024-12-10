@@ -29,13 +29,14 @@ namespace SpaxUtils
 		/// <param name="id">The identifier to give to the data collection. If null, a new Guid will be generated.</param>
 		public RuntimeDataCollection ToRuntimeDataCollection(string id = null)
 		{
-			return ApplyToRuntimeDataCollection(new RuntimeDataCollection(id ?? Guid.NewGuid().ToString()), true);
+			RuntimeDataCollection collection = new RuntimeDataCollection(id.IsNullOrEmpty() ? Guid.NewGuid().ToString() : id);
+			return ApplyToRuntimeDataCollection(collection, true);
 		}
 
 		/// <summary>
 		/// Applies all stored labeled data to <paramref name="runtimeDataCollection"/>.
 		/// </summary>
-		public RuntimeDataCollection ApplyToRuntimeDataCollection(RuntimeDataCollection runtimeDataCollection, bool overwrite = true)
+		public RuntimeDataCollection ApplyToRuntimeDataCollection(RuntimeDataCollection runtimeDataCollection, bool overwrite)
 		{
 			// Bools
 			foreach (LabeledBoolData b in boolData)

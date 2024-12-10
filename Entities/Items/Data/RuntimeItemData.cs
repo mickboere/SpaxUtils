@@ -41,26 +41,24 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public bool TryGetData(string identifier, out RuntimeDataEntry data)
 		{
-			if (!RuntimeData.ContainsEntry(identifier))
+			if (!RuntimeData.TryGetEntry(identifier, out data))
 			{
-				if (!ItemData.FloatStats.ContainsKey(identifier))
+				if (!ItemData.Data.TryGetEntry(identifier, out RuntimeDataEntry baseData))
 				{
-					data = null;
 					return false;
 				}
 
-				data = new RuntimeDataEntry(identifier, ItemData.FloatStats[identifier]);
+				data = new RuntimeDataEntry(identifier, baseData.Value);
 				return RuntimeData.TryAdd(data);
 			}
 
-			data = RuntimeData.GetEntry(identifier);
 			return true;
 		}
 
 		/// <inheritdoc/>
 		public bool TryGetStat(string identifier, out float value)
 		{
-			if (TryGetData(identifier, out RuntimeDataEntry data))
+			if (TryGetData(identifier, out RuntimeDataEntry data) && data.ValueType == typeof(float))
 			{
 				value = (float)data.Value;
 				return true;

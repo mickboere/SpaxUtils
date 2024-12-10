@@ -75,6 +75,30 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
+		/// Returns whether a flag for id <paramref name="flag"/> exists.
+		/// </summary>
+		public bool TryGetFlag(string flag, out FlagData flagData)
+		{
+			if (flags.ContainsKey(flag))
+			{
+				flagData = flags[flag];
+				return true;
+			}
+
+			flagData = null;
+			return false;
+		}
+
+		/// <summary>
+		/// Returns whether all the flags exist and have been completed.
+		/// </summary>
+		/// <returns>Whether all the flags currently exist and have been completed.</returns>
+		public bool HasCompletedFlags(params string[] flags)
+		{
+			return flags.All((f) => this.flags.ContainsKey(f) && this.flags[f].Completed);
+		}
+
+		/// <summary>
 		/// Sets flag with id <paramref name="flag"/>.
 		/// </summary>
 		public void SetFlag(string flag, FlagData flagData, bool overwrite = false)
@@ -93,9 +117,9 @@ namespace SpaxUtils
 		/// Sets flag with id <paramref name="flag"/>.
 		/// Creates a new <see cref="FlagData"/> object using the optional parameters.
 		/// </summary>
-		public void SetFlag(string flag, string setterID = "", TimeType timeType = TimeType.ScaledPlaytime, float expiration = 0f, bool overwrite = false)
+		public void SetFlag(string flag, string setterID = "", TimeType timeType = TimeType.ScaledPlaytime, float expiration = 0f, bool completed = false, bool overwrite = false)
 		{
-			SetFlag(flag, new FlagData(setterID, timeService.Time(timeType), timeType, expiration), overwrite);
+			SetFlag(flag, new FlagData(setterID, timeService.Time(timeType), timeType, expiration, completed), overwrite);
 		}
 
 		/// <summary>
@@ -114,11 +138,41 @@ namespace SpaxUtils
 		/// Sets all of the flags in params <paramref name="flags"/> with default settings.
 		/// </summary>
 		/// <param name="flags">The flags to set.</param>
-		public void SetFlags(string setterID, IEnumerable<string> flags)
+		public void SetFlags(IEnumerable<string> flags, string setterID = "", bool complete = false, bool overwrite = false)
 		{
 			foreach (string flag in flags)
 			{
-				SetFlag(flag, setterID);
+				SetFlag(flag, setterID, completed: complete, overwrite: overwrite);
+			}
+		}
+
+		/// <summary>
+		/// Sets all <paramref name="flags"/> to be completed.
+		/// </summary>
+		public void CompleteFlags(params string[] flags)
+		{
+			SetFlags(flags);
+			foreach (string flag in flags)
+			{
+				if (TryGetFlag(flag, out FlagData data))
+				{
+					data.Completed = true;
+				}
+			}
+		}
+
+		/// <summary>
+		/// Sets all <paramref name="flags"/> to be completed.
+		/// </summary>
+		public void CompleteFlags(IEnumerable<string> flags)
+		{
+			SetFlags(flags);
+			foreach (string flag in flags)
+			{
+				if (TryGetFlag(flag, out FlagData data))
+				{
+					data.Completed = true;
+				}
 			}
 		}
 

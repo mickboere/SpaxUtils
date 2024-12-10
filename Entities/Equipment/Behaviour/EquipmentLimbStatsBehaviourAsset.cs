@@ -8,7 +8,7 @@ namespace SpaxUtils
 	/// <summary>
 	/// Behaviour that maps limb stats of equipment to the agent's limb stats.
 	/// </summary>
-	[CreateAssetMenu(fileName = "EquipmentLimbStatsBehaviour", menuName = "ScriptableObjects/EquipmentLimbStatsBehaviourAsset")]
+	[CreateAssetMenu(fileName = nameof(EquipmentLimbStatsBehaviourAsset), menuName = "ScriptableObjects/Behaviours/" + nameof(EquipmentLimbStatsBehaviourAsset))]
 	public class EquipmentLimbStatsBehaviourAsset : BehaviourAsset
 	{
 		[Serializable]

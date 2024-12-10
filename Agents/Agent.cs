@@ -44,10 +44,6 @@ namespace SpaxUtils
 		[SerializeField, ConstDropdown(typeof(IStateIdentifiers))] private string state;
 		[SerializeField] private List<BrainGraph> brainGraphs;
 
-		private CallbackService callbackService;
-		private AEMOISettings aemoiSettings;
-		private InputToActMap inputToActMap;
-		private IPerformer[] performers;
 		private IRelationData[] relationData;
 
 		public void InjectDependencies(
@@ -59,11 +55,6 @@ namespace SpaxUtils
 			Targetable = targetableComponent;
 			Targeter = targeterComponent;
 
-			this.callbackService = callbackService;
-			this.callbackService = callbackService;
-			this.aemoiSettings = aemoiSettings;
-			this.inputToActMap = inputToActMap;
-			this.performers = performers;
 			this.relationData = relationData;
 
 			foreach (BrainGraph brainGraph in brainGraphs)
@@ -173,7 +164,7 @@ namespace SpaxUtils
 		private void OnEnteredStateEvent(IState state)
 		{
 			this.state = state.ID;
-			SpaxDebug.Notify($"[{Identification.Name}]", $"OnEnteredStateEvent({string.Join(", ", Brain.StateHierarchy.Select(s => s.ID))})");
+			//SpaxDebug.Notify($"[{Identification.Name}]", $"OnEnteredStateEvent({string.Join(", ", Brain.StateHierarchy.Select(s => s.ID))})");
 		}
 	}
 }

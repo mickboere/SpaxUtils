@@ -11,6 +11,9 @@ namespace SpaxUtils
 	public class SetFlagNode : StateComponentNodeBase
 	{
 		[SerializeField, ConstDropdown(typeof(IFlags))] private string[] flags;
+		[SerializeField] private bool setID;
+		[SerializeField] private bool complete;
+		[SerializeField] private bool overwrite;
 
 		private FlagService flagsService;
 
@@ -29,7 +32,7 @@ namespace SpaxUtils
 		public override void OnEnteringState(ITransition transition)
 		{
 			base.OnEnteringState(transition);
-			flagsService.SetFlags(entity.ID, flags);
+			flagsService.SetFlags(flags, setID ? entity.ID : "", complete, overwrite);
 		}
 	}
 }

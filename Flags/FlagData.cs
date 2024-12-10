@@ -30,29 +30,41 @@ namespace SpaxUtils
 		/// </summary>
 		public float Expiration { get; }
 
-		public FlagData(string setter, float time, TimeType timeType = TimeType.ScaledPlaytime, float expiration = 0f)
+		/// <summary>
+		/// Whether the flag's set objective has been completed.
+		/// </summary>
+		public bool Completed { get; set; }
+
+		public FlagData(string setter, float time, TimeType timeType = TimeType.ScaledPlaytime, float expiration = 0f, bool completed = false)
 		{
 			Setter = setter;
 			TimeType = timeType;
 			Time = time;
 			Expiration = expiration;
+			Completed = completed;
 		}
 
 		public RuntimeDataCollection ToRuntimeDataCollection(string id)
 		{
+			// Only store non-default data.
+
 			List<RuntimeDataEntry> data = new List<RuntimeDataEntry>();
-			if (!string.IsNullOrEmpty(Setter)) // No need to store setter if there is none.
+			if (!string.IsNullOrEmpty(Setter))
 			{
 				data.Add(new RuntimeDataEntry(nameof(Setter), Setter));
 			}
 			data.Add(new RuntimeDataEntry(nameof(Time), Time));
-			if (TimeType != TimeType.ScaledPlaytime) // No need to store time type if it is the default type.
+			if (TimeType != TimeType.ScaledPlaytime)
 			{
 				data.Add(new RuntimeDataEntry(nameof(TimeType), TimeType));
 			}
-			if (Expiration > 0) // No need to store expiration if there is no expiration.
+			if (Expiration > 0)
 			{
 				data.Add(new RuntimeDataEntry(nameof(Expiration), Expiration));
+			}
+			if (Completed)
+			{
+				data.Add(new RuntimeDataEntry(nameof(Completed), Completed));
 			}
 			return new RuntimeDataCollection(id, data);
 		}
@@ -63,7 +75,8 @@ namespace SpaxUtils
 				data.GetValue(nameof(Setter), ""),
 				data.GetValue(nameof(Time), 0f),
 				(TimeType)data.GetValue(nameof(TimeType), 0),
-				data.GetValue(nameof(Expiration), 0f));
+				data.GetValue(nameof(Expiration), 0f),
+				data.GetValue(nameof(Completed), false));
 		}
 	}
 }

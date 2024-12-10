@@ -24,7 +24,11 @@ namespace SpaxUtils
 		public override object Value
 		{
 			get { return Data; }
-			set { Data = new List<RuntimeDataEntry>((IEnumerable<RuntimeDataEntry>)value); }
+			set
+			{
+				Data = new List<RuntimeDataEntry>((IEnumerable<RuntimeDataEntry>)value);
+				OnValueChange();
+			}
 		}
 
 		/// <summary>
@@ -33,7 +37,7 @@ namespace SpaxUtils
 		[JsonIgnore]
 		public IReadOnlyCollection<RuntimeDataEntry> Data
 		{
-			get { return _data.Values; }
+			get { return _data == null ? null : _data.Values; }
 			set
 			{
 				_data = new Dictionary<string, RuntimeDataEntry>();
@@ -207,6 +211,12 @@ namespace SpaxUtils
 		/// <returns>Entry with ID <paramref name="id"/>, NULL if null.</returns>
 		public RuntimeDataEntry GetEntry(string id)
 		{
+			if (_data == null)
+			{
+				SpaxDebug.Error($"Collection ({ID}) data is NULL. This should not be possible.", $"Failed to get entry for ID: ({id}).");
+				return null;
+			}
+
 			if (_data.ContainsKey(id))
 			{
 				return _data[id];

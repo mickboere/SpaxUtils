@@ -206,5 +206,11 @@ namespace SpaxUtils
 
 			return playerAgent;
 		}
+
+		public bool IsAlive(int playerIndex = 0)
+		{
+			return TryRetrievePlayerEntityData(playerIndex, out RuntimeDataCollection playerData) &&
+				playerData.GetValue(EntityDataIdentifiers.ALIVE, false);
+		}
 	}
 }

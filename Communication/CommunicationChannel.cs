@@ -25,7 +25,8 @@ namespace SpaxUtils
 			{
 				if (subscription.Key.IsAssignableFrom(key))
 				{
-					foreach (KeyValuePair<object, Action<object>> listener in subscription.Value)
+					var listeners = new Dictionary<object, Action<object>>(subscription.Value); // This fixes unsub during callback bug.
+					foreach (KeyValuePair<object, Action<object>> listener in listeners)
 					{
 						listener.Value(message);
 					}

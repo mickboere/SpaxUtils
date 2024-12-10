@@ -26,7 +26,11 @@ namespace SpaxUtils
 		public virtual object Value
 		{
 			get { return _value; }
-			set { _value = value; ValueChangedEvent?.Invoke(_value); }
+			set
+			{
+				_value = value;
+				OnValueChange();
+			}
 		}
 		protected object _value;
 
@@ -95,6 +99,11 @@ namespace SpaxUtils
 		public virtual string ToStringExplicit()
 		{
 			return $"{{ ID={ID}, Value={Value}, Type={ValueType.FullName} }}";
+		}
+
+		protected void OnValueChange()
+		{
+			ValueChangedEvent?.Invoke(Value);
 		}
 	}
 }

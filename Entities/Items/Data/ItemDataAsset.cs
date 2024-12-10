@@ -36,18 +36,18 @@ namespace SpaxUtils
 		public IReadOnlyList<BehaviourAsset> InventoryBehaviour => inventoryBehaviour;
 
 		/// <inheritdoc/>
-		public IReadOnlyDictionary<string, float> FloatStats
+		public RuntimeDataCollection Data
 		{
 			get
 			{
-				if (_floatStats == null)
+				if (_data == null || _data.Data == null)
 				{
-					_floatStats = itemStats.ToDictionary((LabeledFloatData f) => f.ID, (LabeledFloatData f) => f.FloatValue);
+					_data = data.ToRuntimeDataCollection(id);
 				}
-				return _floatStats;
+				return _data;
 			}
 		}
-		private Dictionary<string, float> _floatStats;
+		private RuntimeDataCollection _data;
 
 		[Header("Item Data")]
 		[SerializeField] private string id;
@@ -58,7 +58,7 @@ namespace SpaxUtils
 		[SerializeField] private Sprite icon;
 		[SerializeField] private GameObject worldItemPrefab;
 		[SerializeField, Expandable] private List<BehaviourAsset> inventoryBehaviour;
-		[SerializeField] private List<LabeledFloatData> itemStats;
+		[SerializeField] private LabeledDataCollection data;
 
 		public override string ToString()
 		{
