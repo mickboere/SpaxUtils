@@ -129,6 +129,11 @@ namespace SpaxUtils
 			return Mathf.Floor(f);
 		}
 
+		public static int FloorToInt(this float f)
+		{
+			return Mathf.FloorToInt(f);
+		}
+
 		public static float Ceil(this float f)
 		{
 			return Mathf.Ceil(f);

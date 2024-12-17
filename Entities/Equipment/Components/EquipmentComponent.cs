@@ -337,7 +337,7 @@ namespace SpaxUtils
 				(IInteraction i, bool success) =>
 				{
 					if (success &&
-						i.Data is IRuntimeItemData itemData &&
+						i.Data is RuntimeItemData itemData &&
 						itemData.ItemData is IEquipmentData equipmentData)
 					{
 						RuntimeItemData runtimeItemData = inventoryComponent.Inventory.AddItem(itemData);

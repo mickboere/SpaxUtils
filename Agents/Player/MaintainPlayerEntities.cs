@@ -42,10 +42,6 @@ namespace SpaxUtils
 			{
 				bool wasAlive = playerAgentService.IsAlive();
 				IAgent player = playerAgentService.SpawnPlayer(dependencyManager, playerConfig, spawnData, spawnpoint, out instances);
-				if (wasAlive && player.GameObject.TryGetComponent(out AgentStatHandler statHandler))
-				{
-					statHandler.RecoverAll();
-				}
 				player.Brain.TryTransition(AgentStateIdentifiers.ACTIVE);
 			}
 			else

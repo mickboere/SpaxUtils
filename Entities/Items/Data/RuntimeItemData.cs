@@ -9,56 +9,105 @@ namespace SpaxUtils
 	/// <summary>
 	/// Item data object instanced when an item is in an inventory.
 	/// </summary>
-	public class RuntimeItemData : IRuntimeItemData, IDisposable
+	public class RuntimeItemData : IDisposable
 	{
+		#region Properties
+
+		/// <summary>
+		/// The asset data for this item.
+		/// </summary>
 		public IItemData ItemData { get; private set; }
+
+		/// <summary>
+		/// The runtime data for this item.
+		/// </summary>
 		public RuntimeDataCollection RuntimeData { get; private set; }
 
-		public string RuntimeID => RuntimeData.ID;
-		public string ItemID => ItemData.ID;
-
-		public int Quantity => Unique ? 1 : RuntimeData.TryGetValue(ItemDataIdentifierConstants.QUANTITY, out int quantity) ? quantity : 1;
-
-		public string Name => RuntimeData.GetValue<string>(ItemDataIdentifierConstants.NAME) ?? ItemData.Name;
-		public string Description => RuntimeData.GetValue<string>(ItemDataIdentifierConstants.DESCRIPTION) ?? ItemData.Description;
-		public string Category => RuntimeData.GetValue<string>(ItemDataIdentifierConstants.CATEGORY) ?? ItemData.Category;
-		public bool Unique => RuntimeData.TryGetValue(ItemDataIdentifierConstants.UNIQUE, out bool unique) ? unique : ItemData.Unique;
-
+		/// <summary>
+		/// The dependency manager belonging to this runtime item data.
+		/// </summary>
 		public IDependencyManager DependencyManager { get; private set; }
 
-		private List<BehaviourAsset> behaviours = new List<BehaviourAsset>();
+		/// <summary>
+		/// The ID of the runtime data.
+		/// </summary>
+		public string RuntimeID => RuntimeData.ID;
+
+		/// <summary>
+		/// The ID of the item data.
+		/// </summary>
+		public string ItemID => ItemData.ID;
+
+		/// <summary>
+		/// The quantity of this item.
+		/// </summary>
+		public int Quantity => Unique ? 1 : RuntimeData.TryGetValue(ItemDataIdentifierConstants.QUANTITY, out int quantity) ? quantity : 1;
+
+		/// <summary>
+		/// The name of this item.
+		/// </summary>
+		public string Name => RuntimeData.GetValue<string>(ItemDataIdentifierConstants.NAME) ?? ItemData.Name;
+
+		/// <summary>
+		/// The general description of this item.
+		/// </summary>
+		public string Description => RuntimeData.GetValue<string>(ItemDataIdentifierConstants.DESCRIPTION) ?? ItemData.Description;
+
+		/// <summary>
+		/// The category of this item.
+		/// </summary>
+		public string Category => RuntimeData.GetValue<string>(ItemDataIdentifierConstants.CATEGORY) ?? ItemData.Category;
+
+		/// <summary>
+		/// Whether this item is unique or otherwise stackable.
+		/// </summary>
+		public bool Unique => RuntimeData.TryGetValue(ItemDataIdentifierConstants.UNIQUE, out bool unique) ? unique : ItemData.Unique;
+
+		/// <summary>
+		/// All inventory behaviours running for this item.
+		/// </summary>
+		public List<BehaviourAsset> Behaviours { get; private set; } = new List<BehaviourAsset>();
+
+		#endregion Properties
 
 		public RuntimeItemData(IItemData itemData, RuntimeDataCollection runtimeData, IDependencyManager dependencyManager)
 		{
-			RuntimeData = runtimeData;
 			ItemData = itemData;
+			RuntimeData = runtimeData;
 			DependencyManager = dependencyManager;
 
 			// Mandatory data used when loading item data.
 			runtimeData.SetValue(ItemDataIdentifierConstants.ITEM_ID, ItemID);
 		}
 
-		/// <inheritdoc/>
-		public bool TryGetData(string identifier, out RuntimeDataEntry data)
+		public bool TryGetData(string identifier, out RuntimeDataEntry data, bool createIfNull = false, object defaultValueIfNull = default)
 		{
 			if (!RuntimeData.TryGetEntry(identifier, out data))
 			{
-				if (!ItemData.Data.TryGetEntry(identifier, out RuntimeDataEntry baseData))
+				if (ItemData.Data.TryGetEntry(identifier, out RuntimeDataEntry defaultData))
+				{
+					data = new RuntimeDataEntry(identifier, defaultData.Value);
+					return RuntimeData.TryAdd(data);
+
+				}
+				else if (createIfNull)
+				{
+					data = new RuntimeDataEntry(identifier, defaultValueIfNull);
+					return RuntimeData.TryAdd(data);
+				}
+				else
 				{
 					return false;
 				}
-
-				data = new RuntimeDataEntry(identifier, baseData.Value);
-				return RuntimeData.TryAdd(data);
 			}
 
 			return true;
 		}
 
-		/// <inheritdoc/>
-		public bool TryGetStat(string identifier, out float value)
+		public bool TryGetStat(string identifier, out float value, bool createIfNull = false, float defaultValueIfNull = 0f)
 		{
-			if (TryGetData(identifier, out RuntimeDataEntry data) && data.ValueType == typeof(float))
+			if (TryGetData(identifier, out RuntimeDataEntry data, createIfNull, defaultValueIfNull) &&
+				data.ValueType == typeof(float))
 			{
 				value = (float)data.Value;
 				return true;
@@ -68,35 +117,45 @@ namespace SpaxUtils
 			return false;
 		}
 
-		/// <summary>
-		/// Starts all behaviours defined in the item data.
-		/// </summary>
+		public float GetStat(string identifier, bool createIfNull = false, float defaultValueIfNull = 0f)
+		{
+			if (TryGetStat(identifier, out float value, createIfNull, defaultValueIfNull))
+			{
+				return value;
+			}
+
+			return 0f;
+		}
+
 		public void InitializeBehaviour()
 		{
 			foreach (BehaviourAsset behaviour in ItemData.InventoryBehaviour)
 			{
 				BehaviourAsset behaviourInstance = behaviour.CreateInstance();
-				behaviours.Add(behaviourInstance);
+				Behaviours.Add(behaviourInstance);
 				DependencyManager.Inject(behaviourInstance);
 				behaviourInstance.Start();
 			}
 		}
 
-		/// <summary>
-		/// Stops all running behaviours that were defined in the item data.
-		/// Will also automatically happen if <see cref="Dispose"/> is called.
-		/// </summary>
-		public void StopBehaviour()
+		public bool TryGetBehaviour<T>(out T behaviour) where T : class
 		{
-			foreach (BehaviourAsset behaviour in behaviours)
+			foreach (BehaviourAsset b in Behaviours)
 			{
-				behaviour.Stop();
+				if (b is T cast)
+				{
+					behaviour = cast;
+					return true;
+				}
 			}
+
+			behaviour = null;
+			return false;
 		}
 
 		public void Dispose()
 		{
-			foreach (BehaviourAsset behaviour in behaviours)
+			foreach (BehaviourAsset behaviour in Behaviours)
 			{
 				behaviour.Destroy();
 			}

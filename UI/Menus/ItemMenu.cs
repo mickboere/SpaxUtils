@@ -27,14 +27,18 @@ namespace SpaxUtils.UI
 		private Func<T, string> itemIdentifier;
 		private Func<T, string> itemLabel;
 		private Func<T, Sprite> itemSprite;
+		private Func<T, IDependencyManager> itemDependencies;
 		private bool bypassUpdateEvent;
 
-		public ItemMenu(MenuItem template, Func<T, string> itemIdentifier, Func<T, string> itemLabel, Func<T, Sprite> itemSprite, IEnumerable<T> data = null)
+		public ItemMenu(MenuItem template,
+			Func<T, string> itemIdentifier, Func<T, string> itemLabel, Func<T, Sprite> itemSprite,
+			Func<T, IDependencyManager> itemDependencies = null, IEnumerable<T> data = null)
 		{
 			this.template = template;
 			this.itemIdentifier = itemIdentifier;
 			this.itemLabel = itemLabel;
 			this.itemSprite = itemSprite;
+			this.itemDependencies = itemDependencies;
 
 			template.gameObject.SetActive(false);
 
@@ -82,6 +86,10 @@ namespace SpaxUtils.UI
 			MenuItem visual = GameObject.Instantiate(template, template.transform.parent);
 			visual.SetData(data);
 			visual.Visualize(identifier, itemSprite(data), itemLabel(data));
+			if (itemDependencies != null)
+			{
+				DependencyUtils.Inject(visual.gameObject, itemDependencies(data));
+			}
 			visual.ButtonClickedEvent += OnSelectedItemEvent;
 			visual.gameObject.SetActive(true);
 

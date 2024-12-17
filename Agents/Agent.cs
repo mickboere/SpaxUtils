@@ -12,7 +12,8 @@ namespace SpaxUtils
 	public class Agent : Entity, IAgent
 	{
 		public event Action<IAgent> DiedEvent;
-		public event Action<IAgent> RevivedEvent;
+		public event Action ReviveEvent;
+		public event Action RecoverEvent;
 
 		#region Properties
 
@@ -122,12 +123,21 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public void Revive(ITransition transition = null)
 		{
-			if (!Alive && Brain.TryTransition(AgentStateIdentifiers.ACTIVE, transition))
+			if (!Alive && (Brain.IsStateActive(AgentStateIdentifiers.ACTIVE) || Brain.TryTransition(AgentStateIdentifiers.ACTIVE, transition)))
 			{
 				Alive = true;
 				Actor.RemoveBlocker(this);
-				RevivedEvent?.Invoke(this);
 			}
+
+			Recover();
+
+			ReviveEvent?.Invoke();
+		}
+
+		/// <inheritdoc/>
+		public void Recover()
+		{
+			RecoverEvent?.Invoke();
 		}
 
 		private void LoadRelations()

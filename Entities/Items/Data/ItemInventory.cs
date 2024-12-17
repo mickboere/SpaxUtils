@@ -97,7 +97,7 @@ namespace SpaxUtils
 		/// Adds a (new) item using the data provided by <paramref name="runtimeItemData"/>.
 		/// </summary>
 		/// <param name="runtimeItemData">The item data to add to the inventory.</param>
-		public RuntimeItemData AddItem(IRuntimeItemData runtimeItemData)
+		public RuntimeItemData AddItem(RuntimeItemData runtimeItemData)
 		{
 			return AddItem(runtimeItemData.ItemData, runtimeItemData.RuntimeData);
 		}
@@ -120,12 +120,12 @@ namespace SpaxUtils
 		/// <param name="itemData">The item asset data.</param>
 		public RuntimeItemData AddItem(IItemData itemData, RuntimeDataCollection runtimeData)
 		{
-			runtimeData = runtimeData != null ? runtimeData.Clone() : RuntimeDataCollection.New();
+			//runtimeData = runtimeData != null ? runtimeData.Clone() : RuntimeDataCollection.New();
 			// TODO: Find out if it really needs to clone? If not, don't, might cause confusion when providing data.
-			//if (runtimeData == null)
-			//{
-			//	runtimeData = RuntimeDataCollection.New();
-			//}
+			if (runtimeData == null)
+			{
+				runtimeData = RuntimeDataCollection.New();
+			}
 
 			if (!entries.ContainsKey(runtimeData.ID))
 			{

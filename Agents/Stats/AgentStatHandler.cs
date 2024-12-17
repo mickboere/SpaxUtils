@@ -34,6 +34,8 @@ namespace SpaxUtils
 				recoveryMod = new FloatOperationModifier(ModMethod.Absolute, Operation.Multiply, 1f);
 				recoveryStat.AddModifier(this, recoveryMod);
 			}
+
+			agent.RecoverEvent += RecoverAll;
 		}
 
 		protected void OnDestroy()
@@ -43,12 +45,7 @@ namespace SpaxUtils
 			{
 				recoveryStat.RemoveModifier(this);
 			}
-		}
-
-		protected void Start()
-		{
-			// TODO: PLACEHOLDER! Recover must only be called upon respawning - not upon reloading.
-			RecoverAll();
+			agent.RecoverEvent -= RecoverAll;
 		}
 
 		public void UpdateStats(float delta)

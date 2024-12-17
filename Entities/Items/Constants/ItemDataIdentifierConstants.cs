@@ -19,7 +19,8 @@
 		public const string QUANTITY = INT + "Quantity";
 
 		// Floats
-
+		public const string CAPACITY = FLOAT + "Capacity";
+		public const string CONTAINS = FLOAT + "Contains";
 
 		// Bools
 		public const string UNIQUE = BOOL + "Unique";

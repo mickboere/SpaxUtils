@@ -11,7 +11,7 @@ namespace SpaxUtils
 	public class ItemComponent : InteractableComponent, IRuntimeItemDataComponent
 	{
 		/// <inheritdoc/>
-		public IRuntimeItemData RuntimeItemData { get; private set; }
+		public RuntimeItemData RuntimeItemData { get; private set; }
 
 		/// <inheritdoc/>
 		public override string[] InteractableTypes { get; protected set; } = new string[]

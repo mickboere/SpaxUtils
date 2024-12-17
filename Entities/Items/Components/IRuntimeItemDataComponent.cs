@@ -1,14 +1,14 @@
 ﻿namespace SpaxUtils
 {
 	/// <summary>
-	/// <see cref="IEntityComponent"/> refering to an <see cref="IRuntimeItemData"/>.
+	/// <see cref="IEntityComponent"/> refering to an <see cref="RuntimeItemData"/>.
 	/// </summary>
 	public interface IRuntimeItemDataComponent : IEntityComponent
 	{
 		/// <summary>
 		/// The runtime item data belonging to this entity.
 		/// </summary>
-		IRuntimeItemData RuntimeItemData { get; }
+		RuntimeItemData RuntimeItemData { get; }
 
 		/// <summary>
 		/// Set the <see cref="IRuntimeItemData.ItemData"/>

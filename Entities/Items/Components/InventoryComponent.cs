@@ -60,7 +60,7 @@ namespace SpaxUtils
 		/// </summary>
 		protected override bool OnTryInteract(IInteraction interaction)
 		{
-			if (interaction.Data is IRuntimeItemData itemData)
+			if (interaction.Data is RuntimeItemData itemData)
 			{
 				Inventory.AddItem(itemData);
 				interaction.Conclude(true);
@@ -87,7 +87,7 @@ namespace SpaxUtils
 				{
 					SpaxDebug.Log($"On interaction concluded {i.Success}");
 
-					if (success && i.Data is IRuntimeItemData runtimeItemData)
+					if (success && i.Data is RuntimeItemData runtimeItemData)
 					{
 						SpaxDebug.Log($"AddItem: {runtimeItemData.ItemData.Name}");
 						Inventory.AddItem(runtimeItemData);

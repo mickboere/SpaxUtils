@@ -18,7 +18,12 @@ namespace SpaxUtils
 		/// <summary>
 		/// Invoked once the agent has revived.
 		/// </summary>
-		event Action<IAgent> RevivedEvent;
+		event Action ReviveEvent;
+
+		/// <summary>
+		/// Invoked once the agent must recover.
+		/// </summary>
+		event Action RecoverEvent;
 
 		#region Properties
 
@@ -68,5 +73,10 @@ namespace SpaxUtils
 		/// Revives the agent, having it exit the "dead" state.
 		/// </summary>
 		void Revive(ITransition transition = null);
+
+		/// <summary>
+		/// Ensures the Agent recovers to full capacity.
+		/// </summary>
+		void Recover();
 	}
 }

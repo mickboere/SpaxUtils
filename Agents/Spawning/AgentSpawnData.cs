@@ -18,6 +18,7 @@ namespace SpaxUtils
 
 		public Agent Spawn(IAgentSetup agentSetup, IDependencyManager dependencyManager, Vector3 position, Quaternion rotation, bool activate = true)
 		{
+			bool wasAlive = false;
 			Agent agent = AgentFactory.Create(agentSetup, dependencyManager, position, rotation, overrideName: overrideName, labels: labels, dependencies: dependencies,
 				progressCallback: (AgentFactory.Callback callback) =>
 				{
@@ -32,11 +33,20 @@ namespace SpaxUtils
 								runtimeData = new RuntimeDataCollection(dependencyManager.Get<IIdentification>().ID);
 								dependencyManager.Bind(runtimeData);
 							}
+
 							data.ApplyToRuntimeDataCollection(runtimeData, overwriteData);
+							wasAlive = runtimeData.GetValue(EntityDataIdentifiers.ALIVE, false);
 							break;
 					}
 				},
-				activate: true);
+				activate: activate);
+
+			// Agent is freshly born, recover all stats.
+			if (activate && !wasAlive)
+			{
+				agent.Recover();
+			}
+
 			return agent;
 		}
 	}
