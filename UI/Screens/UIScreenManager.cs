@@ -12,6 +12,7 @@ namespace SpaxUtils.UI
 		[SerializeField, ConstDropdown(typeof(IContextIdentifiers), true)] private string defaultContext;
 		[SerializeField, ConstDropdown(typeof(IInputActionMaps))] private string shortcutActionMap;
 		[SerializeField, ConstDropdown(typeof(IInputActionMaps))] private string uiActionMap;
+		[SerializeField, ConstDropdown(typeof(IInputActionMaps))] private string navigationActionMap;
 
 		private string baseContextOverride = null;
 		private object subscriberA = new object();
@@ -40,7 +41,7 @@ namespace SpaxUtils.UI
 			{
 				if (!string.IsNullOrEmpty(screen.Shortcut))
 				{
-					shortcuts.Add(new Option(screen.Context, screen.Shortcut, (CallbackContext c) => { SwitchContext(screen.Context); }, playerInputWrapper, enable: true));
+					shortcuts.Add(new Option(screen.Context, screen.Shortcut, (_) => { SwitchContext(screen.Context); }, playerInputWrapper, enable: true));
 				}
 				screen.gameObject.SetActive(true);
 				screen.gameObject.SetActive(false);
@@ -95,7 +96,7 @@ namespace SpaxUtils.UI
 						{
 							cursorService.RequestCursor(this);
 						}
-						playerInputWrapper.RequestActionMaps(subscriberB, 0, uiActionMap);
+						playerInputWrapper.RequestActionMaps(subscriberB, 1, shortcutActionMap, uiActionMap, navigationActionMap);
 					}
 					else
 					{

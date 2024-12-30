@@ -1,4 +1,5 @@
-﻿using System;
+﻿using SpaxUtils.StateMachines;
+using System;
 using static UnityEngine.InputSystem.InputAction;
 
 namespace SpaxUtils
@@ -8,14 +9,16 @@ namespace SpaxUtils
 	/// </summary>
 	public class PlayerInputToActMapper : InputToActMapper
 	{
+		private IAgent agent;
+		private InputToActMapping mapping;
 		private PlayerInputWrapper playerInputWrapper;
 		private Option option;
 
 		public PlayerInputToActMapper(IAgent agent, InputToActMapping mapping, PlayerInputWrapper playerInputWrapper) : base(agent.Actor, mapping)
 		{
+			this.agent = agent;
+			this.mapping = mapping;
 			this.playerInputWrapper = playerInputWrapper;
-
-			playerInputWrapper.RequestActionMaps(this, 0, mapping.ActionMap);
 
 			option = new Option(mapping.Title, mapping.Input,
 				delegate (CallbackContext c)
@@ -30,14 +33,49 @@ namespace SpaxUtils
 					}
 				},
 			playerInputWrapper, mapping.EatInput, mapping.InputPrio);
-			option.Enable();
+
+			agent.Brain.EnteredStateEvent += OnAgentStateChange;
+			OnAgentStateChange(null);
 		}
 
 		public override void Dispose()
 		{
 			base.Dispose();
+
+			agent.Brain.EnteredStateEvent -= OnAgentStateChange;
+
+			Disable();
 			option.Dispose();
-			playerInputWrapper.CompleteActionMapRequest(this);
+		}
+
+		private void OnAgentStateChange(IState state)
+		{
+			if (agent.Brain.IsStateActive(mapping.State))
+			{
+				Enable();
+			}
+			else
+			{
+				Disable();
+			}
+		}
+
+		private void Enable()
+		{
+			if (!option.Enabled)
+			{
+				playerInputWrapper.RequestActionMaps(this, 0, mapping.ActionMap);
+				option.Enable();
+			}
+		}
+
+		private void Disable()
+		{
+			if (option.Enabled)
+			{
+				playerInputWrapper.CompleteActionMapRequest(this);
+				option.Disable();
+			}
 		}
 	}
 }

@@ -118,5 +118,49 @@ namespace SpaxUtils
 				}
 			}
 		}
+
+		/// <summary>
+		/// Returns whether <paramref name="collection"/> contains data that is dentical to this labeled data collection.
+		/// </summary>
+		public bool Matches(RuntimeDataCollection collection)
+		{
+			// Bools
+			foreach (LabeledBoolData b in boolData)
+			{
+				if (!collection.TryGetValue(b.ID, out bool v) || v != b.BoolValue)
+				{
+					return false;
+				}
+			}
+
+			// Floats
+			foreach (LabeledFloatData f in floatData)
+			{
+				if (!collection.TryGetValue(f.ID, out float v) || !v.Approx(f.FloatValue))
+				{
+					return false;
+				}
+			}
+
+			// Ints
+			foreach (LabeledIntData i in intData)
+			{
+				if (!collection.TryGetValue(i.ID, out int v) || v != i.IntValue)
+				{
+					return false;
+				}
+			}
+
+			// Strings
+			foreach (LabeledStringData s in stringData)
+			{
+				if (!collection.TryGetValue(s.ID, out string v) || v != s.StringValue)
+				{
+					return false;
+				}
+			}
+
+			return true;
+		}
 	}
 }

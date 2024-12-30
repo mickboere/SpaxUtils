@@ -11,14 +11,15 @@ namespace SpaxUtils
 	{
 		public event Action<Option> PickedEvent;
 		public event Action<CallbackContext> ReceivedInputEvent;
-		public event Action<Option> MadeAvailableEvent;
-		public event Action<Option> MadeUnavailableEvent;
+		public event Action<Option> ActivatedEvent;
+		public event Action<Option> DeactivatedEvent;
 
 		public string Title { get; }
 		public string Description { get; }
 		public string InputAction { get; }
 		public bool HasInputAction => !string.IsNullOrEmpty(InputAction);
 		public bool Active { get; private set; }
+		public bool Enabled { get; private set; }
 
 		private readonly bool pickOnInput;
 		private readonly bool eatInput;
@@ -27,8 +28,6 @@ namespace SpaxUtils
 		private readonly Action<CallbackContext> onInputCallback;
 
 		private PlayerInputWrapper playerInputWrapper;
-
-		private bool enabled;
 
 		public Option(
 			string title,
@@ -91,12 +90,7 @@ namespace SpaxUtils
 		/// </summary>
 		public void Enable(PlayerInputWrapper playerInputWrapper = null)
 		{
-			if (enabled)
-			{
-				return;
-			}
-
-			enabled = true;
+			Enabled = true;
 
 			if (playerInputWrapper != null)
 			{
@@ -114,12 +108,7 @@ namespace SpaxUtils
 		/// </summary>
 		public void Disable()
 		{
-			if (!enabled)
-			{
-				return;
-			}
-
-			enabled = false;
+			Enabled = false;
 
 			if (Active)
 			{
@@ -152,6 +141,8 @@ namespace SpaxUtils
 			this.playerInputWrapper.Subscribe(this, InputAction,
 				delegate (CallbackContext inputContext)
 				{
+					//SpaxDebug.Log("OnInput", ToString());
+
 					onInputCallback?.Invoke(inputContext);
 					ReceivedInputEvent?.Invoke(inputContext);
 
@@ -165,7 +156,7 @@ namespace SpaxUtils
 				prio);
 
 			Active = true;
-			MadeAvailableEvent?.Invoke(this);
+			ActivatedEvent?.Invoke(this);
 		}
 
 		private void Deactivate()
@@ -177,12 +168,12 @@ namespace SpaxUtils
 
 			playerInputWrapper.Unsubscribe(this);
 			Active = false;
-			MadeUnavailableEvent?.Invoke(this);
+			DeactivatedEvent?.Invoke(this);
 		}
 
 		public override string ToString()
 		{
-			return $"Option\n{{\n\tTitle=\"{Title}\"\n\tDescription=\"{Description}\"\n\tInputAction={InputAction}\n}}\n";
+			return $"Option\n{{\n\tTitle=\"{Title},\"\n\tDescription=\"{Description},\"\n\tInputAction={InputAction},\n\tEnabled={Enabled},\n\tActive={Active}\n}}";
 		}
 	}
 }

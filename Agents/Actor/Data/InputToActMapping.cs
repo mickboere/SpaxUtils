@@ -1,4 +1,5 @@
-﻿using System;
+﻿using SpaxUtils.StateMachines;
+using System;
 using UnityEngine;
 
 namespace SpaxUtils
@@ -11,8 +12,9 @@ namespace SpaxUtils
 		public bool Interuptor => interuptor;
 		public float Buffer => hasCustomBuffer ? customBuffer : Act<bool>.DEFAULT_BUFFER;
 
-		public string ActionMap => actionMap;
 		public string Input => input;
+		public string ActionMap => actionMap;
+		public string State => state;
 		public bool EatInput => eatInput;
 		public int InputPrio => inputPrio;
 		public bool HoldEveryFrame => holdEveryFrame;
@@ -20,6 +22,7 @@ namespace SpaxUtils
 		[SerializeField, ConstDropdown(typeof(IActTitles))] private string act;
 		[SerializeField, ConstDropdown(typeof(IInputActions))] private string input;
 		[SerializeField, ConstDropdown(typeof(IInputActionMaps))] private string actionMap;
+		[SerializeField, ConstDropdown(typeof(IStateIdentifiers))] private string state;
 		[SerializeField] private bool eatInput;
 		[SerializeField] private int inputPrio;
 		[SerializeField] private bool interuptable;

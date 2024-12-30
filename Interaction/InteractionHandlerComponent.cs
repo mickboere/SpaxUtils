@@ -44,9 +44,11 @@ namespace SpaxUtils
 
 		[SerializeField, Tooltip("Picked if there is no targetable attached to the entity.")] private float defaultInteractorRange = 1.5f;
 
+		private ITargeter targeter;
 		private ITargetable targetable;
 
-		public void InjectDependencies(IInteractor[] interactors, IInteractable[] interactables, IInteractionBlocker[] blockers, ITargetable targetable)
+		public void InjectDependencies(IInteractor[] interactors, IInteractable[] interactables, IInteractionBlocker[] blockers,
+			ITargeter targeter, ITargetable targetable)
 		{
 			foreach (IInteractor interactor in interactors)
 			{
@@ -63,6 +65,7 @@ namespace SpaxUtils
 				}
 			}
 			this.blockers = new List<IInteractionBlocker>(blockers);
+			this.targeter = targeter;
 			this.targetable = targetable;
 		}
 
@@ -128,6 +131,13 @@ namespace SpaxUtils
 				return false;
 			}
 
+			// Target the interactable.
+			ITargetable previousTarget = targeter.Target;
+			if (interactable.Entity.TryGetEntityComponent(out ITargetable targetable))
+			{
+				targeter.SetTarget(targetable);
+			}
+
 			// Ask each handler to set up the interaction until one succeeds.
 			foreach (IInteractor interactor in interactors)
 			{
@@ -138,6 +148,8 @@ namespace SpaxUtils
 				}
 			}
 
+			// Reset the target.
+			targeter.SetTarget(previousTarget);
 			return false;
 		}
 
@@ -179,6 +191,13 @@ namespace SpaxUtils
 				return false;
 			}
 
+			// Target the interactor.
+			ITargetable previousTarget = targeter.Target;
+			if (interaction.Interactor.Entity.TryGetEntityComponent(out ITargetable targetable))
+			{
+				targeter.SetTarget(targetable);
+			}
+
 			// Attempt the interaction with each handler until one succeeds.
 			foreach (IInteractable interactable in interactables)
 			{
@@ -189,6 +208,8 @@ namespace SpaxUtils
 				}
 			}
 
+			// Reset the target.
+			targeter.SetTarget(previousTarget);
 			return false;
 		}
 
@@ -219,6 +240,7 @@ namespace SpaxUtils
 			if (interactions.Contains(interaction))
 			{
 				// Double.
+				SpaxDebug.Error("How?");
 				return;
 			}
 
@@ -232,6 +254,7 @@ namespace SpaxUtils
 			{
 				interaction.ConcludedEvent -= OnInteractionConcludedEvent;
 				interactions.Remove(interaction);
+				targeter.SetTarget(null);
 			}
 		}
 
