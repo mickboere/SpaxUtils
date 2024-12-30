@@ -28,11 +28,11 @@ namespace SpaxUtils.StateMachines
 		}
 		private IState _elseState;
 
-		public override float Validity => base.Validity * priority;
+		public override float Validity => priority <= 0f ? base.Validity : base.Validity * priority;
 
 		[SerializeField, Input(backingValue = ShowBackingValue.Never)] protected Connections.StateComponent inConnection;
 		[SerializeField, Output(backingValue = ShowBackingValue.Never, connectionType = ConnectionType.Override, typeConstraint = TypeConstraint.Inherited)] protected Connections.State elseConnection;
-		[SerializeField, Tooltip("Multiplies the sum of the rule validities.")] private float priority = 1f;
+		[SerializeField, Tooltip("Overwrites the validity of this transition.")] private float priority = 0f;
 
 		public void InjectDependencies()
 		{

@@ -166,26 +166,57 @@ namespace SpaxUtils
 		#region Removing
 
 		/// <summary>
+		/// Removes runtime item matching <paramref name="itemData"/> from the inventory.
+		/// </summary>
+		public void RemoveItem(IItemData itemData, int quantity = -1)
+		{
+			RuntimeItemData runtimeData = Get(itemData);
+			if (runtimeData == null)
+			{
+				SpaxDebug.Error("No runtime item data could be found for itemData:", itemData.ID);
+				return;
+			}
+
+			RemoveItem(runtimeData, quantity);
+		}
+
+		/// <summary>
 		/// Removes runtime item with ID <paramref name="runtimeItemID"/> from the inventory.
 		/// </summary>
-		/// <param name="runtimeItemID">The ID of the runtime item to remove.</param>
-		public void RemoveItem(string runtimeItemID)
+		public void RemoveItem(string runtimeItemID, int quantity = -1)
 		{
 			RuntimeItemData runtimeData = Get(runtimeItemID);
-			RemoveItem(runtimeData);
+			if (runtimeData == null)
+			{
+				SpaxDebug.Error("No runtime item data could be found for id:", runtimeItemID);
+				return;
+			}
+
+			RemoveItem(runtimeData, quantity);
 		}
 
 		/// <summary>
 		/// Removes the <paramref name="runtimeData"/> from the inventory.
 		/// </summary>
-		/// <param name="runtimeData">The item data to remove.</param>
-		public void RemoveItem(RuntimeItemData runtimeData)
+		public void RemoveItem(RuntimeItemData runtimeData, int quantity = -1)
 		{
-			if (runtimeData != null)
+			if (runtimeData == null)
 			{
+				SpaxDebug.Error("No runtimedata was provided.");
+				return;
+			}
+
+			if (quantity < 1 || quantity >= runtimeData.Quantity)
+			{
+				// Delete item from inventory.
 				entries.Remove(runtimeData.RuntimeID);
 				RemovedItemEvent?.Invoke(runtimeData);
 				runtimeData.Dispose();
+			}
+			else
+			{
+				// Substracty quantity from item data.
+				runtimeData.RuntimeData.SetValue(ItemDataIdentifierConstants.QUANTITY, runtimeData.Quantity - quantity);
 			}
 		}
 

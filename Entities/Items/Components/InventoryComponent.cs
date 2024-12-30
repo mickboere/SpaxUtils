@@ -51,7 +51,8 @@ namespace SpaxUtils
 
 		public override bool IsInteractable(string interactionType)
 		{
-			return interactionType == BaseInteractionTypes.INVENTORY;
+			//return interactionType == BaseInteractionTypes.INVENTORY;
+			return false;
 		}
 
 		/// <inheritdoc/>
@@ -73,7 +74,8 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public override bool CanInteract(string interactionType)
 		{
-			return interactionType == BaseInteractionTypes.INVENTORY;
+			//return interactionType == BaseInteractionTypes.INVENTORY;
+			return false;
 		}
 
 		/// <inheritdoc/>
