@@ -155,6 +155,19 @@ namespace SpaxUtils
 			}
 		}
 
+		public static float Sqrt(this float f)
+		{
+			return Mathf.Sqrt(f);
+		}
+
+		/// <summary>
+		/// Converts seconds in float value to milliseconds in integer value.
+		/// </summary>
+		public static int ToMilliseconds(this float seconds)
+		{
+			return Mathf.RoundToInt(seconds * 1000f);
+		}
+
 		#region Easing functions
 
 		#region Sine

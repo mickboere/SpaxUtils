@@ -10,11 +10,11 @@ namespace SpaxUtils
 		public override Transform Transform => overridePoint == null ? transform : overridePoint;
 		public Vector3 Position => overridePoint == null ? transform.position : overridePoint.position;
 		public Quaternion Rotation => overridePoint == null ? transform.rotation : overridePoint.rotation;
-		public SpawnRegion Region => region;
+		public WorldRegion Region => region;
 
 		[SerializeField, ConstDropdown(typeof(ISpawnpointIdentifiers))] private string identifier;
 		[SerializeField] private Transform overridePoint;
-		[SerializeField] private SpawnRegion region;
+		[SerializeField] private WorldRegion region;
 
 		protected virtual void OnValidate()
 		{

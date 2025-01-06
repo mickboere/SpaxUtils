@@ -7,29 +7,30 @@ namespace SpaxUtils
 {
 	public class AgentActiveNode : StateComponentNodeBase
 	{
-		private CallbackService callbackService;
+		private IAgent agent;
 		private AgentStatHandler statHandler;
 
-		public void InjectDependencies(CallbackService callbackService, AgentStatHandler statHandler)
+		public void InjectDependencies(IAgent agent, AgentStatHandler statHandler)
 		{
-			this.callbackService = callbackService;
+			this.agent = agent;
 			this.statHandler = statHandler;
 		}
 
 		public override void OnEnteringState(ITransition transition)
 		{
 			base.OnEnteringState(transition);
-			callbackService.SubscribeUpdate(UpdateMode.Update, this, OnUpdate);
+			agent.SubscribeOptimizedUpdate(OnUpdate);
 		}
 
 		public override void OnStateExit()
 		{
 			base.OnStateExit();
-			callbackService.UnsubscribeUpdate(UpdateMode.Update, this);
+			agent.UnsubscribeOptimizedUpdate(OnUpdate);
 		}
 
 		private void OnUpdate(float delta)
 		{
+			//SpaxDebug.Log($"[{agent.Identification.Name} | {agent.ID}] Update({agent.Priority}) [{delta.ToMilliseconds()}ms]");
 			statHandler.UpdateStats(delta);
 		}
 	}

@@ -6,6 +6,6 @@ namespace SpaxUtils
 	{
 		Vector3 Position { get; }
 		Quaternion Rotation { get; }
-		SpawnRegion Region { get; }
+		WorldRegion Region { get; }
 	}
 }

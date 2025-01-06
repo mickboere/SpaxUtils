@@ -13,16 +13,14 @@ namespace SpaxUtils
 		private IAgent agent;
 		private IEntityCollection entityCollection;
 		private AgentNavigationHandler navigationHandler;
-		private CallbackService callbackService;
 		private IAgentMovementHandler movementHandler;
 		private IVisionComponent visionComponent;
 
 		public void InjectDependencies(IAgent agent, AgentNavigationHandler navigationHandler,
-			CallbackService callbackService, IAgentMovementHandler movementHandler, IVisionComponent visionComponent)
+			IAgentMovementHandler movementHandler, IVisionComponent visionComponent)
 		{
 			this.agent = agent;
 			this.navigationHandler = navigationHandler;
-			this.callbackService = callbackService;
 			this.movementHandler = movementHandler;
 			this.visionComponent = visionComponent;
 		}
@@ -31,7 +29,7 @@ namespace SpaxUtils
 		{
 			base.OnStateEntered();
 			agent.Actor.Listen<Act<bool>>(this, ActorActs.TARGET, OnTargetAct);
-			callbackService.SubscribeUpdate(UpdateMode.Update, this, OnUpdate);
+			agent.SubscribeOptimizedUpdate(OnUpdate);
 		}
 
 		public override void OnStateExit()
@@ -39,7 +37,7 @@ namespace SpaxUtils
 			base.OnStateExit();
 			agent.Actor.StopListening(this);
 			agent.Targeter.SetTarget(null);
-			callbackService.UnsubscribeUpdate(UpdateMode.Update, this);
+			agent.UnsubscribeOptimizedUpdate(OnUpdate);
 			movementHandler.LockRotation = false;
 		}
 

@@ -18,6 +18,8 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public event Action<RuntimeDataCollection> OnSaveEvent;
 
+		#region Properties
+
 		/// <inheritdoc/>
 		public GameObject GameObject => gameObject;
 
@@ -60,6 +62,41 @@ namespace SpaxUtils
 		public float Age => (float)_age;
 		private double _age;
 
+		/// <inheritdoc/>
+		public bool DynamicPriority
+		{
+			get { return dynamicPriority; }
+			set
+			{
+				if (value != dynamicPriority && optimizedUpdateCallbacks.Count > 0)
+				{
+					if (value)
+					{
+						optimizationService.Subscribe(GameObject, entityOptimizationSettings.EntityOptimizationInterval, OnOptimizationPing);
+					}
+					else
+					{
+						optimizationService.Unsubscribe(GameObject);
+					}
+				}
+				dynamicPriority = value;
+			}
+		}
+
+		/// <inheritdoc/>
+		public PriorityLevel Priority
+		{
+			get { return priority; }
+			set
+			{
+				if (priority != value && optimizedUpdateCallbacks.Count > 0)
+				{
+					optimizationService.Switch(this, value);
+				}
+				priority = value;
+			}
+		}
+
 		protected virtual string GameObjectNamePrefix => "[Entity]";
 		protected virtual string GameObjectName =>
 			identification != null ?
@@ -72,16 +109,26 @@ namespace SpaxUtils
 				$"{GameObjectNamePrefix} {identification.Name}" :
 			$"{GameObjectNamePrefix} UNKNOWN";
 
+		#endregion Properties
+
 		[SerializeField] protected Identification identification;
+		[Header("Optimization")]
+		[SerializeField] private bool dynamicPriority;
+		[SerializeField] private PriorityLevel priority;
 
 		protected IEntityCollection entityCollection;
-		protected IStatLibrary statLibrary;
+		protected OptimizedCallbackService optimizationService;
+		protected CameraService cameraService;
+		protected EntityOptimizationSettings entityOptimizationSettings;
 		protected RuntimeDataService runtimeDataService;
+		protected IStatLibrary statLibrary;
 		private bool initialized;
 		private List<string> failedStats = new List<string>(); // Used to minimize error logs.
+		private List<Action<float>> optimizedUpdateCallbacks = new List<Action<float>>();
 
 		public void InjectDependencies(
 			IDependencyManager dependencyManager, IEntityComponent[] entityComponents, IEntityCollection entityCollection,
+			OptimizedCallbackService optimizationService, CameraService cameraService, EntityOptimizationSettings entityOptimizationSettings,
 			RuntimeDataService runtimeDataService, IStatLibrary statLibrary,
 			[Optional] RuntimeDataCollection runtimeData, [Optional] IIdentification identification)
 		{
@@ -94,6 +141,9 @@ namespace SpaxUtils
 			DependencyManager = dependencyManager;
 			Components = new List<IEntityComponent>(entityComponents);
 			this.entityCollection = entityCollection;
+			this.optimizationService = optimizationService;
+			this.cameraService = cameraService;
+			this.entityOptimizationSettings = entityOptimizationSettings;
 			this.runtimeDataService = runtimeDataService;
 			this.statLibrary = statLibrary;
 
@@ -110,7 +160,7 @@ namespace SpaxUtils
 			Stats = new StatCollection<EntityStat>();
 		}
 
-		#region Unity Functions
+		#region Internal
 
 		protected virtual void Awake()
 		{
@@ -189,7 +239,7 @@ namespace SpaxUtils
 			}
 		}
 
-		#endregion Unity Functions
+		#endregion Internal
 
 		private void Initialize()
 		{
@@ -210,6 +260,57 @@ namespace SpaxUtils
 				initialized = true;
 			}
 		}
+
+		#region Optimization
+
+		/// <inheritdoc/>
+		public void SubscribeOptimizedUpdate(Action<float> callback)
+		{
+			if (optimizedUpdateCallbacks.Count == 0)
+			{
+				// Begin listening to optimized update callbacks.
+				optimizationService.Subscribe(this, priority, OnOptimizedUpdate);
+				if (dynamicPriority)
+				{
+					// Priority is dynamic, ping every interval to update.
+					optimizationService.Subscribe(GameObject, entityOptimizationSettings.EntityOptimizationInterval, OnOptimizationPing);
+				}
+			}
+			optimizedUpdateCallbacks.Add(callback);
+		}
+
+		/// <inheritdoc/>
+		public void UnsubscribeOptimizedUpdate(Action<float> callback)
+		{
+			optimizedUpdateCallbacks.Remove(callback);
+			if (optimizedUpdateCallbacks.Count == 0)
+			{
+				// Entity no longer needs to be listening to optimized updates.
+				optimizationService.Unsubscribe(this);
+				if (dynamicPriority)
+				{
+					optimizationService.Unsubscribe(GameObject);
+				}
+			}
+		}
+
+		private void OnOptimizedUpdate(float delta)
+		{
+			// Invoke all subscriptions.
+			List<Action<float>> callbacks = new List<Action<float>>(optimizedUpdateCallbacks);
+			foreach (Action<float> callback in callbacks)
+			{
+				callback(delta);
+			}
+		}
+
+		private void OnOptimizationPing(float delta)
+		{
+			// Automatically change priority depending on distance to nearest camera.
+			Priority = entityOptimizationSettings.GetPriorityBySqrDistance(cameraService.GetSqrDistanceToMainCamera(Transform.position));
+		}
+
+		#endregion Optimization
 
 		#region Data
 

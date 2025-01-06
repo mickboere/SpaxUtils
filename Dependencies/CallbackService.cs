@@ -42,6 +42,8 @@ namespace SpaxUtils
 		private List<(Action<float> callback, int order)> orderedLateUpdateCallbacks = new List<(Action<float> callback, int order)>();
 		private Dictionary<object, int> orderedLateUpdateIndices = new Dictionary<object, int>();
 
+		#region Internal
+
 		protected void FixedUpdate()
 		{
 			InvokeUpdates(orderedFixedUpdateCallbacks, Time.fixedDeltaTime);
@@ -73,6 +75,8 @@ namespace SpaxUtils
 		{
 			DrawGizmosCallback?.Invoke();
 		}
+
+		#endregion
 
 		#region Ordered Callbacks
 
@@ -209,7 +213,7 @@ namespace SpaxUtils
 		/// <param name="callback">The method to invoke every callback. The float parameter is the actual delta time between invocations.</param>
 		public void AddCustom(object listener, float seconds, Action<float> callback)
 		{
-			AddCustom(listener, ToMilliseconds(seconds), callback);
+			AddCustom(listener, seconds.ToMilliseconds(), callback);
 		}
 
 		/// <summary>
@@ -240,7 +244,7 @@ namespace SpaxUtils
 		/// <param name="seconds">The subscribed callback interval.</param>
 		public void RemoveCustom(object listener, float seconds)
 		{
-			RemoveCustom(listener, ToMilliseconds(seconds));
+			RemoveCustom(listener, seconds.ToMilliseconds());
 		}
 
 		/// <summary>
@@ -300,14 +304,6 @@ namespace SpaxUtils
 				}
 				timer += Time.unscaledDeltaTime;
 			}
-		}
-
-		/// <summary>
-		/// We use milliseconds to store each custom update loop as it's more accurate than floats and we never want to go lower than milliseconds anyways.
-		/// </summary>
-		private int ToMilliseconds(float seconds)
-		{
-			return Mathf.RoundToInt(seconds * 1000f);
 		}
 
 		#endregion

@@ -207,6 +207,9 @@ namespace SpaxUtils
 			return playerAgent;
 		}
 
+		/// <summary>
+		/// Returns whether the player with index <paramref name="playerIndex"/> is currently alive, whether actively or in its runtime data.
+		/// </summary>
 		public bool IsAlive(int playerIndex = 0)
 		{
 			return
@@ -215,6 +218,34 @@ namespace SpaxUtils
 				||
 				(TryRetrievePlayerEntityData(playerIndex, out RuntimeDataCollection playerData) &&
 				playerData.GetValue(EntityDataIdentifiers.ALIVE, false));
+		}
+
+		/// <summary>
+		/// Returns the squared distance to the closest player agent.
+		/// </summary>
+		public float GetSqrDistanceToClosestPlayer(Vector3 point, out IAgent closest)
+		{
+			closest = null;
+			float closestDistance = float.MaxValue;
+			foreach (IAgent player in _agents)
+			{
+				float distance = (player.Transform.position - point).sqrMagnitude;
+				if (distance < closestDistance)
+				{
+					closest = player;
+					closestDistance = distance;
+				}
+			}
+
+			return closestDistance;
+		}
+
+		/// <summary>
+		/// Returns the distance to the closest player agent.
+		/// </summary>
+		public float GetDistanceToClosestPlayer(Vector3 point, out IAgent closest)
+		{
+			return GetSqrDistanceToClosestPlayer(point, out closest).Sqrt();
 		}
 	}
 }

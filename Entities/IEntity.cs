@@ -53,6 +53,32 @@ namespace SpaxUtils
 		/// </summary>
 		float Age { get; }
 
+		/// <summary>
+		/// Whether the priority for this entity should be managed dynamically based on distance to nearest camera.
+		/// </summary>
+		bool DynamicPriority { get; set; }
+
+		/// <summary>
+		/// The priority level of this Entity, used for optimization.
+		/// </summary>
+		PriorityLevel Priority { get; set; }
+
+		#endregion
+
+		#region Optimization
+
+		/// <summary>
+		/// Add a subscriber to be invoked by the priority-optimized update callback.
+		/// </summary>
+		/// <param name="callback">The callback to be invoked.</param>
+		void SubscribeOptimizedUpdate(Action<float> callback);
+
+		/// <summary>
+		/// Remove a subscriber to no longer be invoked by the priority-optimized update callback.
+		/// </summary>
+		/// <param name="callback">The callback to unsubscribe from the callback.</param>
+		void UnsubscribeOptimizedUpdate(Action<float> callback);
+
 		#endregion
 
 		#region Data

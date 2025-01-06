@@ -42,6 +42,7 @@ namespace SpaxUtils
 
 		protected override string GameObjectNamePrefix => "[Agent]";
 
+		[Header("Agent")]
 		[SerializeField, ConstDropdown(typeof(IStateIdentifiers))] private string state;
 		[SerializeField] private List<BrainGraph> brainGraphs;
 

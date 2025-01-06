@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
@@ -10,6 +11,53 @@ namespace SpaxUtils
 	[DefaultExecutionOrder(-200)]
 	public class GrounderComponent : EntityComponentMono, IGrounderComponent
 	{
+		[Serializable]
+		private class OptimizationSettings
+		{
+			[Serializable]
+			public struct Settings
+			{
+				public int RayCount;
+
+				public Settings(int rayCount)
+				{
+					RayCount = rayCount;
+				}
+			}
+
+			public Settings Culled;
+			public Settings Low;
+			public Settings Medium;
+			public Settings High;
+			public Settings Top;
+
+			public OptimizationSettings(int culled, int low, int medium, int high, int top)
+			{
+				Culled = new Settings(culled);
+				Low = new Settings(low);
+				Medium = new Settings(medium);
+				High = new Settings(high);
+				Top = new Settings(top);
+			}
+
+			public Settings Get(PriorityLevel prio)
+			{
+				switch (prio)
+				{
+					case PriorityLevel.Top:
+						return Top;
+					case PriorityLevel.High:
+						return High;
+					case PriorityLevel.Medium:
+						return Medium;
+					case PriorityLevel.Low:
+						return Low;
+					default:
+						return Culled;
+				}
+			}
+		}
+
 		/// <inheritdoc/>
 		public bool Ground { get; set; } = true;
 
@@ -46,6 +94,7 @@ namespace SpaxUtils
 
 		[SerializeField] private LayerMask layerMask;
 		[SerializeField] private float gravity = 9.8f;
+		[SerializeField] private OptimizationSettings settings = new OptimizationSettings(1, 3, 5, 8, 16);
 		[Header("Grounding")]
 		[SerializeField] private float groundOffset = 1f;
 		[SerializeField] private float groundReach = 0.25f;
@@ -54,7 +103,6 @@ namespace SpaxUtils
 		[SerializeField] private float stepHeight = 1f;
 		[SerializeField] private Vector2 stepRadius = new Vector2(0.25f, 0.25f);
 		[SerializeField, Range(0f, 20f)] private float stepSmooth = 20f;
-		[SerializeField] private int rayCount = 8;
 		[Header("Traction")]
 		[SerializeField, Range(0f, 20f)] private float normalSmoothing = 5f;
 		[SerializeField, Range(0f, 90f)] private float maxSurfaceAngle = 90f;
@@ -128,7 +176,7 @@ namespace SpaxUtils
 				Mathf.Max(stepRadius.x, rigidbodyWrapper.RelativeVelocity.x * stepRadius.x * 0.5f),
 				Mathf.Max(stepRadius.y, rigidbodyWrapper.RelativeVelocity.z * stepRadius.y * 0.5f));
 
-			if (!PhysicsUtils.TubeCast(origin, radius, -rigidbodyWrapper.Up, rigidbodyWrapper.Forward, stepHeight * 2f, layerMask, rayCount, out List<RaycastHit> hits, true))
+			if (!PhysicsUtils.TubeCast(origin, radius, -rigidbodyWrapper.Up, rigidbodyWrapper.Forward, stepHeight * 2f, layerMask, settings.Get(Entity.Priority).RayCount, out List<RaycastHit> hits, true))
 			{
 				SurfaceNormal = Vector3.Lerp(SurfaceNormal, groundedHit.normal, normalSmoothing * Time.fixedDeltaTime);
 				TerrainNormal = Vector3.Lerp(TerrainNormal, rigidbodyWrapper.Up, normalSmoothing * Time.fixedDeltaTime);

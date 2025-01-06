@@ -20,7 +20,8 @@ namespace SpaxUtils
 		public bool HasRigidbody => RigidbodyWrapper != null;
 		public bool HasAnimator => AnimatorWrapper != null && AnimatorWrapper.Animator != null;
 
-		public Vector3 Center => Skeleton.GetCenter(t => t.TryGetComponent(out SkeletonBoneOptions options) ? options.Weight : 1f);
+		//public Vector3 Center => Skeleton.GetCenter(t => _boneOptions.ContainsKey(t) ? _boneOptions[t].Weight : 1f);
+		public Vector3 Center => SkeletonRootBone.position;
 
 		public Transform Head => head;
 
@@ -41,7 +42,8 @@ namespace SpaxUtils
 		private ITargetable targetableComponent;
 		private RuntimeDataCollection runtimeData;
 
-		private List<Transform> skeleton;
+		private List<Transform> _skeleton;
+		private Dictionary<Transform, SkeletonBoneOptions> _boneOptions;
 
 		public void InjectDependencies(RigidbodyWrapper rigidbodyWrapper, AnimatorWrapper animatorWrapper, ITargetable targetableComponent,
 			[Optional] RuntimeDataCollection runtimeData)
@@ -106,11 +108,19 @@ namespace SpaxUtils
 
 		private List<Transform> GetSkeleton(bool refresh = false)
 		{
-			if (skeleton == null || refresh)
+			if (_skeleton == null || refresh)
 			{
-				skeleton = SkeletonRootBone.CollectChildrenRecursive((t) => !t.TryGetComponent(out IExcludeFromSkeleton ex) || ex.Exclude);
+				_skeleton = SkeletonRootBone.CollectChildrenRecursive((t) => !t.TryGetComponent(out IExcludeFromSkeleton ex) || ex.Exclude);
+				_boneOptions = new Dictionary<Transform, SkeletonBoneOptions>();
+				foreach (Transform bone in _skeleton)
+				{
+					if (bone.TryGetComponent(out SkeletonBoneOptions options))
+					{
+						_boneOptions.Add(bone, options);
+					}
+				}
 			}
-			return skeleton;
+			return _skeleton;
 		}
 
 		protected void OnDrawGizmosSelected()

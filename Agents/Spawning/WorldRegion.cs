@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace SpaxUtils
 {
-	public class SpawnRegion : MonoBehaviour
+	public class WorldRegion : MonoBehaviour
 	{
 		public enum RegionType
 		{
@@ -71,6 +71,11 @@ namespace SpaxUtils
 
 		private void DrawGizmos()
 		{
+			if (regions == null)
+			{
+				return;
+			}
+
 			Color fill = new Color(gizmosColor.r, gizmosColor.g, gizmosColor.b, 0.1f);
 			Color wire = new Color(gizmosColor.r, gizmosColor.g, gizmosColor.b, 0.9f);
 
