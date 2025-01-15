@@ -110,6 +110,11 @@ namespace SpaxUtils
 						dependencyManager.Bind(kvp.Key, kvp.Value);
 					}
 				}
+
+				if (component is IDependencyFactory factory)
+				{
+					factory.Bind(dependencyManager);
+				}
 			}
 		}
 

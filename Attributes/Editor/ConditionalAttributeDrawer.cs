@@ -78,7 +78,7 @@ namespace SpaxUtils
 				return 0f;
 			}
 
-			return base.GetPropertyHeight(property, label);
+			return EditorGUI.GetPropertyHeight(property, label);
 		}
 	}
 }

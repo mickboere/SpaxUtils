@@ -130,6 +130,8 @@ namespace SpaxUtils
 
 			// Create new profile.
 			profile = new RuntimeDataCollection(profileId);
+			profile.SetValue(ProfileDataIdentifiers.NAME, profileId);
+			profile.SetValue(ProfileDataIdentifiers.SEED, profileId.GetDeterministicHashCode());
 
 			// If profile isn't global, store it in profile collection.
 			if (profileId != GLOBAL_DATA_ID)

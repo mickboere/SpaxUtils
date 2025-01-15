@@ -120,8 +120,6 @@ namespace SpaxUtils
 		/// <param name="itemData">The item asset data.</param>
 		public RuntimeItemData AddItem(IItemData itemData, RuntimeDataCollection runtimeData)
 		{
-			//runtimeData = runtimeData != null ? runtimeData.Clone() : RuntimeDataCollection.New();
-			// TODO: Find out if it really needs to clone? If not, don't, might cause confusion when providing data.
 			if (runtimeData == null)
 			{
 				runtimeData = RuntimeDataCollection.New();
@@ -209,6 +207,7 @@ namespace SpaxUtils
 			if (quantity < 1 || quantity >= runtimeData.Quantity)
 			{
 				// Delete item from inventory.
+				inventoryData.TryRemove(runtimeData.RuntimeID, true);
 				entries.Remove(runtimeData.RuntimeID);
 				RemovedItemEvent?.Invoke(runtimeData);
 				runtimeData.Dispose();

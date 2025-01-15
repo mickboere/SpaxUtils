@@ -16,7 +16,7 @@ namespace SpaxUtils
 		{
 			if (value is RuntimeDataCollection collection)
 			{
-				// Write RuntimeDataCollection.
+				// Write RuntimeDataCollection (if there are any entries).
 				writer.WriteStartObject();
 				writer.WritePropertyName(collection.ID);
 				writer.WriteStartArray();
@@ -94,6 +94,12 @@ namespace SpaxUtils
 
 		private RuntimeDataEntry FromArray(string id, JArray array)
 		{
+			if (array == null || array.First == null)
+			{
+				// Array is empty.
+				return new RuntimeDataCollection(id);
+			}
+
 			switch (array.First.Type)
 			{
 				case JTokenType.Object:

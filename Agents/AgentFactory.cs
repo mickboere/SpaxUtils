@@ -102,19 +102,56 @@ namespace SpaxUtils
 			{
 				identification.Add(labels);
 			}
+			dependencyManager.Bind(identification);
+
+			// Ensure data.
+			RuntimeDataCollection injectorData = dependencyManager.Get<RuntimeDataCollection>(true, false);
+			if (data == null)
+			{
+				if (injectorData != null)
+				{
+					data = injectorData;
+				}
+				else
+				{
+					// Agent wasn't supplied with any data, create a new collection and bind it.
+					data = new RuntimeDataCollection(identification.ID);
+				}
+			}
+			if (injectorData == null)
+			{
+				dependencyManager.Bind(data);
+			}
+
+			// Ensure agent has unique seed.
+			if (!data.TryGetValue(EntityDataIdentifiers.SEED, out int s))
+			{
+				// TODO: To truly keep agent seeds consistent across game-seeds, their ID's cannot be GUID's but need to be automatically indexed, like; "Name_X" where X is instance index of the agent type.
+				int seed = dependencyManager.Get<RandomService>().GenerateSeed(identification.ID);
+				data.SetValue(EntityDataIdentifiers.SEED, seed);
+			}
 
 			// Bind all dependencies.
-			dependencyManager.Bind(identification);
 			if (dependencies != null)
 			{
 				foreach (object dependency in dependencies)
 				{
 					dependencyManager.Bind(dependency);
+
+					if (dependency is IDependencyProvider provider)
+					{
+						Dictionary<object, object> provided = provider.RetrieveDependencies();
+						foreach (KeyValuePair<object, object> kvp in provided)
+						{
+							dependencyManager.Bind(kvp.Key, kvp.Value);
+						}
+					}
+
+					if (dependency is IDependencyFactory factory)
+					{
+						factory.Bind(dependencyManager);
+					}
 				}
-			}
-			if (data != null)
-			{
-				dependencyManager.Bind(data);
 			}
 
 			// Bind all dependency components.

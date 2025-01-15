@@ -3,7 +3,7 @@
 namespace SpaxUtils
 {
 	/// <summary>
-	/// Interface for components that can provide dependencies before injection.
+	/// Interface for objects that can provide pre-existing dependencies before injection.
 	/// </summary>
 	public interface IDependencyProvider
 	{

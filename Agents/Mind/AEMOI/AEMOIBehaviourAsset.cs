@@ -19,7 +19,7 @@ namespace SpaxUtils
 		protected CallbackService CallbackService { get; private set; }
 		protected AgentStatHandler StatHandler { get; private set; }
 		protected CombatSensesComponent CombatSenses { get; private set; }
-		protected PointStatOcton PointStats => StatHandler.PointStatOcton;
+		protected PointStatOctad PointStats => StatHandler.PointStatOcton;
 
 		[SerializeField] new private string name;
 		[SerializeField] protected int priority;

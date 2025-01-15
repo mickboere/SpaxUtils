@@ -158,7 +158,8 @@ namespace SpaxUtils
 			else if (playerInputWrapper.PlayerIndex == 0)
 			{
 				// The main player character is being spawned for the first time, give it the correct data to initialize.
-				entityData = new RuntimeDataCollection(Guid.NewGuid().ToString(), new List<RuntimeDataEntry>()
+				entityData = new RuntimeDataCollection(config.AgentSetup.Identification.ID.IsNullOrEmpty() ? Guid.NewGuid().ToString() : config.AgentSetup.Identification.ID,
+					new List<RuntimeDataEntry>()
 					{
 						new RuntimeDataEntry(EntityDataIdentifiers.NAME, runtimeDataService.CurrentProfile.ID)
 					});

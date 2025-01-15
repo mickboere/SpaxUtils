@@ -9,9 +9,9 @@ namespace SpaxUtils
 	/// </summary>
 	public class AgentStatHandler : EntityComponentMono
 	{
-		public PointStatOcton PointStatOcton => pointStatOcton;
+		public PointStatOctad PointStatOcton => pointStatOcton;
 
-		[SerializeField] private PointStatOcton pointStatOcton;
+		[SerializeField] private PointStatOctad pointStatOcton;
 
 		private IAgent agent;
 

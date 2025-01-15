@@ -8,6 +8,7 @@ namespace SpaxUtils
 		private const string ENTITY = "ENTITY/";
 
 		public const string NAME = ENTITY + "Name";
+		public const string SEED = ENTITY + "Seed";
 		public const string ALIVE = ENTITY + "Alive";
 		public const string AGE = ENTITY + "Age";
 		public const string POSITION = ENTITY + "Pos";

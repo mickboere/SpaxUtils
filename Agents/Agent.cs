@@ -51,7 +51,8 @@ namespace SpaxUtils
 		public void InjectDependencies(
 			IAgentBody body, ITargetable targetableComponent, ITargeter targeterComponent,
 			CallbackService callbackService, AEMOISettings aemoiSettings, InputToActMap inputToActMap,
-			IPerformer[] performers, IRelationData[] relationData, BrainGraph[] brainGraphs)
+			IPerformer[] performers, IRelationData[] relationData, BrainGraph[] brainGraphs,
+			[Optional, BindingIdentifier(AgentDataIdentifiers.PERSONALITY)] Vector8 personality)
 		{
 			Body = body;
 			Targetable = targetableComponent;
@@ -69,14 +70,14 @@ namespace SpaxUtils
 
 			if (Actor != null)
 			{
-				SpaxDebug.Error("Double injection on Agent!");
+				SpaxDebug.Error($"[{Identification.ID}] Double injection on Agent!");
 				return;
 			}
 
 			// Initialize all Agent components.
 			Actor = new Actor($"ACTOR_{Identification.ID}", callbackService, inputToActMap, performers);
 			Brain = new Brain(DependencyManager, callbackService, state, null, brainGraphs);
-			Mind = new AEMOI(DependencyManager, aemoiSettings, new StatOctad(this, aemoiSettings.Personality, Vector8.Half));
+			Mind = new AEMOI(DependencyManager, aemoiSettings, new StatOctad(this, aemoiSettings.Personality, personality == Vector8.Zero ? Vector8.Half : personality));
 			LoadRelations();
 
 			// Bind Agent components so that later injections can retrieve them easily (this is meant for Nodes, not EntityComponents as they may already be injected before this).

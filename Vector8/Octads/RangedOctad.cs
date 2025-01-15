@@ -20,16 +20,16 @@ namespace SpaxUtils
 		[SerializeField, Range(0f, 1f)] private float west = 0.5f;
 		[SerializeField, Range(0f, 1f)] private float northWest = 0.5f;
 
-		public RangedOctad(float fire, float light, float air, float faeth, float water, float nature, float earth, float daeth)
+		public RangedOctad(float north, float northEast, float east, float southEast, float south, float southWest, float west, float northWest)
 		{
-			this.north = fire;
-			this.northEast = light;
-			this.east = air;
-			this.southEast = faeth;
-			this.south = water;
-			this.southWest = nature;
-			this.west = earth;
-			this.northWest = daeth;
+			this.north = north;
+			this.northEast = northEast;
+			this.east = east;
+			this.southEast = southEast;
+			this.south = south;
+			this.southWest = southWest;
+			this.west = west;
+			this.northWest = northWest;
 		}
 
 		public static implicit operator Vector8(RangedOctad octon)

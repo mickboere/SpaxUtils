@@ -659,6 +659,30 @@ namespace SpaxUtils
 				a.NW <= b.NW;
 		}
 
+		/// <summary>
+		/// Returns whether all members of <paramref name="a"/> match all members of <paramref name="b"/>.
+		/// </summary>
+		public static bool operator ==(Vector8 a, Vector8 b)
+		{
+			return
+				a.N.Approx(b.N) &&
+				a.NE.Approx(b.NE) &&
+				a.E.Approx(b.E) &&
+				a.SE.Approx(b.SE) &&
+				a.S.Approx(b.S) &&
+				a.SW.Approx(b.SW) &&
+				a.W.Approx(b.W) &&
+				a.NW.Approx(b.NW);
+		}
+
+		/// <summary>
+		/// Returns whether any members of <paramref name="a"/> differ from members of <paramref name="b"/>.
+		/// </summary>
+		public static bool operator !=(Vector8 a, Vector8 b)
+		{
+			return !(a == b);
+		}
+
 		#endregion Operators
 
 		public override string ToString()

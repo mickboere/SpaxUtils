@@ -134,7 +134,8 @@ namespace SpaxUtils
 			// Unable to find or create dependency.
 			if (createIfNull)
 			{
-				SpaxDebug.Error(IdentifierPrefix + "The requested dependency could both not be found and not be created.", $"Regarding Key: '{key}' and Type: '{valueType}'.");
+				SpaxDebug.Error(IdentifierPrefix + "The requested dependency could both not be found and not be created.", $"Regarding Key: '{key}' and Type: '{valueType}'." +
+					$"\nWhile resolving:\n\t-{string.Join("\n\t-", currentlyResolving)}");
 			}
 
 			return null;
@@ -370,7 +371,8 @@ namespace SpaxUtils
 					}
 				}
 
-				SpaxDebug.Error("Unable to instantiate class");
+				SpaxDebug.Error(IdentifierPrefix + "Unable to instantiate class", $"of type: \"{type}\"" +
+					$"\nWhile resolving:\n\t-{string.Join("\n\t-", currentlyResolving)}");
 				return false;
 			}
 
@@ -402,7 +404,8 @@ namespace SpaxUtils
 			// Try to resolve the constructor arguments.
 			if (!TryResolveArguments(constructor, out object[] arguments))
 			{
-				SpaxDebug.Error(IdentifierPrefix + "Could not resolve arguments ", $"for {type}");
+				SpaxDebug.Error(IdentifierPrefix + "Could not resolve arguments ", $"for \"{type}\"." +
+					$"\nWhile resolving:\n\t-{string.Join("\n\t-", currentlyResolving)}");
 				instance = null;
 				return false;
 			}

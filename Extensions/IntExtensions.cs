@@ -17,5 +17,13 @@
 		{
 			return (i + add) % max;
 		}
+
+		/// <summary>
+		/// Combines two integers into a new unique integer.
+		/// </summary>
+		public static int Combine(this int a, int b)
+		{
+			return a ^ b;
+		}
 	}
 }

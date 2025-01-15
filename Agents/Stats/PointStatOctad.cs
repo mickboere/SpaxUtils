@@ -3,8 +3,11 @@ using UnityEngine;
 
 namespace SpaxUtils
 {
+	/// <summary>
+	/// Octad implementation that manages 8 <see cref="PointsStat"/>s, meaning 8 stats that have a max- and recoverable current value.
+	/// </summary>
 	[Serializable]
-	public class PointStatOcton : IOctad
+	public class PointStatOctad : IOctad
 	{
 		public Vector8 Vector8 => Current;
 		public Vector8 Current => new Vector8(N, NE, E, SE, S, SW, W, NW);
@@ -55,7 +58,7 @@ namespace SpaxUtils
 		/// <summary>
 		/// Implicit <see cref="SpaxUtils.Vector8"/> conversion.
 		/// </summary>
-		public static implicit operator Vector8(PointStatOcton octon)
+		public static implicit operator Vector8(PointStatOctad octon)
 		{
 			return octon.Current;
 		}
