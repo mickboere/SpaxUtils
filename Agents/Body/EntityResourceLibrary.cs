@@ -6,8 +6,8 @@ using UnityEngine;
 
 namespace SpaxUtils
 {
-	[CreateAssetMenu(fileName = nameof(EntityMaterialLibrary), menuName = "ScriptableObjects/" + nameof(EntityMaterialLibrary))]
-	public class EntityMaterialLibrary : ScriptableObject, IService
+	[CreateAssetMenu(fileName = nameof(EntityResourceLibrary), menuName = "ScriptableObjects/" + nameof(EntityResourceLibrary))]
+	public class EntityResourceLibrary : ScriptableObject, IService
 	{
 		[Serializable]
 		public class MaterialList

@@ -12,9 +12,9 @@ namespace SpaxUtils
 		[SerializeField, Conditional(nameof(hasDefaultColor))] private Color defaultColor;
 
 		private EntityAppearanceHandler appearanceHandler;
-		private EntityMaterialLibrary materialLibrary;
+		private EntityResourceLibrary materialLibrary;
 
-		public void InjectDependencies(EntityAppearanceHandler appearanceHandler, EntityMaterialLibrary materialLibrary)
+		public void InjectDependencies(EntityAppearanceHandler appearanceHandler, EntityResourceLibrary materialLibrary)
 		{
 			this.appearanceHandler = appearanceHandler;
 			this.materialLibrary = materialLibrary;
