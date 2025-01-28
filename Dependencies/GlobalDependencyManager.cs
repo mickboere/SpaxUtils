@@ -22,6 +22,8 @@ namespace SpaxUtils
 		}
 		private IDependencyManager _instance;
 
+		public static bool HasInstance => _wrapperInstance != null && _wrapperInstance._instance != null;
+
 		/// <summary>
 		/// A reference to the <see cref="GlobalDependencyManager"/> that holds a reference to the actual <see cref="IDependencyManager"/>.
 		/// </summary>

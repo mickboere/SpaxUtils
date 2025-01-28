@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace SpaxUtils
 {
-	public class WorldRegion : MonoBehaviour
+	public class WorldRegion : MonoBehaviour, IWorldRegion
 	{
 		public enum RegionType
 		{
@@ -26,11 +26,46 @@ namespace SpaxUtils
 			[SerializeField] private Vector3 offset;
 		}
 
+		public int Prio => prio;
+		public bool HasEntry => entries.Count > 0;
+		public bool HasExit => exits.Count > 0;
+
+		[SerializeField] private int prio;
 		[SerializeField] private List<Region> regions;
+		[SerializeField] private List<Region> entries;
+		[SerializeField] private List<Region> exits;
 		[SerializeField] private Color gizmosColor;
 		[SerializeField] private bool alwaysDrawGizmos;
 
+		protected void OnEnable()
+		{
+			GlobalDependencyManager.Instance.Get<WorldService>().Register(this);
+		}
+
+		protected void OnDisable()
+		{
+			if (GlobalDependencyManager.HasInstance) // Don't call if application is quiting.
+			{
+				GlobalDependencyManager.Instance.Get<WorldService>().Remove(this);
+			}
+		}
+
 		public bool IsInside(Vector3 point)
+		{
+			return Check(point, regions);
+		}
+
+		public bool HasEntered(Vector3 point)
+		{
+			return Check(point, entries);
+		}
+
+		public bool HasExited(Vector3 point)
+		{
+			return !Check(point, exits);
+		}
+
+		private bool Check(Vector3 point, List<Region> regions)
 		{
 			foreach (Region region in regions)
 			{
@@ -52,6 +87,8 @@ namespace SpaxUtils
 			}
 			return false;
 		}
+
+		#region Gizmos
 
 		protected void OnDrawGizmos()
 		{
@@ -78,25 +115,33 @@ namespace SpaxUtils
 
 			Color fill = new Color(gizmosColor.r, gizmosColor.g, gizmosColor.b, 0.1f);
 			Color wire = new Color(gizmosColor.r, gizmosColor.g, gizmosColor.b, 0.9f);
+			Draw(regions, fill, wire);
+			Draw(entries, fill, Color.green.SetA(0.9f));
+			Draw(exits, fill, Color.red.SetA(0.9f));
 
-			foreach (Region region in regions)
+			void Draw(List<Region> regions, Color fill, Color wire)
 			{
-				switch (region.Type)
+				foreach (Region region in regions)
 				{
-					case RegionType.Box:
-						Gizmos.color = fill;
-						Gizmos.DrawCube(transform.position + region.Offset, region.BoxSize);
-						Gizmos.color = wire;
-						Gizmos.DrawWireCube(transform.position + region.Offset, region.BoxSize);
-						break;
-					case RegionType.Sphere:
-						Gizmos.color = fill;
-						Gizmos.DrawSphere(transform.position + region.Offset, region.Radius);
-						Gizmos.color = wire;
-						Gizmos.DrawWireSphere(transform.position + region.Offset, region.Radius);
-						break;
+					switch (region.Type)
+					{
+						case RegionType.Box:
+							Gizmos.color = fill;
+							Gizmos.DrawCube(transform.position + region.Offset, region.BoxSize);
+							Gizmos.color = wire;
+							Gizmos.DrawWireCube(transform.position + region.Offset, region.BoxSize);
+							break;
+						case RegionType.Sphere:
+							Gizmos.color = fill;
+							Gizmos.DrawSphere(transform.position + region.Offset, region.Radius);
+							Gizmos.color = wire;
+							Gizmos.DrawWireSphere(transform.position + region.Offset, region.Radius);
+							break;
+					}
 				}
 			}
+
+			#endregion Gizmos
 		}
 	}
 }

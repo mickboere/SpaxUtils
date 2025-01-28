@@ -12,6 +12,7 @@ namespace SpaxUtils
 		[Header("Container")]
 		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifiers))] private string capacity;
 		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifiers))] private string contains;
+		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifiers))] private string consume;
 		[SerializeField] private bool autoFill;
 
 		public override void Start()
@@ -41,6 +42,11 @@ namespace SpaxUtils
 			runtimeItemData.TryGetData(contains, out RuntimeDataEntry container, true, 0f);
 			container.Value = (float)container.Value - consume;
 			ApplyStats(consume / Capacity);
+
+			if (runtimeItemData.TryGetData(this.consume, out RuntimeDataEntry c) && (bool)c.Value && Contains.Approx(0f))
+			{
+				inventory.Inventory.RemoveItem(runtimeItemData.RuntimeID);
+			}
 		}
 
 		/// <inheritdoc/>

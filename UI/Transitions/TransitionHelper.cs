@@ -13,16 +13,36 @@ namespace SpaxUtils
 		public event Action EmptiedEvent;
 		public event Action FilledEvent;
 
+		/// <summary>
+		/// Whether the progress is currently at 1.
+		/// </summary>
 		public bool IsFull => Progress.Approx(1f);
+
+		/// <summary>
+		/// Whether the progress is currently at 0.
+		/// </summary>
 		public bool IsEmpty => Progress.Approx(0f);
-		public bool Still => IsFull || IsEmpty;
-		public bool Transitioning => !Still;
+
+		/// <summary>
+		/// Whether the progress is currently either at 0 or 1.
+		/// </summary>
+		public bool Completed => IsFull || IsEmpty;
+
+		/// <summary>
+		/// Whether the progress is currently anywhere between 0 and 1.
+		/// </summary>
+		public bool Transitioning => !Completed;
+
+		/// <summary>
+		/// Whether this transition has been full before.
+		/// </summary>
+		public bool WasFull { get; private set; }
 
 		/// <summary>
 		/// The animation curves evaluation of the current progress.
 		/// </summary>
 		public float Evaluation =>
-			Control > 0 ?
+			Control > 0 || !WasFull ?
 				(intro != null && intro.keys.Length > 0 ? intro.Evaluate(Progress) : Progress) :
 				(outro != null && outro.keys.Length > 0 ? outro.Evaluate(Progress) : Progress);
 
@@ -44,12 +64,21 @@ namespace SpaxUtils
 			}
 		}
 
-		protected float Now => realtime ? Time.realtimeSinceStartup : Time.time;
+		/// <summary>
+		/// How many seconds until the transition reaches its target state.
+		/// </summary>
+		public float TimeRemaining =>
+			Control > 0f ?
+				Progress.Invert() / Control :
+				Progress / -Control;
 
-		private readonly bool realtime;
-		private readonly float relativeDelay;
-		private readonly float inTime;
-		private readonly float outTime;
+		protected float Now => Realtime ? Time.realtimeSinceStartup : Time.time;
+
+		public readonly bool Realtime;
+		public readonly float RelativeDelay;
+		public readonly float InTime;
+		public readonly float OutTime;
+
 		private readonly AnimationCurve intro;
 		private readonly AnimationCurve outro;
 
@@ -60,20 +89,20 @@ namespace SpaxUtils
 
 		public TransitionHelper(bool realtime = true, float relativeDelay = 1f, float inTime = 1f, float outTime = 1f, AnimationCurve intro = null, AnimationCurve outro = null)
 		{
-			this.realtime = realtime;
-			this.relativeDelay = relativeDelay;
-			this.inTime = inTime;
-			this.outTime = outTime;
+			this.Realtime = realtime;
+			this.RelativeDelay = relativeDelay;
+			this.InTime = inTime;
+			this.OutTime = outTime;
 			this.intro = intro;
 			this.outro = outro;
 		}
 
 		public TransitionHelper(TransitionSettings settings)
 		{
-			this.realtime = settings.Realtime;
-			this.relativeDelay = settings.RelativeDelay;
-			this.inTime = settings.InTime;
-			this.outTime = settings.OutTime;
+			this.Realtime = settings.Realtime;
+			this.RelativeDelay = settings.RelativeDelay;
+			this.InTime = settings.InTime;
+			this.OutTime = settings.OutTime;
 			this.intro = settings.Intro;
 			this.outro = settings.Outro;
 		}
@@ -84,9 +113,10 @@ namespace SpaxUtils
 
 		public void Transition(bool fill, Action callback = null, float delay = 0f, float overrideDuration = -1f)
 		{
-			float duration = overrideDuration < 0f ? (fill ? inTime : outTime) : overrideDuration;
+			float duration = overrideDuration < 0f ? (fill ? InTime : OutTime) : overrideDuration;
 			Control = 1f / duration * (fill ? 1f : -1f);
-			startTime = Now + delay * relativeDelay;
+			startTime = Now + delay * RelativeDelay;
+			lastUpdate = startTime;
 			this.callback = callback;
 
 			if (fill && IsFull || !fill && IsEmpty)
@@ -121,7 +151,6 @@ namespace SpaxUtils
 		/// <summary>
 		/// Will try to update the Progress value depending on whether there is currently a transition going on.
 		/// </summary>
-		/// <returns></returns>
 		public bool TryUpdateProgress()
 		{
 			float time = Now;
@@ -148,10 +177,15 @@ namespace SpaxUtils
 		{
 			ProgressedEvent?.Invoke();
 
-			if (Still && callback != null)
+			if (Completed && callback != null)
 			{
 				callback();
 				callback = null;
+			}
+
+			if (!WasFull && IsFull)
+			{
+				WasFull = true;
 			}
 
 			if (IsFull)

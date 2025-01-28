@@ -13,11 +13,19 @@ namespace SpaxUtils
 	{
 		private const string ID_PLAYER_COLLECTION = "PLAYER_ENTITIES";
 
+		public event Action<IAgent> PlayerRegisteredEvent;
+		public event Action<IAgent> PlayerDeregisteredEvent;
+
 		/// <summary>
 		/// All currently marked player agents.
 		/// </summary>
 		public IReadOnlyList<IAgent> Agents => _agents;
 		private List<IAgent> _agents = new List<IAgent>();
+
+		/// <summary>
+		/// The <see cref="IAgent"/> of player one.
+		/// </summary>
+		public IAgent PlayerAgent => _agents.Count > 0 ? _agents[0] : null;
 
 		private RuntimeDataService runtimeDataService;
 
@@ -87,6 +95,8 @@ namespace SpaxUtils
 				playerCollection.Add(agent.Identification.ID);
 				runtimeDataService.CurrentProfile.SetValue(ID_PLAYER_COLLECTION, playerCollection);
 			}
+
+			PlayerRegisteredEvent?.Invoke(agent);
 		}
 
 		/// <summary>
@@ -94,7 +104,22 @@ namespace SpaxUtils
 		/// </summary>
 		public void DismissPlayerAgent(int index)
 		{
-			_agents.RemoveAt(index);
+			if (_agents.Count > index)
+			{
+				IAgent agent = null;
+
+				if (_agents[index] != null)
+				{
+					agent = _agents[index];
+				}
+
+				_agents.RemoveAt(index);
+
+				if (agent != null)
+				{
+					PlayerDeregisteredEvent?.Invoke(agent);
+				}
+			}
 		}
 
 		/// <summary>
@@ -103,8 +128,12 @@ namespace SpaxUtils
 		public void DismissPlayerAgent(IAgent agent)
 		{
 			_agents.Remove(agent);
+			PlayerDeregisteredEvent?.Invoke(agent);
 		}
 
+		/// <summary>
+		/// Spawns a new player agent.
+		/// </summary>
 		public IAgent SpawnPlayer(IDependencyManager dependencyManager, PlayerConfig config, AgentSpawnData spawnData, Transform spawnpoint,
 			out List<GameObject> instances, Camera inputCamOverride = null, bool activate = true)
 		{

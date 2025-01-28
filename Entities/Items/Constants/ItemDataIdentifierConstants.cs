@@ -24,5 +24,6 @@
 
 		// Bools
 		public const string UNIQUE = BOOL + "Unique";
+		public const string CONSUME = BOOL + "Consume";
 	}
 }
