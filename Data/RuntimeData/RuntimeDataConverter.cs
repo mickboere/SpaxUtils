@@ -20,14 +20,14 @@ namespace SpaxUtils
 				writer.WriteStartObject();
 				writer.WritePropertyName(collection.ID);
 				writer.WriteStartArray();
-				foreach (RuntimeDataEntry item in collection.Data)
+				foreach (RuntimeDataEntry entry in collection.Data)
 				{
-					serializer.Serialize(writer, item, typeof(RuntimeDataEntry));
+					serializer.Serialize(writer, entry, typeof(RuntimeDataEntry));
 				}
 				writer.WriteEndArray();
 				writer.WriteEndObject();
 			}
-			else
+			else if (value.Dirty)
 			{
 				// Write single RuntimeDataEntry (on single line).
 				switch (value.Value)
@@ -89,6 +89,7 @@ namespace SpaxUtils
 					result = new RuntimeDataEntry(id, data);
 					break;
 			}
+			result.Dirty = true; // All loaded data is dirty.
 			return result;
 		}
 

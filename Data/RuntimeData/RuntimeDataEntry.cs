@@ -68,6 +68,13 @@ namespace SpaxUtils
 		}
 		private RuntimeDataCollection _parent;
 
+		/// <summary>
+		/// Whether this data entry is dirty and should be saved to disk.
+		/// Data that is not dirty is considered default and is therefore not saved to save storage space.
+		/// </summary>
+		[JsonIgnore]
+		public bool Dirty { get; set; }
+
 		[JsonConstructor]
 		public RuntimeDataEntry(string id, object value)
 		{
@@ -75,18 +82,20 @@ namespace SpaxUtils
 			_value = value;
 		}
 
-		public RuntimeDataEntry(string id, object value, RuntimeDataCollection parent = null)
+		public RuntimeDataEntry(string id, object value, RuntimeDataCollection parent = null, bool dirty = false)
 		{
 			ID = id;
 			_value = value;
 			_parent = parent;
+			Dirty = dirty;
 		}
 
-		public RuntimeDataEntry(ILabeledData labeledData, RuntimeDataCollection parent = null)
+		public RuntimeDataEntry(ILabeledData labeledData, RuntimeDataCollection parent = null, bool dirty = false)
 		{
 			ID = labeledData.ID;
 			Value = labeledData.Value;
 			_parent = parent;
+			Dirty = dirty;
 		}
 
 		public virtual void Dispose() { }
@@ -103,6 +112,7 @@ namespace SpaxUtils
 
 		protected void OnValueChange()
 		{
+			Dirty = true;
 			ValueChangedEvent?.Invoke(Value);
 		}
 	}

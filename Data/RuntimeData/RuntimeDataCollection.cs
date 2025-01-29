@@ -197,6 +197,7 @@ namespace SpaxUtils
 			else if (createIfNull)
 			{
 				entry = new RuntimeDataEntry(id, value, this);
+				entry.Dirty = true;
 				_data.Add(entry.ID, entry);
 				DataUpdatedEvent?.Invoke(entry);
 			}
