@@ -25,7 +25,7 @@ namespace SpaxUtils
 		public static bool HasInstance => _wrapperInstance != null && _wrapperInstance._instance != null;
 
 		/// <summary>
-		/// A reference to the <see cref="GlobalDependencyManager"/> that holds a reference to the actual <see cref="IDependencyManager"/>.
+		/// A reference to the <see cref="GlobalDependencyManager"/> MonoBehaviour that holds a reference to the actual global <see cref="IDependencyManager"/>.
 		/// </summary>
 		public static GlobalDependencyManager WrapperInstance
 		{
@@ -86,6 +86,14 @@ namespace SpaxUtils
 				gameObject.AddComponent<DependencyManagerTests>();
 			}
 #endif
+		}
+
+		protected void OnDestroy()
+		{
+			if (_wrapperInstance == this)
+			{
+				Instance.Dispose();
+			}
 		}
 	}
 }

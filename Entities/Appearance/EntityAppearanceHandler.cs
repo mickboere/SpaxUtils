@@ -18,10 +18,18 @@ namespace SpaxUtils
 		public class BodyPart
 		{
 			public string Location => location;
-			public SkinnedMeshRenderer Skin => skin;
+			public SkinnedMeshRenderer Skin => skinOverride ?? skin;
 
 			[SerializeField, ConstDropdown(typeof(IBodyLocations))] private string location;
 			[SerializeField] private SkinnedMeshRenderer skin;
+
+			private SkinnedMeshRenderer skinOverride;
+
+			public void Override(SkinnedMeshRenderer skinOverride)
+			{
+				skin.gameObject.SetActive(false);
+				this.skinOverride = skinOverride;
+			}
 		}
 
 		public IReadOnlyList<BodyPart> BodyParts => bodyParts;
@@ -51,11 +59,7 @@ namespace SpaxUtils
 		private void Initialize()
 		{
 			// Collect bodyparts to map out base body skin locations.
-			body = new Dictionary<string, SkinnedMeshRenderer>();
-			foreach (BodyPart item in bodyParts)
-			{
-				body[item.Location] = item.Skin;
-			}
+			body = bodyParts.ToDictionary((k) => k.Location, (v) => v.Skin);
 
 			// Gather skeleton colliders for cloth renderers.
 			capsuleColliders = skeletonRoot.GetComponentsInChildren<CapsuleCollider>();
@@ -81,7 +85,7 @@ namespace SpaxUtils
 				if (bodyPart.Skin != null)
 				{
 					bodyPart.Skin.gameObject.SetActive(true);
-					ApplyData(bodyPart.Skin);
+					ApplySkeleton(bodyPart.Skin);
 				}
 			}
 			foreach (SkinnedMeshRenderer sharer in apparel)
@@ -89,7 +93,7 @@ namespace SpaxUtils
 				if (sharer != null)
 				{
 					ConfigureApparel(sharer);
-					ApplyData(sharer);
+					ApplySkeleton(sharer);
 				}
 			}
 		}
@@ -140,7 +144,7 @@ namespace SpaxUtils
 				ConfigureApparel(renderer);
 			}
 
-			ApplyData(renderer);
+			ApplySkeleton(renderer);
 		}
 
 		/// <summary>
@@ -164,7 +168,10 @@ namespace SpaxUtils
 			}
 		}
 
-		public void ApplyData(SkinnedMeshRenderer renderer)
+		/// <summary>
+		/// Will make <paramref name="renderer"/> conform to the entity's skeleton.
+		/// </summary>
+		public void ApplySkeleton(SkinnedMeshRenderer renderer)
 		{
 			renderer.rootBone = reference.rootBone;
 			renderer.bones = reference.bones;

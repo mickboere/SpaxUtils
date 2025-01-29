@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using System.Linq;
 using System.Text;
+using Object = UnityEngine.Object;
 
 namespace SpaxUtils
 {
@@ -58,6 +59,11 @@ namespace SpaxUtils
 		protected object context;
 
 		/// <summary>
+		/// List of instances to be destroyed upon disposal of manager.
+		/// </summary>
+		protected List<Object> instances = new List<Object>();
+
+		/// <summary>
 		/// Creates a new DependencyManager.
 		/// </summary>
 		/// <param name="parent">If a dependency can not be found using this locator, we will be able to search in the parent.</param>
@@ -78,7 +84,23 @@ namespace SpaxUtils
 
 		public virtual void Dispose()
 		{
+			// Dispose of all disposable services.
+			foreach (object binding in bindings.Values)
+			{
+				if (binding is IService && binding is IDisposable disposable)
+				{
+					disposable.Dispose();
+				}
+			}
 			bindings.Clear();
+
+			// Dispose of all instances.
+			foreach (Object instance in instances)
+			{
+				Object.Destroy(instance);
+			}
+			instances.Clear();
+
 			GlobalDependencyManager.AllManagers.Remove(this);
 		}
 
@@ -325,12 +347,16 @@ namespace SpaxUtils
 			else if (typeof(ScriptableObject).IsAssignableFrom(type))
 			{
 				// Try to load the scriptable object from resources.
-				dependency = Resources.Load(type.Name, type);
-				if (dependency != null)
+				Object asset = Resources.Load(type.Name, type);
+				if (asset != null)
 				{
+					Object instance = Object.Instantiate(asset);
+					instances.Add(instance);
+					dependency = instance;
 					Inject(dependency);
 					return true;
 				}
+				dependency = null;
 				return false;
 			}
 			// Regular dependency

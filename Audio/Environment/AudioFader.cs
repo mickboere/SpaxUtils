@@ -1,5 +1,6 @@
 ﻿using System;
 using UnityEngine;
+using Object = UnityEngine.Object;
 
 namespace SpaxUtils
 {
@@ -30,6 +31,8 @@ namespace SpaxUtils
 		{
 			previousTransition?.Dispose();
 			currentTransition?.Dispose();
+			if (a) Object.Destroy(a.gameObject);
+			if (b) Object.Destroy(b.gameObject);
 			callbackService.UnsubscribeUpdates(this);
 		}
 
@@ -70,16 +73,19 @@ namespace SpaxUtils
 			}
 			// Else: fresh initialize.
 
-			currentAudioSource.Stop();
-			currentAudioSource.volume = 0f;
-			currentAudioSource.clip = clip;
-			currentAudioSource.loop = loop;
-			currentAudioSource.time = startTime;
+			if (currentAudioSource) // OnDestroy edgecase
+			{
+				currentAudioSource.Stop();
+				currentAudioSource.volume = 0f;
+				currentAudioSource.clip = clip;
+				currentAudioSource.loop = loop;
+				currentAudioSource.time = startTime;
 
-			currentTransition = transitionSettings != null ? new TransitionHelper(transitionSettings) : new TransitionHelper();
-			float trueDelay = delay + (previousTransition == null ? 0f : previousTransition.TimeRemaining);
-			currentTransition.Fill(delay: trueDelay);
-			currentAudioSource.PlayDelayed(trueDelay * currentTransition.RelativeDelay);
+				currentTransition = transitionSettings != null ? new TransitionHelper(transitionSettings) : new TransitionHelper();
+				float trueDelay = delay + (previousTransition == null ? 0f : previousTransition.TimeRemaining);
+				currentTransition.Fill(delay: trueDelay);
+				currentAudioSource.PlayDelayed(trueDelay * currentTransition.RelativeDelay);
+			}
 		}
 
 		protected void OnUpdate(float delta)

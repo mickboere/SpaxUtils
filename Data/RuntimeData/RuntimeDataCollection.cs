@@ -362,7 +362,7 @@ namespace SpaxUtils
 					value = cast;
 					return true;
 				}
-				SpaxDebug.Error($"Invalid value cast:", $"From '{entry.Value}' to '{typeof(T).FullName}\nEntry:\n{entry}");
+				//SpaxDebug.Error($"Invalid value cast:", $"From '{entry.Value}' to '{typeof(T).FullName}\nEntry:\n{entry}");
 			}
 			value = default;
 			return false;

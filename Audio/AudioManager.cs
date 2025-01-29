@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -22,7 +23,7 @@ namespace SpaxUtils
 		{
 			get
 			{
-				if (!_reverbFilter) { _reverbFilter = Listener.GetComponent<AudioReverbFilter>(); }
+				if (!_reverbFilter && Listener) { _reverbFilter = Listener.GetComponent<AudioReverbFilter>(); }
 				return _reverbFilter;
 			}
 		}
@@ -38,6 +39,14 @@ namespace SpaxUtils
 			this.runtimeDataService = runtimeDataService;
 
 			InitializeListener();
+		}
+
+		protected void OnDestroy()
+		{
+			if (_listener)
+			{
+				Destroy(_listener.gameObject);
+			}
 		}
 
 		public void ClaimListener(Transform parent)
@@ -56,7 +65,7 @@ namespace SpaxUtils
 
 		private void InitializeListener()
 		{
-			if (!_listener)
+			if (!_listener && Time.frameCount > 0) // If framecount is 0 it means the application has begun quiting, so don't create a new listener.
 			{
 				_listener = Instantiate(listener);
 				DontDestroyOnLoad(_listener);
