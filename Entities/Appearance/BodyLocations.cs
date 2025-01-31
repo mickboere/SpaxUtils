@@ -17,6 +17,7 @@
 
 		#endregion BASE
 
-		public const string SCALP = HEAD + "/Scalp";
+		public const string HEAD_OUTER = HEAD + "/Outer";
+		public const string FACE = HEAD + "/Face";
 	}
 }
