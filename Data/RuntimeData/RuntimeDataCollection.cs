@@ -52,14 +52,7 @@ namespace SpaxUtils
 
 		public RuntimeDataCollection(string id, List<RuntimeDataEntry> dataEntries = null, RuntimeDataCollection parent = null) : base(id, null, parent)
 		{
-			if (dataEntries != null)
-			{
-				Data = dataEntries;
-			}
-			else
-			{
-				_data = new Dictionary<string, RuntimeDataEntry>();
-			}
+			Data = dataEntries ?? new List<RuntimeDataEntry>();
 		}
 
 		public override void Dispose()
@@ -378,7 +371,7 @@ namespace SpaxUtils
 		/// </summary>
 		public RuntimeDataCollection Clone(string id = null)
 		{
-			RuntimeDataCollection collection = new RuntimeDataCollection(id ?? ID);
+			RuntimeDataCollection collection = new RuntimeDataCollection(id.IsNullOrEmpty() ? ID : id);
 
 			if (_data == null)
 			{
@@ -422,7 +415,12 @@ namespace SpaxUtils
 
 		public override string ToString()
 		{
-			return SpaxJsonUtils.Serialize(this);
+			return SpaxJsonUtils.Serialize(this, false); // Outputs all raw data contained in collection.
+		}
+
+		public string ToStringOptimized()
+		{
+			return SpaxJsonUtils.Serialize(this, true); // Outputs only dirty data contained in collection.
 		}
 
 		public override string ToStringExplicit()

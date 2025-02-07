@@ -27,7 +27,7 @@ namespace SpaxUtils
 						case AgentFactory.Callback.OnInject:
 							IIdentification id = dependencyManager.Get<IIdentification>(true, false);
 
-							// Set data values before they're injected.
+							// Apply data values before they're injected.
 							RuntimeDataCollection runtimeData = dependencyManager.Get<RuntimeDataCollection>(true, false);
 							data.ApplyToRuntimeDataCollection(runtimeData, overwriteData);
 							wasAlive = runtimeData.GetValue(EntityDataIdentifiers.ALIVE, false);

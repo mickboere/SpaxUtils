@@ -11,7 +11,6 @@ namespace SpaxUtils
 		public float Effect { get; private set; }
 		public float Stride { get; private set; }
 		public float Circumference { get; private set; }
-		public float Spacing { get; set; }
 		public float DefaultSpacing => defaultSpacing;
 
 		[Header("Surveyor")]
@@ -63,7 +62,6 @@ namespace SpaxUtils
 		public void ResetSurveyor()
 		{
 			progress = 0f;
-			Spacing = defaultSpacing;
 			foreach (ILeg leg in legs.Legs)
 			{
 				leg.UpdateFoot(false, 0f, false, default, default);

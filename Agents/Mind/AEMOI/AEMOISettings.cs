@@ -7,6 +7,7 @@ namespace SpaxUtils
 	{
 		public float EmotionDispersion = 0.05f;
 		public float EmotionDamping = 0.1f;
+		public StatOctad Inclination;
 		public StatOctad Personality;
 	}
 }

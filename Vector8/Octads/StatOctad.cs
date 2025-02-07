@@ -15,21 +15,21 @@ namespace SpaxUtils
 		public Vector8 Vector8 => this;
 
 		public EntityStat N => stats[0];
-		[SerializeField, ConstDropdown(typeof(IStatIdentifiers), includeEmpty: true)] private string north;
+		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifiers), includeEmpty: true)] private string north;
 		public EntityStat NE => stats[1];
-		[SerializeField, ConstDropdown(typeof(IStatIdentifiers), includeEmpty: true)] private string northEast;
+		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifiers), includeEmpty: true)] private string northEast;
 		public EntityStat E => stats[2];
-		[SerializeField, ConstDropdown(typeof(IStatIdentifiers), includeEmpty: true)] private string east;
+		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifiers), includeEmpty: true)] private string east;
 		public EntityStat SE => stats[3];
-		[SerializeField, ConstDropdown(typeof(IStatIdentifiers), includeEmpty: true)] private string southEast;
+		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifiers), includeEmpty: true)] private string southEast;
 		public EntityStat S => stats[4];
-		[SerializeField, ConstDropdown(typeof(IStatIdentifiers), includeEmpty: true)] private string south;
+		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifiers), includeEmpty: true)] private string south;
 		public EntityStat SW => stats[5];
-		[SerializeField, ConstDropdown(typeof(IStatIdentifiers), includeEmpty: true)] private string southWest;
+		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifiers), includeEmpty: true)] private string southWest;
 		public EntityStat W => stats[6];
-		[SerializeField, ConstDropdown(typeof(IStatIdentifiers), includeEmpty: true)] private string west;
+		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifiers), includeEmpty: true)] private string west;
 		public EntityStat NW => stats[7];
-		[SerializeField, ConstDropdown(typeof(IStatIdentifiers), includeEmpty: true)] private string northWest;
+		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifiers), includeEmpty: true)] private string northWest;
 
 		private EntityStat[] stats;
 

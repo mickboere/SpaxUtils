@@ -9,6 +9,8 @@ namespace SpaxUtils
 	/// </summary>
 	public class AgentHitHandlerComponent : EntityComponentMono
 	{
+		protected bool Invulnerable => agent.RuntimeData.GetValue(AgentDataIdentifiers.INVULNERABLE, false);
+
 		[SerializeField] private float deathDuration = 0.5f;
 
 		private IAgent agent;
@@ -61,13 +63,15 @@ namespace SpaxUtils
 		/// <param name="hitData">The incoming <see cref="HitData"/> to process.</param>
 		private void OnHitEvent(HitData hitData)
 		{
+			SpaxDebug.Log($"Hit (invulnerable={Invulnerable}, contained={agent.RuntimeData.ContainsEntry(AgentDataIdentifiers.INVULNERABLE)})\n");
+
 			// Transfer intertia.
 			rigidbodyWrapper.Push(hitData.Inertia, hitData.Mass);
 
 			// Calculate damage and impact.
 			if (!hitData.Result_Parried)
 			{
-				float damage = SpaxFormulas.CalculateDamage(hitData.Offence, defence);
+				float damage = Invulnerable ? 0f : SpaxFormulas.CalculateDamage(hitData.Offence, defence);
 				hitData.Result_Penetration = (hitData.Offence * hitData.Piercing / defence * hardness.Value.InvertClamped()).OutCubic();
 				hitData.Result_Impact = (hitData.Strength * hitData.Piercing.InvertClamped() / defence * hardness).OutCubic();
 				hitData.Result_Damage = damage * (hitData.Result_Penetration + hitData.Result_Impact);
@@ -100,17 +104,20 @@ namespace SpaxUtils
 				stunHandler.EnterStun(hitData);
 			}
 
-			// Damage health.
-			health.Damage(hitData.Result_Damage, true, out bool dead);
-			if (dead)
+			if (!Invulnerable)
 			{
-				if (stunHandler.Stunned)
+				// Damage health.
+				health.Damage(hitData.Result_Damage, true, out bool dead);
+				if (dead)
 				{
-					stunHandler.ExitedStunEvent += Die;
-				}
-				else
-				{
-					Die();
+					if (stunHandler.Stunned)
+					{
+						stunHandler.ExitedStunEvent += Die;
+					}
+					else
+					{
+						Die();
+					}
 				}
 			}
 

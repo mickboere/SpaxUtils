@@ -1,5 +1,4 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 
 namespace SpaxUtils
@@ -32,6 +31,9 @@ namespace SpaxUtils
 		public bool Active { get; private set; }
 
 		/// <inheritdoc/>
+		public Vector8 Inclination => inclination.Vector8;
+
+		/// <inheritdoc/>
 		public Vector8 Personality => personality.Vector8;
 
 		/// <inheritdoc/>
@@ -45,15 +47,17 @@ namespace SpaxUtils
 
 		private IDependencyManager dependencyManager;
 		private AEMOISettings settings;
+		private IOctad inclination;
 		private IOctad personality;
 		private List<IMindBehaviour> behaviours;
 
 		private Dictionary<IEntity, Vector8> stimuli = new Dictionary<IEntity, Vector8>();
 
-		public AEMOI(IDependencyManager dependencyManager, AEMOISettings settings, IOctad personality, IEnumerable<IMindBehaviour> behaviours = null)
+		public AEMOI(IDependencyManager dependencyManager, AEMOISettings settings, IOctad inclination,IOctad personality, IEnumerable<IMindBehaviour> behaviours = null)
 		{
 			this.dependencyManager = dependencyManager;
 			this.settings = settings;
+			this.inclination = inclination;
 			this.personality = personality;
 			this.behaviours = behaviours == null ? new List<IMindBehaviour>() : new List<IMindBehaviour>(behaviours);
 		}
@@ -106,7 +110,7 @@ namespace SpaxUtils
 			List<IEntity> sources = new List<IEntity>(stimuli.Keys);
 			foreach (IEntity source in sources)
 			{
-				stimuli[source] = stimuli[source].Disperse(Vector8.Zero, personality.Vector8, settings.EmotionDispersion * delta).Lerp(Vector8.Zero, settings.EmotionDamping * delta);
+				stimuli[source] = stimuli[source].Disperse(Vector8.Zero, inclination.Vector8, settings.EmotionDispersion * delta).Lerp(Vector8.Zero, settings.EmotionDamping * delta);
 			}
 
 			// Set the current highest motivation.
@@ -131,11 +135,11 @@ namespace SpaxUtils
 		{
 			if (!stimuli.ContainsKey(source))
 			{
-				stimuli.Add(source, (stimulation * Personality).Clamp(0f, MAX_STIM));
+				stimuli.Add(source, (stimulation * Inclination).Clamp(0f, MAX_STIM));
 			}
 			else
 			{
-				stimuli[source] = (stimuli[source] + stimulation * Personality).Clamp(0f, MAX_STIM);
+				stimuli[source] = (stimuli[source] + stimulation * Inclination).Clamp(0f, MAX_STIM);
 			}
 		}
 

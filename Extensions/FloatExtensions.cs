@@ -7,9 +7,17 @@ namespace SpaxUtils
 		/// <summary>
 		/// In-line version of <see cref="Mathf.Lerp(float, float, float)"/>.
 		/// </summary>
-		public static float LerpTo(this float a, float b, float t)
+		public static float Lerp(this float a, float b, float t)
 		{
 			return Mathf.Lerp(a, b, t);
+		}
+
+		/// <summary>
+		/// Lerps from <paramref name="v2"/>.x to <paramref name="v2"/>.y by <paramref name="t"/>.
+		/// </summary>
+		public static float Lerp(this Vector2 v2, float t)
+		{
+			return v2.x.Lerp(v2.y, t);
 		}
 
 		/// <summary>
@@ -173,11 +181,27 @@ namespace SpaxUtils
 		#region Sine
 
 		/// <summary>
+		/// https://easings.net/#easeInSine
+		/// </summary>
+		public static float InSine(this float x)
+		{
+			return 1f - Mathf.Cos((x * Mathf.PI) / 2f);
+		}
+
+		/// <summary>
+		/// https://easings.net/#easeOutSine
+		/// </summary>
+		public static float OutSine(this float x)
+		{
+			return Mathf.Sin((x * Mathf.PI) / 2f);
+		}
+
+		/// <summary>
 		/// https://easings.net/#easeInOutSine
 		/// </summary>
 		public static float InOutSine(this float x)
 		{
-			return -(Mathf.Cos(Mathf.PI * x) - 1) / 2;
+			return -(Mathf.Cos(Mathf.PI * x) - 1f) / 2f;
 		}
 
 		/// <summary>
@@ -301,6 +325,26 @@ namespace SpaxUtils
 		}
 
 		#endregion Expo
+
+		#region Circ
+
+		/// <summary>
+		/// https://easings.net/#easeInCirc
+		/// </summary>
+		public static float InCirc(this float x)
+		{
+			return 1f - Mathf.Sqrt(1f - Mathf.Pow(x, 2f));
+		}
+
+		/// <summary>
+		/// https://easings.net/#easeOutCirc
+		/// </summary>
+		public static float OutCirc(this float x)
+		{
+			return Mathf.Sqrt(1f - Mathf.Pow(x - 1f, 2f));
+		}
+
+		#endregion Circ
 
 		#endregion Easing Functions
 	}

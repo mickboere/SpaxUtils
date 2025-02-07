@@ -11,6 +11,12 @@ namespace SpaxUtils
 	public class RuntimeDataConverter : JsonConverter<RuntimeDataEntry>
 	{
 		public override bool CanRead => true;
+		private bool optimized;
+
+		public RuntimeDataConverter(bool optimized = true)
+		{
+			this.optimized = optimized;
+		}
 
 		public override void WriteJson(JsonWriter writer, RuntimeDataEntry value, JsonSerializer serializer)
 		{
@@ -27,7 +33,7 @@ namespace SpaxUtils
 				writer.WriteEndArray();
 				writer.WriteEndObject();
 			}
-			else if (value.Dirty)
+			else if (!optimized || value.Dirty)
 			{
 				// Write single RuntimeDataEntry (on single line).
 				switch (value.Value)

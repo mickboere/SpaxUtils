@@ -25,6 +25,7 @@ namespace SpaxUtils
 			set { if (Duration.HasValue) { Time = Duration.Value * value; } }
 		}
 		public bool Expired => Duration.HasValue ? Time >= Duration.Value : true;
+		public float Remaining => Duration.HasValue ? Duration.Value - Time : 0f;
 
 		private CallbackService callbackService;
 

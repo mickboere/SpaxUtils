@@ -37,8 +37,13 @@ namespace SpaxUtils
 		IList<GameObject> Children { get; }
 
 		/// <summary>
-		/// Pre-configured data to be used by the agent during runtime.
+		/// Whether this agent setup contains any data.
 		/// </summary>
-		RuntimeDataCollection Data { get; }
+		bool ContainsData { get; }
+
+		/// <summary>
+		/// Retrieves a new clone of the pre-configured data to be used by the agent during runtime.
+		/// </summary>
+		RuntimeDataCollection RetrieveDataClone();
 	}
 }

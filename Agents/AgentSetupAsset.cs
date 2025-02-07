@@ -36,10 +36,7 @@ namespace SpaxUtils
 				dependencies.Cast<object>().ToList();
 
 		/// <inheritdoc/>
-		public RuntimeDataCollection Data =>
-			template != null && template.Data != null ? data.ApplyToRuntimeDataCollection(template.Data, true) :
-			data.Count > 0 ? data.ToRuntimeDataCollection(identification.ID) :
-			null;
+		public bool ContainsData => data.Count > 0 || (template != null && template.ContainsData);
 
 		[SerializeField] private AgentSetupAsset template;
 		[SerializeField] private Identification identification;
@@ -48,5 +45,16 @@ namespace SpaxUtils
 		[SerializeField] private List<GameObject> children;
 		[SerializeField] private List<Object> dependencies;
 		[SerializeField] private LabeledDataCollection data;
+
+		/// <inheritdoc/>
+		public RuntimeDataCollection RetrieveDataClone()
+		{
+			var dataCollection = data.ToRuntimeDataCollection(Identification.ID);
+			if (template != null && template.ContainsData)
+			{
+				dataCollection.Append(template.RetrieveDataClone(), false);
+			}
+			return dataCollection;
+		}
 	}
 }

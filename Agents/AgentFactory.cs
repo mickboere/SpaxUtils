@@ -50,7 +50,7 @@ namespace SpaxUtils
 				overrideName, labels,
 				children == null ? setup.Children : setup.Children.Union(children),
 				dependencies == null ? setup.Dependencies : setup.Dependencies.Union(dependencies),
-				setup.Data,
+				setup.RetrieveDataClone(),
 				progressCallback,
 				activate);
 		}
@@ -104,24 +104,31 @@ namespace SpaxUtils
 			}
 			dependencyManager.Bind(identification);
 
-			// Ensure data.
+			// Ensure agent has runtime data.
 			RuntimeDataCollection injectorData = dependencyManager.Get<RuntimeDataCollection>(true, false);
 			if (data == null)
 			{
-				if (injectorData != null)
-				{
-					data = injectorData;
-				}
-				else
+				if (injectorData == null)
 				{
 					// Agent wasn't supplied with any data, create a new collection and bind it.
 					data = new RuntimeDataCollection(identification.ID);
 				}
+				else
+				{
+					// Use injected data.
+					data = injectorData;
+				}
 			}
-			if (injectorData == null)
+			else if (injectorData != null && data != injectorData)
 			{
-				dependencyManager.Bind(data);
+				// Combine data, but have injector data overwrite default data.
+				data.Append(injectorData, true);
 			}
+
+			// Ensure the combined data is bound to dependency injector.
+			dependencyManager.BindUnchecked(typeof(RuntimeDataCollection), data);
+
+			SpaxDebug.Log($"{identification.ID} Data:\n", data.ToString());
 
 			// Ensure agent has unique seed.
 			if (!data.TryGetValue(EntityDataIdentifiers.SEED, out int s))
@@ -136,8 +143,6 @@ namespace SpaxUtils
 			{
 				foreach (object dependency in dependencies)
 				{
-					dependencyManager.Bind(dependency);
-
 					if (dependency is IDependencyProvider provider)
 					{
 						Dictionary<object, object> provided = provider.RetrieveDependencies();
@@ -146,10 +151,13 @@ namespace SpaxUtils
 							dependencyManager.Bind(kvp.Key, kvp.Value);
 						}
 					}
-
-					if (dependency is IDependencyFactory factory)
+					else if (dependency is IDependencyFactory factory)
 					{
 						factory.Bind(dependencyManager);
+					}
+					else
+					{
+						dependencyManager.Bind(dependency);
 					}
 				}
 			}

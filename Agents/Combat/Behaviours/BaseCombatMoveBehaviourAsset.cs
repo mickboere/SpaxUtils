@@ -19,11 +19,11 @@ namespace SpaxUtils
 				if (Move.HasPerformance)
 				{
 					float performanceWeight = (Performer.RunTime / (Move.MinDuration * Move.ChargeFadeout)).Clamp01().InOutSine();
-					weight = Mathf.Lerp(chargeWeight, Mathf.Clamp01((Performer.RunTime - Move.MinDuration) / Move.Release).Invert().InOutSine(), performanceWeight).LerpTo(0f, Performer.CancelTime / Move.CancelDuration);
+					weight = Mathf.Lerp(chargeWeight, Mathf.Clamp01((Performer.RunTime - Move.MinDuration) / Move.Release).Invert().InOutSine(), performanceWeight).Lerp(0f, Performer.CancelTime / Move.CancelDuration);
 				}
 				else
 				{
-					weight = chargeWeight.LerpTo(0f, Performer.CancelTime / Move.CancelDuration);
+					weight = chargeWeight.Lerp(0f, Performer.CancelTime / Move.CancelDuration);
 				}
 
 				return new PoserInstructions(sequence.Evaluate(Move.HasPerformance ? Performer.RunTime : 0f));

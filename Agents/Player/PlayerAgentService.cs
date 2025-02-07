@@ -200,7 +200,7 @@ namespace SpaxUtils
 				entityData == null ?
 					config.AgentSetup.Identification :
 					new Identification(entityData.ID, config.AgentSetup.Identification.Name, config.AgentSetup.Identification.Labels, null);
-			AgentSetup setup = new AgentSetup(config.AgentSetup, identification);
+			AgentSetup setup = new AgentSetup(config.AgentSetup, identification, data: entityData);
 
 			// Create player agent.
 			Agent playerAgent = spawnData.Spawn(setup, playerDependencies, spawnpoint.position, spawnpoint.rotation, activate);

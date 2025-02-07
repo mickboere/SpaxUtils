@@ -39,15 +39,6 @@ namespace SpaxUtils
 
 		private void OnUpdate(float delta)
 		{
-			if (Poser.GetDominantInstructions().Transition.TryEvaluateFloat(AnimationFloatConstants.FEET_SPACING, 0f, out float spacing))
-			{
-				surveyorComponent.Spacing = spacing;
-			}
-			else
-			{
-				surveyorComponent.Spacing = surveyorComponent.DefaultSpacing;
-			}
-
 			surveyorComponent.UpdateSurveyor(delta);
 		}
 	}

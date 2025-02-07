@@ -8,7 +8,6 @@ namespace SpaxUtils
 	/// Component responsible for applying posing instructions to the <see cref="Animator"/>.
 	/// Posing instructions allow for pose-to-pose animation through clever use of blend trees and animation overrides.
 	/// </summary>
-	/// https://github.com/mickboere/SpaxUtils/blob/master/Animation/Posing/Poser/AnimatorPoser.cs
 	public class AnimatorPoser : MonoBehaviour, IDependency
 	{
 		public IPoserInstructions Control { get; private set; }

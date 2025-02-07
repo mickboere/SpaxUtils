@@ -244,8 +244,11 @@ namespace SpaxUtils
 				return;
 			}
 
-			interactions.Add(interaction);
-			interaction.ConcludedEvent += OnInteractionConcludedEvent;
+			if (!interaction.Concluded)
+			{
+				interactions.Add(interaction);
+				interaction.ConcludedEvent += OnInteractionConcludedEvent;
+			}
 		}
 
 		private void OnInteractionConcludedEvent(IInteraction interaction, bool success)

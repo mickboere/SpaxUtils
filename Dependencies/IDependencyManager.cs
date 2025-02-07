@@ -66,6 +66,11 @@ namespace SpaxUtils
 		bool Bind(object key, object value);
 
 		/// <summary>
+		/// Binds the given data without checking if the same key is already bound.
+		/// </summary>
+		void BindUnchecked(object key, object value);
+
+		/// <summary>
 		/// Unbinds the dependency stored with <paramref name="key"/>.
 		/// </summary>
 		void UnbindKey(object key);

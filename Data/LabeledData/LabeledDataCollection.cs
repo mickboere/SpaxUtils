@@ -30,7 +30,9 @@ namespace SpaxUtils
 		public RuntimeDataCollection ToRuntimeDataCollection(string id = null)
 		{
 			RuntimeDataCollection collection = new RuntimeDataCollection(id.IsNullOrEmpty() ? Guid.NewGuid().ToString() : id);
-			return ApplyToRuntimeDataCollection(collection, true);
+			ApplyToRuntimeDataCollection(collection, true);
+			SpaxDebug.Log($"ToRuntimeDataCollection:{collection.ID}", collection.ToString());
+			return collection;
 		}
 
 		/// <summary>

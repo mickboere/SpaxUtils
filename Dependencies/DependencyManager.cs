@@ -274,6 +274,13 @@ namespace SpaxUtils
 		}
 
 		/// <inheritdoc/>
+		public virtual void BindUnchecked(object key, object value)
+		{
+			bindings[key] = value;
+			//SpaxDebug.Log(IdentifierPrefix + "Bind: ", $"({key}, {value})", LogType.Notify, new Color(0.4f, 1f, 0.9f));
+		}
+
+		/// <inheritdoc/>
 		public virtual void UnbindKey(object key)
 		{
 			bindings.Remove(key);
@@ -504,15 +511,6 @@ namespace SpaxUtils
 			}
 
 			return true;
-		}
-
-		/// <summary>
-		/// Binds the given data without checking if the same key is already bound.
-		/// </summary>
-		protected virtual void BindUnchecked(object key, object value)
-		{
-			bindings[key] = value;
-			SpaxDebug.Log(IdentifierPrefix + "Bind: ", $"({key}, {value})", LogType.Notify, new Color(0.4f, 1f, 0.9f));
 		}
 
 		#endregion // Private methods

@@ -93,7 +93,7 @@ namespace SpaxUtils
 		{
 			// Invoked when the agent was hit by another entity.
 			// Anger is proportionate to relative incoming force.
-			// Fear is proportionate to relative incoming damage.
+			// Fear is proportionate to relative incoming damage and current health.
 			// Hate is the sum of both.
 			float anger = hitData.Result_Force / agent.Body.RigidbodyWrapper.Mass;
 			float fear = hitData.Result_Damage / statHandler.PointStatOcton.SW.Current * 3f;

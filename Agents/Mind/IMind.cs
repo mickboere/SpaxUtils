@@ -43,7 +43,12 @@ namespace SpaxUtils
 		bool Active { get; }
 
 		/// <summary>
-		/// The mind's personality profile responsible for simulation weights.
+		/// The mind's inclination profile responsible for stimulation weights.
+		/// </summary>
+		Vector8 Inclination { get; }
+
+		/// <summary>
+		/// The mind's personality profile, used by active behaviours to determine sub-behaviour.
 		/// </summary>
 		Vector8 Personality { get; }
 

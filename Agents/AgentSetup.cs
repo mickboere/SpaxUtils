@@ -26,7 +26,9 @@ namespace SpaxUtils
 		public IList<object> Dependencies { get; set; }
 
 		/// <inheritdoc/>
-		public RuntimeDataCollection Data { get; set; }
+		public bool ContainsData => data != null;
+
+		private RuntimeDataCollection data;
 
 		public AgentSetup(
 			IIdentification identification,
@@ -41,7 +43,7 @@ namespace SpaxUtils
 			Body = body;
 			Children = new List<GameObject>(children);
 			Dependencies = new List<object>(dependencies);
-			Data = data;
+			this.data = data;
 		}
 
 		public AgentSetup(
@@ -59,7 +61,18 @@ namespace SpaxUtils
 			Body = body ?? template.Body;
 			Children = children == null ? new List<GameObject>(template.Children) : template.Children.Union(children).ToList();
 			Dependencies = dependencies == null ? new List<object>(template.Dependencies) : template.Dependencies.Union(dependencies).ToList();
-			Data = template != null && template.Data != null ? template.Data.Append(data) : data;
+			this.data = template.ContainsData ? template.RetrieveDataClone() : new RuntimeDataCollection(Identification.ID);
+			if (data != null)
+			{
+				this.data.Append(data, true);
+			}
+			SpaxDebug.Log("Setup", $"\ndata={data},\ntemp={template.RetrieveDataClone()},\nthis.data={this.data}");
+		}
+
+		/// <inheritdoc/>
+		public RuntimeDataCollection RetrieveDataClone()
+		{
+			return data.Clone();
 		}
 	}
 }

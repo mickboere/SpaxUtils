@@ -35,7 +35,7 @@ namespace SpaxUtils
 			defenceMod = new FloatFuncModifier(ModMethod.Additive, (defence) => defence + guardStat * Weight);
 			defenceStat.AddModifier(this, defenceMod);
 
-			enduranceDamageMod = new FloatFuncModifier(ModMethod.Absolute, (damage) => damage / (guardStat * 0.01f).LerpTo(1f, Weight.Invert()));
+			enduranceDamageMod = new FloatFuncModifier(ModMethod.Absolute, (damage) => damage / (guardStat * 0.01f).Lerp(1f, Weight.Invert()));
 			agentStatHandler.PointStatOcton.W.Cost.AddModifier(this, enduranceDamageMod);
 
 			hittable.Subscribe(this, OnHitEvent, 1000);

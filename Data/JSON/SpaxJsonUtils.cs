@@ -18,7 +18,16 @@ namespace SpaxUtils
 			Formatting = Formatting.Indented,
 #endif
 			NullValueHandling = NullValueHandling.Ignore,
-			Converters = new List<JsonConverter> { new RuntimeDataConverter() }
+			Converters = new List<JsonConverter> { new RuntimeDataConverter(true) }
+		};
+
+		private static readonly JsonSerializerSettings OPTIONS_RAW = new()
+		{
+#if UNITY_EDITOR
+			Formatting = Formatting.Indented,
+#endif
+			NullValueHandling = NullValueHandling.Ignore,
+			Converters = new List<JsonConverter> { new RuntimeDataConverter(false) }
 		};
 
 		public static void StreamWrite(object obj, string path)
@@ -40,9 +49,9 @@ namespace SpaxUtils
 			return JsonConvert.DeserializeObject<T>(json);
 		}
 
-		public static string Serialize(object data)
+		public static string Serialize(object data, bool optimized = true)
 		{
-			return JsonConvert.SerializeObject(data, OPTIONS);
+			return JsonConvert.SerializeObject(data, optimized ? OPTIONS : OPTIONS_RAW);
 		}
 	}
 }
