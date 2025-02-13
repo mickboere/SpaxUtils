@@ -17,7 +17,26 @@
 
 		#endregion BASE
 
-		public const string HEAD_OUTER = HEAD + "/Outer";
+		#region SUB-LOCATIONS
+
+		private const string OUTER = "/Outer";
+
+		// HEAD
+		public const string HEAD_OUTER = HEAD + OUTER;
 		public const string FACE = HEAD + "/Face";
+
+		// TORSO
+		public const string TORSO_OUTER = TORSO + OUTER;
+
+		// LEGS
+		public const string LEGS_OUTER = LEGS + OUTER;
+
+		// ARMS
+		public const string ARM_L_OUTER = ARM_L + OUTER;
+		public const string ARM_R_OUTER = ARM_R + OUTER;
+		public const string HAND_L_OUTER = HAND_L + OUTER;
+		public const string HAND_R_OUTER = HAND_R + OUTER;
+
+		#endregion SUB-LOCATIONS
 	}
 }
