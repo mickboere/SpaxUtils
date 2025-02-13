@@ -20,14 +20,14 @@ namespace SpaxUtils
 		#region Personality
 		public const string PERSONALITY = MIND + "Personality"; // Sub-behaviour weights
 
-		public const string INTENSITY = PERSONALITY + "/Intensity"; // Fire -> Intensity
-		public const string INTELLIGENCE = PERSONALITY + "/Intelligence"; // Light -> Anticipatory intelligence (0 is slow, 1 is sharp)
-		public const string ENTHUSIASM = PERSONALITY + "/Enthusiasm"; // Air -> Speed
-		public const string KINDNESS = PERSONALITY + "/Kindness"; // Faeth -> Goodness
-		public const string SENSITIVITY = PERSONALITY + "/Sensitivity"; // Water -> Carefulness
-		public const string INSTINCT = PERSONALITY + "/Instinct"; // Nature -> Opportunistic intelligence (0 is random, 1 is intuitive)
-		public const string RESOLVE = PERSONALITY + "/Resolve"; // Earth -> Holding back
-		public const string CRUELTY = PERSONALITY + "/Cruelty"; // Daeth -> Evil
+		public const string FIERCENESS = PERSONALITY + "/Fierceness"; // Fire ->	(tired > fierce)
+		public const string SHARPNESS = PERSONALITY + "/Sharpness"; // Light ->		(slow > sharp)
+		public const string SWIFTNESS = PERSONALITY + "/Swiftness"; // Air ->		(easy > swift)
+		public const string KINDNESS = PERSONALITY + "/Kindness"; // Faeth ->		(selfish > caring)
+		public const string CAREFULNESS = PERSONALITY + "/Carefulness"; // Water ->	(careless > careful)
+		public const string APTNESS = PERSONALITY + "/Aptness"; // Nature ->		(random > relevant)
+		public const string SERIOUSNESS = PERSONALITY + "/Seriousness"; // Earth ->	(soft > stern)
+		public const string BITTERNESS = PERSONALITY + "/Bitterness"; // Daeth ->	(tolerable > resentful)
 		#endregion
 	}
 }

@@ -63,6 +63,11 @@ namespace SpaxUtils
 		/// </summary>
 		PriorityLevel Priority { get; set; }
 
+		/// <summary>
+		/// Whether this entity is running in debug mode.
+		/// </summary>
+		bool Debug { get; }
+
 		#endregion
 
 		#region Optimization
@@ -129,9 +134,14 @@ namespace SpaxUtils
 		bool TryGetStat(string identifier, out EntityStat stat);
 
 		/// <summary>
-		/// Will try to retrieve stat from <paramref name="cost"/> and damage it by <paramref name="cost"/> * <paramref name="delta"/>.
+		/// Will try to retrieve <paramref name="stat"/> and damage it by <paramref name="cost"/>.
 		/// </summary>
-		bool TryApplyStatCost(StatCost cost, float delta, out bool drained);
+		bool TryApplyStatCost(string stat, float cost, bool clamp, out float damage, out bool drained);
+
+		/// <summary>
+		/// Will try to retrieve <paramref name="stat"/> and damage it by <paramref name="cost"/>.
+		/// </summary>
+		bool TryApplyStatCost(string stat, float cost, bool clamp = false);
 
 		#endregion
 

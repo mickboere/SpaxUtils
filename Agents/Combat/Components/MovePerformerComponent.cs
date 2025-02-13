@@ -113,8 +113,9 @@ namespace SpaxUtils
 			IPerformanceMove move = Moveset[act.Title];
 
 			// Utilized stats must exceed 0.
-			// Note: stats don't have to exceed costs since they will overdraw from the "recoverable" stat.
+			// Note: (most) stats don't have to exceed costs since they will overdraw from the "recoverable" stat.
 			if ((move.HasCharge && !ValidateStat(move.ChargeCost)) || (move.HasPerformance && !ValidateStat(move.PerformCost)))
+			//if (move.HasPerformance && !ValidateStat(move.PerformCost))
 			{
 				return false;
 			}
@@ -130,14 +131,9 @@ namespace SpaxUtils
 
 			bool ValidateStat(StatCost cost)
 			{
-				if (!string.IsNullOrEmpty(cost.Stat) && Entity.TryGetStat(cost.Stat, out EntityStat stat))
-				{
-					if (stat.Value <= Mathf.Epsilon)
-					{
-						return false;
-					}
-				}
-				return true;
+				// Will validate whether a cost stat is defined, and if it is, whether it is greater than 0.
+				// If the cost stat is not defined it is also valid, since no cost will need to be substracted.
+				return !cost.Required || string.IsNullOrEmpty(cost.Stat) || (Entity.TryGetStat(cost.Stat, out EntityStat stat) && stat.Value > 0f);
 			}
 		}
 

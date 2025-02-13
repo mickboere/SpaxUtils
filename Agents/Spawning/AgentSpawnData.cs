@@ -24,7 +24,7 @@ namespace SpaxUtils
 				{
 					switch (callback)
 					{
-						case AgentFactory.Callback.OnInject:
+						case AgentFactory.Callback.OnBindDependencies:
 							IIdentification id = dependencyManager.Get<IIdentification>(true, false);
 
 							// Apply data values before they're injected.

@@ -50,8 +50,8 @@ namespace SpaxUtils
 			if (State == PerformanceState.Preparing)
 			{
 				// Drain charge stat.
-				Agent.TryApplyStatCost(Move.ChargeCost, (massStat * RigidbodyWrapper.Speed + massStat * RigidbodyWrapper.Acceleration.magnitude) * delta, out bool drained);
-				if (drained)
+				float cost = Move.ChargeCost.Cost * (massStat * RigidbodyWrapper.Speed + massStat * RigidbodyWrapper.Acceleration.magnitude) * delta;
+				if (Agent.TryApplyStatCost(Move.ChargeCost.Stat, cost, false, out _, out bool drained) && drained)
 				{
 					// Exit dash.
 					Performer.TryPerform();

@@ -561,6 +561,15 @@ namespace SpaxUtils
 				a.SW / b.SW,
 				a.W / b.W,
 				a.NW / b.NW);
+
+			float SafeDivide(float a, float b)
+			{
+				if (b == 0f)
+				{
+					return a;
+				}
+				return a / b;
+			}
 		}
 
 		/// <summary>

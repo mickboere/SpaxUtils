@@ -11,6 +11,7 @@ namespace SpaxUtils
 		private InputToActMapping mapping;
 
 		private bool holding;
+		private Action<IPerformer> callback;
 
 		public InputToActMapper(IActor actor, InputToActMapping mapping)
 		{
@@ -18,32 +19,34 @@ namespace SpaxUtils
 			this.mapping = mapping;
 		}
 
-		public void Send(bool input)
+		public void Send(bool input, Action<IPerformer> callback = null)
 		{
 			if (input)
 			{
-				Hold();
+				Hold(callback);
 			}
 			else
 			{
-				Release();
+				Release(callback);
 			}
 		}
 
-		public void Hold()
+		public void Hold(Action<IPerformer> callback = null)
 		{
 			if (!holding)
 			{
-				actor.Send(NewAct(true));
+				this.callback = callback;
+				actor.Send(NewAct(true, callback));
 				holding = true;
 			}
 		}
 
-		public void Release()
+		public void Release(Action<IPerformer> callback = null)
 		{
 			if (holding)
 			{
-				actor.Send(NewAct(false));
+				this.callback = callback;
+				actor.Send(NewAct(false, callback));
 				holding = false;
 			}
 		}
@@ -52,7 +55,7 @@ namespace SpaxUtils
 		{
 			if (mapping.HoldEveryFrame && holding)
 			{
-				actor.Send(NewAct(true));
+				actor.Send(NewAct(true, callback));
 			}
 		}
 
@@ -61,9 +64,9 @@ namespace SpaxUtils
 			Release();
 		}
 
-		private Act<bool> NewAct(bool value)
+		private Act<bool> NewAct(bool value, Action<IPerformer> callback = null)
 		{
-			return new Act<bool>(mapping, value);
+			return new Act<bool>(mapping, value, callback);
 		}
 	}
 }

@@ -10,6 +10,7 @@ namespace SpaxUtils
 	{
 		public enum Callback
 		{
+			OnBindDependencies,
 			OnInject,
 			OnInjected
 		}
@@ -128,8 +129,6 @@ namespace SpaxUtils
 			// Ensure the combined data is bound to dependency injector.
 			dependencyManager.BindUnchecked(typeof(RuntimeDataCollection), data);
 
-			SpaxDebug.Log($"{identification.ID} Data:\n", data.ToString());
-
 			// Ensure agent has unique seed.
 			if (!data.TryGetValue(EntityDataIdentifiers.SEED, out int s))
 			{
@@ -139,6 +138,7 @@ namespace SpaxUtils
 			}
 
 			// Bind all dependencies.
+			progressCallback?.Invoke(Callback.OnBindDependencies);
 			if (dependencies != null)
 			{
 				foreach (object dependency in dependencies)

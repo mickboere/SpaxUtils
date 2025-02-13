@@ -22,6 +22,16 @@ namespace SpaxUtils
 			[SerializeField] private string scene;
 		}
 
+		[Serializable]
+		public class LevelData
+		{
+			public string Name => name;
+			public FlowGraph FlowGraph => flowGraph;
+
+			[SerializeField] private string name;
+			[SerializeField] private FlowGraph flowGraph;
+		}
+
 		public EventSystem EventSystem => eventSystem;
 		public BrainGraph GameBrainGraph => gameBrainGraph;
 		public float TransitionTime => transitionTime;
@@ -41,12 +51,27 @@ namespace SpaxUtils
 			}
 		}
 		private Dictionary<string, GameState> _stateData;
-		public IList<string> Levels => levels;
+		public IReadOnlyDictionary<string, LevelData> Levels
+		{
+			get
+			{
+				if (_levels == null)
+				{
+					_levels = new Dictionary<string, LevelData>();
+					foreach (LevelData levelData in levels)
+					{
+						_levels.Add(levelData.Name, levelData);
+					}
+				}
+				return _levels;
+			}
+		}
+		private Dictionary<string, LevelData> _levels;
 
 		[SerializeField] private EventSystem eventSystem;
 		[SerializeField] private BrainGraph gameBrainGraph;
 		[SerializeField] private float transitionTime = 3f;
 		[SerializeField] private List<GameState> stateData;
-		[SerializeField] private List<string> levels;
+		[SerializeField] private List<LevelData> levels;
 	}
 }

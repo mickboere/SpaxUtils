@@ -30,10 +30,14 @@ namespace SpaxUtils
 		private EntityStat limbOffenceStat;
 		private EntityStat limbPiercingStat;
 		private EntityStat massStat;
+		private EntityStat chargeSpeedStat;
+		private EntityStat chargeStat;
 
 		private CombatHitDetector hitDetector;
 		private TimerClass momentumTimer;
 		private TimedCurveModifier hitPauseMod;
+
+		private float totalCharge;
 
 		public void InjectDependencies(IMeleeCombatMove move, CallbackService callbackService,
 			TransformLookup transformLookup, ITargeter targeter, IAgentMovementHandler movementHandler,
@@ -57,6 +61,8 @@ namespace SpaxUtils
 			limbOffenceStat = Agent.GetStat(AgentStatIdentifiers.OFFENCE.SubStat(this.move.Limb));
 			limbPiercingStat = Agent.GetStat(AgentStatIdentifiers.PIERCING.SubStat(this.move.Limb));
 			massStat = Agent.GetStat(AgentStatIdentifiers.MASS);
+			chargeSpeedStat = Agent.GetStat(move.ChargeSpeedMultiplierStat, false, 1f);
+			chargeStat = Agent.GetStat(move.ChargeCost.Stat);
 		}
 
 		public override void Start()
@@ -65,6 +71,7 @@ namespace SpaxUtils
 
 			hitDetector = new CombatHitDetector(Agent, transformLookup, move, hitDetectionMask);
 			Performer.PerformanceStartedEvent += OnPerformanceStartedEvent;
+			totalCharge = 1f;
 		}
 
 		public override void Stop()
@@ -82,10 +89,13 @@ namespace SpaxUtils
 			if (Performer.State == PerformanceState.Preparing && Performer.Charge > Move.MinCharge)
 			{
 				// Drain charge stat.
-				Agent.TryApplyStatCost(Move.ChargeCost, delta, out bool drained);
-				if (drained)
+				if (Agent.TryApplyStatCost(Move.ChargeCost.Stat, move.ChargeCost.Cost * delta * chargeSpeedStat, true, out float damage, out bool drained))
 				{
-					Performer.TryPerform();
+					totalCharge += damage;
+					if (drained)
+					{
+						Performer.TryPerform();
+					}
 				}
 			}
 
@@ -126,7 +136,7 @@ namespace SpaxUtils
 			// STAT COST:
 			if (massStat == null) SpaxDebug.Error("massStat NULL");
 			if (limbMassStat == null) SpaxDebug.Error("limbMassStat NULL");
-			Agent.TryApplyStatCost(Move.PerformCost, (massStat - limbMassStat) * 0.5f + limbMassStat * 2f, out bool drained);
+			Agent.TryApplyStatCost(Move.PerformCost.Stat, Move.PerformCost.Cost * (massStat - limbMassStat) * 0.5f + limbMassStat * 2f, false, out _, out _);
 
 			momentumTimer = new TimerClass(move.ForceDelay, () => timescaleStat, callbackService);
 		}
@@ -140,7 +150,7 @@ namespace SpaxUtils
 					// Generate hit data.
 					Vector3 inertia = move.Inertia.Look((hittable.Entity.Transform.position - Agent.Transform.position).FlattenY().normalized);
 					float force = limbMassStat;
-					float strength = strengthStat * move.Strength;
+					float strength = strengthStat * move.Strength * totalCharge;
 					float offence = limbOffenceStat * move.Offence;
 					float piercing = limbPiercingStat * move.Piercing;
 
@@ -167,6 +177,11 @@ namespace SpaxUtils
 			// Send hit and apply return data.
 			if (hittable.Hit(hitData))
 			{
+				if (chargeStat != null)
+				{
+					chargeStat.BaseValue += hitData.Strength * 0.001f;
+				}
+
 				if (hitData.Result_Parried)
 				{
 					Performer.TryCancel(true);

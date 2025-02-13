@@ -4,6 +4,8 @@ namespace SpaxUtils
 {
 	public static class FloatExtensions
 	{
+		#region Math
+
 		/// <summary>
 		/// In-line version of <see cref="Mathf.Lerp(float, float, float)"/>.
 		/// </summary>
@@ -117,10 +119,14 @@ namespace SpaxUtils
 			return Mathf.Lerp(a, b, Mathf.InverseLerp(fromA, fromB, f));
 		}
 
-		public static float Evaluate(this float f, AnimationCurve curve)
+		public static float Sqrt(this float f)
 		{
-			return curve.Evaluate(f);
+			return Mathf.Sqrt(f);
 		}
+
+		#endregion Math
+
+		#region Rounding
 
 		public static float Round(this float f)
 		{
@@ -163,9 +169,14 @@ namespace SpaxUtils
 			}
 		}
 
-		public static float Sqrt(this float f)
+		#endregion Rounding
+
+		/// <summary>
+		/// Uses this float to evaluate <see cref="AnimationCurve"/> <paramref name="curve"/>.
+		/// </summary>
+		public static float Evaluate(this float f, AnimationCurve curve)
 		{
-			return Mathf.Sqrt(f);
+			return curve.Evaluate(f);
 		}
 
 		/// <summary>
@@ -176,176 +187,14 @@ namespace SpaxUtils
 			return Mathf.RoundToInt(seconds * 1000f);
 		}
 
-		#region Easing functions
-
-		#region Sine
-
 		/// <summary>
-		/// https://easings.net/#easeInSine
+		/// Converts <paramref name="f"/> into a percentage.
 		/// </summary>
-		public static float InSine(this float x)
+		/// <param name="f"></param>
+		/// <returns></returns>
+		public static int ToPercentage(this float f)
 		{
-			return 1f - Mathf.Cos((x * Mathf.PI) / 2f);
+			return Mathf.RoundToInt(f * 100f);
 		}
-
-		/// <summary>
-		/// https://easings.net/#easeOutSine
-		/// </summary>
-		public static float OutSine(this float x)
-		{
-			return Mathf.Sin((x * Mathf.PI) / 2f);
-		}
-
-		/// <summary>
-		/// https://easings.net/#easeInOutSine
-		/// </summary>
-		public static float InOutSine(this float x)
-		{
-			return -(Mathf.Cos(Mathf.PI * x) - 1f) / 2f;
-		}
-
-		/// <summary>
-		/// https://easings.net/#easeInOutSine
-		/// </summary>
-		public static float ReverseInOutSine(this float x)
-		{
-			return InOutSine(1f - x);
-		}
-
-		#endregion Sine
-
-		#region Quad
-
-		/// <summary>
-		/// https://easings.net/#easeInQuad
-		/// </summary>
-		public static float InQuad(this float x)
-		{
-			return x * x;
-		}
-
-		/// <summary>
-		/// https://easings.net/#easeOutQuad
-		/// </summary>
-		public static float OutQuad(this float x)
-		{
-			return 1f - (1f - x) * (1f - x);
-		}
-
-		/// <summary>
-		/// https://easings.net/#easeInOutQuad
-		/// </summary>
-		public static float InOutQuad(this float x)
-		{
-			return x < 0.5f ? 2f * x * x : 1f - Mathf.Pow(-2f * x + 2f, 2f) / 2f;
-		}
-
-		#endregion Quad
-
-		#region Cubic
-
-		/// <summary>
-		/// https://easings.net/#easeInCubic
-		/// </summary>
-		public static float InCubic(this float x)
-		{
-			return x * x * x;
-		}
-
-		/// <summary>
-		/// https://easings.net/#easeOutCubic
-		/// </summary>
-		public static float OutCubic(this float x)
-		{
-			return 1f - Mathf.Pow(1f - x, 3f);
-		}
-
-		/// <summary>
-		/// https://easings.net/#easeInOutCubic
-		/// </summary>
-		public static float InOutCubic(this float x)
-		{
-			return x < 0.5f ? 4f * x * x * x : 1f - Mathf.Pow(-2f * x + 2f, 3f) / 2f;
-		}
-
-		/// <summary>
-		/// 1f - https://easings.net/#easeInOutCubic
-		/// </summary>
-		public static float ReverseInOutCubic(this float x)
-		{
-			return InOutCubic(1f - x);
-		}
-
-		#endregion Cubic
-
-		#region Quart
-
-		/// <summary>
-		/// https://easings.net/#easeInQuart
-		/// </summary>
-		public static float InQuart(this float x)
-		{
-			return x * x * x * x;
-		}
-
-		/// <summary>
-		/// https://easings.net/#easeOutQuart
-		/// </summary>
-		public static float OutQuart(this float x)
-		{
-			return 1f - Mathf.Pow(1f - x, 4f);
-		}
-
-		/// <summary>
-		/// https://easings.net/#easeInOutQuart
-		/// </summary>
-		public static float InOutQuart(this float x)
-		{
-			return x < 0.5f ? 8f * x * x * x * x : 1f - Mathf.Pow(-2f * x + 2f, 4f) / 2f;
-		}
-
-		#endregion Quart
-
-		#region Expo
-
-		/// <summary>
-		/// https://easings.net/#easeInExpo
-		/// </summary>
-		public static float InExpo(this float x)
-		{
-			return x == 0f ? 0f : Mathf.Pow(2f, 10f * x - 10f);
-		}
-
-		/// <summary>
-		/// https://easings.net/#easeOutExpo
-		/// </summary>
-		public static float OutExpo(this float x)
-		{
-			return x == 1f ? 1f : 1f - Mathf.Pow(2f, -10f * x);
-		}
-
-		#endregion Expo
-
-		#region Circ
-
-		/// <summary>
-		/// https://easings.net/#easeInCirc
-		/// </summary>
-		public static float InCirc(this float x)
-		{
-			return 1f - Mathf.Sqrt(1f - Mathf.Pow(x, 2f));
-		}
-
-		/// <summary>
-		/// https://easings.net/#easeOutCirc
-		/// </summary>
-		public static float OutCirc(this float x)
-		{
-			return Mathf.Sqrt(1f - Mathf.Pow(x - 1f, 2f));
-		}
-
-		#endregion Circ
-
-		#endregion Easing Functions
 	}
 }

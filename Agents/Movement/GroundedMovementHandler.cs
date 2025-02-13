@@ -121,7 +121,7 @@ namespace SpaxUtils
 
 				if (InputRaw.magnitude > 1.01f)
 				{
-					Entity.TryApplyStatCost(sprintCost, rigidbodyWrapper.Speed * rigidbodyWrapper.Mass * (InputRaw.magnitude - 1f) * delta, out bool drained);
+					Entity.TryApplyStatCost(sprintCost.Stat, sprintCost.Cost * rigidbodyWrapper.Speed * rigidbodyWrapper.Mass * (InputRaw.magnitude - 1f) * delta);
 				}
 			}
 			//else

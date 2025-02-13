@@ -66,7 +66,6 @@ namespace SpaxUtils
 			{
 				this.data.Append(data, true);
 			}
-			SpaxDebug.Log("Setup", $"\ndata={data},\ntemp={template.RetrieveDataClone()},\nthis.data={this.data}");
 		}
 
 		/// <inheritdoc/>

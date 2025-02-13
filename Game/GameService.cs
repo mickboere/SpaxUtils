@@ -35,7 +35,7 @@ namespace SpaxUtils
 			Brain = new Brain(dependencyManager, callbackService, GameStateIdentifiers.LOADING, null, new List<StateMachineGraph>() { gameData.GameBrainGraph });
 			Brain.Start();
 
-			if (gameData.Levels.Contains(sceneService.CurrentScene))
+			if (gameData.Levels.ContainsKey(sceneService.CurrentScene))
 			{
 				// In game state.
 				SwitchLevel(sceneService.CurrentScene, 0f);
@@ -117,7 +117,7 @@ namespace SpaxUtils
 		/// Switches game state to <see cref="GameStateIdentifiers.GAME"/> and loads <paramref name="scene"/> as the active scene.
 		/// </summary>
 		/// <param name="scene">The name of the scene you wish to load.</param>
-		/// <param name="duration">The duration of the transition. <0 uses default value configured in <see cref="GameData.TransitionTime"/>, 0 is immediate.</param>
+		/// <param name="duration">The duration of the transition. <-1 uses default value configured in <see cref="GameData.TransitionTime"/>, 0 is immediate.</param>
 		public void SwitchLevel(string scene, float duration = -1f)
 		{
 			SwitchState(GameStateIdentifiers.GAME, duration, scene);
@@ -127,7 +127,7 @@ namespace SpaxUtils
 		/// Switches game state to <see cref="GameStateIdentifiers.GAME"/> and loads the level at <paramref name="levelIndex"/> from <see cref="GameData.Levels"/>.
 		/// </summary>
 		/// <param name="levelIndex">The index of the level you wish to switch to.</param>
-		/// <param name="duration">The duration of the transition. <0 uses default value configured in <see cref="GameData.TransitionTime"/>, 0 is immediate.</param>
+		/// <param name="duration">The duration of the transition. <-1 uses default value configured in <see cref="GameData.TransitionTime"/>, 0 is immediate.</param>
 		public void SwitchLevel(int levelIndex, float duration = -1f)
 		{
 			if (levelIndex < 0 || levelIndex >= gameData.Levels.Count)
@@ -136,7 +136,7 @@ namespace SpaxUtils
 				return;
 			}
 
-			SwitchLevel(gameData.Levels[levelIndex], duration);
+			SwitchLevel(gameData.Levels.Keys.ElementAt(levelIndex), duration);
 		}
 
 		private void AwaitTransition(ITransition transition, Action callback)

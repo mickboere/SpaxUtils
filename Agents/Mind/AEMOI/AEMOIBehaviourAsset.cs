@@ -19,13 +19,14 @@ namespace SpaxUtils
 		protected CallbackService CallbackService { get; private set; }
 		protected AgentStatHandler StatHandler { get; private set; }
 		protected CombatSensesComponent CombatSenses { get; private set; }
-		protected PointStatOctad PointStats => StatHandler.PointStatOcton;
+		protected PointStatOctad PointStats => StatHandler.PointStatOctad;
 
 		[SerializeField] new private string name;
 		[SerializeField] protected int priority;
 		[SerializeField, FormerlySerializedAs("motivation")] protected Vector8 trigger;
 		[SerializeField, HideInInspector] protected bool requireState;
 		[SerializeField, Conditional(nameof(requireState), drawToggle: true), ConstDropdown(typeof(IStateIdentifiers))] protected string brainState;
+		[SerializeField] private bool debug;
 
 		public void InjectDependencies(IAgent agent, CallbackService callbackService, AgentStatHandler agentStatHandler, CombatSensesComponent combatSenses)
 		{
@@ -60,6 +61,7 @@ namespace SpaxUtils
 		public override void Start()
 		{
 			base.Start();
+			Log("Start", index: 2);
 			if (requireState)
 			{
 				Agent.Brain.TryTransition(brainState);
@@ -69,6 +71,15 @@ namespace SpaxUtils
 		public override void Stop()
 		{
 			base.Stop();
+			Log("Stop", index: 2);
+		}
+
+		protected void Log(string a, string b = "", Color? color = null, int index = 1)
+		{
+			if (Agent.Debug && debug)
+			{
+				SpaxDebug.Log(a, b, color: color, callerIndex: index + 1);
+			}
 		}
 	}
 }

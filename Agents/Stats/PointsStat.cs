@@ -47,7 +47,7 @@ namespace SpaxUtils
 		public bool IsRecovering => HasRecovery && (recoveryTimer == null || recoveryTimer.Expired) && !PercentileRecoverable.Approx(1f);
 
 		[SerializeField, ConstDropdown(typeof(IStatIdentifiers), includeEmpty: true)] private string stat;
-		[SerializeField, Tooltip(TT_hasRecovery)] private bool hasMax = true;
+		[SerializeField, Tooltip(TT_hasMax)] private bool hasMax = true;
 		[SerializeField, Conditional(nameof(hasMax), hide: true), Tooltip(TT_hasRecovery)] private bool hasRecovery;
 		[SerializeField, Conditional(nameof(hasMax), hide: true), Tooltip(TT_isRecoverable)] private bool isRecoverable;
 		[SerializeField, Conditional(nameof(isRecoverable), hide: true), Tooltip(TT_overdraw)] private float overdraw = 1f;
@@ -187,8 +187,11 @@ namespace SpaxUtils
 					}
 				}
 
-				float duration = current < Mathf.Epsilon ? RecoveryDelay * 1.5f : RecoveryDelay;
-				recoveryTimer = recoveryTimer?.Reset(duration) ?? new TimerClass(duration, () => timescale, true);
+				if (HasRecovery)
+				{
+					float duration = current < Mathf.Epsilon ? RecoveryDelay * 1.5f : RecoveryDelay;
+					recoveryTimer = recoveryTimer?.Reset(duration) ?? new TimerClass(duration, () => timescale, true);
+				}
 			}
 			else if (IsRecoverable)
 			{

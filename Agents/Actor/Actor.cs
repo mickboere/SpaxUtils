@@ -98,30 +98,30 @@ namespace SpaxUtils
 		}
 
 		/// <inheritdoc/>
-		public void SendInput(string act, bool? value = null)
+		public void SendInput(string act, bool? value = null, Action<IPerformer> callback = null)
 		{
 			if (inputMappers.ContainsKey(act))
 			{
 				if (value.HasValue)
 				{
-					inputMappers[act].Send(value.Value);
+					inputMappers[act].Send(value.Value, callback);
 				}
 				else
 				{
-					inputMappers[act].Send(true);
-					inputMappers[act].Send(false);
+					//inputMappers[act].Send(true, callback);
+					inputMappers[act].Send(false, callback);
 				}
 			}
 			else
 			{
 				if (value.HasValue)
 				{
-					Send(new Act<bool>(act, value.Value));
+					Send(new Act<bool>(act, value.Value, callback: callback));
 				}
 				else
 				{
-					Send(new Act<bool>(act, true));
-					Send(new Act<bool>(act, false));
+					Send(new Act<bool>(act, true, callback: callback));
+					Send(new Act<bool>(act, false, callback: callback));
 				}
 			}
 		}
@@ -192,18 +192,38 @@ namespace SpaxUtils
 					return;
 				}
 
-				if ((input.Value && TryPrepare(input, out _)) ||
+				IPerformer performer = null;
+				if ((input.Value && TryPrepare(input, out performer)) ||
 					(!input.Value && MainPerformer != null && lastPerformedInput.HasValue &&
 						lastPerformedInput.Value.Title == input.Title && lastPerformedInput.Value.Value &&
 						MainPerformer.TryPerform()))
 				{
 					lastPerformedInput = act.Title == ActorActs.CANCEL ? null : input;
 					lastFailedAttempt = null;
+					act.Callback?.Invoke(performer ?? MainPerformer);
 				}
 				else
 				{
 					lastFailedAttempt = (input, new TimerStruct(act.Buffer));
 				}
+
+				//IPerformer performer = null;
+				//bool tryPerform = !input.Value &&
+				//		MainPerformer != null &&
+				//		lastPerformedInput.HasValue &&
+				//		lastPerformedInput.Value.Title == input.Title &&
+				//		lastPerformedInput.Value.Value;
+				//if ((input.Value && TryPrepare(input, out performer)) ||
+				//	(tryPerform && MainPerformer.TryPerform()))
+				//{
+				//	lastPerformedInput = act.Title == ActorActs.CANCEL ? null : input;
+				//	lastFailedAttempt = null;
+				//	act.Callback?.Invoke(performer ?? MainPerformer);
+				//}
+				//else if (input.Value || tryPerform)
+				//{
+				//	lastFailedAttempt = (input, new TimerStruct(act.Buffer));
+				//}
 			}
 		}
 

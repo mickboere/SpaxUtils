@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace SpaxUtils
 {
@@ -9,9 +10,9 @@ namespace SpaxUtils
 	/// </summary>
 	public class AgentStatHandler : EntityComponentMono
 	{
-		public PointStatOctad PointStatOcton => pointStatOcton;
+		public PointStatOctad PointStatOctad => pointStatOctad;
 
-		[SerializeField] private PointStatOctad pointStatOcton;
+		[SerializeField, FormerlySerializedAs("pointStatOcton")] private PointStatOctad pointStatOctad;
 
 		private IAgent agent;
 
@@ -26,7 +27,7 @@ namespace SpaxUtils
 		protected void Awake()
 		{
 			// Initialize point stats.
-			pointStatOcton.Initialize(agent);
+			pointStatOctad.Initialize(agent);
 
 			// Modify recovery stat with control (so that recovery only occurs when agent is in control).
 			if (agent.Body.HasRigidbody && agent.TryGetStat(AgentStatIdentifiers.RECOVERY, out recoveryStat))
@@ -55,7 +56,7 @@ namespace SpaxUtils
 				recoveryMod.SetValue(agent.Body.RigidbodyWrapper.Control);
 			}
 
-			pointStatOcton.Update(delta);
+			pointStatOctad.Update(delta);
 		}
 
 		/// <summary>
@@ -63,7 +64,7 @@ namespace SpaxUtils
 		/// </summary>
 		public void RecoverAll()
 		{
-			pointStatOcton.Recover();
+			pointStatOctad.Recover();
 		}
 	}
 }

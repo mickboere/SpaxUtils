@@ -1,4 +1,6 @@
-﻿namespace SpaxUtils
+﻿using System;
+
+namespace SpaxUtils
 {
 	/// <summary>
 	/// Base interface for acts, <see cref="Act{T}"/>.
@@ -24,5 +26,10 @@
 		/// Action retry-window when initial production attempt fails.
 		/// </summary>
 		float Buffer { get; }
+
+		/// <summary>
+		/// Callback to be invoked once this act has been accepted to be performed by an actor.
+		/// </summary>
+		Action<IPerformer> Callback { get; }
 	}
 }

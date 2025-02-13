@@ -31,7 +31,6 @@ namespace SpaxUtils
 		{
 			RuntimeDataCollection collection = new RuntimeDataCollection(id.IsNullOrEmpty() ? Guid.NewGuid().ToString() : id);
 			ApplyToRuntimeDataCollection(collection, true);
-			SpaxDebug.Log($"ToRuntimeDataCollection:{collection.ID}", collection.ToString());
 			return collection;
 		}
 

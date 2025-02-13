@@ -97,6 +97,9 @@ namespace SpaxUtils
 			}
 		}
 
+		/// <inheritdoc/>
+		public bool Debug { get { return debug; } set { debug = value; } }
+
 		protected virtual string GameObjectNamePrefix => "[Entity]";
 		protected virtual string GameObjectName =>
 			identification != null ?
@@ -115,6 +118,7 @@ namespace SpaxUtils
 		[Header("Optimization")]
 		[SerializeField] private bool dynamicPriority;
 		[SerializeField] private PriorityLevel priority;
+		[SerializeField] private bool debug;
 
 		protected IEntityCollection entityCollection;
 		protected OptimizedCallbackService optimizationService;
@@ -353,6 +357,20 @@ namespace SpaxUtils
 				RuntimeData.SetValue(EntityDataIdentifiers.NAME, Identification.Name);
 			}
 
+			// Retrieve pre-set priority level to override dynamic priority, if any.
+			if (RuntimeData.TryGetValue(EntityDataIdentifiers.PRIORITY, out int prio))
+			{
+				DynamicPriority = false;
+				Priority = (PriorityLevel)prio;
+			}
+
+			// Retrieve whether this entity should be run in debug mode.
+			if (RuntimeData.TryGetValue(EntityDataIdentifiers.DEBUG, out bool debug))
+			{
+				Debug = debug;
+			}
+
+			// Retrieve whether this entity was last alive when its data was saved.
 			Alive = RuntimeData.GetValue(EntityDataIdentifiers.ALIVE, false);
 			_age = RuntimeData.GetValue(EntityDataIdentifiers.AGE, 0d);
 			if (Alive)
@@ -360,7 +378,6 @@ namespace SpaxUtils
 				Transform.position = RuntimeData.GetValue(EntityDataIdentifiers.POSITION, transform.position) + Vector3.up * 0.5f; // hack
 				Transform.eulerAngles = RuntimeData.GetValue(EntityDataIdentifiers.ROTATION, transform.eulerAngles);
 			}
-
 			Alive = true;
 		}
 
@@ -451,17 +468,24 @@ namespace SpaxUtils
 		}
 
 		/// <inheritdoc/>
-		public bool TryApplyStatCost(StatCost cost, float delta, out bool drained)
+		public bool TryApplyStatCost(string stat, float cost, bool clamp, out float damage, out bool drained)
 		{
+			damage = 0f;
 			drained = false;
-			if (TryGetStat(cost.Stat, out EntityStat costStat))
+			if (TryGetStat(stat, out EntityStat costStat))
 			{
 				// Damage unclamped, because performance's are active and will simply overdraw cost from "recoverable" (reservoir) stat.
-				costStat.Damage(cost.Cost * delta, false, out bool d);
+				damage = costStat.Damage(cost, clamp, out bool d);
 				drained = d || drained;
 				return true;
 			}
 			return false;
+		}
+
+		/// <inheritdoc/>
+		public bool TryApplyStatCost(string stat, float cost, bool clamp = false)
+		{
+			return TryApplyStatCost(stat, cost, clamp, out _, out _);
 		}
 
 		/// <inheritdoc/>

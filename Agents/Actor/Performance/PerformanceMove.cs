@@ -41,7 +41,7 @@ namespace SpaxUtils
 
 		private const string TT_MIN_CHARGE = "Minimum required charge in seconds before performing.";
 		private const string TT_REQUIRE_MIN_CHARGE = "TRUE: Releasing input before completing charge will cancel.\nFALSE: Releasing input before completing charge will continue and automatically perform.";
-		private const string TT_MAX_CHARGE = "Maximum charging extent in seconds.";
+		private const string TT_MAX_CHARGE = "Maximum charging extent in seconds (this is only used in determining the charge pose, charging itself can be continued until the charge stat is drained).";
 		private const string TT_MIN_DURATION = "Minimum performing duration of this move.";
 		private const string TT_CHARGE_FADEOUT = "Duration of transition from charge pose to performing pose, relative to MinDuration.";
 		private const string TT_RELEASE = "Interuptable sustain / fadeout time after a successful performance.";

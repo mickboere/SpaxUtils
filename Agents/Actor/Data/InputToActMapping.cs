@@ -11,6 +11,7 @@ namespace SpaxUtils
 		public bool Interuptable => interuptable;
 		public bool Interuptor => interuptor;
 		public float Buffer => hasCustomBuffer ? customBuffer : Act<bool>.DEFAULT_BUFFER;
+		public Action<IPerformer> Callback => null;
 
 		public string Input => input;
 		public string ActionMap => actionMap;

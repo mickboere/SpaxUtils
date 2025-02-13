@@ -9,6 +9,8 @@ namespace SpaxUtils
 	/// </summary>
 	public class AgentHitHandlerComponent : EntityComponentMono
 	{
+		public int Hits { get; set; }
+
 		protected bool Invulnerable => agent.RuntimeData.GetValue(AgentDataIdentifiers.INVULNERABLE, false);
 
 		[SerializeField] private float deathDuration = 0.5f;
@@ -63,8 +65,6 @@ namespace SpaxUtils
 		/// <param name="hitData">The incoming <see cref="HitData"/> to process.</param>
 		private void OnHitEvent(HitData hitData)
 		{
-			SpaxDebug.Log($"Hit (invulnerable={Invulnerable}, contained={agent.RuntimeData.ContainsEntry(AgentDataIdentifiers.INVULNERABLE)})\n");
-
 			// Transfer intertia.
 			rigidbodyWrapper.Push(hitData.Inertia, hitData.Mass);
 
@@ -119,6 +119,11 @@ namespace SpaxUtils
 						Die();
 					}
 				}
+			}
+
+			if (stunned || hitData.Result_Blocked.Approx(0f) && !hitData.Result_Parried)
+			{
+				Hits++;
 			}
 
 			//SpaxDebug.Log($"Hit {agent.Identification.Name}", hitData.ToString(), context: agent.GameObject);

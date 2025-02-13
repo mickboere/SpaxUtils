@@ -9,7 +9,9 @@ namespace SpaxUtils
 	public class Vector8ConfigurationAsset : Vector8ConfigurationAssetBase
 	{
 		protected override string Key => key;
+		protected override string Interpolator => interpolator;
 
 		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifiers))] private string key;
+		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifiers), true)] private string interpolator;
 	}
 }

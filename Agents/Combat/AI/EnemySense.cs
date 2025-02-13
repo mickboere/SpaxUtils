@@ -60,6 +60,9 @@ namespace SpaxUtils
 			SendContinuousStimuli(delta);
 		}
 
+		/// <summary>
+		/// Retrieve the <see cref="EnemyData"/> for the currently targeted entity.
+		/// </summary>
 		public EnemyData GetEnemyData()
 		{
 			if (agent.Targeter.Target == null || !enemies.ContainsKey(agent.Targeter.Target))
@@ -79,7 +82,7 @@ namespace SpaxUtils
 
 		private void GatherEnemyData()
 		{
-			float pointSum = statHandler.PointStatOcton.Vector8.Sum();
+			float pointSum = statHandler.PointStatOctad.Vector8.Sum();
 
 			// Get all enemies currently in view and store their relevant data.
 			List<ITargetable> visible = vision.Spot(agent.Targeter.Enemies.Components);
@@ -115,7 +118,7 @@ namespace SpaxUtils
 				// Oppurtunity is defined by enemy being occupied.
 				enemyData.Oppurtunity = (enemyData.Agent.Actor.State is PerformanceState.Performing ? 1f : 0.5f) * enemyData.Threat.Invert();
 				// (Dis)Advantage is defined by difference in current stat points.
-				float enemyPointSum = enemyData.Agent.GetEntityComponent<AgentStatHandler>().PointStatOcton.Vector8.Sum();
+				float enemyPointSum = enemyData.Agent.GetEntityComponent<AgentStatHandler>().PointStatOctad.Vector8.Sum();
 				enemyData.Advantage = pointSum / enemyPointSum;
 				enemyData.Disadvantage = enemyPointSum / pointSum;
 				enemyData.Reach = enemyAgent.GetStat(AgentStatIdentifiers.REACH) +
@@ -166,12 +169,12 @@ namespace SpaxUtils
 				if (spawnpoint == null || spawnpoint.Region == null || spawnpoint.Region.IsInside(enemy.Agent.Transform.position))
 				{
 					// Anger incitement is defined by current hate towards enemy.
-					incitement = current.NW * (enemy.Distance / (vision.Range * settings.InciteRange)).InvertClamped().Evaluate(settings.InciteCurve);
+					incitement = current.NW.Min(1f) * (enemy.Distance / (vision.Range * settings.InciteRange)).InvertClamped().Evaluate(settings.InciteCurve);
 				}
 
 				// Desire to retreat (fear) is defined by crucial stats that need time to recover.
-				float retreat = statHandler.PointStatOcton.SW.PercentileMax.Invert(); // Health
-				retreat += statHandler.PointStatOcton.W.PercentileRecoverable.Invert().Remap(-1f, 1f); // Endurance
+				float retreat = statHandler.PointStatOctad.SW.PercentileMax.Invert(); // Health
+				retreat += statHandler.PointStatOctad.W.PercentileRecoverable.Invert().Remap(-1f, 1f); // Endurance
 				retreat *= retreat > 0 ? enemy.Threat : AEMOI.MAX_STIM; // If positive, scale stim by threat. If negative (stats are sufficiently recovered) maximally satisfy fear.
 
 				// Danger is defined by how close to the attacking enemy's range one is.
