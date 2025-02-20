@@ -24,7 +24,7 @@ namespace SpaxUtils
 		/// <summary>
 		/// The total mass of the hitter, used to apply inertia.
 		/// </summary>
-		public float Mass { get; }
+		public float HitterMass { get; }
 
 		/// <summary>
 		/// The inertia of the hitter in world-space.
@@ -42,14 +42,19 @@ namespace SpaxUtils
 		public Vector3 Direction { get; }
 
 		/// <summary>
-		/// The total force behind the hit, defines force transfer capacity.
+		/// The total mass behind the hit itself.
 		/// </summary>
-		public float Force { get; }
+		public float Mass { get; }
 
 		/// <summary>
-		/// The total strength behind the hit, defines impact force.
+		/// The hardness-grade of the object performing the hit.
 		/// </summary>
-		public float Strength { get; }
+		public float Hardness { get; }
+
+		/// <summary>
+		/// The total power behind the hit.
+		/// </summary>
+		public float Power { get; }
 
 		/// <summary>
 		/// The total offensive power of the hit, defines penetration damage.
@@ -83,12 +88,12 @@ namespace SpaxUtils
 		/// <summary>
 		/// Return data defining the percentage of penetration dealt to receiver (0-1~).
 		/// </summary>
-		public float Result_Penetration { get; set; }
+		public float Result_PenetrationPercentile { get; set; }
 
 		/// <summary>
 		/// Return data defining percentage of impact dealt to receiver (0-1~).
 		/// </summary>
-		public float Result_Impact { get; set; }
+		public float Result_ImpactPercentile { get; set; }
 
 		/// <summary>
 		/// Return data defining total amount of damage dealt to receiver.
@@ -105,25 +110,27 @@ namespace SpaxUtils
 		public HitData(
 			IHittable receiver,
 			IEntity hitter,
-			float mass,
+			float hitterMass,
 			Vector3 inertia,
 			Vector3 point,
 			Vector3 direction,
-			float force,
-			float strength = 0f,
-			float offence = 0f,
-			float piercing = 0f)
+			float mass,
+			float hardness,
+			float power,
+			float offence,
+			float piercing)
 		{
 			Receiver = receiver;
 			Hitter = hitter;
-			Mass = mass;
+			HitterMass = hitterMass;
 			Inertia = inertia;
 			Point = point;
 			Direction = direction;
-			Force = force;
-			Strength = strength;
+			Mass = mass;
+			Power = power;
 			Offence = offence;
 			Piercing = piercing;
+			Hardness = hardness;
 		}
 
 		public override string ToString()
@@ -131,19 +138,20 @@ namespace SpaxUtils
 			return $"HitData:" +
 				$"\nReceiver={Receiver.Entity.Identification.TagFull()}," +
 				$"\nHitter={Hitter.Identification.TagFull()}," +
-				$"\nMass={Mass}," +
+				$"\nHitterMass={HitterMass}," +
 				$"\nInertia={Inertia}," +
 				$"\nPoint={Point}," +
 				$"\nDirection={Direction}," +
-				$"\nForce={Force}," +
-				$"\nStrength={Strength}," +
+				$"\nMass={Mass}," +
+				$"\nPower={Power}," +
 				$"\nOffence={Offence}," +
 				$"\nPiercing={Piercing}," +
+				$"\nHardness={Hardness}," +
 				$"\n\nResult_Blocked={Result_Blocked}," +
 				$"\nResult_Parried={Result_Parried}," +
 				$"\nResult_Stunned={Result_Stunned}," +
-				$"\nResult_Penetration={Result_Penetration}," +
-				$"\nResult_Impact={Result_Impact}," +
+				$"\nResult_Penetration={Result_PenetrationPercentile}," +
+				$"\nResult_Impact={Result_ImpactPercentile}," +
 				$"\nResult_Damage={Result_Damage}," +
 				$"\nResult_Force={Result_Force}";
 		}

@@ -30,6 +30,19 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public float Charge => MainPerformer != null ? MainPerformer.Charge : 0f;
 		/// <inheritdoc/>
+		public bool Prolong
+		{
+			get { return MainPerformer != null ? MainPerformer.Prolong : false; }
+			set { if (MainPerformer != null) MainPerformer.Prolong = value; }
+		}
+
+		/// <inheritdoc/>
+		public bool Paused
+		{
+			get { return MainPerformer != null ? MainPerformer.Paused : false; }
+			set { if (MainPerformer != null) MainPerformer.Paused = value; }
+		}
+		/// <inheritdoc/>
 		public bool Canceled => MainPerformer != null ? MainPerformer.Canceled : false;
 		/// <inheritdoc/>
 		public float CancelTime => MainPerformer != null ? MainPerformer.CancelTime : 0f;
@@ -133,7 +146,7 @@ namespace SpaxUtils
 			{
 				// Will validate whether a cost stat is defined, and if it is, whether it is greater than 0.
 				// If the cost stat is not defined it is also valid, since no cost will need to be substracted.
-				return !cost.Required || string.IsNullOrEmpty(cost.Stat) || (Entity.TryGetStat(cost.Stat, out EntityStat stat) && stat.Value > 0f);
+				return !cost.Required || string.IsNullOrEmpty(cost.Stat) || (Entity.Stats.TryGetStat(cost.Stat, out EntityStat stat) && stat.Value > 0f);
 			}
 		}
 

@@ -30,7 +30,7 @@ namespace SpaxUtils
 			pointStatOctad.Initialize(agent);
 
 			// Modify recovery stat with control (so that recovery only occurs when agent is in control).
-			if (agent.Body.HasRigidbody && agent.TryGetStat(AgentStatIdentifiers.RECOVERY, out recoveryStat))
+			if (agent.Body.HasRigidbody && agent.Stats.TryGetStat(AgentStatIdentifiers.RECOVERY, out recoveryStat))
 			{
 				recoveryMod = new FloatOperationModifier(ModMethod.Absolute, Operation.Multiply, 1f);
 				recoveryStat.AddModifier(this, recoveryMod);

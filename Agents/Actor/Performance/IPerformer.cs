@@ -46,6 +46,26 @@ namespace SpaxUtils
 		/// </summary>
 		float RunTime { get; }
 
+		/// <summary>
+		/// Whether the current performance should halt its the runtime once minimum duration has been reached.
+		/// </summary>
+		bool Prolong { get; set; }
+
+		/// <summary>
+		/// Whether this performer's runtime is currently paused.
+		/// </summary>
+		bool Paused { get; set; }
+
+		/// <summary>
+		/// Whether the current performance has been canceled.
+		/// </summary>
+		bool Canceled { get; }
+
+		/// <summary>
+		/// The amount of time passed since this performer has been canceled.
+		/// </summary>
+		float CancelTime { get; }
+
 		#endregion Properties
 
 		#region Methods

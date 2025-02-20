@@ -23,11 +23,11 @@ namespace SpaxUtils
 		public const string FIERCENESS = PERSONALITY + "/Fierceness"; // Fire ->	(tired > fierce)
 		public const string SHARPNESS = PERSONALITY + "/Sharpness"; // Light ->		(slow > sharp)
 		public const string SWIFTNESS = PERSONALITY + "/Swiftness"; // Air ->		(easy > swift)
-		public const string KINDNESS = PERSONALITY + "/Kindness"; // Faeth ->		(selfish > caring)
+		public const string KINDNESS = PERSONALITY + "/Kindness"; // Faeth ->		(ignorant > kind)
 		public const string CAREFULNESS = PERSONALITY + "/Carefulness"; // Water ->	(careless > careful)
 		public const string APTNESS = PERSONALITY + "/Aptness"; // Nature ->		(random > relevant)
 		public const string SERIOUSNESS = PERSONALITY + "/Seriousness"; // Earth ->	(soft > stern)
-		public const string BITTERNESS = PERSONALITY + "/Bitterness"; // Daeth ->	(tolerable > resentful)
+		public const string CLEVERNESS = PERSONALITY + "/Cleverness"; // Daeth ->	(pure > clever)
 		#endregion
 	}
 }

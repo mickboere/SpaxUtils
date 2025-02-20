@@ -137,7 +137,11 @@ namespace SpaxUtils
 					Velocity,
 					hit.point,
 					Velocity.normalized,
-					mass // Stun force transfer
+					mass, // Stun force transfer
+					0f,
+					0f,
+					0f,
+					0f
 				);
 
 				if (hittable.Hit(hitData))

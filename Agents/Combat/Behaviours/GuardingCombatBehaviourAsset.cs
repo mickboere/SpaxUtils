@@ -24,8 +24,8 @@ namespace SpaxUtils
 			this.agentStatHandler = agentStatHandler;
 			this.hittable = hittable;
 
-			defenceStat = Agent.GetStat(AgentStatIdentifiers.DEFENCE);
-			guardStat = Agent.GetStat(AgentStatIdentifiers.GUARD);
+			defenceStat = Agent.Stats.GetStat(AgentStatIdentifiers.DEFENCE);
+			guardStat = Agent.Stats.GetStat(AgentStatIdentifiers.GUARD);
 		}
 
 		public override void Start()
@@ -35,7 +35,7 @@ namespace SpaxUtils
 			defenceMod = new FloatFuncModifier(ModMethod.Additive, (defence) => defence + guardStat * Weight);
 			defenceStat.AddModifier(this, defenceMod);
 
-			enduranceDamageMod = new FloatFuncModifier(ModMethod.Absolute, (damage) => damage / (guardStat * 0.01f).Lerp(1f, Weight.Invert()));
+			enduranceDamageMod = new FloatFuncModifier(ModMethod.Absolute, (damage) => damage * (guardStat * agentStatHandler.PointStatOctad.W.PercentileMax * Weight).InvertClamped());
 			agentStatHandler.PointStatOctad.W.Cost.AddModifier(this, enduranceDamageMod);
 
 			hittable.Subscribe(this, OnHitEvent, 1000);
@@ -57,7 +57,7 @@ namespace SpaxUtils
 			if (Performer.State == PerformanceState.Preparing)
 			{
 				// Drain charge stat.
-				if (Agent.TryApplyStatCost(Move.ChargeCost.Stat, Move.ChargeCost.Cost * delta, false, out _, out bool drained) && drained)
+				if (Agent.Stats.TryApplyStatCost(Move.ChargeCost.Stat, Move.ChargeCost.Cost * delta, false, out _, out bool drained) && drained)
 				{
 					Performer.TryPerform();
 				}

@@ -34,6 +34,26 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public float RunTime => MainPerformer != null ? MainPerformer.RunTime : 0f;
 
+		/// <inheritdoc/>
+		public bool Prolong
+		{
+			get { return MainPerformer != null ? MainPerformer.Prolong : false; }
+			set { if (MainPerformer != null) MainPerformer.Prolong = value; }
+		}
+
+		/// <inheritdoc/>
+		public bool Paused
+		{
+			get { return MainPerformer != null ? MainPerformer.Paused : false; }
+			set { if (MainPerformer != null) MainPerformer.Paused = value; }
+		}
+
+		/// <inheritdoc/>
+		public bool Canceled => MainPerformer != null ? MainPerformer.Canceled : false;
+
+		/// <inheritdoc/>
+		public float CancelTime => MainPerformer != null ? MainPerformer.CancelTime : 0f;
+
 		private CallbackService callbackService;
 		private Dictionary<string, InputToActMapper> inputMappers = new Dictionary<string, InputToActMapper>();
 		private List<IPerformer> availablePerformers = new List<IPerformer>();

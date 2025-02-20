@@ -32,7 +32,6 @@ namespace SpaxUtils
 		[SerializeField] private float fallThreshold = 10f;
 		[SerializeField] private AnimationClip crashPoseClip;
 		[SerializeField] private float crashAngle = 35f;
-		[SerializeField] private float crashStickVelocity = 25f;
 		[SerializeField] private float crashStickTime = 3f;
 		[SerializeField] private float crashDetectionRadius = 0.3f;
 		[SerializeField] private LayerMask crashDetectionMask;
@@ -43,6 +42,7 @@ namespace SpaxUtils
 		private IAgentMovementHandler movementHandler;
 		private AgentArmsComponent arms;
 		private IGrounderComponent grounder;
+		private CallbackService callbackService;
 
 		private Pose airbornePose;
 		private Pose flooredPose;
@@ -54,17 +54,17 @@ namespace SpaxUtils
 		private FloatOperationModifier gravityMod;
 
 		private HitData stunHit;
-		private TimerStruct stunTimer;
+		private TimerClass stunTimer;
 
 		private bool blasted;
-		private TimerStruct airborneTimer;
-		private TimerStruct? getUpTimer;
-		private TimerStruct? crashTimer;
+		private TimerClass airborneTimer;
+		private TimerClass getUpTimer;
+		private TimerClass crashTimer;
 		private RaycastHit crashHit;
 
 		public void InjectDependencies(IAgent agent, RigidbodyWrapper rigidbodyWrapper,
 			AnimatorPoser animatorPoser, IAgentMovementHandler movementHandler,
-			AgentArmsComponent arms, IGrounderComponent grounder)
+			AgentArmsComponent arms, IGrounderComponent grounder, CallbackService callbackService)
 		{
 			this.agent = agent;
 			this.rigidbodyWrapper = rigidbodyWrapper;
@@ -72,6 +72,7 @@ namespace SpaxUtils
 			this.movementHandler = movementHandler;
 			this.arms = arms;
 			this.grounder = grounder;
+			this.callbackService = callbackService;
 		}
 
 		protected void Awake()
@@ -119,15 +120,17 @@ namespace SpaxUtils
 		{
 			Stunned = true;
 			this.stunHit = stunHit;
-			stunTimer = new TimerStruct(minStunTime);
+			stunTimer = new TimerClass(minStunTime, () => EntityTimeScale, callbackService);
 			controlMod.SetValue(0f);
 			agent.Actor.AddBlocker(this);
+			getUpTimer?.Dispose();
 			getUpTimer = null;
+			crashTimer?.Dispose();
 			crashTimer = null;
 
 			if (blasted = rigidbodyWrapper.Speed > blastThreshold)
 			{
-				airborneTimer = new TimerStruct(minAirborneLength);
+				airborneTimer = new TimerClass(minAirborneLength, () => EntityTimeScale, callbackService);
 			}
 
 			EnteredStunEvent?.Invoke();
@@ -169,44 +172,44 @@ namespace SpaxUtils
 			Vector3 direction = -rigidbodyWrapper.Velocity.MultY(groundedAmount.Invert()); // Apply terrain normal.
 
 			//Debug.DrawLine(agent.Targetable.Center, agent.Targetable.Center + -direction.normalized * (crashDetectionRadius + direction.magnitude * Time.fixedDeltaTime), Color.red);
-			if (!crashTimer.HasValue &&
+			if (crashTimer == null &&
 				Physics.SphereCast(agent.Targetable.Center, crashDetectionRadius, -direction, out crashHit, crashDetectionRadius + direction.magnitude * Time.fixedDeltaTime, crashDetectionMask) &&
 				Vector3.Angle(crashHit.normal, direction.normalized) < crashAngle)
 			{
-				crashTimer = new TimerStruct(crashStickTime);
+				crashTimer = new TimerClass(crashStickTime, () => EntityTimeScale, callbackService);
 				rigidbodyWrapper.Velocity = Vector3.zero;
 			}
 
-			if (crashTimer.HasValue)
+			if (crashTimer != null)
 			{
-				gravityMod.SetValue(crashTimer.Value.Progress.InOutCubic());
-				direction = Vector3.Lerp(crashHit.normal, direction, crashTimer.Value.Progress.InOutCubic());
+				gravityMod.SetValue(crashTimer.Progress.InOutCubic());
+				direction = Vector3.Lerp(crashHit.normal, direction, crashTimer.Progress.InOutCubic());
 			}
 
 			movementHandler.ForceRotation(direction);
 
 			PoseTransition blastedPose = new PoseTransition(airbornePose, flooredPose, groundedAmount);
-			PoseTransition fallingPose = new PoseTransition(crashPose, fallPose, crashTimer.HasValue ? crashTimer.Value.Progress : 1f);
-			float fallAmount = Mathf.Max(crashTimer.HasValue ? crashTimer.Value.Progress.Invert() : 0f, Mathf.InverseLerp(blastThreshold, fallThreshold, rigidbodyWrapper.Speed));
-			float blend = grounder.Grounded && !crashTimer.HasValue ? 0f : fallAmount;
+			PoseTransition fallingPose = new PoseTransition(crashPose, fallPose, crashTimer != null ? crashTimer.Progress : 1f);
+			float fallAmount = Mathf.Max(crashTimer != null ? crashTimer.Progress.Invert() : 0f, Mathf.InverseLerp(blastThreshold, fallThreshold, rigidbodyWrapper.Speed));
+			float blend = grounder.Grounded && crashTimer == null ? 0f : fallAmount;
 			PoserInstructions pose = new PoserInstructions(blastedPose, fallingPose, blend);
 
 			float stunWeight = 1f;
-			if (getUpTimer.HasValue)
+			if (getUpTimer != null)
 			{
-				stunWeight *= getUpTimer.Value.Progress.Invert();
+				stunWeight *= getUpTimer.Progress.Invert();
 			}
 			else if (rigidbodyWrapper.Speed < recoveryThreshold)
 			{
-				getUpTimer = new TimerStruct(getUpTime);
+				getUpTimer = new TimerClass(getUpTime, () => EntityTimeScale, callbackService);
 			}
 
-			SpaxDebug.Log("Blasted", $"crash={(crashTimer.HasValue ? crashTimer.Value.Time : 0f)}, ground={groundedAmount}, fall={fallAmount}, blend={blend}, weight={stunWeight}");
+			//SpaxDebug.Log("Blasted", $"crash={(crashTimer != null ? crashTimer.Time : 0f)}, ground={groundedAmount}, fall={fallAmount}, blend={blend}, weight={stunWeight}");
 
 			animatorPoser.ProvideInstructions(this, PoserLayerConstants.BODY, pose, 10, stunWeight);
 			armsMod.SetValue(stunWeight.Invert());
 
-			if (getUpTimer.HasValue && getUpTimer.Value.Expired)
+			if (getUpTimer != null && getUpTimer.Expired)
 			{
 				ExitStun();
 			}

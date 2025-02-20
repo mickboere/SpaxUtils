@@ -74,31 +74,31 @@ namespace SpaxUtils
 			string recoveryId = stat.SubStat(AgentStatIdentifiers.SUB_RECOVERY);
 			string recoveryDelayId = stat.SubStat(AgentStatIdentifiers.SUB_RECOVERY_DELAY);
 
-			timescale = entity.GetStat(EntityStatIdentifiers.TIMESCALE, true, 1f);
+			timescale = entity.Stats.GetStat(EntityStatIdentifiers.TIMESCALE, true, 1f);
 
-			Current = entity.GetStat(stat, true);
+			Current = entity.Stats.GetStat(stat, true);
 
 			if (HasMax)
 			{
 				Current.ValueChangedEvent += OnCurrentChangedEvent;
 				lastCurrent = Current;
 
-				Max = entity.GetStat(maxId, true);
+				Max = entity.Stats.GetStat(maxId, true);
 				Max.ValueChangedEvent += OnMaxChangedEvent;
 			}
 
-			Cost = entity.GetStat(costId, true, 1f);
+			Cost = entity.Stats.GetStat(costId, true, 1f);
 
 			if (IsRecoverable)
 			{
-				Recoverable = entity.GetStat(recoverableId, true);
+				Recoverable = entity.Stats.GetStat(recoverableId, true);
 				Recoverable.ValueChangedEvent += OnRecoverableChangedEvent;
-				Frailty = entity.GetStat(frailtyId);
+				Frailty = entity.Stats.GetStat(frailtyId);
 			}
 			if (HasRecovery)
 			{
-				Recovery = entity.GetStat(recoveryId, true);
-				RecoveryDelay = entity.GetStat(recoveryDelayId, true);
+				Recovery = entity.Stats.GetStat(recoveryId, true);
+				RecoveryDelay = entity.Stats.GetStat(recoveryDelayId, true);
 			}
 
 			if (HasMax && Current.BaseValue > Max)

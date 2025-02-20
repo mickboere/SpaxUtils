@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace SpaxUtils
 {
@@ -12,10 +13,11 @@ namespace SpaxUtils
 		public MeleeAttackType AttackType => attackType;
 		public List<string> HitBoxes => hitBoxes;
 		public float HitDetectionDelay => hitDetectionDelay;
-		public Vector3 Inertia => momentum;
-		public float ForceDelay => forceDelay;
+		public Vector3 Inertia => inertia;
+		public float InertiaDelay => inertiaDelay;
+		public float ProlongThreshold => prolongThreshold;
 		public string Limb => limb;
-		public float Strength => strength;
+		public float Power => power;
 		public float Offence => offence;
 		public float Piercing => piercing;
 
@@ -25,12 +27,13 @@ namespace SpaxUtils
 		[SerializeField] private float hitDetectionDelay = 0f;
 
 		[Header("Momentum")]
-		[SerializeField] private Vector3 momentum;
-		[SerializeField] private float forceDelay;
+		[SerializeField, FormerlySerializedAs("momentum")] private Vector3 inertia;
+		[SerializeField, FormerlySerializedAs("forceDelay")] private float inertiaDelay;
+		[SerializeField, Tooltip("Velocity above which the performance should be prolonged.")] private float prolongThreshold = 1f;
 
 		[Header("Stats")]
 		[SerializeField, ConstDropdown(typeof(IStatIdentifiers), filter: AgentStatIdentifiers.SUB_STAT)] private string limb;
-		[SerializeField, Range(0f, 1f), Tooltip("Percentage of user's strength transfered into hit.")] private float strength = 1f;
+		[SerializeField, Range(0f, 1f), Tooltip("Percentage of user's strength transfered into hit."), FormerlySerializedAs("strength")] private float power = 1f;
 		[SerializeField, Range(0f, 1f), Tooltip("Percentage of user's offence transfered into hit.")] private float offence = 1f;
 		[SerializeField, Range(0f, 1f), Tooltip("Percentage of user's piercing transfered into hit.")] private float piercing = 1f;
 	}

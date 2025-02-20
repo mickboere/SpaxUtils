@@ -21,10 +21,9 @@ namespace SpaxUtils
 		private CombatSettings combatSettings;
 		private CallbackService callbackService;
 		private IStunHandler stunHandler;
+		private AgentStatHandler statHandler;
 
 		private EntityStat timescaleStat;
-		private EntityStat health;
-		private EntityStat endurance;
 		private EntityStat defence;
 		private EntityStat hardness;
 
@@ -33,7 +32,7 @@ namespace SpaxUtils
 		public void InjectDependencies(IAgent agent, IHittable hittable,
 			RigidbodyWrapper rigidbodyWrapper,
 			CombatSettings combatSettings, CallbackService callbackService,
-			IStunHandler stunHandler)
+			IStunHandler stunHandler, AgentStatHandler statHandler)
 		{
 			this.agent = agent;
 			this.hittable = hittable;
@@ -41,15 +40,14 @@ namespace SpaxUtils
 			this.combatSettings = combatSettings;
 			this.callbackService = callbackService;
 			this.stunHandler = stunHandler;
+			this.statHandler = statHandler;
 		}
 
 		protected void OnEnable()
 		{
-			timescaleStat = agent.GetStat(EntityStatIdentifiers.TIMESCALE, true);
-			health = agent.GetStat(AgentStatIdentifiers.HEALTH, true);
-			endurance = agent.GetStat(AgentStatIdentifiers.ENDURANCE, true);
-			defence = agent.GetStat(AgentStatIdentifiers.DEFENCE, true);
-			hardness = agent.GetStat(AgentStatIdentifiers.HARDNESS, true);
+			timescaleStat = agent.Stats.GetStat(EntityStatIdentifiers.TIMESCALE, true);
+			defence = agent.Stats.GetStat(AgentStatIdentifiers.DEFENCE, true);
+			hardness = agent.Stats.GetStat(AgentStatIdentifiers.HARDNESS, true);
 
 			hittable.Subscribe(this, OnHitEvent, 100);
 		}
@@ -66,30 +64,33 @@ namespace SpaxUtils
 		private void OnHitEvent(HitData hitData)
 		{
 			// Transfer intertia.
-			rigidbodyWrapper.Push(hitData.Inertia, hitData.Mass);
+			rigidbodyWrapper.Push(hitData.Inertia, hitData.HitterMass);
 
 			// Calculate damage and impact.
 			if (!hitData.Result_Parried)
 			{
-				float damage = Invulnerable ? 0f : SpaxFormulas.CalculateDamage(hitData.Offence, defence);
-				hitData.Result_Penetration = (hitData.Offence * hitData.Piercing / defence * hardness.Value.InvertClamped()).OutCubic();
-				hitData.Result_Impact = (hitData.Strength * hitData.Piercing.InvertClamped() / defence * hardness).OutCubic();
-				hitData.Result_Damage = damage * (hitData.Result_Penetration + hitData.Result_Impact);
-				hitData.Result_Force = hitData.Strength * hitData.Result_Impact;
+				float damage = SpaxFormulas.CalculateDamage(hitData.Offence, defence);
+				hitData.Result_PenetrationPercentile = hitData.Offence * hitData.Piercing / defence;
+				float impact = (hitData.Hardness - hardness).Clamp01();
+				hitData.Result_ImpactPercentile = (hitData.Power * impact + hitData.Power * hitData.Piercing.InvertClamped()) * 0.5f / defence;
+				hitData.Result_Damage = damage * (hitData.Result_PenetrationPercentile + hitData.Result_ImpactPercentile);
+				hitData.Result_Force = hitData.Mass * hitData.Power * hitData.Result_ImpactPercentile;
 			}
+
+			statHandler.PointStatOctad.NE.Current.BaseValue += hitData.Result_Force * hitData.Result_Blocked;
 
 			// Apply hit-pause.
 			hitPauseMod?.Dispose();
 			hitPauseMod = new TimedCurveModifier(
 				ModMethod.Absolute,
 				combatSettings.HitPauseCurve,
-				new TimerStruct(Mathf.LerpUnclamped(combatSettings.HitPauseRange.x, combatSettings.HitPauseRange.y, hitData.Result_Impact)),
+				new TimerStruct(Mathf.LerpUnclamped(combatSettings.HitPauseRange.x, combatSettings.HitPauseRange.y, hitData.Result_ImpactPercentile)),
 				callbackService);
 			timescaleStat.RemoveModifier(this);
 			timescaleStat.AddModifier(this, hitPauseMod);
 
 			// Damage endurance.
-			endurance.Damage(hitData.Result_Force, true, out bool stunned);
+			statHandler.PointStatOctad.W.Current.Damage(hitData.Power, true, out bool stunned, out float overdraw);
 			if (stunned)
 			{
 				hitData.Result_Stunned = true;
@@ -98,7 +99,7 @@ namespace SpaxUtils
 				agent.Actor.TryCancel(true);
 
 				// Transfer Impact.
-				rigidbodyWrapper.Push(hitData.Direction * hitData.Result_Force, hitData.Force);
+				rigidbodyWrapper.Push(hitData.Direction * hitData.Result_Force, 1f);
 
 				// Apply stun.
 				stunHandler.EnterStun(hitData);
@@ -107,7 +108,7 @@ namespace SpaxUtils
 			if (!Invulnerable)
 			{
 				// Damage health.
-				health.Damage(hitData.Result_Damage, true, out bool dead);
+				statHandler.PointStatOctad.SW.Current.Damage(hitData.Result_Damage, true, out bool dead);
 				if (dead)
 				{
 					if (stunHandler.Stunned)
@@ -126,7 +127,7 @@ namespace SpaxUtils
 				Hits++;
 			}
 
-			//SpaxDebug.Log($"Hit {agent.Identification.Name}", hitData.ToString(), context: agent.GameObject);
+			SpaxDebug.Log($"Hit {agent.Identification.Name}", hitData.ToString(), context: agent.GameObject);
 		}
 
 		private void Die()

@@ -57,8 +57,9 @@ namespace SpaxUtils
 						hitData.Inertia,
 						hitData.Point,
 						-hitData.Inertia.normalized,
-						hitData.Force,
-						hitData.Strength,
+						hitData.Mass,
+						hitData.Hardness,
+						hitData.Power,
 						0f,
 						0f);
 

@@ -31,9 +31,14 @@ namespace SpaxUtils
 		public Vector3 Inertia { get; }
 
 		/// <summary>
-		/// The delay in applied momentum force into the performance.
+		/// The delay in applied inertia into the performance runtime.
 		/// </summary>
-		public float ForceDelay { get; }
+		public float InertiaDelay { get; }
+
+		/// <summary>
+		/// The velocity above which the performance should be prolonged.
+		/// </summary>
+		public float ProlongThreshold { get; }
 
 		#region Stats
 
@@ -45,7 +50,7 @@ namespace SpaxUtils
 		/// <summary>
 		/// Percentage of user's strength that gets transfered into the attack.
 		/// </summary>
-		float Strength { get; }
+		float Power { get; }
 
 		/// <summary>
 		/// Percentage of user's offence that gets transfered into the attack.

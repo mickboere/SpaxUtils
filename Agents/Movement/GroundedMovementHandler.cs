@@ -68,6 +68,7 @@ namespace SpaxUtils
 		private MovementInputHelper inputHelper;
 
 		private EntityStat moveSpeedStat;
+		private float swiftness;
 
 		public void InjectDependencies(RigidbodyWrapper rigidbodyWrapper, IGrounderComponent grounder, MovementInputSettings inputSettings)
 		{
@@ -75,12 +76,13 @@ namespace SpaxUtils
 			this.grounder = grounder;
 			this.inputSettings = inputSettings;
 
-			moveSpeedStat = Agent.GetStat(AgentStatIdentifiers.MOVEMENT_SPEED, true, 1f);
+			moveSpeedStat = Agent.Stats.GetStat(AgentStatIdentifiers.MOVEMENT_SPEED, true, 1f);
+			swiftness = Agent.RuntimeData.GetValue(MindDataIdentifiers.SWIFTNESS, 1f);
 		}
 
 		protected void OnEnable()
 		{
-			inputHelper = new MovementInputHelper(inputSettings);
+			inputHelper = new MovementInputHelper(inputSettings, swiftness);
 			InputAxis = Transform.forward;
 			TargetDirection = Transform.forward;
 		}
@@ -103,7 +105,7 @@ namespace SpaxUtils
 			rigidbodyWrapper.ControlAxis = Vector3.one.FlattenY();
 
 			// Calculate appropriate input value according to stats.
-			Vector3 input = Entity.TryGetStat(sprintCost.Stat, out EntityStat cost) ?
+			Vector3 input = Entity.Stats.TryGetStat(sprintCost.Stat, out EntityStat cost) ?
 					(cost > 0f || InputRaw == Vector3.zero ? InputRaw : InputRaw.ClampMagnitude(tiredInputLimiter)) :
 					InputRaw;
 			// Update smooth input value.
@@ -121,7 +123,7 @@ namespace SpaxUtils
 
 				if (InputRaw.magnitude > 1.01f)
 				{
-					Entity.TryApplyStatCost(sprintCost.Stat, sprintCost.Cost * rigidbodyWrapper.Speed * rigidbodyWrapper.Mass * (InputRaw.magnitude - 1f) * delta);
+					Entity.Stats.TryApplyStatCost(sprintCost.Stat, sprintCost.Cost * rigidbodyWrapper.Speed * rigidbodyWrapper.Mass * (InputRaw.magnitude - 1f) * delta);
 				}
 			}
 			//else

@@ -73,6 +73,7 @@
 
 		// Body stats
 		#region Body Stats
+
 		private const string BODY_STAT = IStatIdentifiers.STATS + "BODY/";
 
 		// Earth
@@ -82,28 +83,37 @@
 		public const string DEFENCE = BODY_STAT + "Defence"; // Total amount of passive defence.
 		public const string GUARD = BODY_STAT + "Guard"; // Total amount of active (guarding) defence.
 		public const string HARDNESS = BODY_STAT + "Hardness"; // The hardness of the body's exterior (0-1~). Hard bodies take less piercing damage but more force damage.
-															   // Daeth
+
+		// Daeth
 		public const string OFFENCE = BODY_STAT + "Offence"; // Total damage output.
 		public const string PIERCING = BODY_STAT + "Piercing"; // Piercing power of attacks (0-1~). Piercing attacks deal damage by penetrating soft bodies.
 		public const string REACH = BODY_STAT + "Reach"; // The agent's base melee reach (should be as large as the idle collision radius, limbs define actual reach.).
-														 // Fire
+
+		// Fire
 		public const string ENERGY = BODY_STAT + "Energy"; // Amount of spendable force-points.
-		public const string STRENGTH = BODY_STAT + "Strength"; // The body's maximum force output.
-															   // Light
+		public const string STRENGTH = BODY_STAT + "Strength"; // The body's lifting strength.
+		public const string POWER = BODY_STAT + "Power"; // The body's output force.
+		
+		// Light
 		public const string STATIC = BODY_STAT + "Static"; // Amount of available charge.
 		public const string ATTACK_CHARGE_SPEED = BODY_STAT + "Attack_Charge_Speed";
 		public const string ATTACK_PERFORM_SPEED = BODY_STAT + "Attack_Perform_Speed";
+
 		// Air
 		public const string STAMINA = BODY_STAT + "Stamina";
 		public const string MOVEMENT_SPEED = BODY_STAT + "Movement_Speed";
+
 		// Faeth
 		public const string FRAILTY = BODY_STAT + "Frailty";
+
 		// Water
 		public const string MANA = BODY_STAT + "Mana";
+
 		// Growth
 		public const string HEALTH = BODY_STAT + "Health";
 		public const string RECOVERY = BODY_STAT + "Recovery";
 		public const string RECOVERY_DELAY = BODY_STAT + "Recovery_Delay";
+
 		#endregion Body Stats
 
 		// Soul Stats

@@ -53,7 +53,7 @@ namespace SpaxUtils
 
 		private Dictionary<IEntity, Vector8> stimuli = new Dictionary<IEntity, Vector8>();
 
-		public AEMOI(IDependencyManager dependencyManager, AEMOISettings settings, IOctad inclination,IOctad personality, IEnumerable<IMindBehaviour> behaviours = null)
+		public AEMOI(IDependencyManager dependencyManager, AEMOISettings settings, IOctad inclination, IOctad personality, IEnumerable<IMindBehaviour> behaviours = null)
 		{
 			this.dependencyManager = dependencyManager;
 			this.settings = settings;

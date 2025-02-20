@@ -39,9 +39,9 @@ namespace SpaxUtils
 		RuntimeDataCollection RuntimeData { get; }
 
 		/// <summary>
-		/// The modified runtime data.
+		/// The <see cref="EntityStat"/>s that wrap around the <see cref="RuntimeData"/>.
 		/// </summary>
-		StatCollection<EntityStat> Stats { get; }
+		EntityStatManager Stats { get; }
 
 		/// <summary>
 		/// Whether this entity is currently alive or not.
@@ -113,35 +113,6 @@ namespace SpaxUtils
 		/// <param name="identifier">The identifier of the <see cref="RuntimeDataEntry"/> of which to return its value.</param>
 		/// <returns>The value of the <see cref="RuntimeDataEntry"/> with ID <paramref name="identifier"/> as <typeparamref name="T"/>.</returns>
 		T GetDataValue<T>(string identifier);
-
-		/// <summary>
-		/// Returns an <see cref="EntityStat"/> that wraps around the data with ID <paramref name="identifier"/>.
-		/// <see cref="EntityStat"/> implements <see cref="CompositeFloatBase"/> which allows any amount of modifications to be done to the base data value without changing the data itself.
-		/// </summary>
-		/// <param name="identifier">The identifier of the runtime data for which to return a modifiable <see cref="EntityStat"/>.</param>
-		/// <param name="createDataIfNull">If there is no existing data for <paramref name="identifier"/>, should it be created?</param>
-		/// <param name="defaultValueIfUndefined">The default value for the newly created stat if there is no stat configuration data available.</param>
-		/// <returns>An <see cref="EntityStat"/> that wraps around the data with ID <paramref name="identifier"/>.</returns>
-		EntityStat GetStat(string identifier, bool createDataIfNull = false, float defaultValueIfUndefined = 0f);
-
-		/// <summary>
-		/// Checks whether an <see cref="EntityStat"/> wrapping around data with ID <paramref name="identifier"/> exists.
-		/// <see cref="EntityStat"/> implements <see cref="CompositeFloatBase"/> which allows any amount of modifications to be done to the base data value without changing the data itself.
-		/// </summary>
-		/// <param name="identifier">The identifier of the runtime data for which to seek the modifiable <see cref="EntityStat"/>.</param>
-		/// <param name="stat">The resulting <see cref="EntityStat"/>, if any.</param>
-		/// <returns>Whether an <see cref="EntityStat"/> exists with ID <paramref name="identifier"/>.</returns>
-		bool TryGetStat(string identifier, out EntityStat stat);
-
-		/// <summary>
-		/// Will try to retrieve <paramref name="stat"/> and damage it by <paramref name="cost"/>.
-		/// </summary>
-		bool TryApplyStatCost(string stat, float cost, bool clamp, out float damage, out bool drained);
-
-		/// <summary>
-		/// Will try to retrieve <paramref name="stat"/> and damage it by <paramref name="cost"/>.
-		/// </summary>
-		bool TryApplyStatCost(string stat, float cost, bool clamp = false);
 
 		#endregion
 

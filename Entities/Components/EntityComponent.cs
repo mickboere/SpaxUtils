@@ -19,7 +19,7 @@ namespace SpaxUtils
 		public EntityComponent(IEntity entity, IDependencyManager dependencyManager)
 		{
 			Entity = entity;
-			EntityTimeScale = entity.GetStat(EntityStatIdentifiers.TIMESCALE, true, 1f);
+			EntityTimeScale = entity.Stats.GetStat(EntityStatIdentifiers.TIMESCALE, true, 1f);
 			DependencyManager = dependencyManager;
 			if (AutoInject)
 			{

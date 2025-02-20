@@ -8,15 +8,17 @@ namespace SpaxUtils
 	/// </summary>
 	public class MovementInputHelper : IDisposable
 	{
-		private MovementInputSettings settings;
+		private IMovementInputSettings settings;
 		private Vector3 previousInput;
 		private Vector3 current;
 		private Vector3 shiftPoint;
 		private float progress;
+		private float swiftness;
 
-		public MovementInputHelper(MovementInputSettings settings)
+		public MovementInputHelper(IMovementInputSettings settings, float swiftness = 1f)
 		{
 			this.settings = settings;
+			this.swiftness = swiftness;
 		}
 
 		public void Dispose()
@@ -49,9 +51,9 @@ namespace SpaxUtils
 			//input *= settings.EvaluateInputRamp(input.magnitude);
 			float accelerationAmount = (Vector3.Dot(current.normalized, input.normalized) + 1) * 0.5f;
 			float distance = (input - shiftPoint).magnitude.Max(Mathf.Epsilon);
-			float progressChange = 1f / Mathf.Lerp(settings.DecelerationTime, settings.AccelerationTime, accelerationAmount) * (1f / distance) * deltaTime;
+			float progressChange = 1f / Mathf.Lerp(settings.DecelerationTime.Lerp(swiftness.Invert()), settings.AccelerationTime.Lerp(swiftness.Invert()), accelerationAmount) * (1f / distance) * deltaTime;
 			progress = Mathf.Clamp01(progress + progressChange);
-			float eval = Mathf.Lerp(settings.EvaluateDecelerationNormalized(1f - progress), settings.EvaluateAccelerationNormalized(progress), accelerationAmount);
+			float eval = Mathf.Lerp(settings.DecelerationCurve.Evaluate(1f - progress), settings.AccelerationCurve.Evaluate(progress), accelerationAmount);
 			current = Vector3.Lerp(shiftPoint, input, eval);
 
 			if (float.IsNaN(current.x))

@@ -12,7 +12,7 @@ namespace SpaxUtils
 		/// <summary>
 		/// The desired enum value, if <see cref="ToggleProperty"/> refers to an enum.
 		/// </summary>
-		public int EnumValue { get; }
+		public int[] EnumValues { get; }
 
 		/// <summary>
 		/// Should the condition be inversed, making true false and false true.
@@ -32,7 +32,7 @@ namespace SpaxUtils
 		public ConditionalAttribute(string toggleProperty, bool inverse = false, bool drawToggle = false, bool hide = true)
 		{
 			ToggleProperty = toggleProperty;
-			EnumValue = -1;
+			EnumValues = new int[0];
 			Inverse = inverse;
 			DrawToggle = drawToggle;
 			Hide = hide;
@@ -41,7 +41,16 @@ namespace SpaxUtils
 		public ConditionalAttribute(string toggleProperty, int enumValue, bool inverse = false, bool drawToggle = false, bool hide = true)
 		{
 			ToggleProperty = toggleProperty;
-			EnumValue = enumValue;
+			EnumValues = new int[1] { enumValue };
+			Inverse = inverse;
+			DrawToggle = drawToggle;
+			Hide = hide;
+		}
+
+		public ConditionalAttribute(string toggleProperty, bool inverse = false, bool drawToggle = false, bool hide = true, params int[] enumValues)
+		{
+			ToggleProperty = toggleProperty;
+			EnumValues = enumValues;
 			Inverse = inverse;
 			DrawToggle = drawToggle;
 			Hide = hide;

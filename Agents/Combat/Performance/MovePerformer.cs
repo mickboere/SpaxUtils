@@ -27,6 +27,8 @@ namespace SpaxUtils
 
 		public IPerformanceMove Move { get; private set; }
 		public float Charge { get; private set; }
+		public bool Prolong { get; set; }
+		public bool Paused { get; set; }
 		public bool Canceled { get; private set; }
 		public float CancelTime { get; private set; }
 
@@ -39,6 +41,7 @@ namespace SpaxUtils
 
 		private List<BehaviourAsset> behaviours;
 		private bool released;
+		private bool started;
 
 		public MovePerformer(IDependencyManager dependencyManager, IAct act,
 			IPerformanceMove move, IAgent agent, EntityStat entityTimeScale,
@@ -58,6 +61,8 @@ namespace SpaxUtils
 			State = Move.HasCharge ? PerformanceState.Preparing : PerformanceState.Performing;
 			RunTime = 0f;
 			Charge = 0f;
+			Prolong = false;
+			Paused = false;
 
 			// Initialize behaviours.
 			behaviours = new List<BehaviourAsset>();
@@ -129,7 +134,7 @@ namespace SpaxUtils
 		{
 			if (!Canceled)
 			{
-				EntityStat speedMult = State == PerformanceState.Preparing ? agent.GetStat(Move.ChargeSpeedMultiplierStat) : agent.GetStat(Move.PerformSpeedMultiplierStat);
+				EntityStat speedMult = State == PerformanceState.Preparing ? agent.Stats.GetStat(Move.ChargeSpeedMultiplierStat) : agent.Stats.GetStat(Move.PerformSpeedMultiplierStat);
 				float delta = Time.deltaTime * (speedMult ?? 1f) * entityTimeScale;
 
 				if (State == PerformanceState.Preparing)
@@ -146,13 +151,17 @@ namespace SpaxUtils
 				// No else statement here to remove frame delay.
 				if (State != PerformanceState.Preparing)
 				{
-					if (RunTime.Approx(0f))
+					if (!started)
 					{
 						PerformanceStartedEvent?.Invoke(this);
+						started = true;
 					}
 
 					// Performing.
-					RunTime += delta;
+					if (!Paused && (State != PerformanceState.Performing || !Prolong || RunTime + delta < Move.MinDuration))
+					{
+						RunTime += delta;
+					}
 
 					if (RunTime >= Move.TotalDuration)
 					{

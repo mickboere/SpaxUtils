@@ -12,6 +12,8 @@ namespace SpaxUtils
 	{
 		[SerializeField] private float autoAimRange = 2f;
 		[SerializeField] private LayerMask hitDetectionMask;
+		[SerializeField] private float chargePower = 2f;
+		[SerializeField, MinMaxRange(0.5f, 1.5f)] private Vector2 speedModRange = new Vector2(0.5f, 1.5f);
 
 		protected IMeleeCombatMove move;
 		protected CallbackService callbackService;
@@ -27,11 +29,17 @@ namespace SpaxUtils
 		private EntityStat timescaleStat;
 		private EntityStat limbMassStat;
 		private EntityStat strengthStat;
+		private EntityStat powerStat;
 		private EntityStat limbOffenceStat;
 		private EntityStat limbPiercingStat;
+		private EntityStat limbHardnessStat;
 		private EntityStat massStat;
-		private EntityStat chargeSpeedStat;
 		private EntityStat chargeStat;
+		private EntityStat chargeSpeedStat;
+		private EntityStat performSpeedStat;
+
+		private FloatFuncModifier speedMod;
+		private FloatFuncModifier performSpeedMod;
 
 		private CombatHitDetector hitDetector;
 		private TimerClass momentumTimer;
@@ -55,14 +63,17 @@ namespace SpaxUtils
 			this.rigidbodyWrapper = rigidbodyWrapper;
 			this.comms = communicationChannel;
 
-			timescaleStat = Agent.GetStat(EntityStatIdentifiers.TIMESCALE, true, 1f);
-			limbMassStat = Agent.GetStat(AgentStatIdentifiers.MASS.SubStat(this.move.Limb));
-			strengthStat = Agent.GetStat(AgentStatIdentifiers.STRENGTH);
-			limbOffenceStat = Agent.GetStat(AgentStatIdentifiers.OFFENCE.SubStat(this.move.Limb));
-			limbPiercingStat = Agent.GetStat(AgentStatIdentifiers.PIERCING.SubStat(this.move.Limb));
-			massStat = Agent.GetStat(AgentStatIdentifiers.MASS);
-			chargeSpeedStat = Agent.GetStat(move.ChargeSpeedMultiplierStat, false, 1f);
-			chargeStat = Agent.GetStat(move.ChargeCost.Stat);
+			timescaleStat = Agent.Stats.GetStat(EntityStatIdentifiers.TIMESCALE, true, 1f);
+			limbMassStat = Agent.Stats.GetStat(AgentStatIdentifiers.MASS.SubStat(this.move.Limb));
+			strengthStat = Agent.Stats.GetStat(AgentStatIdentifiers.STRENGTH);
+			powerStat = Agent.Stats.GetStat(AgentStatIdentifiers.POWER);
+			limbOffenceStat = Agent.Stats.GetStat(AgentStatIdentifiers.OFFENCE.SubStat(this.move.Limb));
+			limbPiercingStat = Agent.Stats.GetStat(AgentStatIdentifiers.PIERCING.SubStat(this.move.Limb), true);
+			limbHardnessStat = Agent.Stats.GetStat(AgentStatIdentifiers.HARDNESS.SubStat(this.move.Limb), true);
+			massStat = Agent.Stats.GetStat(AgentStatIdentifiers.MASS);
+			chargeStat = Agent.Stats.GetStat(move.ChargeCost.Stat);
+			chargeSpeedStat = Agent.Stats.GetStat(move.ChargeSpeedMultiplierStat, false, 1f);
+			performSpeedStat = Agent.Stats.GetStat(move.PerformSpeedMultiplierStat, false, 1f);
 		}
 
 		public override void Start()
@@ -72,6 +83,10 @@ namespace SpaxUtils
 			hitDetector = new CombatHitDetector(Agent, transformLookup, move, hitDetectionMask);
 			Performer.PerformanceStartedEvent += OnPerformanceStartedEvent;
 			totalCharge = 1f;
+
+			speedMod = new FloatFuncModifier(ModMethod.Absolute, (float f) => f * (strengthStat / limbMassStat).Clamp(speedModRange.x, speedModRange.y));
+			chargeSpeedStat.AddModifier(this, speedMod);
+			performSpeedStat.AddModifier(this, speedMod);
 		}
 
 		public override void Stop()
@@ -80,18 +95,24 @@ namespace SpaxUtils
 
 			hitDetector.Dispose();
 			Performer.PerformanceStartedEvent -= OnPerformanceStartedEvent;
+
+			chargeSpeedStat.RemoveModifier(this);
+			performSpeedStat.RemoveModifier(this);
+			speedMod.Dispose();
 		}
 
 		public override void ExternalUpdate(float delta)
 		{
 			base.ExternalUpdate(delta);
 
+			Performer.Prolong = RigidbodyWrapper.Speed > move.ProlongThreshold;
+
 			if (Performer.State == PerformanceState.Preparing && Performer.Charge > Move.MinCharge)
 			{
 				// Drain charge stat.
-				if (Agent.TryApplyStatCost(Move.ChargeCost.Stat, move.ChargeCost.Cost * delta * chargeSpeedStat, true, out float damage, out bool drained))
+				if (Agent.Stats.TryApplyStatCost(Move.ChargeCost.Stat, move.ChargeCost.Cost * delta * chargeSpeedStat, true, out float damage, out bool drained))
 				{
-					totalCharge += damage;
+					totalCharge += damage * chargePower;
 					if (drained)
 					{
 						Performer.TryPerform();
@@ -109,7 +130,7 @@ namespace SpaxUtils
 				// Apply momentum to user after delay.
 				if (momentumTimer != null && momentumTimer.Expired)
 				{
-					RigidbodyWrapper.PushRelative(move.Inertia);
+					RigidbodyWrapper.PushRelative(move.Inertia * totalCharge);
 					momentumTimer.Dispose();
 					momentumTimer = null;
 				}
@@ -136,9 +157,10 @@ namespace SpaxUtils
 			// STAT COST:
 			if (massStat == null) SpaxDebug.Error("massStat NULL");
 			if (limbMassStat == null) SpaxDebug.Error("limbMassStat NULL");
-			Agent.TryApplyStatCost(Move.PerformCost.Stat, Move.PerformCost.Cost * (massStat - limbMassStat) * 0.5f + limbMassStat * 2f, false, out _, out _);
 
-			momentumTimer = new TimerClass(move.ForceDelay, () => timescaleStat, callbackService);
+			Agent.Stats.TryApplyStatCost(Move.PerformCost.Stat, Move.PerformCost.Cost * (limbMassStat / strengthStat) * 100f, false, out _, out _);
+
+			momentumTimer = new TimerClass(move.InertiaDelay, () => timescaleStat, callbackService);
 		}
 
 		protected void OnNewHitDetected(List<HitScanHitData> newHits)
@@ -148,9 +170,8 @@ namespace SpaxUtils
 				if (hit.GameObject.TryGetComponentRelative(out IHittable hittable))
 				{
 					// Generate hit data.
-					Vector3 inertia = move.Inertia.Look((hittable.Entity.Transform.position - Agent.Transform.position).FlattenY().normalized);
-					float force = limbMassStat;
-					float strength = strengthStat * move.Strength * totalCharge;
+					Vector3 inertia = move.Inertia.Look((hittable.Entity.Transform.position - Agent.Transform.position).FlattenY().normalized) * totalCharge;
+					float power = powerStat * move.Power * totalCharge;
 					float offence = limbOffenceStat * move.Offence;
 					float piercing = limbPiercingStat * move.Piercing;
 
@@ -161,8 +182,9 @@ namespace SpaxUtils
 						inertia,
 						hit.Point,
 						hit.Direction,
-						force,
-						strength,
+						limbMassStat,
+						limbHardnessStat,
+						power,
 						offence,
 						piercing
 					);
@@ -177,9 +199,11 @@ namespace SpaxUtils
 			// Send hit and apply return data.
 			if (hittable.Hit(hitData))
 			{
+				rigidbodyWrapper.Velocity *= 0.5f;
+
 				if (chargeStat != null)
 				{
-					chargeStat.BaseValue += hitData.Strength * 0.001f;
+					chargeStat.BaseValue += hitData.Result_Force * 0.001f;
 				}
 
 				if (hitData.Result_Parried)
@@ -187,7 +211,7 @@ namespace SpaxUtils
 					Performer.TryCancel(true);
 				}
 
-				float hitPause = Mathf.LerpUnclamped(combatSettings.HitPauseRange.x, combatSettings.HitPauseRange.y, hitData.Result_Impact);
+				float hitPause = Mathf.LerpUnclamped(combatSettings.HitPauseRange.x, combatSettings.HitPauseRange.y, hitData.Result_ImpactPercentile);
 				if (hitPauseMod == null || hitPause > hitPauseMod.Timer.Remaining)
 				{
 					// Apply hit-pause.

@@ -7,25 +7,6 @@ namespace SpaxUtils
 {
 	public class EnemySense : IDisposable
 	{
-		public class EnemyData
-		{
-			public IAgent Agent;
-			public float LastSeen;
-			public Vector3 Direction;
-			public float Distance;
-			public float Resentment;
-			public float Reach;
-			public float Threat;
-			public float Advantage;
-			public float Disadvantage;
-			public float Oppurtunity;
-
-			public EnemyData(IAgent agent)
-			{
-				Agent = agent;
-			}
-		}
-
 		private Dictionary<ITargetable, EnemyData> enemies = new Dictionary<ITargetable, EnemyData>();
 
 		private IAgent agent;
@@ -112,19 +93,23 @@ namespace SpaxUtils
 				enemyData.LastSeen = Time.time;
 				enemyData.Direction = enemyData.Agent.Transform.position - agent.Transform.position;
 				enemyData.Distance = enemyData.Direction.magnitude;
+				enemyData.Direction = enemyData.Direction.normalized; // Direction should be normalized for dotting.
 
 				// Threat is defined by distance to enemy.
 				enemyData.Threat = (enemyData.Distance / (vision.Range * settings.ThreatRange)).InvertClamped().Evaluate(settings.ThreatCurve);
-				// Oppurtunity is defined by enemy being occupied.
-				enemyData.Oppurtunity = (enemyData.Agent.Actor.State is PerformanceState.Performing ? 1f : 0.5f) * enemyData.Threat.Invert();
+				// Oppurtunity is defined by enemy being open to offence.
+				enemyData.Oppurtunity = enemyData.Direction.NormalizedDot(enemyData.Agent.Transform.forward) * 2f +
+					(enemyData.Agent.Actor.State is PerformanceState.Performing ? 1f : 0.5f) * enemyData.Threat.Invert();
 				// (Dis)Advantage is defined by difference in current stat points.
 				float enemyPointSum = enemyData.Agent.GetEntityComponent<AgentStatHandler>().PointStatOctad.Vector8.Sum();
 				enemyData.Advantage = pointSum / enemyPointSum;
 				enemyData.Disadvantage = enemyPointSum / pointSum;
-				enemyData.Reach = enemyAgent.GetStat(AgentStatIdentifiers.REACH) +
+				enemyData.Reach = enemyAgent.Stats.GetStat(AgentStatIdentifiers.REACH) +
 					Mathf.Max(
-						enemyData.Agent.GetStat(AgentStatIdentifiers.REACH.SubStat(AgentStatIdentifiers.SUB_LEFT_HAND)),
-						enemyData.Agent.GetStat(AgentStatIdentifiers.REACH.SubStat(AgentStatIdentifiers.SUB_RIGHT_HAND)));
+						enemyData.Agent.Stats.GetStat(AgentStatIdentifiers.REACH.SubStat(AgentStatIdentifiers.SUB_LEFT_HAND)),
+						enemyData.Agent.Stats.GetStat(AgentStatIdentifiers.REACH.SubStat(AgentStatIdentifiers.SUB_RIGHT_HAND)));
+				enemyData.Projection = agent.Body.RigidbodyWrapper.Velocity.normalized.Dot(enemyData.Direction) * agent.Body.RigidbodyWrapper.Speed +
+					enemyData.Agent.Body.RigidbodyWrapper.Velocity.normalized.Dot(-enemyData.Direction) * enemyData.Agent.Body.RigidbodyWrapper.Speed;
 			}
 
 			// Check for any enemies that have been out of view for too long and forget about them.
@@ -186,7 +171,7 @@ namespace SpaxUtils
 					float range = combatMove.Range;
 					if (combatMove is IMeleeCombatMove meleeCombatMove)
 					{
-						range += enemy.Agent.GetStat(AgentStatIdentifiers.REACH.SubStat(meleeCombatMove.Limb)) ?? 0f;
+						range += enemy.Agent.Stats.GetStat(AgentStatIdentifiers.REACH.SubStat(meleeCombatMove.Limb)) ?? 0f;
 					}
 
 					danger = Mathf.InverseLerp(range + range, range, enemy.Distance).InOutSine() * AEMOI.MAX_STIM;

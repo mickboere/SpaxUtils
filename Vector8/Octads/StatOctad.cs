@@ -117,14 +117,14 @@ namespace SpaxUtils
 				Unsubscribe();
 			}
 			stats = new EntityStat[8];
-			stats[0] = entity.GetStat(north, true, defaultValues.N);
-			stats[1] = entity.GetStat(northEast, true, defaultValues.NE);
-			stats[2] = entity.GetStat(east, true, defaultValues.E);
-			stats[3] = entity.GetStat(southEast, true, defaultValues.SE);
-			stats[4] = entity.GetStat(south, true, defaultValues.S);
-			stats[5] = entity.GetStat(southWest, true, defaultValues.SW);
-			stats[6] = entity.GetStat(west, true, defaultValues.W);
-			stats[7] = entity.GetStat(northWest, true, defaultValues.NW);
+			stats[0] = entity.Stats.GetStat(north, true, defaultValues.N);
+			stats[1] = entity.Stats.GetStat(northEast, true, defaultValues.NE);
+			stats[2] = entity.Stats.GetStat(east, true, defaultValues.E);
+			stats[3] = entity.Stats.GetStat(southEast, true, defaultValues.SE);
+			stats[4] = entity.Stats.GetStat(south, true, defaultValues.S);
+			stats[5] = entity.Stats.GetStat(southWest, true, defaultValues.SW);
+			stats[6] = entity.Stats.GetStat(west, true, defaultValues.W);
+			stats[7] = entity.Stats.GetStat(northWest, true, defaultValues.NW);
 			Subscribe();
 		}
 

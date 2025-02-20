@@ -18,8 +18,9 @@ namespace SpaxUtils
 				// Performing.
 				if (Move.HasPerformance)
 				{
-					float performanceWeight = (Performer.RunTime / (Move.MinDuration * Move.ChargeFadeout)).Clamp01().InOutSine();
-					weight = Mathf.Lerp(chargeWeight, Mathf.Clamp01((Performer.RunTime - Move.MinDuration) / Move.Release).Invert().InOutSine(), performanceWeight).Lerp(0f, Performer.CancelTime / Move.CancelDuration);
+					float chargeToPerformanceTransition = (Performer.RunTime / (Move.MinDuration * Move.ChargeFadeout)).Clamp01().InOutSine();
+					float performanceWeight = ((Performer.RunTime - Move.MinDuration) / Move.Release).InvertClamped().InOutSine();
+					weight = Mathf.Lerp(chargeWeight, performanceWeight, chargeToPerformanceTransition).Lerp(0f, Mathf.Clamp01(Performer.CancelTime / Move.CancelDuration));
 				}
 				else
 				{

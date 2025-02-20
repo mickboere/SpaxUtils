@@ -32,12 +32,14 @@ namespace SpaxUtils
 		[SerializeField, Conditional(nameof(formula), 3)] private float logPower = 2f;
 		[SerializeField, Conditional(nameof(formula), 3)] private float logShift = 0f;
 
-		[SerializeField] private float scale = 1f;
-
 		[SerializeField, Conditional(nameof(formula), 4)] private AnimationCurve curve;
 
-		[Tooltip("Shifts the mapped value by x.")]
-		[SerializeField] private float shift = 0f;
+		[SerializeField, Conditional(nameof(formula), enumValues: new int[] { 5, 6 })] private Vector2 pointA;
+		[SerializeField, Conditional(nameof(formula), enumValues: new int[] { 5, 6 })] private Vector2 pointB;
+
+		[SerializeField] private float scale = 1f;
+
+		[SerializeField, Tooltip("Adds to the final value.")] private float shift = 0f;
 
 		[SerializeField] private ModMethod modMethod = ModMethod.Base;
 		[SerializeField] private Operation operation = Operation.Set;
@@ -76,6 +78,11 @@ namespace SpaxUtils
 					return shift + SpaxFormulas.Log(input, logConstant, logPower, scale, logShift, Round);
 				case FormulaType.Curve:
 					return shift + curve.Evaluate(input) * scale;
+				case FormulaType.Interpolate:
+					return shift + pointA.y.Lerp(pointB.y, input.InverseLerp(pointA.x, pointB.x)) * scale;
+				case FormulaType.Extrapolate:
+					float y = (pointB.y - pointA.y) / (pointB.x - pointA.x);
+					return shift + pointA.y + (input - pointA.x) * y;
 				default:
 					return shift + input * scale;
 			}

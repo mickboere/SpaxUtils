@@ -99,7 +99,7 @@ namespace SpaxUtils
 				foreach (StatMapping mapping in statMappingSheet.Mappings)
 				{
 					// Retrieve target stat to add mapping modifier to.
-					EntityStat toStat = agent.GetStat(mapping.ToStat, true);
+					EntityStat toStat = agent.Stats.GetStat(mapping.ToStat, true);
 					// Generate unique mod identifier for this equipment in case multiple items utilize the same mapping.
 					string identifier = GetModID(mapping.FromStat);
 

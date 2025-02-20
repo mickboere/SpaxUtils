@@ -25,7 +25,7 @@ namespace SpaxUtils
 		[SerializeField] protected int priority;
 		[SerializeField, FormerlySerializedAs("motivation")] protected Vector8 trigger;
 		[SerializeField, HideInInspector] protected bool requireState;
-		[SerializeField, Conditional(nameof(requireState), drawToggle: true), ConstDropdown(typeof(IStateIdentifiers))] protected string brainState;
+		[SerializeField, Conditional(nameof(requireState), drawToggle: true, hide: false), ConstDropdown(typeof(IStateIdentifiers))] protected string brainState;
 		[SerializeField] private bool debug;
 
 		public void InjectDependencies(IAgent agent, CallbackService callbackService, AgentStatHandler agentStatHandler, CombatSensesComponent combatSenses)
@@ -35,7 +35,7 @@ namespace SpaxUtils
 			StatHandler = agentStatHandler;
 			CombatSenses = combatSenses;
 
-			EntityTimescale = Agent.GetStat(EntityStatIdentifiers.TIMESCALE, true, 1f);
+			EntityTimescale = Agent.Stats.GetStat(EntityStatIdentifiers.TIMESCALE, true, 1f);
 		}
 
 		public virtual bool Valid(Vector8 motivation, IEntity target, out float strength)

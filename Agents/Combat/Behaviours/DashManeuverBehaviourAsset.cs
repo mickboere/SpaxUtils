@@ -17,23 +17,25 @@ namespace SpaxUtils
 		private IAgentMovementHandler movementHandler;
 
 		private EntityStat massStat;
+		private float movementSpeed;
 
 		public void InjectDependencies(CallbackService callbackService, IAgentMovementHandler movementHandler)
 		{
 			this.callbackService = callbackService;
 			this.movementHandler = movementHandler;
 
-			massStat = Agent.GetStat(AgentStatIdentifiers.MASS);
+			massStat = Agent.Stats.GetStat(AgentStatIdentifiers.MASS);
+			movementSpeed = Agent.RuntimeData.GetValue(AgentStatIdentifiers.MOVEMENT_SPEED, 1f);
 		}
 
 		public override void Start()
 		{
 			base.Start();
-			callbackService.SubscribeUpdate(UpdateMode.FixedUpdate, this, OnUpdate);
+			callbackService.SubscribeUpdate(UpdateMode.FixedUpdate, this, OnFixedUpdate);
 
 			Vector3 startVelocity = movementHandler.InputRaw == Vector3.zero ?
-				RigidbodyWrapper.Forward * dashSpeed :
-				Quaternion.LookRotation(movementHandler.InputAxis) * movementHandler.InputRaw.normalized * dashSpeed;
+				RigidbodyWrapper.Forward * dashSpeed * movementSpeed :
+				Quaternion.LookRotation(movementHandler.InputAxis) * movementHandler.InputRaw.normalized * dashSpeed * movementSpeed;
 			RigidbodyWrapper.Push(startVelocity);
 		}
 
@@ -51,7 +53,7 @@ namespace SpaxUtils
 			{
 				// Drain charge stat.
 				float cost = Move.ChargeCost.Cost * (massStat * RigidbodyWrapper.Speed + massStat * RigidbodyWrapper.Acceleration.magnitude) * delta;
-				if (Agent.TryApplyStatCost(Move.ChargeCost.Stat, cost, false, out _, out bool drained) && drained)
+				if (Agent.Stats.TryApplyStatCost(Move.ChargeCost.Stat, cost, false, out _, out bool drained) && drained)
 				{
 					// Exit dash.
 					Performer.TryPerform();
@@ -70,7 +72,7 @@ namespace SpaxUtils
 			return instructions;
 		}
 
-		private void OnUpdate(float delta)
+		private void OnFixedUpdate(float delta)
 		{
 			if (RigidbodyWrapper.Speed < 0.1f)
 			{
@@ -79,7 +81,7 @@ namespace SpaxUtils
 				return;
 			}
 
-			Vector3 velocity = Quaternion.LookRotation(movementHandler.InputAxis) * movementHandler.InputRaw * glideSpeed;
+			Vector3 velocity = Quaternion.LookRotation(movementHandler.InputAxis) * movementHandler.InputRaw * glideSpeed * movementSpeed;
 			RigidbodyWrapper.ApplyMovement(velocity, controlForce, brakeForce, power, true);
 			movementHandler.UpdateRotation(delta, null, true);
 		}

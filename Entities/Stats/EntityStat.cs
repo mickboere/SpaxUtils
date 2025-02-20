@@ -82,11 +82,11 @@ namespace SpaxUtils
 			return Damage(damage, clamp, false);
 		}
 
-		public float Damage(float damage, bool clamp, out bool drained, out float excess, bool applyMultiplier = true)
+		public float Damage(float damage, bool clamp, out bool drained, out float overdraw, bool applyMultiplier = true)
 		{
 			CalculateDamage(ref damage, applyMultiplier);
-			excess = Mathf.Abs(Mathf.Min(0, BaseValue - damage));
-			drained = excess > 0;
+			overdraw = Mathf.Abs(Mathf.Min(0, BaseValue - damage));
+			drained = overdraw > 0;
 			return Damage(damage, clamp, false);
 		}
 
@@ -94,7 +94,7 @@ namespace SpaxUtils
 		{
 			if (applyMultiplier)
 			{
-				damageMultiplier = damageMultiplier ?? entity?.GetStat(Identifier.SubStat(AgentStatIdentifiers.SUB_COST));
+				damageMultiplier = damageMultiplier ?? entity?.Stats.GetStat(Identifier.SubStat(AgentStatIdentifiers.SUB_COST));
 				damage *= damageMultiplier ?? 1f;
 			}
 		}

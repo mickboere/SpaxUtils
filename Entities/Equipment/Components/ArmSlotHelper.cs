@@ -72,7 +72,7 @@ namespace SpaxUtils
 			Quaternion rotationOffset = orientation.rot.Inverse() * hand.rotation;
 
 			float mass = data.RuntimeItemData.TryGetStat(AgentStatIdentifiers.MASS, out float m) ? m : 1f;
-			float strength = agent.TryGetStat(AgentStatIdentifiers.STRENGTH, out EntityStat s) ? s : 1f;
+			float strength = agent.Stats.TryGetStat(AgentStatIdentifiers.STRENGTH, out EntityStat s) ? s : 1f;
 			float smoothTime = mass / (strength * 0.1f);
 
 			// CALCULATE POSITION.

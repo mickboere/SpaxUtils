@@ -37,7 +37,7 @@ namespace SpaxUtils
 			this.ik = ik;
 			this.rigidbodyWrapper = rigidbodyWrapper;
 
-			entityTimeScale = entity.GetStat(EntityStatIdentifiers.TIMESCALE, false);
+			entityTimeScale = entity.Stats.GetStat(EntityStatIdentifiers.TIMESCALE, false);
 		}
 
 		public override void OnEnteringState(ITransition transition)

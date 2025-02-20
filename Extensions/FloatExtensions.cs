@@ -15,6 +15,14 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
+		/// In-line version of <see cref="Mathf.InverseLerp(float, float, float)(float, float, float)"/>.
+		/// </summary>
+		public static float InverseLerp(this float t, float a, float b)
+		{
+			return Mathf.InverseLerp(a, b, t);
+		}
+
+		/// <summary>
 		/// Lerps from <paramref name="v2"/>.x to <paramref name="v2"/>.y by <paramref name="t"/>.
 		/// </summary>
 		public static float Lerp(this Vector2 v2, float t)
@@ -122,6 +130,11 @@ namespace SpaxUtils
 		public static float Sqrt(this float f)
 		{
 			return Mathf.Sqrt(f);
+		}
+
+		public static float Pow(this float f, float p = 2f)
+		{
+			return Mathf.Pow(f, p);
 		}
 
 		#endregion Math

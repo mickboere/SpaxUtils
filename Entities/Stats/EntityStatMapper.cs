@@ -42,14 +42,14 @@ namespace SpiritAxis
 			foreach (StatMapping mapping in map.Mappings)
 			{
 				// Get the target stat to add the mapping to.
-				EntityStat toStat = Entity.GetStat(mapping.ToStat, true);
+				EntityStat toStat = Entity.Stats.GetStat(mapping.ToStat, true);
 
 				// Only add the modifier if this stat does not have a mapping from the mapping stat yet.
 				// Easily checkable since we use the input stat's identifier as mod identifier.
 				if (!toStat.HasModifier(mapping.FromStat))
 				{
 					// Get the stat we're going to use as input value for the mapping.
-					EntityStat fromStat = Entity.GetStat(mapping.FromStat, true);
+					EntityStat fromStat = Entity.Stats.GetStat(mapping.FromStat, true);
 
 					// Create the mapping modifier.
 					StatModifier mod = new StatModifier(mapping, fromStat);

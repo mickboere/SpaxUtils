@@ -22,7 +22,7 @@ namespace SpaxUtils
 			this.callbackService = callbackService;
 			this.transformLookup = transformLookup;
 
-			timescaleStat = Agent.GetStat(EntityStatIdentifiers.TIMESCALE, true, 1f);
+			timescaleStat = Agent.Stats.GetStat(EntityStatIdentifiers.TIMESCALE, true, 1f);
 		}
 
 		public override void Start()
