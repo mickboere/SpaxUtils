@@ -57,11 +57,6 @@ namespace SpaxUtils
 		/// </summary>
 		float Offence { get; }
 
-		/// <summary>
-		/// Percentage of user's piercing ability that gets transfered into the attack.
-		/// </summary>
-		float Piercing { get; }
-
 		#endregion Stats
 	}
 }

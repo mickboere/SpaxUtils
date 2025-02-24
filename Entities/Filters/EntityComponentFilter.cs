@@ -13,15 +13,19 @@ namespace SpaxUtils
 		public event Action<T> AddedComponentEvent;
 		public event Action<T> RemovedComponentEvent;
 
-		public IList<T> Components
+		public List<T> Components
 		{
 			get
 			{
-				if (components == null)
+				if (_components == null)
 				{
-					components = entityCollection.GetComponents(evaluateEntity, evaluateComponent, exclude);
+					_components = entityCollection.GetComponents(evaluateEntity, evaluateComponent, exclude);
 				}
-				return components;
+				return _components;
+			}
+			private set
+			{
+				_components = value;
 			}
 		}
 
@@ -30,7 +34,7 @@ namespace SpaxUtils
 		protected IEntity[] exclude;
 		protected IEntityCollection entityCollection;
 
-		private List<T> components;
+		private List<T> _components;
 
 		/// <summary>
 		/// Creates a new type-only <see cref="IEntityComponent"/> filter.
@@ -59,9 +63,9 @@ namespace SpaxUtils
 		public void Reevaluate()
 		{
 			List<T> old = new List<T>(Components);
-			components = entityCollection.GetComponents(evaluateEntity, evaluateComponent, exclude);
-			List<T> removed = old.Except(components).ToList();
-			List<T> added = components.Except(old).ToList();
+			Components = entityCollection.GetComponents(evaluateEntity, evaluateComponent, exclude);
+			List<T> removed = old.Except(Components).ToList();
+			List<T> added = Components.Except(old).ToList();
 			foreach (T r in removed)
 			{
 				RemovedComponentEvent?.Invoke(r);
@@ -74,9 +78,9 @@ namespace SpaxUtils
 
 		protected virtual void OnAddedEntity(IEntity entity)
 		{
-			if (!exclude.Contains(entity) &&
-				evaluateEntity(entity) &&
+			if (evaluateEntity(entity) &&
 				entity.TryGetEntityComponent(out T component) &&
+				!exclude.Contains(component.Entity) && // Through shared dependencies, some entities can receive components from parent entities.
 				evaluateComponent(component))
 			{
 				AddComponent(component);

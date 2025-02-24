@@ -124,13 +124,14 @@ namespace SpaxUtils
 		protected CameraService cameraService;
 		protected EntityOptimizationSettings entityOptimizationSettings;
 		protected RuntimeDataService runtimeDataService;
+		protected SceneService sceneService;
 		private bool initialized;
 		private List<Action<float>> optimizedUpdateCallbacks = new List<Action<float>>();
 
 		public void InjectDependencies(
 			IDependencyManager dependencyManager, IEntityComponent[] entityComponents, IEntityCollection entityCollection,
 			OptimizedCallbackService optimizationService, CameraService cameraService, EntityOptimizationSettings entityOptimizationSettings,
-			RuntimeDataService runtimeDataService, IStatLibrary statLibrary,
+			RuntimeDataService runtimeDataService, IStatLibrary statLibrary, SceneService sceneService,
 			[Optional] RuntimeDataCollection runtimeData, [Optional] IIdentification identification)
 		{
 			if (DependencyManager != null)
@@ -146,6 +147,7 @@ namespace SpaxUtils
 			this.cameraService = cameraService;
 			this.entityOptimizationSettings = entityOptimizationSettings;
 			this.runtimeDataService = runtimeDataService;
+			this.sceneService = sceneService;
 
 			// Load identification.
 			if (identification != null)
@@ -208,7 +210,7 @@ namespace SpaxUtils
 #endif
 
 			Identification.IdentificationUpdatedEvent -= OnIdentificationUpdatedEvent;
-			entityCollection.Remove(this);
+			entityCollection?.Remove(this);
 		}
 
 		protected virtual void OnDestroy()
@@ -221,7 +223,7 @@ namespace SpaxUtils
 #endif
 
 			Identification.IdentificationUpdatedEvent -= OnIdentificationUpdatedEvent;
-			entityCollection.Remove(this);
+			entityCollection?.Remove(this);
 		}
 
 		protected void Update()
@@ -369,7 +371,7 @@ namespace SpaxUtils
 			// Retrieve whether this entity was last alive when its data was saved.
 			Alive = RuntimeData.GetValue(EntityDataIdentifiers.ALIVE, false);
 			_age = RuntimeData.GetValue(EntityDataIdentifiers.AGE, 0d);
-			if (Alive)
+			if (Alive && RuntimeData.GetValue(EntityDataIdentifiers.SCENE) == sceneService.CurrentScene)
 			{
 				Transform.position = RuntimeData.GetValue(EntityDataIdentifiers.POSITION, transform.position) + Vector3.up * 0.5f; // hack
 				Transform.eulerAngles = RuntimeData.GetValue(EntityDataIdentifiers.ROTATION, transform.eulerAngles);
@@ -383,12 +385,12 @@ namespace SpaxUtils
 			RuntimeData.SetValue(EntityDataIdentifiers.NAME, Identification.Name);
 			RuntimeData.SetValue(EntityDataIdentifiers.ALIVE, Alive);
 			RuntimeData.SetValue(EntityDataIdentifiers.AGE, _age);
+			RuntimeData.SetValue(EntityDataIdentifiers.SCENE, sceneService.CurrentScene);
 			RuntimeData.SetValue(EntityDataIdentifiers.POSITION, Transform.position);
 			RuntimeData.SetValue(EntityDataIdentifiers.ROTATION, Transform.eulerAngles);
 
 			OnSaveEvent?.Invoke(RuntimeData);
 
-			// TODO: Only save entity stats that do not match the default value in order to reduce filesize.
 			runtimeDataService.SaveDataToProfile(RuntimeData);
 		}
 

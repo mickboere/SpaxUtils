@@ -13,7 +13,18 @@ namespace SpaxUtils
 			get { return _inputAxis; }
 			set
 			{
-				_inputAxis = value.FlattenY().normalized;
+				if (float.IsNaN(value.x))
+				{
+					SpaxDebug.Log("NaN!");
+				}
+				else if (value == Vector3.zero)
+				{
+					SpaxDebug.Error("Input axis cannot be zero.");
+				}
+				else
+				{
+					_inputAxis = value.FlattenY().normalized;
+				}
 			}
 		}
 		private Vector3 _inputAxis = Vector3.forward;
@@ -24,8 +35,14 @@ namespace SpaxUtils
 			get { return _inputRaw; }
 			set
 			{
-				_inputRaw = value;
-				//SpaxDebug.Log($"[{Agent.Identification.Name}] Set InputRaw", value.ToString());
+				if (float.IsNaN(value.x))
+				{
+					SpaxDebug.Log("NaN!");
+				}
+				else
+				{
+					_inputRaw = value;
+				}
 			}
 		}
 		private Vector3 _inputRaw;
@@ -114,7 +131,8 @@ namespace SpaxUtils
 			if (!targetVelocity.HasValue)
 			{
 				// Calculate target velocity from current input.
-				rigidbodyWrapper.TargetVelocity = InputRaw == Vector3.zero ? Vector3.zero : Quaternion.LookRotation(InputAxis) * InputSmooth * MovementSpeed;
+				//rigidbodyWrapper.TargetVelocity = InputRaw == Vector3.zero ? Vector3.zero : Quaternion.LookRotation(InputAxis) * InputSmooth * MovementSpeed;
+				rigidbodyWrapper.TargetVelocity = InputSmooth == Vector3.zero ? Vector3.zero : Quaternion.LookRotation(InputAxis) * InputSmooth * MovementSpeed;
 			}
 
 			if (!grounder.Sliding)

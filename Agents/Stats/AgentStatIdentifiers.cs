@@ -14,8 +14,9 @@
 		// Body Attributes
 		#region Body Attributes
 		private const string BODY_ATTRIBUTE = ATTRIBUTES + "BODY/";
-		public const string BODY_EXPERIENCE = BODY_ATTRIBUTE + "Body_Experience"; // All atributes combined.
-		public const string BODY_LEVEL = BODY_ATTRIBUTE + "Body_Level"; // All attribute levels combined.
+		public const string BODY_EXPERIENCE = BODY_ATTRIBUTE + "Experience"; // All atributes combined.
+		public const string BODY_LEVEL = BODY_ATTRIBUTE + "Level"; // All attribute levels combined.
+		public const string BODY_DISTRIBUTION = BODY_ATTRIBUTE + "Distribution"; // Normalized attribute distribution.
 
 		// Earth
 		public const string TENACITY = BODY_ATTRIBUTE + "Tenacity";
@@ -46,8 +47,9 @@
 		// Soul Attributes
 		#region Soul Attributes
 		private const string SOUL_ATTRIBUTE = ATTRIBUTES + "SOUL/";
-		public const string SOUL_EXPERIENCE = SOUL_ATTRIBUTE + "Soul_Experience"; // All soul attributes combined.
-		public const string SOUL_LEVEL = SOUL_ATTRIBUTE + "Soul_Level"; // All soul attribute levels combined.
+		public const string SOUL_EXPERIENCE = SOUL_ATTRIBUTE + "Experience"; // All soul attributes combined.
+		public const string SOUL_LEVEL = SOUL_ATTRIBUTE + "Level"; // All soul attribute levels combined.
+		public const string SOUL_DISTRIBUTION = SOUL_ATTRIBUTE + "Distribution"; // Normalized attribute distribution.
 
 		// Attributes
 		public const string GRAVITY = SOUL_ATTRIBUTE + "Gravity"; // Make heavy
@@ -82,18 +84,16 @@
 		public const string ENDURANCE = BODY_STAT + "Endurance"; // Total amount of force one can absorb before being stunned.
 		public const string DEFENCE = BODY_STAT + "Defence"; // Total amount of passive defence.
 		public const string GUARD = BODY_STAT + "Guard"; // Total amount of active (guarding) defence.
-		public const string HARDNESS = BODY_STAT + "Hardness"; // The hardness of the body's exterior (0-1~). Hard bodies take less piercing damage but more force damage.
 
 		// Daeth
 		public const string OFFENCE = BODY_STAT + "Offence"; // Total damage output.
-		public const string PIERCING = BODY_STAT + "Piercing"; // Piercing power of attacks (0-1~). Piercing attacks deal damage by penetrating soft bodies.
 		public const string REACH = BODY_STAT + "Reach"; // The agent's base melee reach (should be as large as the idle collision radius, limbs define actual reach.).
 
 		// Fire
 		public const string ENERGY = BODY_STAT + "Energy"; // Amount of spendable force-points.
 		public const string STRENGTH = BODY_STAT + "Strength"; // The body's lifting strength.
 		public const string POWER = BODY_STAT + "Power"; // The body's output force.
-		
+
 		// Light
 		public const string STATIC = BODY_STAT + "Static"; // Amount of available charge.
 		public const string ATTACK_CHARGE_SPEED = BODY_STAT + "Attack_Charge_Speed";

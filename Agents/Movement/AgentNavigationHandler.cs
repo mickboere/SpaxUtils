@@ -77,7 +77,7 @@ namespace SpaxUtils
 			}
 			else if (navMesh)
 			{
-				Debug.LogError("NavMesh is not implemented yet.");
+				SpaxDebug.Error("NavMesh is not implemented yet.");
 			}
 			else
 			{
@@ -86,6 +86,10 @@ namespace SpaxUtils
 				// Set direction as target movement direction.
 				movementHandler.InputAxis = direction;
 				// Order NPC to move forwards towards target direction.
+				if (float.IsNaN((Vector3.forward * speed).x))
+				{
+					SpaxDebug.Error("Nan!", $"range={range}, speed={speed}");
+				}
 				movementHandler.InputRaw = Vector3.forward * speed;
 			}
 

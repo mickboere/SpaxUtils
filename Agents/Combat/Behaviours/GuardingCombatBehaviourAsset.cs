@@ -35,8 +35,8 @@ namespace SpaxUtils
 			defenceMod = new FloatFuncModifier(ModMethod.Additive, (defence) => defence + guardStat * Weight);
 			defenceStat.AddModifier(this, defenceMod);
 
-			enduranceDamageMod = new FloatFuncModifier(ModMethod.Absolute, (damage) => damage * (guardStat * agentStatHandler.PointStatOctad.W.PercentileMax * Weight).InvertClamped());
-			agentStatHandler.PointStatOctad.W.Cost.AddModifier(this, enduranceDamageMod);
+			enduranceDamageMod = new FloatFuncModifier(ModMethod.Absolute, (damage) => damage * (guardStat * agentStatHandler.PointStats.W.PercentileMax * Weight).InvertClamped());
+			agentStatHandler.PointStats.W.Cost.AddModifier(this, enduranceDamageMod);
 
 			hittable.Subscribe(this, OnHitEvent, 1000);
 		}
@@ -46,7 +46,7 @@ namespace SpaxUtils
 			base.Stop();
 
 			defenceStat.RemoveModifier(this);
-			agentStatHandler.PointStatOctad.W.Cost.RemoveModifier(this);
+			agentStatHandler.PointStats.W.Cost.RemoveModifier(this);
 			hittable.Unsubscribe(this);
 		}
 

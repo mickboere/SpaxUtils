@@ -58,9 +58,7 @@ namespace SpaxUtils
 						hitData.Point,
 						-hitData.Inertia.normalized,
 						hitData.Mass,
-						hitData.Hardness,
 						hitData.Power,
-						0f,
 						0f);
 
 					base.ProcessAttack(parriedHittable, parryHit);

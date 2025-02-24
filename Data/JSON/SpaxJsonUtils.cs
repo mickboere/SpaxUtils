@@ -41,12 +41,13 @@ namespace SpaxUtils
 		{
 			if (!File.Exists(path))
 			{
+				//SpaxDebug.Error("Path does not exist, file could not be read:", path);
 				return default(T);
 			}
 
 			using var streamReader = new StreamReader(path);
 			string json = streamReader.ReadToEnd();
-			return JsonConvert.DeserializeObject<T>(json);
+			return JsonConvert.DeserializeObject<T>(json, OPTIONS);
 		}
 
 		public static string Serialize(object data, bool optimized = true)

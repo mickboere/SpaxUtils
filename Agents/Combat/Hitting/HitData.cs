@@ -47,11 +47,6 @@ namespace SpaxUtils
 		public float Mass { get; }
 
 		/// <summary>
-		/// The hardness-grade of the object performing the hit.
-		/// </summary>
-		public float Hardness { get; }
-
-		/// <summary>
 		/// The total power behind the hit.
 		/// </summary>
 		public float Power { get; }
@@ -60,11 +55,6 @@ namespace SpaxUtils
 		/// The total offensive power of the hit, defines penetration damage.
 		/// </summary>
 		public float Offence { get; }
-
-		/// <summary>
-		/// The total piercing power of the hit, defines penetration capacity.
-		/// </summary>
-		public float Piercing { get; }
 
 		#endregion Send
 
@@ -88,12 +78,12 @@ namespace SpaxUtils
 		/// <summary>
 		/// Return data defining the percentage of penetration dealt to receiver (0-1~).
 		/// </summary>
-		public float Result_PenetrationPercentile { get; set; }
+		public float Result_Penetration { get; set; }
 
 		/// <summary>
 		/// Return data defining percentage of impact dealt to receiver (0-1~).
 		/// </summary>
-		public float Result_ImpactPercentile { get; set; }
+		public float Result_Impact { get; set; }
 
 		/// <summary>
 		/// Return data defining total amount of damage dealt to receiver.
@@ -115,10 +105,8 @@ namespace SpaxUtils
 			Vector3 point,
 			Vector3 direction,
 			float mass,
-			float hardness,
 			float power,
-			float offence,
-			float piercing)
+			float offence)
 		{
 			Receiver = receiver;
 			Hitter = hitter;
@@ -129,8 +117,6 @@ namespace SpaxUtils
 			Mass = mass;
 			Power = power;
 			Offence = offence;
-			Piercing = piercing;
-			Hardness = hardness;
 		}
 
 		public override string ToString()
@@ -145,13 +131,11 @@ namespace SpaxUtils
 				$"\nMass={Mass}," +
 				$"\nPower={Power}," +
 				$"\nOffence={Offence}," +
-				$"\nPiercing={Piercing}," +
-				$"\nHardness={Hardness}," +
 				$"\n\nResult_Blocked={Result_Blocked}," +
 				$"\nResult_Parried={Result_Parried}," +
 				$"\nResult_Stunned={Result_Stunned}," +
-				$"\nResult_Penetration={Result_PenetrationPercentile}," +
-				$"\nResult_Impact={Result_ImpactPercentile}," +
+				$"\nResult_Penetration={Result_Penetration}," +
+				$"\nResult_Impact={Result_Impact}," +
 				$"\nResult_Damage={Result_Damage}," +
 				$"\nResult_Force={Result_Force}";
 		}

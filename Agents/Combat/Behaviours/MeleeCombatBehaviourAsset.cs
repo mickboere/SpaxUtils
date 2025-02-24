@@ -31,15 +31,12 @@ namespace SpaxUtils
 		private EntityStat strengthStat;
 		private EntityStat powerStat;
 		private EntityStat limbOffenceStat;
-		private EntityStat limbPiercingStat;
-		private EntityStat limbHardnessStat;
 		private EntityStat massStat;
 		private EntityStat chargeStat;
 		private EntityStat chargeSpeedStat;
 		private EntityStat performSpeedStat;
 
 		private FloatFuncModifier speedMod;
-		private FloatFuncModifier performSpeedMod;
 
 		private CombatHitDetector hitDetector;
 		private TimerClass momentumTimer;
@@ -68,8 +65,6 @@ namespace SpaxUtils
 			strengthStat = Agent.Stats.GetStat(AgentStatIdentifiers.STRENGTH);
 			powerStat = Agent.Stats.GetStat(AgentStatIdentifiers.POWER);
 			limbOffenceStat = Agent.Stats.GetStat(AgentStatIdentifiers.OFFENCE.SubStat(this.move.Limb));
-			limbPiercingStat = Agent.Stats.GetStat(AgentStatIdentifiers.PIERCING.SubStat(this.move.Limb), true);
-			limbHardnessStat = Agent.Stats.GetStat(AgentStatIdentifiers.HARDNESS.SubStat(this.move.Limb), true);
 			massStat = Agent.Stats.GetStat(AgentStatIdentifiers.MASS);
 			chargeStat = Agent.Stats.GetStat(move.ChargeCost.Stat);
 			chargeSpeedStat = Agent.Stats.GetStat(move.ChargeSpeedMultiplierStat, false, 1f);
@@ -173,7 +168,6 @@ namespace SpaxUtils
 					Vector3 inertia = move.Inertia.Look((hittable.Entity.Transform.position - Agent.Transform.position).FlattenY().normalized) * totalCharge;
 					float power = powerStat * move.Power * totalCharge;
 					float offence = limbOffenceStat * move.Offence;
-					float piercing = limbPiercingStat * move.Piercing;
 
 					HitData hitData = new HitData(
 						hittable,
@@ -183,10 +177,8 @@ namespace SpaxUtils
 						hit.Point,
 						hit.Direction,
 						limbMassStat,
-						limbHardnessStat,
 						power,
-						offence,
-						piercing
+						offence
 					);
 
 					ProcessAttack(hittable, hitData);
@@ -211,7 +203,7 @@ namespace SpaxUtils
 					Performer.TryCancel(true);
 				}
 
-				float hitPause = Mathf.LerpUnclamped(combatSettings.HitPauseRange.x, combatSettings.HitPauseRange.y, hitData.Result_ImpactPercentile);
+				float hitPause = combatSettings.HitPauseReceiver.Lerp(hitData.Result_Impact);
 				if (hitPauseMod == null || hitPause > hitPauseMod.Timer.Remaining)
 				{
 					// Apply hit-pause.

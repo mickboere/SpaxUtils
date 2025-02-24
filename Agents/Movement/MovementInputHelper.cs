@@ -48,7 +48,6 @@ namespace SpaxUtils
 				progress = 0f;
 			}
 
-			//input *= settings.EvaluateInputRamp(input.magnitude);
 			float accelerationAmount = (Vector3.Dot(current.normalized, input.normalized) + 1) * 0.5f;
 			float distance = (input - shiftPoint).magnitude.Max(Mathf.Epsilon);
 			float progressChange = 1f / Mathf.Lerp(settings.DecelerationTime.Lerp(swiftness.Invert()), settings.AccelerationTime.Lerp(swiftness.Invert()), accelerationAmount) * (1f / distance) * deltaTime;

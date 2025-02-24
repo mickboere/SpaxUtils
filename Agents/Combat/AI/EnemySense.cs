@@ -63,7 +63,7 @@ namespace SpaxUtils
 
 		private void GatherEnemyData()
 		{
-			float pointSum = statHandler.PointStatOctad.Vector8.Sum();
+			float pointSum = statHandler.PointStats.Vector8.Sum();
 
 			// Get all enemies currently in view and store their relevant data.
 			List<ITargetable> visible = vision.Spot(agent.Targeter.Enemies.Components);
@@ -89,6 +89,11 @@ namespace SpaxUtils
 					enemyData = enemies[enemy];
 				}
 
+				if(enemyData.Agent == agent)
+				{
+					SpaxDebug.Error($"[{agent.Identification.TagFull()}] Target is self, this should not be possible.");
+				}
+
 				// - UPDATE ENEMY INTEL -
 				enemyData.LastSeen = Time.time;
 				enemyData.Direction = enemyData.Agent.Transform.position - agent.Transform.position;
@@ -101,7 +106,7 @@ namespace SpaxUtils
 				enemyData.Oppurtunity = enemyData.Direction.NormalizedDot(enemyData.Agent.Transform.forward) * 2f +
 					(enemyData.Agent.Actor.State is PerformanceState.Performing ? 1f : 0.5f) * enemyData.Threat.Invert();
 				// (Dis)Advantage is defined by difference in current stat points.
-				float enemyPointSum = enemyData.Agent.GetEntityComponent<AgentStatHandler>().PointStatOctad.Vector8.Sum();
+				float enemyPointSum = enemyData.Agent.GetEntityComponent<AgentStatHandler>().PointStats.Vector8.Sum();
 				enemyData.Advantage = pointSum / enemyPointSum;
 				enemyData.Disadvantage = enemyPointSum / pointSum;
 				enemyData.Reach = enemyAgent.Stats.GetStat(AgentStatIdentifiers.REACH) +
@@ -158,8 +163,8 @@ namespace SpaxUtils
 				}
 
 				// Desire to retreat (fear) is defined by crucial stats that need time to recover.
-				float retreat = statHandler.PointStatOctad.SW.PercentileMax.Invert(); // Health
-				retreat += statHandler.PointStatOctad.W.PercentileRecoverable.Invert().Remap(-1f, 1f); // Endurance
+				float retreat = statHandler.PointStats.SW.PercentileMax.Invert(); // Health
+				retreat += statHandler.PointStats.W.PercentileRecoverable.Invert().Remap(-1f, 1f); // Endurance
 				retreat *= retreat > 0 ? enemy.Threat : AEMOI.MAX_STIM; // If positive, scale stim by threat. If negative (stats are sufficiently recovered) maximally satisfy fear.
 
 				// Danger is defined by how close to the attacking enemy's range one is.
@@ -182,7 +187,7 @@ namespace SpaxUtils
 				Vector8 stim = new Vector8()
 				{
 					N = Damp(incitement, current, 0), // Attacking
-					NE = Damp(enemy.Oppurtunity, current, 1), // Anticipating
+					NE = Damp(incitement.Clamp01() * enemy.Oppurtunity, current, 1), // Anticipating
 					E = Damp(danger + retreat.Max(0f) * 0.5f, current, 2), // Evading
 					S = Damp(retreat, current, 4), // Fleeing
 					SW = Damp(Mathf.Max(enemy.Disadvantage - 1f, 0f), current, 5), // Powering

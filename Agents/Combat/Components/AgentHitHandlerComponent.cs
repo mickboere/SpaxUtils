@@ -25,7 +25,6 @@ namespace SpaxUtils
 
 		private EntityStat timescaleStat;
 		private EntityStat defence;
-		private EntityStat hardness;
 
 		private TimedCurveModifier hitPauseMod;
 
@@ -47,7 +46,6 @@ namespace SpaxUtils
 		{
 			timescaleStat = agent.Stats.GetStat(EntityStatIdentifiers.TIMESCALE, true);
 			defence = agent.Stats.GetStat(AgentStatIdentifiers.DEFENCE, true);
-			hardness = agent.Stats.GetStat(AgentStatIdentifiers.HARDNESS, true);
 
 			hittable.Subscribe(this, OnHitEvent, 100);
 		}
@@ -69,28 +67,24 @@ namespace SpaxUtils
 			// Calculate damage and impact.
 			if (!hitData.Result_Parried)
 			{
-				float damage = SpaxFormulas.CalculateDamage(hitData.Offence, defence);
-				hitData.Result_PenetrationPercentile = hitData.Offence * hitData.Piercing / defence;
-				float impact = (hitData.Hardness - hardness).Clamp01();
-				hitData.Result_ImpactPercentile = (hitData.Power * impact + hitData.Power * hitData.Piercing.InvertClamped()) * 0.5f / defence;
-				hitData.Result_Damage = damage * (hitData.Result_PenetrationPercentile + hitData.Result_ImpactPercentile);
-				hitData.Result_Force = hitData.Mass * hitData.Power * hitData.Result_ImpactPercentile;
+				hitData.Result_Damage = SpaxFormulas.CalculateDamage(hitData.Offence, defence);
+				hitData.Result_Penetration = hitData.Result_Damage / hitData.Offence;
+				hitData.Result_Impact = hitData.Power / rigidbodyWrapper.Mass;
+				hitData.Result_Force = hitData.Result_Impact * hitData.Mass * hitData.Power;
 			}
-
-			statHandler.PointStatOctad.NE.Current.BaseValue += hitData.Result_Force * hitData.Result_Blocked;
 
 			// Apply hit-pause.
 			hitPauseMod?.Dispose();
 			hitPauseMod = new TimedCurveModifier(
 				ModMethod.Absolute,
 				combatSettings.HitPauseCurve,
-				new TimerStruct(Mathf.LerpUnclamped(combatSettings.HitPauseRange.x, combatSettings.HitPauseRange.y, hitData.Result_ImpactPercentile)),
+				new TimerStruct(combatSettings.HitPauseReceiver.Lerp(hitData.Result_Impact)),
 				callbackService);
 			timescaleStat.RemoveModifier(this);
 			timescaleStat.AddModifier(this, hitPauseMod);
 
 			// Damage endurance.
-			statHandler.PointStatOctad.W.Current.Damage(hitData.Power, true, out bool stunned, out float overdraw);
+			statHandler.PointStats.W.Current.Damage(hitData.Result_Damage + hitData.Result_Force, true, out bool stunned, out float overdraw);
 			if (stunned)
 			{
 				hitData.Result_Stunned = true;
@@ -108,7 +102,7 @@ namespace SpaxUtils
 			if (!Invulnerable)
 			{
 				// Damage health.
-				statHandler.PointStatOctad.SW.Current.Damage(hitData.Result_Damage, true, out bool dead);
+				statHandler.PointStats.SW.Current.Damage(hitData.Result_Damage, true, out bool dead);
 				if (dead)
 				{
 					if (stunHandler.Stunned)
@@ -127,7 +121,10 @@ namespace SpaxUtils
 				Hits++;
 			}
 
-			SpaxDebug.Log($"Hit {agent.Identification.Name}", hitData.ToString(), context: agent.GameObject);
+			// Build up static for succesful blocking.
+			statHandler.PointStats.NE.Current.BaseValue += hitData.Result_Blocked * hitData.Result_Force * 0.001f;
+
+			//SpaxDebug.Log($"Hit {agent.Identification.Name}", hitData.ToString(), context: agent.GameObject);
 		}
 
 		private void Die()

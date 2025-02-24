@@ -15,6 +15,7 @@ namespace SpaxUtils
 
 		[SerializeField] private bool debug;
 		[SerializeField] private int ikPrio = 0;
+		[SerializeField] private float smoothTime = 0.5f;
 		[Header("Position")]
 		[SerializeField] private float accelerationInfluence = 1f;
 		[SerializeField] private float maxAccelerationInfluence = 1f;
@@ -30,9 +31,9 @@ namespace SpaxUtils
 		private AgentArmsComponent arms;
 		private IIKComponent ik;
 		private TransformLookup lookup;
-		private RigidbodyWrapper rigidbodyWrapper;
 		private FinalIKComponent finalIK;
 		private CallbackService callbackService;
+		private EntityStat timescale;
 
 		private bool initialized;
 		private bool isLeft;
@@ -44,19 +45,21 @@ namespace SpaxUtils
 		private Quaternion targetRotationSmooth;
 		private Quaternion rotVelocity;
 
-		public void InjectDependencies(RuntimeEquipedData equipedData, IAgent agent, [Optional] IIKComponent ik, AgentArmsComponent arms,
-			TransformLookup lookup, RigidbodyWrapper rigidbodyWrapper, [Optional] FinalIKComponent finalIK, CallbackService callbackService)
+		public void InjectDependencies(RuntimeEquipedData equipedData, IAgent agent,
+			AgentArmsComponent arms, TransformLookup lookup, CallbackService callbackService,
+			[Optional] FinalIKComponent finalIK, [Optional] IIKComponent ik)
 		{
 			this.equipedData = equipedData;
 			this.agent = agent;
 			this.arms = arms;
 			this.ik = ik;
 			this.lookup = lookup;
-			this.rigidbodyWrapper = rigidbodyWrapper;
 			this.finalIK = finalIK;
 			this.callbackService = callbackService;
 
 			initialized = ik != null && finalIK != null;
+
+			timescale = agent.Stats.GetStat(EntityStatIdentifiers.TIMESCALE, true, 1f);
 		}
 
 		public override void Start()
@@ -103,6 +106,8 @@ namespace SpaxUtils
 				return;
 			}
 
+			delta *= timescale;
+
 			// GATHER CONTROL DATA.
 			(Vector3 pos, Quaternion rot) orientation = arms.GetHandSlotOrientation(isLeft, false);
 			Vector3 positionOffset = hand.position - orientation.pos;
@@ -110,7 +115,7 @@ namespace SpaxUtils
 
 			float mass = equipedData.RuntimeItemData.TryGetStat(AgentStatIdentifiers.MASS, out float m) ? m : 1f;
 			float strength = agent.Stats.TryGetStat(AgentStatIdentifiers.STRENGTH, out EntityStat s) ? s : 1f;
-			float smoothTime = mass / strength;
+			float time = mass / strength * smoothTime;
 
 			// CALCULATE POSITION.
 			Vector3 targetPos = hand.position - agent.Transform.position;
@@ -119,7 +124,7 @@ namespace SpaxUtils
 			targetPosSmooth =
 				targetPosSmooth == Vector3.zero ?
 					targetPos :
-					targetPosSmooth.SmoothDamp(targetPos, ref posVelocity, smoothTime, delta);
+					targetPosSmooth.SmoothDamp(targetPos, ref posVelocity, time, delta);
 
 			// - Prevent position going out of bounds.
 			targetPosSmooth = (targetPosSmooth + agent.Transform.position).LocalizePoint(agent.Transform);
@@ -139,7 +144,7 @@ namespace SpaxUtils
 			targetRotationSmooth =
 				targetRotationSmooth == Quaternion.identity ?
 					targetRotation :
-					targetRotationSmooth.SmoothDamp(targetRotation, ref rotVelocity, smoothTime, delta);
+					targetRotationSmooth.SmoothDamp(targetRotation, ref rotVelocity, time, delta);
 			targetRotationSmooth = targetRotationSmooth.SmoothClampForward(agent.Transform.forward, smoothMaxAngle, absoluteMaxAngle, smoothAnglePower * delta);
 
 			// APPLY INFLUENCE.

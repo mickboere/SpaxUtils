@@ -62,7 +62,6 @@ namespace SpaxUtils
 		/// <summary>
 		/// Returns the highest value of all members.
 		/// </summary>
-		/// <returns></returns>
 		public float Max() => Max(this);
 
 		/// <summary>
@@ -76,6 +75,16 @@ namespace SpaxUtils
 		/// <param name="index">The index of the highest member.</param>
 		/// <returns>The value of the highest of the 8 members.</returns>
 		public float Highest(out int index) => Highest(this, out index);
+
+		/// <summary>
+		/// Returns the greatest of all provided member values.
+		/// </summary>
+		public Vector8 Maximize(params Vector8[] b) => Maximize(this, b);
+
+		/// <summary>
+		/// Returns the smallest of all provided member values.
+		/// </summary>
+		public Vector8 Minimize(params Vector8[] b) => Minimize(this, b);
 
 		/// <summary>
 		/// Linearly interpolates to <paramref name="b"/> by <paramref name="t"/>.
@@ -112,6 +121,11 @@ namespace SpaxUtils
 		/// <summary>
 		/// Scales all members values proportionally so that its highest member never exceeds 1.
 		/// Does NOT make it so that the total length of the vector is 1!
+		/// </summary>
+		public Vector8 Range(float r = 1f) => Range(this);
+
+		/// <summary>
+		/// Divides <paramref name="v"/> by its sum.
 		/// </summary>
 		public Vector8 Normalize() => Normalize(this);
 
@@ -190,6 +204,44 @@ namespace SpaxUtils
 				}
 			}
 			return max;
+		}
+
+		/// <summary>
+		/// Returns the greatest of all provided member values.
+		/// </summary>
+		public static Vector8 Maximize(Vector8 a, params Vector8[] b)
+		{
+			Vector8 result = a;
+			foreach (Vector8 v in b)
+			{
+				for (int i = 0; i < 8; i++)
+				{
+					if (v[i] > result[i])
+					{
+						result[i] = v[i];
+					}
+				}
+			}
+			return result;
+		}
+
+		/// <summary>
+		/// Returns the smallest of all provided member values.
+		/// </summary>
+		public static Vector8 Minimize(Vector8 a, params Vector8[] b)
+		{
+			Vector8 result = a;
+			foreach (Vector8 v in b)
+			{
+				for (int i = 0; i < 8; i++)
+				{
+					if (v[i] < result[i])
+					{
+						result[i] = v[i];
+					}
+				}
+			}
+			return result;
 		}
 
 		/// <summary>
@@ -297,17 +349,29 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
-		/// Scales all of <paramref name="v"/>'s members proportionally so that its highest member never exceeds 1.
-		/// Does NOT make it so that the total length of the vector is 1!
+		/// Scales all of <paramref name="v"/>'s members proportionally so that its highest member never exceeds Range.
+		/// Does NOT make it so that the total length of the vector equals the range!
 		/// </summary>
-		public static Vector8 Normalize(Vector8 v)
+		public static Vector8 Range(Vector8 v, float r = 1f)
 		{
 			if (v.Max() <= 0f)
 			{
 				return v;
 			}
-			float m = 1f / v.Max();
+			float m = r / v.Max();
 			return v * m;
+		}
+
+		/// <summary>
+		/// Divides <paramref name="v"/> by its sum.
+		/// </summary>
+		public static Vector8 Normalize(Vector8 v)
+		{
+			if (v == Zero)
+			{
+				return Zero;
+			}
+			return v / v.Sum();
 		}
 
 		/// <summary>

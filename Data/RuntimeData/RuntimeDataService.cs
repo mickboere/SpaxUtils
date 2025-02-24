@@ -95,9 +95,9 @@ namespace SpaxUtils
 					_profilesMetaData = new RuntimeDataCollection(GlobalDataIdentifiers.PROFILES);
 					if (Profiles.Count > 0)
 					{
-						foreach (RuntimeDataCollection profile in Profiles.Values)
+						foreach (string profile in Profiles.Keys)
 						{
-							_profilesMetaData.TryAdd(new RuntimeDataCollection(profile.ID));
+							_profilesMetaData.TryAdd(new RuntimeDataCollection(profile));
 						}
 					}
 					globalData.TryAdd(_profilesMetaData);

@@ -11,6 +11,7 @@ namespace SpaxUtils
 		public const string SEED = ENTITY + "Seed";
 		public const string ALIVE = ENTITY + "Alive";
 		public const string AGE = ENTITY + "Age";
+		public const string SCENE = ENTITY + "Scene";
 		public const string POSITION = ENTITY + "Pos";
 		public const string ROTATION = ENTITY + "Rot";
 		public const string SCALE = ENTITY + "Scale";

@@ -138,9 +138,7 @@ namespace SpaxUtils
 					hit.point,
 					Velocity.normalized,
 					mass, // Stun force transfer
-					0f,
-					0f,
-					0f,
+					1f,
 					0f
 				);
 
