@@ -167,7 +167,7 @@ namespace SpaxUtils
 
 		private void UpdateBlastedStun()
 		{
-			float groundedAmount = Mathf.Lerp(0f, grounder.GroundedAmount, airborneTimer.Progress.InOutQuad());
+			float groundedAmount = grounder.GroundedAmount * airborneTimer.Progress.Clamp01().InOutQuad();
 
 			Vector3 direction = -rigidbodyWrapper.Velocity.MultY(groundedAmount.Invert()); // Apply terrain normal.
 
@@ -204,7 +204,7 @@ namespace SpaxUtils
 				getUpTimer = new TimerClass(getUpTime, () => EntityTimeScale, callbackService);
 			}
 
-			//SpaxDebug.Log("Blasted", $"crash={(crashTimer != null ? crashTimer.Time : 0f)}, ground={groundedAmount}, fall={fallAmount}, blend={blend}, weight={stunWeight}");
+			//SpaxDebug.Log("Blasted", $"crash={(crashTimer != null ? crashTimer.Time : "NULL")}, ground={groundedAmount}, fall={fallAmount}, blend={blend}, weight={stunWeight}");
 
 			animatorPoser.ProvideInstructions(this, PoserLayerConstants.BODY, pose, 10, stunWeight);
 			armsMod.SetValue(stunWeight.Invert());

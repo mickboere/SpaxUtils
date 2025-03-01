@@ -104,7 +104,7 @@ namespace SpaxUtils
 			identification != null ?
 				string.IsNullOrWhiteSpace(identification.Name) ?
 					string.IsNullOrWhiteSpace(identification.ID) ?
-						Identification.Labels.Count == 0 ?
+						Identification.Labels == null || Identification.Labels.Count == 0 ?
 							gameObject.name :
 						$"{GameObjectNamePrefix} {identification.TagLabels()}" :
 					$"{GameObjectNamePrefix} {identification.ID}" :
