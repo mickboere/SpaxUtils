@@ -12,28 +12,28 @@ namespace SpaxUtils
 		/// <summary>
 		/// Links to the identifier of the attached <see cref="RuntimeDataEntry"/>.
 		/// </summary>
-		public string Identifier => data.ID;
+		public string Identifier => Data.ID;
+
+		public RuntimeDataEntry Data { get; private set; }
 
 		public override float BaseValue
 		{
 			get
 			{
-				return (float)data.Value;
+				return (float)Data.Value;
 			}
 			set
 			{
 				float clamp = ClampValue(value);
-				if (!data.Value.Equals(clamp))
+				if (!Data.Value.Equals(clamp))
 				{
-					data.Value = clamp;
+					Data.Value = clamp;
 					// No need to call ValueChanged() here as that will happen automatically after the data's ValueChangedEvent.
 				}
 			}
 		}
 
 		private IEntity entity;
-		private RuntimeDataEntry data;
-
 		private float? minValue;
 		private float? maxValue;
 		private DecimalMethod decimals;
@@ -46,7 +46,7 @@ namespace SpaxUtils
 			DecimalMethod decimals = DecimalMethod.Decimal) : base(modifiers)
 		{
 			this.entity = entity;
-			this.data = data;
+			this.Data = data;
 
 			this.minValue = minValue;
 			this.maxValue = maxValue;
@@ -62,7 +62,7 @@ namespace SpaxUtils
 
 		public override void Dispose()
 		{
-			data.ValueChangedEvent -= OnDataValueChanged;
+			Data.ValueChangedEvent -= OnDataValueChanged;
 			base.Dispose();
 		}
 

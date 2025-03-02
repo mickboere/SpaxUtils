@@ -25,12 +25,12 @@ namespace SpaxUtils
 		[NonSerialized] private IItemData itemData;
 		[NonSerialized] private RuntimeDataCollection runtimeData;
 
-		protected void OnValidate()
+		protected virtual void OnValidate()
 		{
 			UpdateIdentification();
 		}
 
-		protected void Start()
+		protected virtual void Start()
 		{
 			UpdateIdentification();
 			RefreshRuntimeItemData();

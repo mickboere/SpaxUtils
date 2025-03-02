@@ -36,7 +36,7 @@ namespace SpaxUtils
 		/// <summary>
 		/// The ID of the item data.
 		/// </summary>
-		public string ItemID => ItemData.ID;
+		public string ItemID => ItemData != null ? ItemData.ID : "";
 
 		/// <summary>
 		/// The quantity of this item.

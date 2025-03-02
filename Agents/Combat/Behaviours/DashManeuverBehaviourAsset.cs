@@ -17,7 +17,7 @@ namespace SpaxUtils
 		private IAgentMovementHandler movementHandler;
 
 		private EntityStat massStat;
-		private float movementSpeed;
+		private EntityStat movementSpeed;
 
 		public void InjectDependencies(CallbackService callbackService, IAgentMovementHandler movementHandler)
 		{
@@ -25,7 +25,7 @@ namespace SpaxUtils
 			this.movementHandler = movementHandler;
 
 			massStat = Agent.Stats.GetStat(AgentStatIdentifiers.MASS);
-			movementSpeed = Agent.RuntimeData.GetValue(AgentStatIdentifiers.MOVEMENT_SPEED, 1f);
+			movementSpeed = Agent.Stats.GetStat(AgentStatIdentifiers.MOVEMENT_SPEED);
 		}
 
 		public override void Start()
@@ -34,8 +34,8 @@ namespace SpaxUtils
 			callbackService.SubscribeUpdate(UpdateMode.FixedUpdate, this, OnFixedUpdate);
 
 			Vector3 startVelocity = movementHandler.InputRaw == Vector3.zero ?
-				RigidbodyWrapper.Forward * dashSpeed * movementSpeed :
-				Quaternion.LookRotation(movementHandler.InputAxis) * movementHandler.InputRaw.normalized * dashSpeed * movementSpeed;
+				RigidbodyWrapper.Forward * dashSpeed * (movementSpeed ?? 1f) :
+				Quaternion.LookRotation(movementHandler.InputAxis) * movementHandler.InputRaw.normalized * dashSpeed * (movementSpeed ?? 1f);
 			RigidbodyWrapper.Push(startVelocity);
 		}
 
@@ -81,7 +81,7 @@ namespace SpaxUtils
 				return;
 			}
 
-			Vector3 velocity = Quaternion.LookRotation(movementHandler.InputAxis) * movementHandler.InputRaw * glideSpeed * movementSpeed;
+			Vector3 velocity = Quaternion.LookRotation(movementHandler.InputAxis) * movementHandler.InputRaw * glideSpeed * (movementSpeed ?? 1f);
 			RigidbodyWrapper.ApplyMovement(velocity, controlForce, brakeForce, power, true);
 			movementHandler.UpdateRotation(delta, null, true);
 		}

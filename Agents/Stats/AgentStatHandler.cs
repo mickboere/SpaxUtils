@@ -56,13 +56,15 @@ namespace SpaxUtils
 			// Apply distributions where able.
 			if (bodyDistribution != Vector8.Zero && agent.Stats.TryGetStat(AgentStatIdentifiers.BODY_LEVEL, out EntityStat bodyLevel) && bodyLevel.BaseValue > 0f)
 			{
-				ApplyDistribution(bodyLevel.BaseValue, bodyDistribution, BodyExperience, bodyAttributeMap);
+				ApplyDistribution(bodyLevel.BaseValue * 8f, bodyDistribution, BodyExperience, bodyAttributeMap);
 				bodyLevel.BaseValue = 0f;
+				bodyLevel.Data.Dirty = false;
 			}
 			if (soulDistribution != Vector8.Zero && agent.Stats.TryGetStat(AgentStatIdentifiers.SOUL_LEVEL, out EntityStat soulLevel) && soulLevel.BaseValue > 0f)
 			{
-				ApplyDistribution(soulLevel.BaseValue, soulDistribution, SoulExperience, soulAttributeMap);
+				ApplyDistribution(soulLevel.BaseValue * 8f, soulDistribution, SoulExperience, soulAttributeMap);
 				soulLevel.BaseValue = 0f;
+				soulLevel.Data.Dirty = false;
 			}
 
 			pointStatOctad.Initialize(agent);
