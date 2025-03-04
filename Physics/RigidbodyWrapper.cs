@@ -47,7 +47,7 @@ namespace SpaxUtils
 		/// <summary>
 		/// Velocity of the rigidbody in world space.
 		/// </summary>
-		public Vector3 Velocity { get => Rigidbody.velocity; set => Rigidbody.velocity = value; }
+		public Vector3 Velocity { get => Rigidbody.linearVelocity; set => Rigidbody.linearVelocity = value; }
 
 		/// <summary>
 		/// Velocity of the rigidbody in local space.
