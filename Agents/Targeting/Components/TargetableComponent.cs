@@ -11,6 +11,12 @@ namespace SpaxUtils
 	public class TargetableComponent : EntityComponentMono, ITargetable
 	{
 		/// <inheritdoc/>
+		public Vector3 Point => headProvider != null && headProvider.Head != null ? headProvider.Head.position : Center;
+
+		/// <inheritdoc/>
+		public Vector3 Orientation => headProvider != null && headProvider.Head != null ? headProvider.Head.forward : transform.forward;
+
+		/// <inheritdoc/>
 		public virtual Vector3 Position => transform.position;
 
 		/// <inheritdoc/>
@@ -41,9 +47,6 @@ namespace SpaxUtils
 
 		/// <inheritdoc/>
 		public Vector3 Size => Application.isPlaying && useSizeAtStart ? startingSize : Bounds.size;
-
-		/// <inheritdoc/>
-		public Vector3 Point => headProvider != null && headProvider.Head != null ? headProvider.Head.position : Center;
 
 		/// <inheritdoc/>
 		public bool IsTargetable { get; private set; } = true;

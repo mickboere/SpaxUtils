@@ -62,8 +62,8 @@ namespace SpaxUtils
 		{
 			_light = GetComponent<Light>();
 			Multiplier = 1f;
-			noiseA.Initialize();
-			noiseB.Initialize();
+			noiseA?.Initialize();
+			noiseB?.Initialize();
 		}
 	}
 }

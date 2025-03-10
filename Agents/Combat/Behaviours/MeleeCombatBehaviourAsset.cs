@@ -203,7 +203,7 @@ namespace SpaxUtils
 					Performer.TryCancel(true);
 				}
 
-				float hitPause = combatSettings.HitPauseReceiver.Lerp(hitData.Result_Impact);
+				float hitPause = combatSettings.HitPauseReceiver.Lerp(hitData.Result_Impact * (1f / performSpeedStat.Value));
 				if (hitPauseMod == null || hitPause > hitPauseMod.Timer.Remaining)
 				{
 					// Apply hit-pause.

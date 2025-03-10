@@ -15,6 +15,11 @@ namespace SpaxUtils
 		Vector3 Point { get; }
 
 		/// <summary>
+		/// The look-orientation of this targetable.
+		/// </summary>
+		Vector3 Orientation { get; }
+
+		/// <summary>
 		/// The position of the targetable.
 		/// </summary>
 		Vector3 Position { get; }
