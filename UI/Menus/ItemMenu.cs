@@ -21,6 +21,11 @@ namespace SpaxUtils.UI
 		/// </summary>
 		public event Action MenuUpdatedEvent;
 
+		/// <summary>
+		/// All items currently present within this menu.
+		/// </summary>
+		public IReadOnlyDictionary<string, (T data, MenuItem visual)> Items => items;
+
 		private Dictionary<string, (T data, MenuItem visual)> items = new Dictionary<string, (T data, MenuItem visual)>();
 
 		private MenuItem template;

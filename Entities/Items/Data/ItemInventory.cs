@@ -159,6 +159,25 @@ namespace SpaxUtils
 			}
 		}
 
+		/// <summary>
+		/// Tries to infer item type from object <paramref name="item"/> and adds it to inventory if succesful.
+		/// </summary>
+		public bool TryAddItem(object item)
+		{
+			if (item is IItemData itemData)
+			{
+				AddItem(itemData);
+				return true;
+			}
+			else if (item is RuntimeItemData runtimeItemData)
+			{
+				AddItem(runtimeItemData);
+				return true;
+			}
+
+			return false;
+		}
+
 		#endregion
 
 		#region Removing

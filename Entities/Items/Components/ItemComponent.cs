@@ -8,17 +8,12 @@ namespace SpaxUtils
 	/// <see cref="IRuntimeItemDataComponent"/> implementation, containing a reference to an <see cref="IRuntimeItemData"/>.
 	/// Component implements <see cref="IInteractable"/>, once sucessfully interacted with the Entity will be destroyed.
 	/// </summary>
-	public class ItemComponent : InteractableComponent, IRuntimeItemDataComponent
+	public class ItemComponent : InteractableComponentBase, IRuntimeItemDataComponent
 	{
 		/// <inheritdoc/>
 		public RuntimeItemData RuntimeItemData { get; private set; }
 
-		/// <inheritdoc/>
-		public override string[] InteractableTypes { get; protected set; } = new string[]
-		{
-			BaseInteractionTypes.INVENTORY,
-			BaseInteractionTypes.EQUIP
-		};
+		public override string InteractableType => InteractionTypes.ITEM;
 
 		[SerializeField, Expandable] private ItemDataAsset itemDataAsset;
 
@@ -37,6 +32,14 @@ namespace SpaxUtils
 		}
 
 		/// <inheritdoc/>
+		public override bool TryInteract(IInteraction interaction)
+		{
+			interaction.Data = RuntimeItemData;
+			gameObject.SetActive(false);
+			return true;
+		}
+
+		/// <inheritdoc/>
 		public void SetItemData(IItemData itemData)
 		{
 			this.itemData = itemData;
@@ -48,28 +51,6 @@ namespace SpaxUtils
 		{
 			this.runtimeData = runtimeData;
 			RefreshRuntimeItemData();
-		}
-
-		/// <inheritdoc/>
-		public override bool IsInteractable(string interactionType)
-		{
-			switch (interactionType)
-			{
-				case BaseInteractionTypes.INVENTORY:
-				case BaseInteractionTypes.EQUIP:
-					return true;
-				default:
-					return false;
-			}
-		}
-
-		/// <inheritdoc/>
-		protected override bool OnTryInteract(IInteraction interaction)
-		{
-			interaction.Data = RuntimeItemData;
-			interaction.Conclude(true);
-			Destroy(Entity.GameObject);
-			return true;
 		}
 
 		private void UpdateIdentification()

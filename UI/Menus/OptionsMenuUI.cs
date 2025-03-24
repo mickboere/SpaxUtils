@@ -29,14 +29,16 @@ namespace SpaxUtils.UI
 		[SerializeField] private MenuItem menuItemTemplate;
 		[SerializeField] private TMP_Text menuTitle;
 
+		private GameService gameService;
 		private PlayerInputWrapper playerInputWrapper;
 		private ICommunicationChannel comms;
 
 		private ItemMenu<Option> _menu;
 		private List<Option> menuOptions = new List<Option>();
 
-		public void InjectDependencies(PlayerInputWrapper playerInputWrapper, ICommunicationChannel comms)
+		public void InjectDependencies(GameService gameService, PlayerInputWrapper playerInputWrapper, ICommunicationChannel comms)
 		{
+			this.gameService = gameService;
 			this.playerInputWrapper = playerInputWrapper;
 			this.comms = comms;
 		}
@@ -64,7 +66,7 @@ namespace SpaxUtils.UI
 		/// <param name="options"></param>
 		/// <param name="addCancel"></param>
 		/// <param name="title"></param>
-		public void Initialize(IReadOnlyCollection<Option> options, bool addCancel = false, string title = "")
+		public void Initialize(IEnumerable<Option> options, bool addCancel = false, string title = "")
 		{
 			CleanMenu();
 
@@ -89,6 +91,21 @@ namespace SpaxUtils.UI
 			}
 
 			Menu.Populate(menuOptions);
+		}
+
+		/// <summary>
+		/// Manually pick the currently highlighted option.
+		/// </summary>
+		public void SelectCurrentOption()
+		{
+			foreach (KeyValuePair<string, (Option data, MenuItem visual)> item in Menu.Items)
+			{
+				if (gameService.EventSystem.currentSelectedGameObject == item.Value.visual.Button.gameObject)
+				{
+					item.Value.visual.Button.onClick.Invoke();
+					return;
+				}
+			}
 		}
 
 		private void CleanMenu()

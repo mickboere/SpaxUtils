@@ -12,9 +12,9 @@ namespace SpaxUtils
 		[SerializeField, Input(backingValue = ShowBackingValue.Never)] protected Connections.Rule inConnection;
 		[SerializeField] private bool invert;
 
-		private IInteractionHandler interactionHandler;
+		private InteractionHandler interactionHandler;
 
-		public void InjectDependencies(IInteractionHandler interactionHandler)
+		public void InjectDependencies(InteractionHandler interactionHandler)
 		{
 			this.interactionHandler = interactionHandler;
 		}

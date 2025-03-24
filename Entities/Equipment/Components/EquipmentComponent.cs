@@ -9,7 +9,7 @@ namespace SpaxUtils
 	/// <see cref="IEntityComponent"/> that handles equipment data and visuals.
 	/// </summary>
 	[DefaultExecutionOrder(100)]
-	public class EquipmentComponent : InteractorComponent, IEquipmentComponent
+	public class EquipmentComponent : InteractorComponentBase, IEquipmentComponent
 	{
 		public const string EQUIPMENT_DATA_ID = "Equipment";
 
@@ -323,30 +323,45 @@ namespace SpaxUtils
 
 		#region IInteractor
 
-		/// <inheritdoc/>
-		public override bool CanInteract(string interactionType)
+		public override List<string> GetInteractions(IInteractable interactable)
 		{
-			return interactionType == BaseInteractionTypes.EQUIP;
+			if (interactable.InteractableType == InteractionTypes.ITEM &&
+				interactable is IRuntimeItemDataComponent ridc &&
+				ridc.RuntimeItemData.ItemData is IEquipmentData)
+			{
+				return new List<string>() { InteractionTypes.ITEM_EQUIP };
+			}
+
+			return new List<string>();
 		}
 
-		/// <inheritdoc/>
-		protected override bool CreateInteraction(string interactionType, IInteractable interactable, object data, out IInteraction interaction)
+		public override bool TryCreateInteraction(IInteractable interactable, string action, out IInteraction interaction)
 		{
-			// Create and execute interaction.
-			interaction = new Interaction(interactionType, this, interactable, null,
-				(IInteraction i, bool success) =>
-				{
-					if (success &&
-						i.Data is RuntimeItemData itemData &&
-						itemData.ItemData is IEquipmentData equipmentData)
-					{
-						RuntimeItemData runtimeItemData = inventoryComponent.Inventory.AddItem(itemData);
-						TryEquip(runtimeItemData, out _);
-					}
-					i.Dispose();
-				});
+			if (interactable.InteractableType == InteractionTypes.ITEM &&
+				action == InteractionTypes.ITEM_EQUIP)
+			{
+				interaction = new Interaction(Entity, interactable, action);
+				interaction.InitiatedEvent += ExtractItem;
+				return true;
+			}
 
-			return interactable.TryInteract(interaction);
+			interaction = null;
+			return false;
+		}
+
+		private void ExtractItem(IInteraction interaction)
+		{
+			if (interaction.Data is RuntimeItemData itemData &&
+				itemData.ItemData is IEquipmentData)
+			{
+				RuntimeItemData runtimeItemData = inventoryComponent.Inventory.AddItem(itemData);
+				TryEquip(runtimeItemData, out _);
+				interaction.Conclude(true);
+			}
+			else
+			{
+				interaction.Conclude(false);
+			}
 		}
 
 		#endregion

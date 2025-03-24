@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 
 namespace SpaxUtils
 {
@@ -9,20 +8,19 @@ namespace SpaxUtils
 	public interface IInteraction : IDisposable
 	{
 		/// <summary>
-		/// Invoked when the interaction has concluded.
-		/// The bool indicates whether the interaction was a success or a failure.
+		/// Invoked once this interaction has been initiated.
 		/// </summary>
-		event Action<IInteraction, bool> ConcludedEvent;
+		event Action<IInteraction> InitiatedEvent;
 
 		/// <summary>
-		/// The type of interaction.
+		/// Invoked once this interaction has been concluded.
 		/// </summary>
-		string Type { get; }
+		event Action<IInteraction> ConcludedEvent;
 
 		/// <summary>
-		/// The <see cref="IInteractor"/> that initiated this interaction.
+		/// The entity that initiated this interaction.
 		/// </summary>
-		IInteractor Interactor { get; }
+		IEntity Interactor { get; }
 
 		/// <summary>
 		/// The <see cref="IInteractable"/> that is being interacted with.
@@ -30,12 +28,22 @@ namespace SpaxUtils
 		IInteractable Interactable { get; }
 
 		/// <summary>
-		/// The interaction data object.
+		/// The action that is to be performed upon the interactable.
+		/// </summary>
+		string Action { get; }
+
+		/// <summary>
+		/// The data object of this interaction, set by either the interactor (key) or interactable (return) depending on interaction.
 		/// </summary>
 		object Data { get; set; }
 
 		/// <summary>
-		/// Gets whether the interaction was concluded or is still ongoing.
+		/// Whether this interaction has been succesfully initiated between the two entitites.
+		/// </summary>
+		bool Initiated { get; }
+
+		/// <summary>
+		/// Whether this interaction had been concluded or is still ongoing.
 		/// </summary>
 		bool Concluded { get; }
 
@@ -45,8 +53,18 @@ namespace SpaxUtils
 		bool Success { get; }
 
 		/// <summary>
+		/// The conclusion message containing the reason for its failure, if any.
+		/// </summary>
+		string Message { get; }
+
+		/// <summary>
+		/// Initiates this interaction.
+		/// </summary>
+		bool TryInitiate();
+
+		/// <summary>
 		/// Concludes the interaction either sucessfully or as a failure.
 		/// </summary>
-		void Conclude(bool success);
+		void Conclude(bool success, string message = "");
 	}
 }

@@ -88,7 +88,6 @@ namespace SpaxUtils
 				{
 					data = new RuntimeDataEntry(identifier, defaultData.Value);
 					return RuntimeData.TryAdd(data);
-
 				}
 				else if (createIfNull)
 				{

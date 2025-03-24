@@ -5,6 +5,9 @@
 	/// </summary>
 	public interface IEntityComponent : IDependency
 	{
+		/// <summary>
+		/// The <see cref="IEntity"/> this component belongs to.
+		/// </summary>
 		IEntity Entity { get; }
 	}
 }

@@ -17,6 +17,10 @@ namespace SpaxUtils.UI
 
 		public string ID { get; private set; }
 
+		public Button Button => button;
+		public Image Image => image;
+		public TMP_Text Label => label;
+
 		public Sprite Sprite
 		{
 			get

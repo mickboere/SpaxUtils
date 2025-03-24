@@ -42,7 +42,7 @@ namespace SpaxUtils
 				id = Guid.NewGuid().ToString();
 			}
 			name = identification.Name;
-			labels = new List<string>(identification.Labels);
+			labels = identification.Labels == null ? new List<string>() : new List<string>(identification.Labels);
 			Entity = entity;
 		}
 

@@ -5,42 +5,28 @@ using UnityEngine;
 namespace SpaxUtils
 {
 	/// <summary>
-	/// Interface for objects able to be interacted with by <see cref="IInteractor"/>s.
+	/// Interface for objects able to be interacted with.
 	/// </summary>
 	public interface IInteractable : IEntityComponent
 	{
 		/// <summary>
-		/// Invoked when this interactable enters an interaction.
+		/// The type of this interactable, used to identify which actions can be performed upon it.
 		/// </summary>
-		event Action<IInteraction> InteractableEvent;
+		string InteractableType { get; }
 
 		/// <summary>
-		/// The interactor's interaction point in world-space.
+		/// Returns whether this interactable can currently be interacted with.
 		/// </summary>
-		Vector3 InteractablePoint { get; }
+		bool IsInteractable { get; }
 
 		/// <summary>
-		/// The interaction range from the <see cref="InteractablePoint"/>.
+		/// Returns a list of available interactions for this interactable.
 		/// </summary>
-		float InteractableRange { get; }
+		List<string> GetInteractions(IEntity interactor);
 
 		/// <summary>
-		/// Gets all interaction types this interactable supports.
+		/// Try to interact with this interactable using <paramref name="interaction"/>.
 		/// </summary>
-		string[] InteractableTypes { get; }
-
-		/// <summary>
-		/// Returns whether this interactable supports interactions of type <paramref name="interactionType"/>.
-		/// </summary>
-		/// <param name="interactionType"></param>
-		/// <returns></returns>
-		bool IsInteractable(string interactionType);
-
-		/// <summary>
-		/// Try to interact with this object using <paramref name="interaction"/>.
-		/// </summary>
-		/// <param name="interaction">The interaction to attempt.</param>
-		/// <returns>TRUE when succeeded, FALSE when failed.</returns>
 		bool TryInteract(IInteraction interaction);
 	}
 }

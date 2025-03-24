@@ -1,49 +1,27 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
 namespace SpaxUtils
 {
 	/// <summary>
-	/// Interface for objects able to initiate <see cref="IInteraction"/>s with <see cref="IInteractable"/>s.
+	/// Interface for objects able to create <see cref="IInteraction"/>s for <see cref="IInteractable"/>s of any type.
 	/// </summary>
 	public interface IInteractor : IEntityComponent
 	{
 		/// <summary>
-		/// Invoked when this interactor enters an interaction.
+		/// Returns a list of available interactions for <paramref name="interactable"/>.
 		/// </summary>
-		event Action<IInteraction> InteractorEvent;
+		List<string> GetInteractions(IInteractable interactable);
 
 		/// <summary>
-		/// The interactor's interaction point in world-space.
+		/// Try to create a new interaction which aims to perform <paramref name="action"/> upon <paramref name="interactable"/>.
 		/// </summary>
-		Vector3 InteractorPoint { get; }
-
-		/// <summary>
-		/// The interaction range from the <see cref="InteractorPoint"/>.
-		/// </summary>
-		float InteractorRange { get; }
-
-		/// <summary>
-		/// Returns whether this interactor is able to set up a new interaction of type <paramref name="interactionType"/>.
-		/// </summary>
-		bool CanInteract(string interactionType);
-
-		/// <summary>
-		/// Will try to set up a new interaction of type <paramref name="interactionType"/>.
-		/// </summary>
-		/// <param name="interactable">The <see cref="IInteractable"/> this interactor should attempt interaction with.</param>
-		/// <param name="interactionType">The type of interaction to try and set up.</param>
-		/// <param name="interaction">The resulting <see cref="IInteraction"/> object.</param>
-		/// <param name="data">The shared <see cref="IInteraction.Data"/>.</param>
-		/// <returns>Whether setting up the interaction was a success.</returns>
-		bool TryCreateInteraction(string interactionType, IInteractable interactable, out IInteraction interaction, object data = null);
-
-		/// <summary>
-		/// Returns all possible interactions between this <see cref="IInteractor"/> and the <paramref name="interactable"/>.
-		/// </summary>
-		/// <param name="interactable">The <see cref="IInteractable"/> to get all possible interactions for.</param>
-		/// <returns>All possible interactions between this <see cref="IInteractor"/> and the <paramref name="interactable"/>.</returns>
-		string[] GetAttemptableInteractions(IInteractable interactable) => interactable.InteractableTypes.Where(i => CanInteract(i)).ToArray();
+		/// <param name="interactable">The interactor to interact with.</param>
+		/// <param name="action">The action to perform upon the interactable.</param>
+		/// <param name="interaction">If successful, the resulting interaction object.</param>
+		/// <returns>Whether the interaction was succesfully initiated.</returns>
+		bool TryCreateInteraction(IInteractable interactable, string action, out IInteraction interaction);
 	}
 }
