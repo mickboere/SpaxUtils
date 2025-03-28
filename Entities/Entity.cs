@@ -55,13 +55,6 @@ namespace SpaxUtils
 		public EntityStatManager Stats { get; private set; }
 
 		/// <inheritdoc/>
-		public bool Alive { get; protected set; }
-
-		/// <inheritdoc/>
-		public float Age => (float)_age;
-		private double _age;
-
-		/// <inheritdoc/>
 		public bool DynamicPriority
 		{
 			get { return dynamicPriority; }
@@ -226,7 +219,7 @@ namespace SpaxUtils
 			entityCollection?.Remove(this);
 		}
 
-		protected void Update()
+		protected virtual void Update()
 		{
 #if UNITY_EDITOR
 			if (!Application.isPlaying && PrefabStageUtility.GetCurrentPrefabStage() == null)
@@ -234,11 +227,6 @@ namespace SpaxUtils
 				gameObject.name = GameObjectName;
 			}
 #endif
-
-			if (Alive)
-			{
-				_age += Time.deltaTime;
-			}
 		}
 
 		#endregion Internal
@@ -257,7 +245,6 @@ namespace SpaxUtils
 			if (!initialized)
 			{
 				gameObject.name = GameObjectName;
-				Alive = true; // Active entity is being initialized so we can assume its alive.
 				ApplyData();
 				initialized = true;
 			}
@@ -367,30 +354,13 @@ namespace SpaxUtils
 			{
 				Debug = debug;
 			}
-
-			// Retrieve whether this entity was last alive when its data was saved.
-			Alive = RuntimeData.GetValue(EntityDataIdentifiers.ALIVE, false);
-			_age = RuntimeData.GetValue(EntityDataIdentifiers.AGE, 0d);
-			if (Alive && RuntimeData.GetValue(EntityDataIdentifiers.SCENE) == sceneService.CurrentScene)
-			{
-				Transform.position = RuntimeData.GetValue(EntityDataIdentifiers.POSITION, transform.position) + Vector3.up * 0.5f; // hack
-				Transform.eulerAngles = RuntimeData.GetValue(EntityDataIdentifiers.ROTATION, transform.eulerAngles);
-			}
-			Alive = true;
 		}
 
 		/// <inheritdoc/>
 		public virtual void SaveData()
 		{
-			RuntimeData.SetValue(EntityDataIdentifiers.NAME, Identification.Name);
-			RuntimeData.SetValue(EntityDataIdentifiers.ALIVE, Alive);
-			RuntimeData.SetValue(EntityDataIdentifiers.AGE, _age);
-			RuntimeData.SetValue(EntityDataIdentifiers.SCENE, sceneService.CurrentScene);
-			RuntimeData.SetValue(EntityDataIdentifiers.POSITION, Transform.position);
-			RuntimeData.SetValue(EntityDataIdentifiers.ROTATION, Transform.eulerAngles);
-
+			OnSavingData();
 			OnSaveEvent?.Invoke(RuntimeData);
-
 			runtimeDataService.SaveDataToProfile(RuntimeData);
 		}
 
@@ -450,6 +420,11 @@ namespace SpaxUtils
 		}
 
 		#endregion Entity Component Methods
+
+		protected virtual void OnSavingData()
+		{
+			RuntimeData.SetValue(EntityDataIdentifiers.NAME, Identification.Name);
+		}
 
 		private void OnIdentificationUpdatedEvent(IIdentification identification)
 		{

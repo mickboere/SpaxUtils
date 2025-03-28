@@ -14,14 +14,21 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public string Identifier { get; }
 
+		/// <inheritdoc/>
+		public bool Debug { get; set; }
+
 		protected Dictionary<Key, Dictionary<object, Action<Val>>> subscriptions;
 		protected Dictionary<Key, (Val, TimerStruct)> history;
+		protected List<IChannel<Key, Val>> links;
+		protected bool sending;
 
-		public ChannelBase(string identifier)
+		public ChannelBase(string identifier, bool debug = false)
 		{
 			Identifier = identifier;
 			subscriptions = new Dictionary<Key, Dictionary<object, Action<Val>>>();
 			history = new Dictionary<Key, (Val, TimerStruct)>();
+			links = new List<IChannel<Key, Val>>();
+			Debug = debug;
 		}
 
 		/// <inheritdoc/>
@@ -86,6 +93,24 @@ namespace SpaxUtils
 			return true;
 		}
 
+		/// <inheritdoc/>
+		public void Link(IChannel<Key, Val> channel)
+		{
+			if (channel == this || links.Contains(channel)) { return; }
+
+			links.Add(channel);
+			channel.ReceivedEvent += OnLinkedMessageReceived;
+		}
+
+		/// <inheritdoc/>
+		public void Unlink(IChannel<Key, Val> channel)
+		{
+			if (channel == this || !links.Contains(channel)) { return; }
+
+			links.Remove(channel);
+			channel.ReceivedEvent -= OnLinkedMessageReceived;
+		}
+
 		/// <summary>
 		/// Invoked when the channel has received a new message event through <see cref="Send{T}(Key, T, TimerStruct)"/>.
 		/// </summary>
@@ -93,7 +118,27 @@ namespace SpaxUtils
 		/// <param name="value">The variable containing the message.</param>
 		protected virtual void OnReceived(Key key, Val value)
 		{
+			if (Debug)
+			{
+				SpaxDebug.Log(Identifier, $"key={key}, val={value}");
+			}
+
+			sending = true;
 			ReceivedEvent?.Invoke(key, value);
+			sending = false;
+		}
+
+		/// <summary>
+		/// Invoked when a linked channel has received a new message event, then forwards that message over this channel.
+		/// </summary>
+		/// <param name="key">The variable identifying the message type.</param>
+		/// <param name="value">The variable containing the message.</param>
+		protected virtual void OnLinkedMessageReceived(Key key, Val value)
+		{
+			if (!sending) // Prevent feedback loop.
+			{
+				Send(key, value);
+			}
 		}
 	}
 }

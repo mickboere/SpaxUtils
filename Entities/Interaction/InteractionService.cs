@@ -11,6 +11,8 @@ namespace SpiritAxis
 	/// </summary>
 	public class InteractionService : IService, IDisposable
 	{
+		private const float DETECTION_THRESHOLD = 0.02f;
+
 		private EntityComponentFilter<InteractionHandler> interactables;
 
 		public InteractionService(IEntityCollection entityCollection)
@@ -53,15 +55,12 @@ namespace SpiritAxis
 					continue;
 				}
 
-				// Ask interactable for consent.
+				// Confirm interactable matches criterea.
 				if ((string.IsNullOrEmpty(type) || interactable.HasInteractableType(type)) && InRange(interactor, interactable, out float dist))
 				{
 					results.Add((interactable, dist));
 				}
 			}
-
-			// Sort consenting interactables in range by distance.
-			results.Sort((x, y) => x.distance.CompareTo(y.distance));
 
 			// Cast a ray from the interactor to the interactable to see if nothing is blocking them.
 			// Remove all interactions that are obstructed from the results.
@@ -69,19 +68,28 @@ namespace SpiritAxis
 			{
 				if (results[i].distance > interactor.InteractionRange + results[i].interactable.InteractionRange)
 				{
-					// Bridged components don't need to check for obstruction.
+					// Bridged components (TODO) don't need to check for obstruction.
 					continue;
 				}
 
-				RaycastHit[] hits = Physics.RaycastAll(interactor.InteractionPoint, Vector3.Normalize(results[i].interactable.InteractionPoint - interactor.InteractionPoint), results[i].distance, raycastLayerMask);
+				RaycastHit[] hits = Physics.RaycastAll(interactor.InteractionPoint,
+					Vector3.Normalize(results[i].interactable.InteractionPoint - interactor.InteractionPoint),
+					results[i].distance - DETECTION_THRESHOLD,
+					raycastLayerMask);
 				// Check if there are any hits that aren't entities. If there are, the interaction is blocked.
 				if (hits.Any(hit => !hit.TryGetComponentInParents(out IEntity entity)))
+				//if (Physics.Raycast(interactor.InteractionPoint, Vector3.Normalize(results[i].interactable.InteractionPoint - interactor.InteractionPoint), out RaycastHit hit, results[i].distance - DETECTION_THRESHOLD, raycastLayerMask))
 				{
+					//Debug.DrawLine(interactor.InteractionPoint, hit.point, Color.red);
+					//SpaxDebug.Error("Blocked:", $"{hit.transform.gameObject.name}");
 					// Blocked.
 					results.RemoveAt(i);
 					i--;
 				}
 			}
+
+			// Sort interactables by distance.
+			results.Sort((x, y) => x.distance.CompareTo(y.distance));
 
 			return results.Count > 0;
 		}
@@ -89,9 +97,9 @@ namespace SpiritAxis
 		/// <summary>
 		/// Returns the <paramref name="interactable"/> closest to the <paramref name="interactor"/> within <paramref name="distance"/>.
 		/// </summary>
-		/// <param name="interactor">The <see cref="IInteractionHandler"/> that wishes to interact.</param>
-		/// <param name="interactable">The resulting closest <see cref="IInteractionHandler"/> that's interactable, if any.</param>
-		/// <param name="distance">The distance to the closest <see cref="IInteractionHandler"/> that's interactable, if any.</param>
+		/// <param name="interactor">The <see cref="InteractionHandler"/> that wishes to interact.</param>
+		/// <param name="interactable">The resulting closest <see cref="InteractionHandler"/> that's interactable, if any.</param>
+		/// <param name="distance">The distance to the closest <see cref="InteractionHandler"/> that's interactable, if any.</param>
 		/// <param name="type">Only check for interactables that can handle interactions of this type. Leave empty to allow for all interaction types.</param>
 		/// <param name="layerMask">The layermask used when checking if the interaction between the interactor and interactable is obstructed.</param>
 		public bool TryGetClosestInteractable(InteractionHandler interactor, out InteractionHandler interactable, out float distance, string type = "", int layerMask = ~0)

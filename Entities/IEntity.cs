@@ -44,16 +44,6 @@ namespace SpaxUtils
 		EntityStatManager Stats { get; }
 
 		/// <summary>
-		/// Whether this entity is currently alive or not.
-		/// </summary>
-		bool Alive { get; }
-
-		/// <summary>
-		/// Age this entity has been alive for in seconds.
-		/// </summary>
-		float Age { get; }
-
-		/// <summary>
 		/// Whether the priority for this entity should be managed dynamically based on distance to nearest camera.
 		/// </summary>
 		bool DynamicPriority { get; set; }

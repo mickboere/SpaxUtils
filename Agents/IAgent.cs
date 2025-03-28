@@ -5,8 +5,7 @@ using System.Collections.Generic;
 namespace SpaxUtils
 {
 	/// <summary>
-	/// Advanced <see cref="IEntity"/> implementation for free agents which have a body that can act, think, die, target and be targeted.
-	/// Input has to be routed through the <see cref="Actor"/> as <see cref="IAct"/>s, which can be observed and reacted to.
+	/// Interface for living entities (an <see cref="IEntity"/> with agency).
 	/// </summary>
 	public interface IAgent : IEntity
 	{
@@ -26,6 +25,16 @@ namespace SpaxUtils
 		event Action RecoverEvent;
 
 		#region Properties
+
+		/// <summary>
+		/// Whether this entity is currently alive or not.
+		/// </summary>
+		bool Alive { get; }
+
+		/// <summary>
+		/// Age this entity has been alive for in seconds.
+		/// </summary>
+		float Age { get; }
 
 		/// <summary>
 		/// The action performer of this agent.

@@ -18,6 +18,13 @@ namespace SpaxUtils
 		#region Properties
 
 		/// <inheritdoc/>
+		public bool Alive { get; protected set; }
+
+		/// <inheritdoc/>
+		public float Age => (float)_age;
+		private double _age;
+
+		/// <inheritdoc/>
 		public IActor Actor { get; private set; }
 
 		/// <inheritdoc/>
@@ -105,12 +112,47 @@ namespace SpaxUtils
 			Brain.Start();
 		}
 
+		protected override void Update()
+		{
+			base.Update();
+
+			if (Alive)
+			{
+				_age += Time.deltaTime;
+			}
+		}
+
 		protected override void OnDestroy()
 		{
 			((Actor)Actor)?.Dispose();
 			Brain?.Dispose();
 			Mind?.Dispose();
 			base.OnDestroy();
+		}
+
+		protected override void ApplyData()
+		{
+			base.ApplyData();
+
+			// Retrieve whether this entity was last alive when its data was saved.
+			Alive = RuntimeData.GetValue(EntityDataIdentifiers.ALIVE, false);
+			_age = RuntimeData.GetValue(EntityDataIdentifiers.AGE, 0d);
+			if (Alive && RuntimeData.GetValue<string>(EntityDataIdentifiers.SCENE) == sceneService.CurrentScene)
+			{
+				Transform.position = RuntimeData.GetValue(EntityDataIdentifiers.POSITION, transform.position) + Vector3.up * 0.5f; // hack
+				Transform.eulerAngles = RuntimeData.GetValue(EntityDataIdentifiers.ROTATION, transform.eulerAngles);
+			}
+			Alive = true; // Entity is being initialized so it is now definitely alive.
+		}
+
+		protected override void OnSavingData()
+		{
+			base.OnSavingData();
+			RuntimeData.SetValue(EntityDataIdentifiers.ALIVE, Alive);
+			RuntimeData.SetValue(EntityDataIdentifiers.AGE, _age);
+			RuntimeData.SetValue(EntityDataIdentifiers.SCENE, sceneService.CurrentScene);
+			RuntimeData.SetValue(EntityDataIdentifiers.POSITION, Transform.position);
+			RuntimeData.SetValue(EntityDataIdentifiers.ROTATION, Transform.eulerAngles);
 		}
 
 		/// <inheritdoc/>

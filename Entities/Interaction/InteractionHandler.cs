@@ -16,6 +16,7 @@ namespace SpaxUtils
 		public event Action<IInteraction> InteractionEvent;
 
 		public IReadOnlyList<IInteraction> Interactions => interactions;
+		public bool Interacting => Interactions.Count > 0;
 		public Vector3 InteractionPoint => targetable == null ? Entity.Transform.position : targetable.Center;
 		public float InteractionRange => targetable == null ? defaultInteractionRange : targetable.Size.Average() * 0.5f;
 
@@ -75,7 +76,7 @@ namespace SpaxUtils
 					result.Add(new Option(action.LastDivision(), "",
 						(_) =>
 						{
-							interactor.CreateInteraction(interactable, action).TryInitiate();
+							interactor.CreateInteraction(this, interactable, action).TryInitiate();
 						}));
 				}
 
@@ -88,7 +89,7 @@ namespace SpaxUtils
 						result.Add(new Option(action.LastDivision(), "",
 						(_) =>
 						{
-							interactor.CreateInteraction(interactable, action).TryInitiate();
+							interactor.CreateInteraction(this, interactable, action).TryInitiate();
 						}));
 					}
 				}
@@ -102,6 +103,12 @@ namespace SpaxUtils
 		/// </summary>
 		public List<Option> GetInteractorOptions(InteractionHandler interactable)
 		{
+			if (Interacting)
+			{
+				// Cannot interact with objects while in an interaction.
+				return new List<Option>();
+			}
+
 			return interactable.GetInteractableOptions(this);
 		}
 
@@ -110,23 +117,27 @@ namespace SpaxUtils
 		/// </summary>
 		/// <param name="interactable">The interactable to interact with.</param>
 		/// <param name="action">The action to perform upon the interactable.</param>
-		public IInteraction CreateInteraction(IInteractable interactable, string action)
+		public IInteraction CreateInteraction(InteractionHandler interactableHandler, IInteractable interactable, string action)
 		{
-			IInteraction interaction;
+			IInteraction interaction = null;
 
 			// First check if there is a dedicated interactor.
 			foreach (IInteractor interactor in interactors)
 			{
 				if (interactor.TryCreateInteraction(interactable, action, out interaction))
 				{
-					interaction.InitiatedEvent += OnInitiatedEvent;
-					return interaction;
+					break;
 				}
 			}
 
-			// Create default interaction where the interactable is fully responsible for handling the action.
-			interaction = new Interaction(Entity, interactable, action);
+			if (interaction == null)
+			{
+				// Create default interaction where the interactable is fully responsible for handling the action.
+				interaction = new Interaction(Entity, interactable, action);
+			}
+
 			interaction.InitiatedEvent += OnInitiatedEvent;
+			interaction.InitiatedEvent += interactableHandler.OnInitiatedEvent;
 			return interaction;
 		}
 
@@ -139,7 +150,7 @@ namespace SpaxUtils
 			{
 				if (i.InteractableType == type)
 				{
-					interaction = CreateInteraction(i, action);
+					interaction = CreateInteraction(interactable, i, action);
 					return interaction.TryInitiate();
 				}
 			}

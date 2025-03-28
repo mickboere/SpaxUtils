@@ -20,6 +20,11 @@ namespace SpaxUtils
 		string Identifier { get; }
 
 		/// <summary>
+		/// Whether this channel should log its messages.
+		/// </summary>
+		bool Debug { get; set; }
+
+		/// <summary>
 		/// Sends new data of type <typeparamref name="T"/> using key <paramref name="key"/>.
 		/// </summary>
 		/// <typeparam name="T">The value data type. Should implement <see cref="Val"/>.</typeparam>
@@ -54,5 +59,17 @@ namespace SpaxUtils
 		/// <param name="timer">The timer that was started when the data was received.</param>
 		/// <returns>Whether retrieving the data last stored with <paramref name="key"/> was succesful.</returns>
 		bool TryGetLast<T>(Key key, out T val, out TimerStruct timer) where T : Val;
+
+		/// <summary>
+		/// Links <paramref name="channel"/> to this channel so that all its messages are shared with this one.
+		/// </summary>
+		/// <param name="channel">The channel to link to this one.</param>
+		void Link(IChannel<Key, Val> channel);
+
+		/// <summary>
+		/// Unlinks <paramref name="channel"/> from this comms channel to no longer share messages.
+		/// </summary>
+		/// <param name="channel">The channel to unlink from this one.</param>
+		void Unlink(IChannel<Key, Val> channel);
 	}
 }

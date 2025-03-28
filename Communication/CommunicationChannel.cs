@@ -12,7 +12,7 @@ namespace SpaxUtils
 
 		public CommunicationChannel() : base(DEFAULT_COMMS_IDENTIFIER) { }
 
-		public CommunicationChannel(string identifier = DEFAULT_COMMS_IDENTIFIER) : base(identifier) { }
+		public CommunicationChannel(string identifier = DEFAULT_COMMS_IDENTIFIER, bool debug = false) : base(identifier, debug) { }
 
 		/// <inheritdoc/>
 		public void Send<T>(T message, TimerStruct timer = default)
@@ -38,31 +38,6 @@ namespace SpaxUtils
 		public void Listen<T>(object listener, Action<T> callback)
 		{
 			base.Listen<T>(listener, typeof(T), callback);
-		}
-
-		/// <inheritdoc/>
-		public void Link(ICommunicationChannel communicationChannel)
-		{
-			if (communicationChannel == this)
-			{
-				return;
-			}
-			communicationChannel.ReceivedEvent += OnLinkedMessageReceived;
-		}
-
-		/// <inheritdoc/>
-		public void Unlink(ICommunicationChannel communicationChannel)
-		{
-			if (communicationChannel == this)
-			{
-				return;
-			}
-			communicationChannel.ReceivedEvent -= OnLinkedMessageReceived;
-		}
-
-		private void OnLinkedMessageReceived(Type t, object o)
-		{
-			Send(t, o);
 		}
 	}
 }
