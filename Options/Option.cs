@@ -1,4 +1,5 @@
 ﻿using System;
+using UnityEngine;
 using static UnityEngine.InputSystem.InputAction;
 
 namespace SpaxUtils
@@ -14,12 +15,20 @@ namespace SpaxUtils
 		public event Action<Option> ActivatedEvent;
 		public event Action<Option> DeactivatedEvent;
 
+		/// <summary>
+		/// Whether this option is currently able to be picked.
+		/// </summary>
+		public bool Enabled { get; private set; }
+
 		public string Title { get; }
 		public string Description { get; }
 		public string InputAction { get; }
 		public bool HasInputAction => !string.IsNullOrEmpty(InputAction);
-		public bool Active { get; private set; }
-		public bool Enabled { get; private set; }
+
+		/// <summary>
+		/// Whether this option is currently listening for input.
+		/// </summary>
+		public bool Listening { get; private set; }
 
 		private readonly bool pickOnInput;
 		private readonly bool eatInput;
@@ -82,7 +91,7 @@ namespace SpaxUtils
 
 		public void Dispose()
 		{
-			Deactivate();
+			StopListening();
 		}
 
 		/// <summary>
@@ -97,22 +106,37 @@ namespace SpaxUtils
 				this.playerInputWrapper = playerInputWrapper;
 			}
 
-			if (!Active)
+			if (!Listening)
 			{
-				Activate();
+				StartListening();
 			}
 		}
 
 		/// <summary>
-		/// Disables this option to make it stop listening for input.
+		/// Disables this option to make it unable to be picked.
 		/// </summary>
 		public void Disable()
 		{
 			Enabled = false;
 
-			if (Active)
+			if (Listening)
 			{
-				Deactivate();
+				StopListening();
+			}
+		}
+
+		/// <summary>
+		/// Enables or disables this option depending on <paramref name="toggle"/>.
+		/// </summary>
+		public void Toggle(bool toggle)
+		{
+			if (toggle)
+			{
+				Enable();
+			}
+			else
+			{
+				Disable();
 			}
 		}
 
@@ -121,13 +145,19 @@ namespace SpaxUtils
 		/// </summary>
 		public void Pick()
 		{
+			if (!Enabled)
+			{
+				SpaxDebug.Log("Option cannot be picked because it is disabled.", ToString(), color: Color.red);
+				return;
+			}
+
 			PickedEvent?.Invoke(this);
 			onPickedCallback?.Invoke(this);
 		}
 
-		private void Activate()
+		private void StartListening()
 		{
-			if (Active || !HasInputAction)
+			if (Listening || !HasInputAction)
 			{
 				return;
 			}
@@ -155,25 +185,25 @@ namespace SpaxUtils
 				},
 				prio);
 
-			Active = true;
+			Listening = true;
 			ActivatedEvent?.Invoke(this);
 		}
 
-		private void Deactivate()
+		private void StopListening()
 		{
-			if (!Active)
+			if (!Listening)
 			{
 				return;
 			}
 
 			playerInputWrapper.Unsubscribe(this);
-			Active = false;
+			Listening = false;
 			DeactivatedEvent?.Invoke(this);
 		}
 
 		public override string ToString()
 		{
-			return $"Option\n{{\n\tTitle=\"{Title},\"\n\tDescription=\"{Description},\"\n\tInputAction={InputAction},\n\tEnabled={Enabled},\n\tActive={Active}\n}}";
+			return $"Option\n{{\n\tTitle=\"{Title},\"\n\tDescription=\"{Description},\"\n\tInputAction={InputAction},\n\tEnabled={Enabled},\n\tListening={Listening}\n}}";
 		}
 	}
 }

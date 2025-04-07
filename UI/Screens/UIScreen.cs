@@ -8,11 +8,13 @@ namespace SpaxUtils.UI
 		public string Shortcut => shortcut;
 		public bool Pause => pauseGame;
 		public bool RequireInput => requireInput;
+		public bool EnableShortcuts => enableShortcuts;
 
 		[Header("Screen")]
 		[SerializeField, ConstDropdown(typeof(IContextIdentifiers), true)] private string context;
 		[SerializeField, ConstDropdown(typeof(IInputActions), true)] private string shortcut;
 		[SerializeField] private bool pauseGame;
 		[SerializeField] private bool requireInput;
+		[SerializeField] private bool enableShortcuts;
 	}
 }

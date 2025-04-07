@@ -3,11 +3,39 @@ using UnityEngine;
 
 namespace SpaxUtils
 {
+	[RequireComponent(typeof(InventoryComponent))]
+	[DefaultExecutionOrder(10)]
 	public class ItemContainer : InteractableComponentBase
 	{
 		public override string InteractableType => InteractionTypes.CONTAINER;
+		public ItemInventory Inventory => inventoryComponent.Inventory;
 
 		[SerializeField] private List<LootTable> loot;
+		[SerializeField, Tooltip("If false, will only regenerate if empty.")] private bool alwaysRegenerate;
+
+		private CycleService cycleService;
+		private RandomService randomService;
+		private InventoryComponent inventoryComponent;
+
+		public void InjectDependencies(CycleService cycleService, RandomService randomService)
+		{
+			this.cycleService = cycleService;
+			this.randomService = randomService;
+		}
+
+		protected void OnEnable()
+		{
+			inventoryComponent = GetComponent<InventoryComponent>();
+
+			cycleService.NewCycleEvent += OnNewCycleEvent;
+		}
+
+		protected void OnDisable()
+		{
+			cycleService.NewCycleEvent -= OnNewCycleEvent;
+		}
+
+		#region Interactable
 
 		public override List<string> GetInteractions(IEntity interactor)
 		{
@@ -20,10 +48,37 @@ namespace SpaxUtils
 			{
 				// For animation: subscribe to interaction.initiation and invoke method with animation.
 				// UI menu must be handled on Interactor end.
+				interaction.Data = inventoryComponent;
 				return true;
 			}
 
 			return false;
+		}
+
+		#endregion Interactable
+
+		/// <summary>
+		/// (Re)generates the loot for this container, clearing and filling the <see cref="InventoryComponent"/> with fresh loot.
+		/// </summary>
+		public void GenerateLoot(int seed)
+		{
+			Inventory.ClearInventory();
+			for (int i = 0; i < loot.Count; i++)
+			{
+				List<RuntimeItemData> generatedLoot = loot[i].GenerateLoot(seed.Combine(i));
+				foreach (RuntimeItemData item in generatedLoot)
+				{
+					Inventory.AddItem(item);
+				}
+			}
+		}
+
+		private void OnNewCycleEvent(int cycle)
+		{
+			if (alwaysRegenerate || Inventory.Entries.Count == 0)
+			{
+				GenerateLoot(randomService.GenerateSeed(Entity.ID, cycle));
+			}
 		}
 	}
 }

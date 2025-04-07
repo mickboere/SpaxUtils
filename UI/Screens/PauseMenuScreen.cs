@@ -25,7 +25,7 @@ namespace SpaxUtils.UI
 		protected void Awake()
 		{
 			comms.Listen<IRequestOptionsMsg>(this, OnRequestMenuOptionsMsg);
-			optionMenu.Initialize(Context);
+			optionMenu.Initialize(Context, "");
 		}
 
 		protected override void OnDestroy()

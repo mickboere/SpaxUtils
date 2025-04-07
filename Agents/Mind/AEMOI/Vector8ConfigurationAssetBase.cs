@@ -29,7 +29,7 @@ namespace SpaxUtils
 					else
 					{
 						SpaxDebug.Error("No seed data found.", $"Tried to randomize a {nameof(Vector8ConfigurationAssetBase)} but no seed data was found. A random seed will be used instead.");
-						dependencyManager.Bind(Key, rangedValues.Randomize(RandomService.GenerateSeed()));
+						dependencyManager.Bind(Key, rangedValues.Randomize(Random.Range(int.MinValue, int.MaxValue)));
 					}
 				}
 				else

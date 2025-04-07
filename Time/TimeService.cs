@@ -205,6 +205,9 @@ namespace SpaxUtils
 		{
 			UnscaledPlaytimeDouble += UnityEngine.Time.unscaledDeltaTime;
 			ScaledPlaytimeDouble += UnityEngine.Time.deltaTime;
+
+			// Set global float for unscaled time in shader use.
+			Shader.SetGlobalFloat("_UnscaledTime", UnityEngine.Time.unscaledTime);
 		}
 
 		private void OnCurrentProfileChangedEvent(RuntimeDataCollection profile)

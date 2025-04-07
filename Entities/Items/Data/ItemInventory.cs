@@ -22,13 +22,15 @@ namespace SpaxUtils
 		private IDependencyManager dependencies;
 		private IItemDatabase itemDatabase;
 		private RuntimeDataCollection inventoryData;
+		private bool runBehaviours;
 		private Dictionary<string, RuntimeItemData> entries;
 
-		public ItemInventory(IDependencyManager dependencies, IItemDatabase itemDatabase, RuntimeDataCollection inventoryData)
+		public ItemInventory(IDependencyManager dependencies, IItemDatabase itemDatabase, RuntimeDataCollection inventoryData, bool runBehaviours)
 		{
 			this.dependencies = dependencies;
 			this.itemDatabase = itemDatabase;
 			this.inventoryData = inventoryData;
+			this.runBehaviours = runBehaviours;
 
 			entries = new Dictionary<string, RuntimeItemData>();
 
@@ -146,7 +148,10 @@ namespace SpaxUtils
 					// New item, add it to the inventory and invoke necessary methods/events.
 					inventoryData.TryAdd(runtimeData);
 					entries.Add(runtimeItemData.RuntimeID, runtimeItemData);
-					runtimeItemData.InitializeBehaviour();
+					if (runBehaviours)
+					{
+						runtimeItemData.InitializeBehaviour();
+					}
 					AddedItemEvent?.Invoke(runtimeItemData);
 					return runtimeItemData;
 				}

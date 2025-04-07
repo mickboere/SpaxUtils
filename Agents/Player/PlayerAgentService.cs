@@ -28,10 +28,12 @@ namespace SpaxUtils
 		public IAgent PlayerAgent => _agents.Count > 0 ? _agents[0] : null;
 
 		private RuntimeDataService runtimeDataService;
+		private CycleService cycleService;
 
-		public PlayerAgentService(RuntimeDataService runtimeDataService)
+		public PlayerAgentService(RuntimeDataService runtimeDataService, CycleService cycleService)
 		{
 			this.runtimeDataService = runtimeDataService;
+			this.cycleService = cycleService;
 		}
 
 		/// <summary>
@@ -193,6 +195,9 @@ namespace SpaxUtils
 						new RuntimeDataEntry(EntityDataIdentifiers.NAME, runtimeDataService.CurrentProfile.ID)
 					});
 				playerDependencies.Bind(entityData);
+
+				// Initiate the first cycle.
+				cycleService.NewCycle();
 			}
 
 			// Create player setup with loaded ID, if any.

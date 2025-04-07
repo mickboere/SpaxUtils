@@ -52,12 +52,12 @@ namespace SpaxUtils.UI
 		/// Initialize the menu's options through a <see cref="RequestOptionsMsg{T}"/> sent over the injected communication channel.
 		/// </summary>
 		/// <param name="context">The context to utilize for the options request.</param>
-		/// <param name="addCancel">Whether a cancel option should be added as the last option.</param>
+		/// <param name="addCancel">Whether a cancel option should be added as the final option.</param>
 		/// <param name="title">The menu's title, if any.</param>
-		public void Initialize(string context, bool addCancel = false, string title = "")
+		public void Initialize(string context, string title, bool addCancel = false)
 		{
 			var request = RequestOptionsMsg<OptionsMenuUI>.New(this, context, comms);
-			Initialize(request.Options, addCancel, title);
+			Initialize(request.Options, title, addCancel);
 		}
 
 		/// <summary>
@@ -66,7 +66,7 @@ namespace SpaxUtils.UI
 		/// <param name="options"></param>
 		/// <param name="addCancel"></param>
 		/// <param name="title"></param>
-		public void Initialize(IEnumerable<Option> options, bool addCancel = false, string title = "")
+		public void Initialize(IEnumerable<Option> options, string title, bool addCancel = false)
 		{
 			CleanMenu();
 
@@ -105,6 +105,14 @@ namespace SpaxUtils.UI
 					item.Value.visual.Button.onClick.Invoke();
 					return;
 				}
+			}
+		}
+
+		public void DisableAllOptions()
+		{
+			foreach (Option option in menuOptions)
+			{
+				option.Disable();
 			}
 		}
 

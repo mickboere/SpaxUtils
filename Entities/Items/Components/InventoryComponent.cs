@@ -32,7 +32,11 @@ namespace SpaxUtils
 
 		protected void Awake()
 		{
-			Inventory = new ItemInventory(dependencies, itemDatabase, Entity.RuntimeData.GetEntry(INVENTORY_DATA_ID, new RuntimeDataCollection(INVENTORY_DATA_ID)));
+			Inventory = new ItemInventory(
+				dependencies,
+				itemDatabase,
+				Entity.RuntimeData.GetEntry(INVENTORY_DATA_ID, new RuntimeDataCollection(INVENTORY_DATA_ID)),
+				Entity is IAgent); // Only run behaviours if the entity is an agent.
 
 			// Ensure injected item data is present.
 			foreach (IItemData item in injectedItems)
@@ -49,25 +53,7 @@ namespace SpaxUtils
 			Inventory.Dispose();
 		}
 
-		#region Interaction
-
-		/// <inheritdoc/>
-		//public override List<string> GetInteractions(IEntity interactor)
-		//{
-		//	return new List<string>() { InteractionTypes.INVENTORY_GIVE };
-		//}
-
-		/// <inheritdoc/>
-		//public override bool TryInteract(IInteraction interaction)
-		//{
-		//	if (interaction.Action == InteractionTypes.INVENTORY_GIVE)
-		//	{
-		//		ExtractItem(interaction);
-		//		return true;
-		//	}
-
-		//	return false;
-		//}
+		#region Interactor
 
 		/// <inheritdoc/>
 		public List<string> GetInteractions(IInteractable interactable)
@@ -107,6 +93,28 @@ namespace SpaxUtils
 				interaction.Conclude(false);
 			}
 		}
+
+		#endregion Interactor
+
+		#region Interactable
+
+		/// <inheritdoc/>
+		//public override List<string> GetInteractions(IEntity interactor)
+		//{
+		//	return new List<string>() { InteractionTypes.INVENTORY_GIVE };
+		//}
+
+		/// <inheritdoc/>
+		//public override bool TryInteract(IInteraction interaction)
+		//{
+		//	if (interaction.Action == InteractionTypes.INVENTORY_GIVE)
+		//	{
+		//		ExtractItem(interaction);
+		//		return true;
+		//	}
+
+		//	return false;
+		//}
 
 		#endregion Interactable
 	}

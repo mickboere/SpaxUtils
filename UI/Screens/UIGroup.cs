@@ -13,6 +13,11 @@ namespace SpaxUtils.UI
 	{
 		private const string TT_FS = "Can also be a root object as first child selectable will be selected.";
 
+		public event Action ShowEvent;
+		public event Action HideEvent;
+		public event Action FilledEvent;
+		public event Action EmptiedEvent;
+
 		public CanvasGroup CanvasGroup
 		{
 			get
@@ -95,18 +100,22 @@ namespace SpaxUtils.UI
 
 		protected virtual void OnShow()
 		{
+			ShowEvent?.Invoke();
 		}
 
 		protected virtual void OnHide()
 		{
+			HideEvent?.Invoke();
 		}
 
 		protected virtual void OnFilled()
 		{
+			FilledEvent?.Invoke();
 		}
 
 		protected virtual void OnEmptied()
 		{
+			EmptiedEvent?.Invoke();
 		}
 	}
 }

@@ -27,21 +27,27 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
-		/// Generates a deterministic seed from the loaded profile's game seed and the provided string <paramref name="id"/>.
+		/// Generates a deterministic seed by combining the active <see cref="GameSeed"/> with the <paramref name="subSeed"/>.
 		/// </summary>
-		/// <param name="id">The string/id to generate the local seed for.</param>
-		/// <returns>A deterministic seed generated from the loaded profile's game seed and the provided string <paramref name="id"/>.</returns>
-		public int GenerateSeed(string id)
+		public int GenerateSeed(int subSeed)
 		{
-			return GameSeed.Combine(id.GetDeterministicHashCode());
+			return GameSeed.Combine(subSeed);
 		}
 
 		/// <summary>
-		/// Generates a completely non-reproducable seed using <see cref="Random.Range(int, int)"/>.
+		/// Generates a deterministic seed by combining the active <see cref="GameSeed"/> with the provided string <paramref name="id"/>.
 		/// </summary>
-		public static int GenerateSeed()
+		public int GenerateSeed(string id)
 		{
-			return Random.Range(int.MinValue, int.MaxValue);
+			return GenerateSeed(id.GetDeterministicHashCode());
+		}
+
+		/// <summary>
+		/// Generates a deterministic seed by combining the active <see cref="GameSeed"/> with the provided parameters.
+		/// </summary>
+		public int GenerateSeed(string id, int subSeed)
+		{
+			return GenerateSeed(id.GetDeterministicHashCode().Combine(subSeed));
 		}
 	}
 }

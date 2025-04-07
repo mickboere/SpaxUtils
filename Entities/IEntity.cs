@@ -79,30 +79,9 @@ namespace SpaxUtils
 		#region Data
 
 		/// <summary>
-		/// Save the entity's <see cref="RuntimeData"/>.
+		/// Manually save the entity's <see cref="RuntimeData"/>.
 		/// </summary>
 		void SaveData();
-
-		/// <summary>
-		/// Sets the value object of <see cref="RuntimeDataEntry"/> with ID <paramref name="identifier"/>.
-		/// </summary>
-		/// <param name="identifier">The ID of the <see cref="RuntimeDataEntry"/> of which to set the value.</param>
-		void SetDataValue(string identifier, object value);
-
-		/// <summary>
-		/// Returns value of runtime data with ID <paramref name="identifier"/>.
-		/// </summary>
-		/// <param name="identifier">The identifier of the <see cref="RuntimeDataEntry"/> of which to return its value.</param>
-		/// <returns>The value of the <see cref="RuntimeDataEntry"/> with ID <paramref name="identifier"/>.</returns>
-		object GetDataValue(string identifier);
-
-		/// <summary>
-		/// Returns value of runtime data with ID <paramref name="identifier"/> as <typeparamref name="T"/>.
-		/// </summary>
-		/// <typeparam name="T">The type to cast the value to.</typeparam>
-		/// <param name="identifier">The identifier of the <see cref="RuntimeDataEntry"/> of which to return its value.</param>
-		/// <returns>The value of the <see cref="RuntimeDataEntry"/> with ID <paramref name="identifier"/> as <typeparamref name="T"/>.</returns>
-		T GetDataValue<T>(string identifier);
 
 		#endregion
 

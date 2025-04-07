@@ -41,7 +41,7 @@ namespace SpaxUtils.UI
 			{
 				if (!string.IsNullOrEmpty(screen.Shortcut))
 				{
-					shortcuts.Add(new Option(screen.Context, screen.Shortcut, (_) => { SwitchContext(screen.Context); }, playerInputWrapper, enable: true));
+					shortcuts.Add(new Option(screen.Context, screen.Shortcut, (CallbackContext c) => { if (c.canceled) SwitchContext(screen.Context); }, playerInputWrapper, enable: true));
 				}
 				screen.gameObject.SetActive(true);
 				screen.gameObject.SetActive(false);
@@ -79,7 +79,7 @@ namespace SpaxUtils.UI
 				{
 					screen.Show(null, hideDelay);
 
-					// Pause if screen requires the game to pause.
+					// Pausing:
 					if (screen.Pause)
 					{
 						timeService.RequestPause(this);
@@ -89,9 +89,10 @@ namespace SpaxUtils.UI
 						timeService.CompletePauseRequest(this);
 					}
 
-					// Request cursor control of screen requires cursor and control scheme is mouse and keyboard.
+					// Input:
 					if (screen.RequireInput)
 					{
+						// Request cursor if current control scheme is mouse and keyboard.
 						if (playerInputWrapper.CurrentControlScheme == ControlSchemes.KEYBOARD_AND_MOUSE)
 						{
 							cursorService.RequestCursor(this);
@@ -102,6 +103,12 @@ namespace SpaxUtils.UI
 					{
 						cursorService.CompleteRequest(this);
 						playerInputWrapper.CompleteActionMapRequest(subscriberB);
+					}
+
+					// Shortcuts:
+					foreach (Option shortcut in shortcuts)
+					{
+						shortcut.Toggle(screen.EnableShortcuts);
 					}
 				}
 				else

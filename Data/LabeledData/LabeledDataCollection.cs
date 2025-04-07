@@ -86,36 +86,36 @@ namespace SpaxUtils
 			// Bools
 			foreach (LabeledBoolData b in boolData)
 			{
-				if (overwrite || entity.GetDataValue(b.ID) == null)
+				if (overwrite || entity.RuntimeData.GetValue(b.ID) == null)
 				{
-					entity.SetDataValue(b.ID, b.BoolValue);
+					entity.RuntimeData.SetValue(b.ID, b.BoolValue);
 				}
 			}
 
 			// Floats
 			foreach (LabeledFloatData f in floatData)
 			{
-				if (overwrite || entity.GetDataValue(f.ID) == null)
+				if (overwrite || entity.RuntimeData.GetValue(f.ID) == null)
 				{
-					entity.SetDataValue(f.ID, f.FloatValue);
+					entity.RuntimeData.SetValue(f.ID, f.FloatValue);
 				}
 			}
 
 			// Ints
 			foreach (LabeledIntData i in intData)
 			{
-				if (overwrite || entity.GetDataValue(i.ID) == null)
+				if (overwrite || entity.RuntimeData.GetValue(i.ID) == null)
 				{
-					entity.SetDataValue(i.ID, i.IntValue);
+					entity.RuntimeData.SetValue(i.ID, i.IntValue);
 				}
 			}
 
 			// Strings
 			foreach (LabeledStringData s in stringData)
 			{
-				if (overwrite || entity.GetDataValue(s.ID) == null)
+				if (overwrite || entity.RuntimeData.GetValue(s.ID) == null)
 				{
-					entity.SetDataValue(s.ID, s.StringValue);
+					entity.RuntimeData.SetValue(s.ID, s.StringValue);
 				}
 			}
 		}

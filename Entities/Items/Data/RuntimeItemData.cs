@@ -70,7 +70,8 @@ namespace SpaxUtils
 
 		#endregion Properties
 
-		public RuntimeItemData(IItemData itemData, RuntimeDataCollection runtimeData, IDependencyManager dependencyManager)
+		public RuntimeItemData(IItemData itemData, RuntimeDataCollection runtimeData,
+			IDependencyManager dependencyManager = null)
 		{
 			ItemData = itemData;
 			RuntimeData = runtimeData;
@@ -128,6 +129,12 @@ namespace SpaxUtils
 
 		public void InitializeBehaviour()
 		{
+			if (DependencyManager == null)
+			{
+				SpaxDebug.Error("Cannot initialize runtime item behaviours because there is no dependency manager.");
+				return;
+			}
+
 			foreach (BehaviourAsset behaviour in ItemData.InventoryBehaviour)
 			{
 				BehaviourAsset behaviourInstance = behaviour.CreateInstance();

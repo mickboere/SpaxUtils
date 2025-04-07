@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 
 namespace SpaxUtils
@@ -7,32 +6,28 @@ namespace SpaxUtils
 	[CreateAssetMenu(fileName = nameof(LootTable), menuName = "ScriptableObjects/" + nameof(LootTable))]
 	public class LootTable : ScriptableObject
 	{
-		[Serializable]
-		public class Loot
-		{
-			public float Odds => odds;
-			public SerializedItemData Item => item;
-
-			[SerializeField, Range(0f, 1f)] private float odds = 1f;
-			[SerializeField] private SerializedItemData item;
-			// TODO: Options for randomized item data (quantity, stats, etc.)
-		}
-
 		[SerializeField] private List<Loot> loot;
 		[SerializeField] private float overallOdds = 1f;
 
-		public List<SerializedItemData> GenerateLoot(int seed, float oddsMultiplier = 1f)
+		public List<RuntimeItemData> GenerateLoot(int seed, float oddsMultiplier = 1f)
 		{
-			List<SerializedItemData> result = new List<SerializedItemData>();
+			List<RuntimeItemData> result = new List<RuntimeItemData>();
 			foreach (Loot l in loot)
 			{
-				int s = seed.Combine(l.Item.Asset.ID.GetDeterministicHashCode());
-				UnityEngine.Random.InitState(s);
-				if (UnityEngine.Random.value <= overallOdds * l.Odds * oddsMultiplier)
+				if (l.Odds.Approx(1f))
 				{
-					result.Add(l.Item);
+					result.Add(l.ToRuntimeItemData());
+					continue;
+				}
+
+				int s = seed.Combine(l.Asset.ID.GetDeterministicHashCode());
+				Random.InitState(s);
+				if (Random.value <= overallOdds * l.Odds * oddsMultiplier)
+				{
+					result.Add(l.ToRuntimeItemData());
 				}
 			}
+
 			return result;
 		}
 	}

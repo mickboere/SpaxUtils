@@ -107,6 +107,7 @@ namespace SpaxUtils
 		#endregion Properties
 
 		[SerializeField] protected Identification identification;
+		[SerializeField] private bool autoSaveData;
 		[Header("Optimization")]
 		[SerializeField] private bool dynamicPriority;
 		[SerializeField] private PriorityLevel priority;
@@ -246,6 +247,10 @@ namespace SpaxUtils
 			{
 				gameObject.name = GameObjectName;
 				ApplyData();
+				if (autoSaveData)
+				{
+					runtimeDataService.SavingCurrentToDiskEvent += OnSavingEvent;
+				}
 				initialized = true;
 			}
 		}
@@ -364,22 +369,9 @@ namespace SpaxUtils
 			runtimeDataService.SaveDataToProfile(RuntimeData);
 		}
 
-		/// <inheritdoc/>
-		public virtual void SetDataValue(string identifier, object value)
+		protected virtual void OnSavingEvent(RuntimeDataCollection _)
 		{
-			RuntimeData.SetValue(identifier, value);
-		}
-
-		/// <inheritdoc/>
-		public virtual object GetDataValue(string identifier)
-		{
-			return RuntimeData.GetValue(identifier);
-		}
-
-		/// <inheritdoc/>
-		public virtual T GetDataValue<T>(string identifier)
-		{
-			return RuntimeData.GetValue<T>(identifier);
+			SaveData();
 		}
 
 		#endregion
