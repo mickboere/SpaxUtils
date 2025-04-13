@@ -12,9 +12,14 @@ namespace SpaxUtils.UI
 	public class ItemMenu<T> : IDisposable where T : class
 	{
 		/// <summary>
-		/// Invoked whenever a menu item's button has been selected.
+		/// Invoked whenever a menu item's button has been clicked.
 		/// </summary>
 		public event Action<T> SelectedItemEvent;
+
+		/// <summary>
+		/// Invoked whenever a menu item's button has been highlighted.
+		/// </summary>
+		public event Action<T> HighlightedItemEvent;
 
 		/// <summary>
 		/// Invoked whenever the list of items in the menu has updated.
@@ -96,6 +101,7 @@ namespace SpaxUtils.UI
 				DependencyUtils.Inject(visual.gameObject, itemDependencies(data));
 			}
 			visual.ButtonClickedEvent += OnSelectedItemEvent;
+			visual.ButtonHighlightEvent += OnHighlightedItemEvent;
 			visual.gameObject.SetActive(true);
 
 			items.Add(identifier, (data, visual));
@@ -128,6 +134,22 @@ namespace SpaxUtils.UI
 			GameObject.Destroy(items[identifier].visual.gameObject);
 			items.Remove(identifier);
 			OnMenuUpdated();
+		}
+
+		/// <summary>
+		/// Returns the <see cref="MenuItem"/> belonging to <paramref name="data"/>.
+		/// </summary>
+		public MenuItem GetVisual(T data)
+		{
+			string identifier = itemIdentifier(data);
+			if (items.ContainsKey(identifier))
+			{
+				return items[identifier].visual;
+			}
+			else
+			{
+				return null;
+			}
 		}
 
 		/// <summary>
@@ -191,6 +213,11 @@ namespace SpaxUtils.UI
 		protected virtual void OnSelectedItemEvent(string identifier)
 		{
 			SelectedItemEvent?.Invoke(items[identifier].data);
+		}
+
+		protected virtual void OnHighlightedItemEvent(string identifier)
+		{
+			HighlightedItemEvent?.Invoke(items[identifier].data);
 		}
 
 		private void OnMenuUpdated()

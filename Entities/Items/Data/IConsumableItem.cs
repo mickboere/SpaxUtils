@@ -11,5 +11,10 @@ namespace SpaxUtils
 		/// </summary>
 		/// <param name="amount">The total percentage of this consumable to consume.</param>
 		void Consume(float amount = 1f);
+
+		/// <summary>
+		/// Returns whether the item is currently able to be consumed.
+		/// </summary>
+		bool CanConsume();
 	}
 }

@@ -3,6 +3,9 @@ using UnityEngine;
 
 namespace SpaxUtils
 {
+	/// <summary>
+	/// Interactable entity component that turns an inventory into a lootable container.
+	/// </summary>
 	[RequireComponent(typeof(InventoryComponent))]
 	[DefaultExecutionOrder(10)]
 	public class ItemContainer : InteractableComponentBase
@@ -62,6 +65,8 @@ namespace SpaxUtils
 		/// </summary>
 		public void GenerateLoot(int seed)
 		{
+			SpaxDebug.Log("Generate loot!");
+
 			Inventory.ClearInventory();
 			for (int i = 0; i < loot.Count; i++)
 			{

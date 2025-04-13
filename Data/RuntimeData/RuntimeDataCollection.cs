@@ -156,18 +156,19 @@ namespace SpaxUtils
 		/// <param name="dispose">Should the <see cref="RuntimeDataEntry"/> be disposed after removal?</param>
 		public bool TryRemove(string id, bool dispose = false)
 		{
-			RuntimeDataEntry present = GetEntry(id);
+			RuntimeDataEntry entry = GetEntry(id);
 
-			if (present == null)
+			if (entry == null)
 			{
 				return false;
 			}
 
-			present.Parent = null;
+			_data.Remove(id);
+			entry.Parent = null;
 
 			if (dispose)
 			{
-				present.Dispose();
+				entry.Dispose();
 			}
 
 			return true;

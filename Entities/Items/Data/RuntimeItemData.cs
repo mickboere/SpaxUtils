@@ -9,8 +9,13 @@ namespace SpaxUtils
 	/// <summary>
 	/// Item data object instanced when an item is in an inventory.
 	/// </summary>
-	public class RuntimeItemData : IDisposable
+	public class RuntimeItemData : IRuntimeDataContainer, IDisposable
 	{
+		/// <summary>
+		/// Invoked when this runtime item data is being disposed of.
+		/// </summary>
+		public event Action<RuntimeItemData> DisposeEvent;
+
 		#region Properties
 
 		/// <summary>
@@ -39,36 +44,42 @@ namespace SpaxUtils
 		public string ItemID => ItemData != null ? ItemData.ID : "";
 
 		/// <summary>
-		/// The quantity of this item.
-		/// </summary>
-		public int Quantity => Unique ? 1 : RuntimeData.TryGetValue(ItemDataIdentifierConstants.QUANTITY, out int quantity) ? quantity : 1;
-
-		/// <summary>
-		/// The name of this item.
-		/// </summary>
-		public string Name => RuntimeData.GetValue<string>(ItemDataIdentifierConstants.NAME) ?? ItemData.Name;
-
-		/// <summary>
-		/// The general description of this item.
-		/// </summary>
-		public string Description => RuntimeData.GetValue<string>(ItemDataIdentifierConstants.DESCRIPTION) ?? ItemData.Description;
-
-		/// <summary>
-		/// The category of this item.
-		/// </summary>
-		public string Category => RuntimeData.GetValue<string>(ItemDataIdentifierConstants.CATEGORY) ?? ItemData.Category;
-
-		/// <summary>
-		/// Whether this item is unique or otherwise stackable.
-		/// </summary>
-		public bool Unique => RuntimeData.TryGetValue(ItemDataIdentifierConstants.UNIQUE, out bool unique) ? unique : ItemData.Unique;
-
-		/// <summary>
 		/// All inventory behaviours running for this item.
 		/// </summary>
 		public List<BehaviourAsset> Behaviours { get; private set; } = new List<BehaviourAsset>();
 
 		#endregion Properties
+
+		#region Standard Data Wrappers
+
+		/// <summary>
+		/// The quantity of this item.
+		/// </summary>
+		public int Quantity => Unique ? 1 : RuntimeData.TryGetValue(ItemDataIdentifier.QUANTITY, out int quantity) ? quantity : 1;
+
+		/// <summary>
+		/// The name of this item.
+		/// </summary>
+		public string Name => RuntimeData.GetValue<string>(ItemDataIdentifier.NAME) ?? ItemData.Name;
+
+		/// <summary>
+		/// The general description of this item.
+		/// </summary>
+		public string Description => RuntimeData.GetValue<string>(ItemDataIdentifier.DESCRIPTION) ?? ItemData.Description;
+
+		/// <summary>
+		/// The category of this item.
+		/// </summary>
+		public string Category => RuntimeData.GetValue<string>(ItemDataIdentifier.CATEGORY) ?? ItemData.Category;
+
+		/// <summary>
+		/// Whether this item is unique or otherwise stackable.
+		/// </summary>
+		public bool Unique => RuntimeData.TryGetValue(ItemDataIdentifier.UNIQUE, out bool unique) ? unique : ItemData.Unique;
+
+		#endregion Standard Data Wrappers
+
+		private bool disposing;
 
 		public RuntimeItemData(IItemData itemData, RuntimeDataCollection runtimeData,
 			IDependencyManager dependencyManager = null)
@@ -78,7 +89,7 @@ namespace SpaxUtils
 			DependencyManager = dependencyManager;
 
 			// Mandatory data used when loading item data.
-			runtimeData.SetValue(ItemDataIdentifierConstants.ITEM_ID, ItemID);
+			runtimeData.SetValue(ItemDataIdentifier.ITEM_ID, ItemID);
 		}
 
 		public bool TryGetData(string identifier, out RuntimeDataEntry data, bool createIfNull = false, object defaultValueIfNull = default)
@@ -161,10 +172,17 @@ namespace SpaxUtils
 
 		public void Dispose()
 		{
+			if (disposing)
+			{
+				return;
+			}
+
+			disposing = true;
 			foreach (BehaviourAsset behaviour in Behaviours)
 			{
 				behaviour.Destroy();
 			}
+			DisposeEvent?.Invoke(this);
 		}
 
 		public override string ToString()

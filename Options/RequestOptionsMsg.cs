@@ -10,7 +10,7 @@ namespace SpaxUtils
 	/// Will request <see cref="Option"/>s for its target of type <typeparamref name="T"/>.
 	/// </summary>
 	/// <typeparam name="T">The target type for which options are being requested.</typeparam>
-	public class RequestOptionsMsg<T> : IRequestOptionsMsg, IDisposable
+	public class RequestOptionsMsg<T> : IRequestOptionsMsg<T>, IDisposable
 	{
 		public event Action ClosedRequestEvent;
 
@@ -64,7 +64,7 @@ namespace SpaxUtils
 		/// <param name="comms">The <see cref="ICommunicationChannel"/> to send the request through.</param>
 		/// <param name="defaultOptions">The options that should be available regardless of any comms listeners.</param>
 		/// <returns>The completed request.</returns>
-		public static RequestOptionsMsg<T> New(T target, string context, ICommunicationChannel comms, params Option[] defaultOptions)
+		public static RequestOptionsMsg<T> New(T target, string context, ICommunicationChannel comms, bool closeImmediately = true, params Option[] defaultOptions)
 		{
 			var request = new RequestOptionsMsg<T>(target, context);
 
@@ -74,16 +74,19 @@ namespace SpaxUtils
 				request.AddOption(option);
 			}
 
-			// Listeners of the msg should add their options the moment the msg is received.
-			// This means we can immediately close the request after sending it.
 			comms.Send(request);
-			request.CloseRequest();
 
+			// Listeners of the msg should add their options the moment the msg is sent and received through the comms.
+			// This means we could immediately close the request after sending it, if enabled.
+			if (closeImmediately)
+			{
+				request.CloseRequest();
 #if UNITY_EDITOR
-			// Validate that no options are conflicting on a base level.
-			// This does not impact the request, it is only useful for developers.
-			ValidateOptions(request.Options);
+				// Validate that no options are conflicting on a base level.
+				// This does not impact the request, it is only useful for developers.
+				ValidateOptions(request.Options);
 #endif
+			}
 
 			return request;
 		}
@@ -115,20 +118,5 @@ namespace SpaxUtils
 		}
 
 		#endregion
-	}
-
-	/// <summary>
-	/// Interface for listeners not interested in the target type.
-	/// </summary>
-	public interface IRequestOptionsMsg
-	{
-		event Action ClosedRequestEvent;
-
-		string Context { get; }
-		IReadOnlyList<Option> Options { get; }
-		bool Closed { get; }
-
-		void AddOption(Option option);
-		void CloseRequest();
 	}
 }

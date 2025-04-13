@@ -2,20 +2,27 @@
 using UnityEngine.UI;
 using TMPro;
 using System;
+using UnityEngine.EventSystems;
 
 namespace SpaxUtils.UI
 {
 	/// <summary>
 	/// Generic UI menu item containing just a button, image and label.
 	/// </summary>
-	public class MenuItem : MonoBehaviour
+	public class MenuItem : MonoBehaviour, ISelectHandler
 	{
 		/// <summary>
 		/// Invoked when the menu item button is clicked, sends the <see cref="ID"/>.
 		/// </summary>
 		public event Action<string> ButtonClickedEvent;
 
+		/// <summary>
+		/// Invoked when the item button is highlighted, sends the <see cref="ID"/>.
+		/// </summary>
+		public event Action<string> ButtonHighlightEvent;
+
 		public string ID { get; private set; }
+		public object Data { get; private set; }
 
 		public Button Button => button;
 		public Image Image => image;
@@ -55,7 +62,10 @@ namespace SpaxUtils.UI
 		[SerializeField] protected Image image;
 		[SerializeField] protected TMP_Text label;
 
-		public virtual void SetData<T>(T data) { }
+		public virtual void SetData(object data)
+		{
+			Data = data;
+		}
 
 		protected virtual void OnEnable()
 		{
@@ -87,6 +97,11 @@ namespace SpaxUtils.UI
 		private void OnButtonClicked()
 		{
 			ButtonClickedEvent?.Invoke(ID);
+		}
+
+		public void OnSelect(BaseEventData eventData)
+		{
+			ButtonHighlightEvent?.Invoke(ID);
 		}
 	}
 }

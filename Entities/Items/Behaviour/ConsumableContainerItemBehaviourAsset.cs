@@ -13,7 +13,7 @@ namespace SpaxUtils
 		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifiers))] private string capacity;
 		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifiers))] private string contains;
 		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifiers))] private string consume;
-		[SerializeField] private bool autoFill;
+		[SerializeField, Tooltip("Will automatically refill the container when the agent is being recovered.")] private bool autoFill;
 
 		public override void Start()
 		{
@@ -48,6 +48,9 @@ namespace SpaxUtils
 				inventory.Inventory.RemoveItem(runtimeItemData.RuntimeID);
 			}
 		}
+
+		/// <inheritdoc/>
+		public override bool CanConsume() => Contains > 0f;
 
 		/// <inheritdoc/>
 		public void Fill(float amount)

@@ -24,6 +24,7 @@ namespace SpaxUtils
 		private RuntimeDataCollection inventoryData;
 		private bool runBehaviours;
 		private Dictionary<string, RuntimeItemData> entries;
+		private bool disposing;
 
 		public ItemInventory(IDependencyManager dependencies, IItemDatabase itemDatabase, RuntimeDataCollection inventoryData, bool runBehaviours)
 		{
@@ -41,6 +42,7 @@ namespace SpaxUtils
 
 		public void Dispose()
 		{
+			disposing = true;
 			inventoryData.DataUpdatedEvent -= OnDataEntryUpdatedEvent;
 			ClearInventory();
 		}
@@ -111,7 +113,7 @@ namespace SpaxUtils
 		/// <param name="itemID">The ID of the item type (optional when runtime data contains the ID.)</param>
 		public RuntimeItemData AddItem(RuntimeDataCollection runtimeData, string itemID = null)
 		{
-			IItemData itemData = itemDatabase.GetItem(itemID ?? runtimeData.GetValue<string>(ItemDataIdentifierConstants.ITEM_ID));
+			IItemData itemData = itemDatabase.GetItem(itemID ?? runtimeData.GetValue<string>(ItemDataIdentifier.ITEM_ID));
 			return AddItem(itemData, runtimeData);
 		}
 
@@ -138,16 +140,18 @@ namespace SpaxUtils
 				if (!runtimeItemData.Unique && itemStack != null)
 				{
 					// Non-unique (stacking) item of which we already have an instance, increase the quantity of the existing one.
-					itemStack.RuntimeData.SetValue(ItemDataIdentifierConstants.QUANTITY, itemStack.Quantity + runtimeItemData.Quantity);
+					itemStack.RuntimeData.SetValue(ItemDataIdentifier.QUANTITY, itemStack.Quantity + runtimeItemData.Quantity);
 					runtimeData.Dispose();
 					runtimeItemData.Dispose();
+					dependencyManager.Dispose();
 					return itemStack;
 				}
 				else
 				{
 					// New item, add it to the inventory and invoke necessary methods/events.
-					inventoryData.TryAdd(runtimeData);
+					inventoryData.TryAdd(runtimeData); // Don't check, loaded data may already be there and thus fail to add (succesfully).
 					entries.Add(runtimeItemData.RuntimeID, runtimeItemData);
+					runtimeItemData.DisposeEvent += OnDisposingRuntimeItemDataEvent;
 					if (runBehaviours)
 					{
 						runtimeItemData.InitializeBehaviour();
@@ -220,11 +224,19 @@ namespace SpaxUtils
 		/// <summary>
 		/// Removes the <paramref name="runtimeData"/> from the inventory.
 		/// </summary>
+		/// <param name="quantity">The quantative amount of this item to remove.
+		/// If quantity is <0 or >total, item will be entirely removed from inventory instead of only decreasing quantity.</param>
 		public void RemoveItem(RuntimeItemData runtimeData, int quantity = -1)
 		{
 			if (runtimeData == null)
 			{
 				SpaxDebug.Error("No runtimedata was provided.");
+				return;
+			}
+
+			if (!entries.ContainsKey(runtimeData.RuntimeID))
+			{
+				SpaxDebug.Error("Cannot remove item from inventory because it does not contain it!", $"{runtimeData.ItemID} | {runtimeData.RuntimeID}");
 				return;
 			}
 
@@ -234,18 +246,24 @@ namespace SpaxUtils
 				inventoryData.TryRemove(runtimeData.RuntimeID, true);
 				entries.Remove(runtimeData.RuntimeID);
 				RemovedItemEvent?.Invoke(runtimeData);
+				runtimeData.DisposeEvent -= OnDisposingRuntimeItemDataEvent;
 				runtimeData.Dispose();
 			}
 			else
 			{
-				// Substracty quantity from item data.
-				runtimeData.RuntimeData.SetValue(ItemDataIdentifierConstants.QUANTITY, runtimeData.Quantity - quantity);
+				// Substract quantity from item data.
+				runtimeData.RuntimeData.SetValue(ItemDataIdentifier.QUANTITY, runtimeData.Quantity - quantity);
 			}
 		}
 
 		#endregion
 
 		#region Getting
+
+		public bool Contains(RuntimeItemData runtimeItemData)
+		{
+			return entries.ContainsKey(runtimeItemData.RuntimeID);
+		}
 
 		/// <summary>
 		/// Returns runtime item with ID <paramref name="runtimeItemID"/>.
@@ -291,6 +309,14 @@ namespace SpaxUtils
 		private void OnDataEntryUpdatedEvent(RuntimeDataEntry dataEntry)
 		{
 			DataEntryUpdatedEvent?.Invoke(dataEntry);
+		}
+
+		private void OnDisposingRuntimeItemDataEvent(RuntimeItemData runtimeItemData)
+		{
+			if (!disposing)
+			{
+				RemoveItem(runtimeItemData);
+			}
 		}
 	}
 }

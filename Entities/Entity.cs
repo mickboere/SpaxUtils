@@ -238,9 +238,7 @@ namespace SpaxUtils
 			// Thanks to DefaultExecutionOrderAttribute we should be able to inject all other components before they wake up.
 			if (DependencyManager == null)
 			{
-				string dependencyManagerName = $"Entity:{Identification.Name}";
-				SpaxDebug.Log("Entity did not have its dependencies injected.", $"Creating new DependencyManager using Global, named; '{dependencyManagerName}'.", LogType.Notify, Color.yellow, GameObject);
-				DependencyUtils.Inject(GameObject, new DependencyManager(GlobalDependencyManager.Instance, dependencyManagerName), true, true);
+				DependencyUtils.Inject(GameObject, new DependencyManager(GlobalDependencyManager.Instance, $"Entity:{Identification.Name}"), true, true);
 			}
 
 			if (!initialized)
@@ -314,6 +312,11 @@ namespace SpaxUtils
 			{
 				// Data was supplied through dependencies.
 				RuntimeData = baseData.Clone(Identification.ID);
+			}
+			else if (runtimeDataService.EnsureCurrentProfile().TryGetEntry(Identification.ID, out RuntimeDataCollection loadedData))
+			{
+				// Found data in current profile.
+				RuntimeData = loadedData;
 			}
 			else
 			{

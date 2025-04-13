@@ -231,6 +231,12 @@ namespace SpaxUtils
 			// First make sure we can equip this item.
 			if (CanEquip(runtimeItemData, out IEquipmentSlot slot, out List<RuntimeEquipedData> overlap, out string reason, slotId, true))
 			{
+				// Ensure the item is present within the entity's inventory.
+				if (!inventoryComponent.Inventory.Contains(runtimeItemData))
+				{
+					runtimeItemData = inventoryComponent.Inventory.AddItem(runtimeItemData);
+				}
+
 				IEquipmentData itemData = runtimeItemData.ItemData as IEquipmentData;
 
 				// If slot is occupied, unequip it first.
@@ -410,7 +416,12 @@ namespace SpaxUtils
 					$"Equips this item on an (available) '{equipmentData.SlotType}' slot.",
 					(option) =>
 					{
-						TryEquip(msg.Target, out _);
+						if (TryEquip(msg.Target, out _) &&
+							msg.Context == ContextIdentifiers.ITEM_CONTAINER)
+						{
+							// Item belongs to a container, dispose it to remove it.
+							msg.Target.Dispose();
+						}
 					});
 
 				msg.AddOption(equipOption);

@@ -18,7 +18,7 @@ namespace SpaxUtils
 		public IReadOnlyList<IInteraction> Interactions => interactions;
 		public bool Interacting => Interactions.Count > 0;
 		public Vector3 InteractionPoint => targetable == null ? Entity.Transform.position : targetable.Center;
-		public float InteractionRange => targetable == null ? defaultInteractionRange : targetable.Size.Average() * 0.5f;
+		public float InteractionRange => targetable == null ? defaultInteractionRange : targetable.Size.Max() * 0.5f;
 
 		private List<IInteractable> interactables = new List<IInteractable>();
 		private List<IInteractor> interactors = new List<IInteractor>();

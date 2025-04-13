@@ -146,5 +146,10 @@ namespace SpaxUtils
 		}
 
 		#endregion
+
+		public override string ToString()
+		{
+			return this.TagFull();
+		}
 	}
 }

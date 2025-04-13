@@ -7,6 +7,8 @@ namespace SpaxUtils.UI
 {
 	public class UIScreenManager : MonoBehaviour, IDependency
 	{
+		public string CurrentContext => context;
+
 		[SerializeField, ReadOnly] private string context;
 		[SerializeField] private RectTransform screenParent;
 		[SerializeField, ConstDropdown(typeof(IContextIdentifiers), true)] private string defaultContext;

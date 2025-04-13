@@ -1,6 +1,6 @@
 ﻿namespace SpaxUtils
 {
-	public class ItemDataIdentifierConstants : ILabeledDataIdentifiers
+	public class ItemDataIdentifier : ILabeledDataIdentifiers
 	{
 		#region Base Categories
 		private const string STRING = ILabeledDataIdentifiers.STRING;

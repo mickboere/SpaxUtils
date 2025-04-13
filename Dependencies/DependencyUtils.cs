@@ -84,7 +84,7 @@ namespace SpaxUtils
 		{
 			List<MonoBehaviour> monoBehaviours = GatherMonoBehaviours(root, includeChildren);
 
-			// Bind IDependencyComponents.
+			// Bind dependencies.
 			BindMonoBehaviours(monoBehaviours, dependencyManager);
 		}
 

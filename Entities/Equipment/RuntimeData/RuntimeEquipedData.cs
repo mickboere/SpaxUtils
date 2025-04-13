@@ -8,12 +8,17 @@ namespace SpaxUtils
 	/// Data generated at runtime for any equiped <see cref="IEquipmentData"/>.
 	/// Contains references to all runtime elements belonging to this active equipment.
 	/// </summary>
-	public class RuntimeEquipedData : IDisposable
+	public class RuntimeEquipedData : IRuntimeDataContainer, IDisposable
 	{
 		/// <summary>
 		/// The <see cref="SpaxUtils.RuntimeItemData"/> this equiped data is paired to.
 		/// </summary>
 		public RuntimeItemData RuntimeItemData { get; private set; }
+
+		/// <summary>
+		/// The <see cref="RuntimeDataCollection"/> belonging to the <see cref="RuntimeItemData"/>.
+		/// </summary>
+		public RuntimeDataCollection RuntimeData => RuntimeItemData.RuntimeData;
 
 		/// <summary>
 		/// Shortcut to <see cref="RuntimeItemData.ItemData"/>.

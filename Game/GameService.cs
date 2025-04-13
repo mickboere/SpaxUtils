@@ -17,7 +17,6 @@ namespace SpaxUtils
 		public Brain Brain { get; }
 
 		private GameData gameData;
-		private IDependencyManager dependencyManager;
 		private CallbackService callbackService;
 		private SceneService sceneService;
 
@@ -26,7 +25,6 @@ namespace SpaxUtils
 		public GameService(GameData gameData, IDependencyManager dependencyManager, CallbackService callbackService, SceneService sceneService)
 		{
 			this.gameData = gameData;
-			this.dependencyManager = dependencyManager;
 			this.callbackService = callbackService;
 			this.sceneService = sceneService;
 

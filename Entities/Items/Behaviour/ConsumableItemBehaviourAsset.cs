@@ -5,7 +5,7 @@ using UnityEngine;
 namespace SpaxUtils
 {
 	[CreateAssetMenu(fileName = nameof(ConsumableItemBehaviourAsset), menuName = "ScriptableObjects/Behaviours/" + nameof(ConsumableItemBehaviourAsset))]
-	public class ConsumableItemBehaviourAsset : BehaviourAsset, IConsumableItem
+	public class ConsumableItemBehaviourAsset : BehaviourAsset, IConsumableItem, IOptionProvider<RuntimeItemData>
 	{
 		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifiers))] private string[] stats;
 
@@ -25,7 +25,7 @@ namespace SpaxUtils
 		{
 			amount = Mathf.Min(amount, runtimeItemData.Quantity);
 			int newQuantity = runtimeItemData.Quantity - amount.FloorToInt();
-			runtimeItemData.RuntimeData.SetValue(ItemDataIdentifierConstants.QUANTITY, newQuantity);
+			runtimeItemData.RuntimeData.SetValue(ItemDataIdentifier.QUANTITY, newQuantity);
 
 			ApplyStats(amount);
 
@@ -34,6 +34,9 @@ namespace SpaxUtils
 				inventory.Inventory.RemoveItem(runtimeItemData.RuntimeID);
 			}
 		}
+
+		/// <inheritdoc/>
+		public virtual bool CanConsume() => true;
 
 		protected void ApplyStats(float amount)
 		{
@@ -44,6 +47,14 @@ namespace SpaxUtils
 				{
 					data.Value = (float)data.Value + value * amount;
 				}
+			}
+		}
+
+		public void RequestOptions(IRequestOptionsMsg<RuntimeItemData> request)
+		{
+			if (request.Context == ContextIdentifiers.INVENTORY && CanConsume())
+			{
+				request.AddOption(new Option("Consume", "", (_) => Consume()));
 			}
 		}
 	}
