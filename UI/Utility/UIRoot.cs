@@ -8,7 +8,7 @@ namespace SpaxUtils.UI
 {
 	public class UIRoot : MonoBehaviour, IDependency
 	{
-		public RectTransform CanvasRect
+		public RectTransform CanvasRectTransform
 		{
 			get
 			{

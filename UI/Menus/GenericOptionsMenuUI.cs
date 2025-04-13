@@ -35,22 +35,29 @@ namespace SpaxUtils
 		}
 		private OptionsMenuUI _optionsMenu;
 
+		[SerializeField] private RectTransform menuRoot;
+
 		public void Show(string context, string title, bool addCancel = false)
 		{
 			OptionsMenu.Initialize(context, title, addCancel);
-			UIGroup.Show();
+			OnShow();
 		}
 
 		public void Show(IEnumerable<Option> options, string title, bool addCancel = false)
 		{
 			OptionsMenu.Initialize(options, title, addCancel);
-			UIGroup.Show();
+			OnShow();
 		}
 
 		public void Hide()
 		{
 			OptionsMenu.DisableAllOptions();
 			UIGroup.Hide();
+		}
+
+		private void OnShow()
+		{
+			UIGroup.Show();
 		}
 
 		private void OnSelectedOptionEvent(Option option)

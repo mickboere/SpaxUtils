@@ -141,6 +141,11 @@ namespace SpaxUtils.UI
 		/// </summary>
 		public MenuItem GetVisual(T data)
 		{
+			if (data == null)
+			{
+				return null;
+			}
+
 			string identifier = itemIdentifier(data);
 			if (items.ContainsKey(identifier))
 			{
