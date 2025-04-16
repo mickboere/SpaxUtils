@@ -17,7 +17,9 @@ namespace SpaxUtils
 
 		public IReadOnlyList<IInteraction> Interactions => interactions;
 		public bool Interacting => Interactions.Count > 0;
-		public Vector3 InteractionPoint => targetable == null ? Entity.Transform.position : targetable.Center;
+		public Vector3 InteractionPoint => targetable == null ?
+			Entity.Transform.position + Entity.Transform.rotation * interactionPointOffset :
+			targetable.Center + targetable.Rotation * interactionPointOffset;
 		public float InteractionRange => targetable == null ? defaultInteractionRange : targetable.Size.Max() * 0.5f;
 
 		private List<IInteractable> interactables = new List<IInteractable>();
@@ -25,6 +27,7 @@ namespace SpaxUtils
 		private List<IInteractionBlocker> blockers;
 		private List<IInteraction> interactions = new List<IInteraction>();
 
+		[SerializeField] private Vector3 interactionPointOffset;
 		[SerializeField, Tooltip("Picked if there is no targetable attached to the entity.")] private float defaultInteractionRange = 1f;
 
 		private ITargeter targeter;
@@ -238,10 +241,14 @@ namespace SpaxUtils
 				interactions.Add(interaction);
 				interaction.ConcludedEvent += OnConcludedEvent;
 
-				if (targeter != null && interaction.Interactable.Entity.TryGetEntityComponent(out ITargetable targetable))
+				if (targeter != null)
 				{
-					// Target the interactable.
-					targeter.SetTarget(targetable);
+					IEntity other = interaction.Interactor == this ? interaction.Interactable.Entity : interaction.Interactor;
+					if (other.TryGetEntityComponent(out ITargetable targetable))
+					{
+						// Target the interactable.
+						targeter.SetTarget(targetable);
+					}
 				}
 			}
 

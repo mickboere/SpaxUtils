@@ -265,6 +265,11 @@ namespace SpaxUtils
 			return entries.ContainsKey(runtimeItemData.RuntimeID);
 		}
 
+		public bool Contains(IItemData itemData)
+		{
+			return entries.Values.Any((e) => e.ItemData == itemData);
+		}
+
 		/// <summary>
 		/// Returns runtime item with ID <paramref name="runtimeItemID"/>.
 		/// </summary>

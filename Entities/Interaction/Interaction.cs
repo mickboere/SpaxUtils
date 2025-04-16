@@ -66,11 +66,12 @@ namespace SpaxUtils
 				InitiatedEvent?.Invoke(this);
 				return true;
 			}
-			else
+			else if (!Concluded)
 			{
 				Conclude(false, "Interactable could not be interacted with."); // Later TODO: have interactable return failure reason for message popup.
-				return false;
 			}
+
+			return false;
 		}
 
 		/// <inheritdoc/>

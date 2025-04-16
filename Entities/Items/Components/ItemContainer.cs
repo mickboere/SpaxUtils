@@ -14,7 +14,8 @@ namespace SpaxUtils
 		public ItemInventory Inventory => inventoryComponent.Inventory;
 
 		[SerializeField] private List<LootTable> loot;
-		[SerializeField, Tooltip("If false, will only regenerate if empty.")] private bool alwaysRegenerate;
+		[SerializeField, Tooltip("Will regenerate every time a new cycle is initiated.")] private bool regenerate;
+		[SerializeField, Conditional(nameof(regenerate))] private bool onlyRegenIfEmpty;
 
 		private CycleService cycleService;
 		private RandomService randomService;
@@ -65,8 +66,6 @@ namespace SpaxUtils
 		/// </summary>
 		public void GenerateLoot(int seed)
 		{
-			SpaxDebug.Log("Generate loot!");
-
 			Inventory.ClearInventory();
 			for (int i = 0; i < loot.Count; i++)
 			{
@@ -80,7 +79,7 @@ namespace SpaxUtils
 
 		private void OnNewCycleEvent(int cycle)
 		{
-			if (alwaysRegenerate || Inventory.Entries.Count == 0)
+			if (regenerate && (!onlyRegenIfEmpty || Inventory.Entries.Count == 0))
 			{
 				GenerateLoot(randomService.GenerateSeed(Entity.ID, cycle));
 			}

@@ -9,17 +9,21 @@ namespace SpaxUtils
 	/// <see cref="IEntityComponent"/> that handles equipment data and visuals.
 	/// </summary>
 	[DefaultExecutionOrder(100)]
-	public class EquipmentComponent : InteractorComponentBase, IEquipmentComponent
+	public class EquipmentComponent : InteractorComponentBase
 	{
 		public const string EQUIPMENT_DATA_ID = "Equipment";
 
 		public event Action<RuntimeEquipedData> EquipedEvent;
 		public event Action<RuntimeEquipedData> UnequipingEvent;
 
-		/// <inheritdoc/>
+		/// <summary>
+		/// All registered <see cref="IEquipmentSlot"/>s.
+		/// </summary>
 		public IReadOnlyCollection<IEquipmentSlot> Slots => slots.Values;
 
-		/// <inheritdoc/>
+		/// <summary>
+		/// All equiped <see cref="RuntimeEquipedData"/>.
+		/// </summary>
 		public IReadOnlyCollection<RuntimeEquipedData> EquipedItems => equipedItems.Values;
 
 		[SerializeField, ConstDropdown(typeof(IEquipmentSlotTypeConstants))] private string[] defaultSlots;
@@ -91,7 +95,6 @@ namespace SpaxUtils
 
 		#region Slot Management
 
-		/// <inheritdoc/>
 		public bool TryGetSlotFromID(string id, out IEquipmentSlot slot)
 		{
 			slot = null;
@@ -103,7 +106,6 @@ namespace SpaxUtils
 			return slot != null;
 		}
 
-		/// <inheritdoc/>
 		public bool TryGetSlotFromType(string type, out IEquipmentSlot slot, Func<IEquipmentSlot, bool> predicate = null)
 		{
 			foreach (IEquipmentSlot s in Slots)
@@ -119,7 +121,6 @@ namespace SpaxUtils
 			return false;
 		}
 
-		/// <inheritdoc/>
 		public IEquipmentSlot AddNewSlot(string type, string id = null)
 		{
 			if (string.IsNullOrEmpty(id))
@@ -135,7 +136,6 @@ namespace SpaxUtils
 			return slots[id];
 		}
 
-		/// <inheritdoc/>
 		public bool AddSlot(IEquipmentSlot slot)
 		{
 			if (string.IsNullOrEmpty(slot.ID))
@@ -154,7 +154,6 @@ namespace SpaxUtils
 			return true;
 		}
 
-		/// <inheritdoc/>
 		public bool RemoveSlot(string id)
 		{
 			if (TryGetSlotFromID(id, out IEquipmentSlot slot))
@@ -174,18 +173,37 @@ namespace SpaxUtils
 
 		#region Equipment
 
-		/// <inheritdoc/>
+		/// <summary>
+		/// Returns whether the given <paramref name="runtimeItemData"/> can be equiped on a free spot.
+		/// </summary>
+		/// <param name="runtimeItemData">The <see cref="RuntimeItemData"/> to check.</param>
+		/// <param name="slot">The free equipment slot in which the equipment can be equiped.</param>
+		/// <param name="overlap">The currently equiped data with which there is location overlap.
+		/// Overlaps do no block equiping and will automatically be unblocked .</param>
+		/// <param name="slotId">Optional specific slot ID, leave null to check all slots.</param>
+		/// <param name="overwrite">Will allow one to equip on occupied slots.</param>
+		/// <returns>Whether the given <paramref name="runtimeItemData"/> can be equiped on a free spot.</returns>
 		public bool CanEquip(RuntimeItemData runtimeItemData,
 			out IEquipmentSlot slot, out List<RuntimeEquipedData> overlap,
-			string slotId = null, bool overwriting = false)
+			string slotId = null, bool overwrite = false)
 		{
-			return CanEquip(runtimeItemData, out slot, out overlap, out _, slotId, overwriting);
+			return CanEquip(runtimeItemData, out slot, out overlap, out _, slotId, overwrite);
 		}
 
-		/// <inheritdoc/>
+		/// <summary>
+		/// Returns whether the given <paramref name="runtimeItemData"/> can be equiped on a free spot.
+		/// </summary>
+		/// <param name="runtimeItemData">The <see cref="RuntimeItemData"/> to check.</param>
+		/// <param name="slot">The free equipment slot in which the equipment can be equiped.</param>
+		/// <param name="overlap">The currently equiped data with which there is location overlap.
+		/// Overlaps do no block equiping and will automatically be unblocked .</param>
+		/// <param name="reason">The reason the equipment cannot be equiped, if any.</param>
+		/// <param name="slotId">Optional specific slot ID, leave null to check all slots.</param>
+		/// <param name="overwrite">Will allow one to equip on occupied slots.</param>
+		/// <returns>Whether the given <paramref name="runtimeItemData"/> can be equiped on a free spot.</returns>
 		public bool CanEquip(RuntimeItemData runtimeItemData,
 			out IEquipmentSlot slot, out List<RuntimeEquipedData> overlap, out string reason,
-			string slotId = null, bool overwriting = false)
+			string slotId = null, bool overwrite = false)
 		{
 			slot = null;
 
@@ -207,7 +225,7 @@ namespace SpaxUtils
 				{
 					slot = slots[slotId];
 					reason = $"Couldn't overwrite item in slot '{slotId}'";
-					return !equipedItems.ContainsKey(slotId) || overwriting;
+					return !equipedItems.ContainsKey(slotId) || overwrite;
 				}
 				else
 				{
@@ -218,14 +236,16 @@ namespace SpaxUtils
 
 			reason = $"Slot could not be retrieved for type: {equipmentData.SlotType}";
 			bool foundSlot = TryGetSlotFromType(equipmentData.SlotType, out slot, (s) => !equipedItems.ContainsKey(s.ID));
-			if (!foundSlot && overwriting)
+			if (!foundSlot && overwrite)
 			{
 				return TryGetSlotFromType(equipmentData.SlotType, out slot, null);
 			}
 			return foundSlot;
 		}
 
-		/// <inheritdoc/>
+		/// <summary>
+		/// Tries to equip the given <paramref name="runtimeItemData"/>.
+		/// </summary>
 		public bool TryEquip(RuntimeItemData runtimeItemData, out RuntimeEquipedData equipedData, string slotId = null)
 		{
 			// First make sure we can equip this item.
@@ -285,7 +305,9 @@ namespace SpaxUtils
 			return false;
 		}
 
-		/// <inheritdoc/>
+		/// <summary>
+		/// Unequips the given <see cref="RuntimeEquipedData"/>.
+		/// </summary>
 		public void Unequip(RuntimeEquipedData equipedData)
 		{
 			if (equipedItems.ContainsKey(equipedData.Slot.ID))
@@ -313,13 +335,21 @@ namespace SpaxUtils
 			}
 		}
 
-		/// <inheritdoc/>
+		/// <summary>
+		/// Returns all items equiped on a slot of type <paramref name="slotType"/>
+		/// </summary>
+		/// <param name="slotType">The type of slot to retrieve the equiped items from.</param>
+		/// <returns>All items equiped on a slot of type <paramref name="slotType"/></returns>
 		public List<RuntimeEquipedData> GetEquipedFromSlotType(string slotType)
 		{
 			return EquipedItems.Where(e => e.Slot.Type == slotType).ToList();
 		}
 
-		/// <inheritdoc/>
+		/// <summary>
+		/// Returns the <see cref="RuntimeEquipedData"/> stored in <paramref name="slot"/>, if any.
+		/// </summary>
+		/// <param name="slot">The UID of the <see cref="IEquipmentSlot"/> to retrieve the <see cref="RuntimeEquipedData"/> from.</param>
+		/// <returns>The <see cref="RuntimeEquipedData"/> stored in <paramref name="slot"/>, if any.</returns>
 		public RuntimeEquipedData GetEquipedFromSlotID(string slot)
 		{
 			return EquipedItems.FirstOrDefault(e => e.Slot.ID == slot);

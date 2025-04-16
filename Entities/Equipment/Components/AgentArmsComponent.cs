@@ -60,12 +60,12 @@ namespace SpaxUtils
 		[SerializeField] private bool testRight;
 
 		private TransformLookup lookup;
-		private IEquipmentComponent equipment;
+		private EquipmentComponent equipment;
 
 		private RuntimeEquipedData leftEquip;
 		private RuntimeEquipedData rightEquip;
 
-		public void InjectDependencies(IEquipmentComponent equipment, TransformLookup lookup)
+		public void InjectDependencies(EquipmentComponent equipment, TransformLookup lookup)
 		{
 			this.equipment = equipment;
 			this.lookup = lookup;

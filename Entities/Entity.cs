@@ -313,11 +313,6 @@ namespace SpaxUtils
 				// Data was supplied through dependencies.
 				RuntimeData = baseData.Clone(Identification.ID);
 			}
-			else if (runtimeDataService.EnsureCurrentProfile().TryGetEntry(Identification.ID, out RuntimeDataCollection loadedData))
-			{
-				// Found data in current profile.
-				RuntimeData = loadedData;
-			}
 			else
 			{
 				// Create new data.
@@ -325,10 +320,10 @@ namespace SpaxUtils
 				RuntimeData = new RuntimeDataCollection(Identification.ID);
 			}
 
-			if (runtimeDataService.EnsureCurrentProfile().TryGetEntry(Identification.ID, out RuntimeDataCollection entityData))
+			if (runtimeDataService.EnsureCurrentProfile().TryGetEntry(Identification.ID, out RuntimeDataCollection loadedData))
 			{
 				// Saved data was found in data service, append to existing data and overwrite duplicate data.
-				RuntimeData.Append(entityData, true);
+				RuntimeData.Append(loadedData, true);
 			}
 		}
 

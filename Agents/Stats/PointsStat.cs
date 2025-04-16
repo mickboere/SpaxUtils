@@ -67,13 +67,6 @@ namespace SpaxUtils
 				return;
 			}
 
-			string maxId = stat.SubStat(AgentStatIdentifiers.SUB_MAX);
-			string costId = stat.SubStat(AgentStatIdentifiers.SUB_COST);
-			string recoverableId = stat.SubStat(AgentStatIdentifiers.SUB_RECOVERABLE);
-			string frailtyId = stat.SubStat(AgentStatIdentifiers.SUB_FRAILTY);
-			string recoveryId = stat.SubStat(AgentStatIdentifiers.SUB_RECOVERY);
-			string recoveryDelayId = stat.SubStat(AgentStatIdentifiers.SUB_RECOVERY_DELAY);
-
 			timescale = entity.Stats.GetStat(EntityStatIdentifiers.TIMESCALE, true, 1f);
 
 			Current = entity.Stats.GetStat(stat, true);
@@ -83,22 +76,22 @@ namespace SpaxUtils
 				Current.ValueChangedEvent += OnCurrentChangedEvent;
 				lastCurrent = Current;
 
-				Max = entity.Stats.GetStat(maxId, true);
+				Max = entity.Stats.GetStat(stat.SubStat(AgentStatIdentifiers.SUB_MAX), true);
 				Max.ValueChangedEvent += OnMaxChangedEvent;
 			}
 
-			Cost = entity.Stats.GetStat(costId, true, 1f);
+			Cost = entity.Stats.GetStat(stat.SubStat(AgentStatIdentifiers.SUB_COST), true, 1f);
 
 			if (IsRecoverable)
 			{
-				Recoverable = entity.Stats.GetStat(recoverableId, true);
+				Recoverable = entity.Stats.GetStat(stat.SubStat(AgentStatIdentifiers.SUB_RECOVERABLE), true);
 				Recoverable.ValueChangedEvent += OnRecoverableChangedEvent;
-				Frailty = entity.Stats.GetStat(frailtyId);
+				Frailty = entity.Stats.GetStat(stat.SubStat(AgentStatIdentifiers.SUB_FRAILTY));
 			}
 			if (HasRecovery)
 			{
-				Recovery = entity.Stats.GetStat(recoveryId, true);
-				RecoveryDelay = entity.Stats.GetStat(recoveryDelayId, true);
+				Recovery = entity.Stats.GetStat(stat.SubStat(AgentStatIdentifiers.SUB_RECOVERY), true);
+				RecoveryDelay = entity.Stats.GetStat(stat.SubStat(AgentStatIdentifiers.SUB_RECOVERY_DELAY), true);
 			}
 
 			if (HasMax && Current.BaseValue > Max)
