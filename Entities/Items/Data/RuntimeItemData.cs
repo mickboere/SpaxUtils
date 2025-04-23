@@ -84,7 +84,10 @@ namespace SpaxUtils
 			DependencyManager = dependencyManager;
 
 			// Mandatory data used when loading item data.
-			runtimeData.SetValue(ItemDataIdentifiers.ITEM_ID, ItemID);
+			RuntimeData.SetValue(ItemDataIdentifiers.ITEM_ID, ItemID);
+
+			// Append base data without overriding.
+			RuntimeData.Append(itemData.Data, false);
 		}
 
 		public void InitializeBehaviour()

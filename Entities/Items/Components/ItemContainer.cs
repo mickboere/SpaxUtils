@@ -10,7 +10,7 @@ namespace SpaxUtils
 	[DefaultExecutionOrder(10)]
 	public class ItemContainer : InteractableComponentBase
 	{
-		public string GENERATED = "Generated";
+		public const string GENERATED = "Generated";
 		public override string InteractableType => InteractionTypes.CONTAINER;
 		public ItemInventory Inventory => inventoryComponent.Inventory;
 
