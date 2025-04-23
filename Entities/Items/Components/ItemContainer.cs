@@ -10,6 +10,7 @@ namespace SpaxUtils
 	[DefaultExecutionOrder(10)]
 	public class ItemContainer : InteractableComponentBase
 	{
+		public string GENERATED = "Generated";
 		public override string InteractableType => InteractionTypes.CONTAINER;
 		public ItemInventory Inventory => inventoryComponent.Inventory;
 
@@ -75,11 +76,16 @@ namespace SpaxUtils
 					Inventory.AddItem(item);
 				}
 			}
+			if (!regenerate)
+			{
+				Entity.RuntimeData.SetValue(GENERATED, true);
+			}
 		}
 
 		private void OnNewCycleEvent(int cycle)
 		{
-			if (regenerate && (!onlyRegenIfEmpty || Inventory.Entries.Count == 0))
+			if ((regenerate || !Entity.RuntimeData.GetValue<bool>(GENERATED)) &&
+				(!onlyRegenIfEmpty || Inventory.Entries.Count == 0))
 			{
 				GenerateLoot(randomService.GenerateSeed(Entity.ID, cycle));
 			}

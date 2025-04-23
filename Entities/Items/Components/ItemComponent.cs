@@ -15,17 +15,14 @@ namespace SpaxUtils
 
 		public override string InteractableType => InteractionTypes.ITEM;
 
-		[SerializeField, Expandable] private ItemDataAsset itemDataAsset;
-
-		[NonSerialized] private IItemData itemData;
-		[NonSerialized] private RuntimeDataCollection runtimeData;
+		[SerializeField] private SerializedItemData item;
 
 		protected virtual void OnValidate()
 		{
 			UpdateIdentification();
 		}
 
-		protected virtual void Start()
+		protected virtual void Awake()
 		{
 			UpdateIdentification();
 			RefreshRuntimeItemData();
@@ -36,38 +33,22 @@ namespace SpaxUtils
 		{
 			interaction.Data = RuntimeItemData;
 			gameObject.SetActive(false);
+			Entity.RuntimeData.SetValue(EntityDataIdentifiers.OFF, true);
 			return true;
-		}
-
-		/// <inheritdoc/>
-		public void SetItemData(IItemData itemData)
-		{
-			this.itemData = itemData;
-			RefreshRuntimeItemData();
-		}
-
-		/// <inheritdoc/>
-		public void SetRuntimeData(RuntimeDataCollection runtimeData)
-		{
-			this.runtimeData = runtimeData;
-			RefreshRuntimeItemData();
 		}
 
 		private void UpdateIdentification()
 		{
-			if (itemDataAsset != null && Entity != null)
+			if (item != null && item.Asset != null && Entity != null)
 			{
-				Entity.Identification.Name = itemDataAsset.Name;
+				Entity.Identification.Name = item.Asset.Identification.Name;
 				Entity.Identification.Add(EntityLabels.ITEM);
 			}
 		}
 
 		private void RefreshRuntimeItemData()
 		{
-			RuntimeItemData = new RuntimeItemData(
-				itemData ?? itemDataAsset,
-				runtimeData ?? new RuntimeDataCollection(Guid.NewGuid().ToString()),
-				null);
+			RuntimeItemData = item.ToRuntimeItemData();
 		}
 	}
 }

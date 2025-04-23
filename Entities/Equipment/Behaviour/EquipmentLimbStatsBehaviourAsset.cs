@@ -40,7 +40,7 @@ namespace SpaxUtils
 
 			foreach (string limbStat in limbStats)
 			{
-				if (runtimeEquipedData.RuntimeItemData.TryGetData(limbStat, out RuntimeDataEntry data) &&
+				if (runtimeEquipedData.RuntimeItemData.RuntimeData.TryGetEntry(limbStat, out RuntimeDataEntry data) &&
 					agent.Stats.TryGetStat(limbStat.SubStat(slotToLimbMap.First((m) => m.SLOT == runtimeEquipedData.Slot.Type).LIMB), out EntityStat stat))
 				{
 					var mod = new DataStatMappingModifier(data, ModMethod.Additive, Operation.Add, delegate () { return (float)data.Value; });

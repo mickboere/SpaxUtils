@@ -15,6 +15,7 @@ namespace SpaxUtils
 		public const string POSITION = ENTITY + "Pos";
 		public const string ROTATION = ENTITY + "Rot";
 		public const string SCALE = ENTITY + "Scale";
+		public const string OFF = ENTITY + "Off";
 
 		/// <summary>
 		/// Float entity height in meters.

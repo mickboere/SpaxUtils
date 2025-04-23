@@ -42,7 +42,6 @@ namespace SpaxUtils
 			}
 
 			items.Add(itemData.ID, itemData);
-			items.Add(itemData.Name, itemData);
 		}
 
 		public IItemData GetItem(string id)

@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace SpaxUtils
 {
@@ -13,19 +14,19 @@ namespace SpaxUtils
 		public object BindingKey => $"ITEM:{ID}";
 
 		/// <inheritdoc/>
-		public string ID => id;
+		public string ID => Identification.ID;
 
 		/// <inheritdoc/>
-		public string Name => itemName;
+		public IIdentification Identification => id;
 
 		/// <inheritdoc/>
 		public string Description => itemDescription;
 
 		/// <inheritdoc/>
-		public string Category => category;
+		public bool Unique => unique;
 
 		/// <inheritdoc/>
-		public bool Unique => unique;
+		public int Value => value;
 
 		/// <inheritdoc/>
 		public Sprite Icon => icon;
@@ -42,7 +43,7 @@ namespace SpaxUtils
 			{
 				if (_data == null || _data.Data == null)
 				{
-					_data = data.ToRuntimeDataCollection(id);
+					_data = data.ToRuntimeDataCollection(ID);
 				}
 				return _data;
 			}
@@ -50,11 +51,10 @@ namespace SpaxUtils
 		private RuntimeDataCollection _data;
 
 		[Header("Item Data")]
-		[SerializeField] private string id;
-		[SerializeField] private string itemName;
+		[SerializeField] private Identification id;
 		[SerializeField, TextArea(3, 6)] private string itemDescription;
-		[SerializeField, ConstDropdown(typeof(IItemCategoryConstants))] private string category;
 		[SerializeField, Tooltip(TT_UNIQUE)] private bool unique;
+		[SerializeField] private int value = 1;
 		[SerializeField] private Sprite icon;
 		[SerializeField] private GameObject worldItemPrefab;
 		[SerializeField, Expandable] private List<BehaviourAsset> inventoryBehaviour;
@@ -62,7 +62,7 @@ namespace SpaxUtils
 
 		public override string ToString()
 		{
-			return $"ItemData\n{{\n\tID={ID};\n\tName={Name};\n\tDescription={Description};\n\tCategory={Category};\n}}";
+			return $"ItemData\n{{\n\tID={id.TagFull()};\n\tDescription={Description};\n}}";
 		}
 	}
 }

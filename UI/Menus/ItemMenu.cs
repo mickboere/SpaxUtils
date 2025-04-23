@@ -41,8 +41,11 @@ namespace SpaxUtils.UI
 		private bool bypassUpdateEvent;
 
 		public ItemMenu(MenuItem template,
-			Func<T, string> itemIdentifier, Func<T, string> itemLabel, Func<T, Sprite> itemSprite,
-			Func<T, IDependencyManager> itemDependencies = null, IEnumerable<T> data = null)
+			Func<T, string> itemIdentifier,
+			Func<T, string> itemLabel,
+			Func<T, Sprite> itemSprite,
+			Func<T, IDependencyManager> itemDependencies = null,
+			IEnumerable<T> data = null)
 		{
 			this.template = template;
 			this.itemIdentifier = itemIdentifier;

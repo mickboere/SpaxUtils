@@ -9,9 +9,9 @@ namespace SpaxUtils
 	public interface IItemData : IIdentifiable
 	{
 		/// <summary>
-		/// The name of this item.
+		/// The identification data of this item.
 		/// </summary>
-		string Name { get; }
+		IIdentification Identification { get; }
 
 		/// <summary>
 		/// The text describing this item.
@@ -19,15 +19,15 @@ namespace SpaxUtils
 		string Description { get; }
 
 		/// <summary>
-		/// The type/category of item this is.
-		/// </summary>
-		string Category { get; }
-
-		/// <summary>
 		/// Whether this is a unique item or a quantifiable item.
 		/// Unique items cannot be stacked and will always count as a new data entry when added to an inventory.
 		/// </summary>
 		bool Unique { get; }
+
+		/// <summary>
+		/// The base value of this item.
+		/// </summary>
+		int Value { get; }
 
 		/// <summary>
 		/// The icon of this item.

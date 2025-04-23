@@ -50,6 +50,17 @@ namespace SpaxUtils
 		}
 		private Dictionary<string, RuntimeDataEntry> _data;
 
+		/// <summary>
+		/// Whether any entries within this collection are dirty.
+		/// </summary>
+		public override bool Dirty
+		{
+			get
+			{
+				return _data.Count > 0 && Data.Any((d) => d.Dirty);
+			}
+		}
+
 		public RuntimeDataCollection(string id, List<RuntimeDataEntry> dataEntries = null, RuntimeDataCollection parent = null) : base(id, null, parent)
 		{
 			Data = dataEntries ?? new List<RuntimeDataEntry>();
@@ -111,7 +122,7 @@ namespace SpaxUtils
 				}
 				else // If entry is not a collection, 
 				{
-					to.TryAdd(new RuntimeDataEntry(entry), overwrite);
+					to.TryAdd(new RuntimeDataEntry(entry, null, entry.Dirty), overwrite);
 				}
 			}
 		}
@@ -222,12 +233,18 @@ namespace SpaxUtils
 		/// Returns entry with ID <paramref name="id"/> and casts it to <typeparamref name="T"/>, if any.
 		/// </summary>
 		/// <param name="id">The ID of the entry to retrieve.</param>
-		public bool TryGetEntry<T>(string id, out T result) where T : RuntimeDataEntry
+		public bool TryGetEntry<T>(string id, out T result, T defaultIfNull = null) where T : RuntimeDataEntry
 		{
 			result = null;
 			RuntimeDataEntry entry = GetEntry(id);
 			if (entry == null)
 			{
+				if (defaultIfNull != null)
+				{
+					result = defaultIfNull;
+					return TryAdd(defaultIfNull);
+				}
+
 				return false;
 			}
 			else

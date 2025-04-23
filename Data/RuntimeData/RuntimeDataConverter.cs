@@ -20,6 +20,12 @@ namespace SpaxUtils
 
 		public override void WriteJson(JsonWriter writer, RuntimeDataEntry value, JsonSerializer serializer)
 		{
+			if (optimized && !value.Dirty)
+			{
+				// Only write data that is dirty.
+				return;
+			}
+
 			if (value is RuntimeDataCollection collection)
 			{
 				// Write RuntimeDataCollection (if there are any entries).
@@ -33,7 +39,7 @@ namespace SpaxUtils
 				writer.WriteEndArray();
 				writer.WriteEndObject();
 			}
-			else if (!optimized || value.Dirty)
+			else
 			{
 				// Write single RuntimeDataEntry (on single line).
 				switch (value.Value)

@@ -113,7 +113,7 @@ namespace SpaxUtils
 			Vector3 positionOffset = hand.position - orientation.pos;
 			Quaternion rotationOffset = orientation.rot.Inverse() * hand.rotation;
 
-			float mass = equipedData.RuntimeItemData.TryGetStat(AgentStatIdentifiers.MASS, out float m) ? m : 1f;
+			float mass = equipedData.RuntimeItemData.RuntimeData.TryGetValue(AgentStatIdentifiers.MASS, out float m) ? m : 1f;
 			float strength = agent.Stats.TryGetStat(AgentStatIdentifiers.STRENGTH, out EntityStat s) ? s : 1f;
 			float time = mass / strength * smoothTime;
 

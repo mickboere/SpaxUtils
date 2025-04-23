@@ -110,7 +110,7 @@ namespace SpaxUtils
 
 					if (!toStat.HasModifier(identifier))
 					{
-						if (RuntimeItemData.TryGetData(mapping.FromStat, out RuntimeDataEntry fromData))
+						if (RuntimeItemData.RuntimeData.TryGetEntry(mapping.FromStat, out RuntimeDataEntry fromData))
 						{
 							DataStatMappingModifier mod = new DataStatMappingModifier(mapping, fromData);
 							statModifiers.Add(mod);

@@ -113,7 +113,7 @@ namespace SpaxUtils
 		/// <param name="itemID">The ID of the item type (optional when runtime data contains the ID.)</param>
 		public RuntimeItemData AddItem(RuntimeDataCollection runtimeData, string itemID = null)
 		{
-			IItemData itemData = itemDatabase.GetItem(itemID ?? runtimeData.GetValue<string>(ItemDataIdentifier.ITEM_ID));
+			IItemData itemData = itemDatabase.GetItem(itemID ?? runtimeData.GetValue<string>(ItemDataIdentifiers.ITEM_ID));
 			return AddItem(itemData, runtimeData);
 		}
 
@@ -132,7 +132,7 @@ namespace SpaxUtils
 			if (!entries.ContainsKey(runtimeData.ID))
 			{
 				// Create dependency manager for the item data and bind it.
-				DependencyManager dependencyManager = new DependencyManager(dependencies, $"[ITEM]{itemData.Name}");
+				DependencyManager dependencyManager = new DependencyManager(dependencies, $"[ITEM]{itemData.ID}");
 				RuntimeItemData runtimeItemData = new RuntimeItemData(itemData, runtimeData, dependencyManager);
 				dependencyManager.Bind(runtimeItemData);
 
@@ -140,7 +140,7 @@ namespace SpaxUtils
 				if (!runtimeItemData.Unique && itemStack != null)
 				{
 					// Non-unique (stacking) item of which we already have an instance, increase the quantity of the existing one.
-					itemStack.RuntimeData.SetValue(ItemDataIdentifier.QUANTITY, itemStack.Quantity + runtimeItemData.Quantity);
+					itemStack.RuntimeData.SetValue(ItemDataIdentifiers.QUANTITY, itemStack.Quantity + runtimeItemData.Quantity);
 					runtimeData.Dispose();
 					runtimeItemData.Dispose();
 					dependencyManager.Dispose();
@@ -252,7 +252,7 @@ namespace SpaxUtils
 			else
 			{
 				// Substract quantity from item data.
-				runtimeData.RuntimeData.SetValue(ItemDataIdentifier.QUANTITY, runtimeData.Quantity - quantity);
+				runtimeData.RuntimeData.SetValue(ItemDataIdentifiers.QUANTITY, runtimeData.Quantity - quantity);
 			}
 		}
 

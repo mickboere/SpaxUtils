@@ -73,16 +73,17 @@ namespace SpaxUtils
 		/// Data that is not dirty is considered default and is therefore not saved to save storage space.
 		/// </summary>
 		[JsonIgnore]
-		public bool Dirty { get; set; }
+		public virtual bool Dirty { get; set; }
 
 		[JsonConstructor]
-		public RuntimeDataEntry(string id, object value)
+		public RuntimeDataEntry(string id, object value, bool dirty = false)
 		{
 			ID = id;
 			_value = value;
+			Dirty = dirty;
 		}
 
-		public RuntimeDataEntry(string id, object value, RuntimeDataCollection parent = null, bool dirty = false)
+		public RuntimeDataEntry(string id, object value, RuntimeDataCollection parent, bool dirty = false)
 		{
 			ID = id;
 			_value = value;

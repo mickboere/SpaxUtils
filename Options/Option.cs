@@ -1,5 +1,6 @@
 ﻿using System;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using static UnityEngine.InputSystem.InputAction;
 
 namespace SpaxUtils
@@ -26,9 +27,10 @@ namespace SpaxUtils
 		public bool HasInputAction => !string.IsNullOrEmpty(InputAction);
 
 		/// <summary>
-		/// Whether this option is currently listening for input.
+		/// Whether this option is currently enabled and actively listening for player input.
 		/// </summary>
-		public bool Listening { get; private set; }
+		public bool Listening => _listening && inputAction.enabled;
+		private bool _listening;
 
 		private readonly bool pickOnInput;
 		private readonly bool eatInput;
@@ -37,6 +39,7 @@ namespace SpaxUtils
 		private readonly Action<CallbackContext> onInputCallback;
 
 		private PlayerInputWrapper playerInputWrapper;
+		private InputAction inputAction;
 
 		public Option(
 			string title,
@@ -106,7 +109,7 @@ namespace SpaxUtils
 				this.playerInputWrapper = playerInputWrapper;
 			}
 
-			if (!Listening)
+			if (!_listening)
 			{
 				StartListening();
 			}
@@ -119,7 +122,7 @@ namespace SpaxUtils
 		{
 			Enabled = false;
 
-			if (Listening)
+			if (_listening)
 			{
 				StopListening();
 			}
@@ -157,18 +160,19 @@ namespace SpaxUtils
 
 		private void StartListening()
 		{
-			if (Listening || !HasInputAction)
+			if (_listening || !HasInputAction)
 			{
 				return;
 			}
 
-			if (this.playerInputWrapper == null)
+			if (playerInputWrapper == null)
 			{
 				SpaxDebug.Error("Option could not be activated: has an input action but no PlayerInputWrapper.", ToString());
 				return;
 			}
 
-			this.playerInputWrapper.Subscribe(this, InputAction,
+			inputAction = playerInputWrapper.GetAction(InputAction);
+			playerInputWrapper.Subscribe(this, InputAction,
 				delegate (CallbackContext inputContext)
 				{
 					//SpaxDebug.Log("OnInput", ToString());
@@ -185,25 +189,25 @@ namespace SpaxUtils
 				},
 				prio);
 
-			Listening = true;
+			_listening = true;
 			ActivatedEvent?.Invoke(this);
 		}
 
 		private void StopListening()
 		{
-			if (!Listening)
+			if (!_listening)
 			{
 				return;
 			}
 
 			playerInputWrapper.Unsubscribe(this);
-			Listening = false;
+			_listening = false;
 			DeactivatedEvent?.Invoke(this);
 		}
 
 		public override string ToString()
 		{
-			return $"Option\n{{\n\tTitle=\"{Title},\"\n\tDescription=\"{Description},\"\n\tInputAction={InputAction},\n\tEnabled={Enabled},\n\tListening={Listening}\n}}";
+			return $"Option\n{{\n\tTitle=\"{Title},\"\n\tDescription=\"{Description},\"\n\tInputAction={InputAction},\n\tEnabled={Enabled},\n\tListening={_listening}\n}}";
 		}
 	}
 }

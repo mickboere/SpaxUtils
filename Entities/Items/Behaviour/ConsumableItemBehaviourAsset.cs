@@ -25,7 +25,7 @@ namespace SpaxUtils
 		{
 			amount = Mathf.Min(amount, runtimeItemData.Quantity);
 			int newQuantity = runtimeItemData.Quantity - amount.FloorToInt();
-			runtimeItemData.RuntimeData.SetValue(ItemDataIdentifier.QUANTITY, newQuantity);
+			runtimeItemData.RuntimeData.SetValue(ItemDataIdentifiers.QUANTITY, newQuantity);
 
 			ApplyStats(amount);
 
@@ -42,7 +42,7 @@ namespace SpaxUtils
 		{
 			foreach (string stat in stats)
 			{
-				if (runtimeItemData.TryGetStat(stat, out float value) &&
+				if (runtimeItemData.RuntimeData.TryGetValue(stat, out float value) &&
 					agent.RuntimeData.TryGetEntry(stat, out RuntimeDataEntry data))
 				{
 					data.Value = (float)data.Value + value * amount;

@@ -53,29 +53,24 @@ namespace SpaxUtils
 		#region Standard Data Wrappers
 
 		/// <summary>
-		/// The quantity of this item.
-		/// </summary>
-		public int Quantity => Unique ? 1 : RuntimeData.TryGetValue(ItemDataIdentifier.QUANTITY, out int quantity) ? quantity : 1;
-
-		/// <summary>
 		/// The name of this item.
 		/// </summary>
-		public string Name => RuntimeData.GetValue<string>(ItemDataIdentifier.NAME) ?? ItemData.Name;
-
-		/// <summary>
-		/// The general description of this item.
-		/// </summary>
-		public string Description => RuntimeData.GetValue<string>(ItemDataIdentifier.DESCRIPTION) ?? ItemData.Description;
-
-		/// <summary>
-		/// The category of this item.
-		/// </summary>
-		public string Category => RuntimeData.GetValue<string>(ItemDataIdentifier.CATEGORY) ?? ItemData.Category;
+		public string Name => RuntimeData.GetValue<string>(ItemDataIdentifiers.NAME) ?? ItemData.Identification.Name;
 
 		/// <summary>
 		/// Whether this item is unique or otherwise stackable.
 		/// </summary>
-		public bool Unique => RuntimeData.TryGetValue(ItemDataIdentifier.UNIQUE, out bool unique) ? unique : ItemData.Unique;
+		public bool Unique => RuntimeData.TryGetValue(ItemDataIdentifiers.UNIQUE, out bool unique) ? unique : ItemData.Unique;
+
+		/// <summary>
+		/// The quantity of this item.
+		/// </summary>
+		public int Quantity => Unique ? 1 : RuntimeData.TryGetValue(ItemDataIdentifiers.QUANTITY, out int quantity) ? quantity : 1;
+
+		/// <summary>
+		/// The total value of this item multiplied by its quantity.
+		/// </summary>
+		public float Value => (RuntimeData.TryGetValue(ItemDataIdentifiers.VALUE, out float value) ? value : ItemData.Value) * Quantity;
 
 		#endregion Standard Data Wrappers
 
@@ -89,53 +84,7 @@ namespace SpaxUtils
 			DependencyManager = dependencyManager;
 
 			// Mandatory data used when loading item data.
-			runtimeData.SetValue(ItemDataIdentifier.ITEM_ID, ItemID);
-		}
-
-		public bool TryGetData(string identifier, out RuntimeDataEntry data, bool createIfNull = false, object defaultValueIfNull = default)
-		{
-			if (!RuntimeData.TryGetEntry(identifier, out data))
-			{
-				if (ItemData.Data.TryGetEntry(identifier, out RuntimeDataEntry defaultData))
-				{
-					data = new RuntimeDataEntry(identifier, defaultData.Value);
-					return RuntimeData.TryAdd(data);
-				}
-				else if (createIfNull)
-				{
-					data = new RuntimeDataEntry(identifier, defaultValueIfNull);
-					return RuntimeData.TryAdd(data);
-				}
-				else
-				{
-					return false;
-				}
-			}
-
-			return true;
-		}
-
-		public bool TryGetStat(string identifier, out float value, bool createIfNull = false, float defaultValueIfNull = 0f)
-		{
-			if (TryGetData(identifier, out RuntimeDataEntry data, createIfNull, defaultValueIfNull) &&
-				data.ValueType == typeof(float))
-			{
-				value = (float)data.Value;
-				return true;
-			}
-
-			value = 0f;
-			return false;
-		}
-
-		public float GetStat(string identifier, bool createIfNull = false, float defaultValueIfNull = 0f)
-		{
-			if (TryGetStat(identifier, out float value, createIfNull, defaultValueIfNull))
-			{
-				return value;
-			}
-
-			return 0f;
+			runtimeData.SetValue(ItemDataIdentifiers.ITEM_ID, ItemID);
 		}
 
 		public void InitializeBehaviour()

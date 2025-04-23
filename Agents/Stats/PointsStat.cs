@@ -73,9 +73,9 @@ namespace SpaxUtils
 
 			if (HasMax)
 			{
-				Current.ValueChangedEvent += OnCurrentChangedEvent;
 				lastCurrent = Current;
-
+				Current.ValueChangedEvent += OnCurrentChangedEvent;
+				
 				Max = entity.Stats.GetStat(stat.SubStat(AgentStatIdentifiers.SUB_MAX), true);
 				Max.ValueChangedEvent += OnMaxChangedEvent;
 			}
@@ -97,7 +97,7 @@ namespace SpaxUtils
 			if (HasMax && Current.BaseValue > Max)
 			{
 				// Health points have been manually supplied through data, accomodate for it.
-				Max.BaseValue = Current.BaseValue - Max;
+				Max.BaseValue = Current.BaseValue - Max; // Account for Max modifiers.
 				if (isRecoverable)
 				{
 					Recoverable.BaseValue = Max;

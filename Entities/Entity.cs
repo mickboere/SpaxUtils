@@ -190,8 +190,13 @@ namespace SpaxUtils
 #endif
 
 			Initialize();
-			Identification.IdentificationUpdatedEvent += OnIdentificationUpdatedEvent;
-			entityCollection.Add(this);
+
+			if (gameObject.activeInHierarchy)
+			{
+				// Entity could have been disabled during initialization, ensure its not.
+				Identification.IdentificationUpdatedEvent += OnIdentificationUpdatedEvent;
+				entityCollection.Add(this);
+			}
 		}
 
 		protected virtual void OnDisable()
@@ -230,6 +235,17 @@ namespace SpaxUtils
 #endif
 		}
 
+		protected virtual void OnValidate()
+		{
+#if UNITY_EDITOR
+			if (!Application.isPlaying && !gameObject.scene.name.IsNullOrEmpty() && PrefabStageUtility.GetCurrentPrefabStage() == null &&
+				identification.ID.IsNullOrEmpty())
+			{
+				identification.ID = Guid.NewGuid().ToString();
+			}
+#endif
+		}
+
 		#endregion Internal
 
 		private void Initialize()
@@ -243,13 +259,13 @@ namespace SpaxUtils
 
 			if (!initialized)
 			{
+				initialized = true;
 				gameObject.name = GameObjectName;
 				ApplyData();
 				if (autoSaveData)
 				{
 					runtimeDataService.SavingCurrentToDiskEvent += OnSavingEvent;
 				}
-				initialized = true;
 			}
 		}
 
@@ -335,14 +351,10 @@ namespace SpaxUtils
 				return;
 			}
 
-			// Load or set entity name in data.
+			// Load entity name from data.
 			if (RuntimeData.ContainsEntry(EntityDataIdentifiers.NAME))
 			{
 				Identification.Name = RuntimeData.GetValue<string>(EntityDataIdentifiers.NAME);
-			}
-			else
-			{
-				RuntimeData.SetValue(EntityDataIdentifiers.NAME, Identification.Name);
 			}
 
 			// Retrieve pre-set priority level to override dynamic priority, if any.
@@ -356,6 +368,12 @@ namespace SpaxUtils
 			if (RuntimeData.TryGetValue(EntityDataIdentifiers.DEBUG, out bool debug))
 			{
 				Debug = debug;
+			}
+
+			// If the entity has been turned off, disable the game object.
+			if (RuntimeData.GetValue(EntityDataIdentifiers.OFF, false))
+			{
+				gameObject.SetActive(false);
 			}
 		}
 
@@ -413,7 +431,7 @@ namespace SpaxUtils
 
 		protected virtual void OnSavingData()
 		{
-			RuntimeData.SetValue(EntityDataIdentifiers.NAME, Identification.Name);
+			//RuntimeData.SetValue(EntityDataIdentifiers.NAME, Identification.Name);
 		}
 
 		private void OnIdentificationUpdatedEvent(IIdentification identification)

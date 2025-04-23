@@ -5,8 +5,8 @@ namespace SpaxUtils
 	[CreateAssetMenu(fileName = nameof(ConsumableContainerItemBehaviourAsset), menuName = "ScriptableObjects/Behaviours/" + nameof(ConsumableContainerItemBehaviourAsset))]
 	public class ConsumableContainerItemBehaviourAsset : ConsumableItemBehaviourAsset, IContainerItem
 	{
-		public float Capacity => runtimeItemData.GetStat(capacity, true, 1f);
-		public float Contains => runtimeItemData.GetStat(contains, true, 0f);
+		public float Capacity => runtimeItemData.RuntimeData.GetValue(capacity, 1f);
+		public float Contains => runtimeItemData.RuntimeData.GetValue(contains, 0f);
 		public float FillAmount => Contains / Capacity;
 
 		[Header("Container")]
@@ -39,11 +39,11 @@ namespace SpaxUtils
 		public override void Consume(float amount)
 		{
 			float consume = Mathf.Min(Contains, amount);
-			runtimeItemData.TryGetData(contains, out RuntimeDataEntry container, true, 0f);
+			runtimeItemData.RuntimeData.TryGetEntry(contains, out RuntimeDataEntry container, new RuntimeDataEntry(contains, 0f));
 			container.Value = (float)container.Value - consume;
 			ApplyStats(consume / Capacity);
 
-			if (runtimeItemData.TryGetData(this.consume, out RuntimeDataEntry c) && (bool)c.Value && Contains.Approx(0f))
+			if (runtimeItemData.RuntimeData.TryGetEntry(this.consume, out RuntimeDataEntry c) && (bool)c.Value && Contains.Approx(0f))
 			{
 				inventory.Inventory.RemoveItem(runtimeItemData.RuntimeID);
 			}
@@ -55,8 +55,7 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public void Fill(float amount)
 		{
-			SpaxDebug.Log("Fill");
-			runtimeItemData.TryGetData(contains, out RuntimeDataEntry container, true, 0f);
+			runtimeItemData.RuntimeData.TryGetEntry(contains, out RuntimeDataEntry container, new RuntimeDataEntry(contains, 0f));
 			container.Value = Mathf.Min((float)container.Value + amount, Capacity);
 		}
 

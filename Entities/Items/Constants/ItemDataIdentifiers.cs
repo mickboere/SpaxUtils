@@ -1,6 +1,6 @@
 ﻿namespace SpaxUtils
 {
-	public class ItemDataIdentifier : ILabeledDataIdentifiers
+	public class ItemDataIdentifiers : ILabeledDataIdentifiers
 	{
 		#region Base Categories
 		private const string STRING = ILabeledDataIdentifiers.STRING;
@@ -12,17 +12,17 @@
 		// Strings
 		public const string ITEM_ID = STRING + "ItemID";
 		public const string NAME = STRING + "Name";
-		public const string DESCRIPTION = STRING + "Description";
-		public const string CATEGORY = STRING + "Category";
 
 		// Ints
 		public const string QUANTITY = INT + "Quantity";
 
 		// Floats
+		public const string VALUE = FLOAT + "Value";
 		public const string CAPACITY = FLOAT + "Capacity";
 		public const string CONTAINS = FLOAT + "Contains";
 
 		// Bools
+		public const string AETHERIAL = BOOL + "Aetherial";
 		public const string UNIQUE = BOOL + "Unique";
 		public const string CONSUME = BOOL + "Consume";
 	}

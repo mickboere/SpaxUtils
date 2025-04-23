@@ -51,20 +51,20 @@ namespace SpaxUtils
 			List<RuntimeDataEntry> data = new List<RuntimeDataEntry>();
 			if (!string.IsNullOrEmpty(Setter))
 			{
-				data.Add(new RuntimeDataEntry(nameof(Setter), Setter));
+				data.Add(new RuntimeDataEntry(nameof(Setter), Setter, true));
 			}
-			data.Add(new RuntimeDataEntry(nameof(Time), Time));
+			data.Add(new RuntimeDataEntry(nameof(Time), Time, true));
 			if (TimeType != TimeType.ScaledPlaytime)
 			{
-				data.Add(new RuntimeDataEntry(nameof(TimeType), TimeType));
+				data.Add(new RuntimeDataEntry(nameof(TimeType), TimeType, true));
 			}
 			if (Expiration > 0)
 			{
-				data.Add(new RuntimeDataEntry(nameof(Expiration), Expiration));
+				data.Add(new RuntimeDataEntry(nameof(Expiration), Expiration, true));
 			}
 			if (Completed)
 			{
-				data.Add(new RuntimeDataEntry(nameof(Completed), Completed));
+				data.Add(new RuntimeDataEntry(nameof(Completed), Completed, true));
 			}
 			return new RuntimeDataCollection(id, data);
 		}
