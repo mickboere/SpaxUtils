@@ -1,6 +1,7 @@
 ﻿using SpaxUtils.StateMachines;
 using System.Collections.Generic;
 using System;
+using System.Linq;
 
 namespace SpaxUtils
 {
@@ -12,13 +13,13 @@ namespace SpaxUtils
 	{
 		public string ID { get; private set; }
 		public bool Active { get; private set; }
-		public IState Parent { get; private set; }
-		public IState DefaultChild => defaultChild != null && children.ContainsKey(defaultChild) ? children[defaultChild] : null;
+		public IState ParentState { get; private set; }
+		public string DefaultChild { get; private set; }
+		public IState DefaultChildState => DefaultChild != null && children.ContainsKey(DefaultChild) ? children[DefaultChild] : null;
 		public IReadOnlyDictionary<string, IState> Children => children;
 
 		public IReadOnlyCollection<IStateListener> Components => components;
 
-		private string defaultChild;
 		private Dictionary<string, IState> children;
 		private List<IStateListener> components;
 
@@ -30,7 +31,7 @@ namespace SpaxUtils
 		{
 			ID = id;
 			SetParent(parent);
-			this.defaultChild = defaultChild;
+			DefaultChild = defaultChild;
 			children = new Dictionary<string, IState>();
 			this.components = components == null ? new List<IStateListener>() : new List<IStateListener>(components);
 		}
@@ -54,21 +55,21 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public void SetParent(IState parent)
 		{
-			if (parent == Parent)
+			if (parent == ParentState)
 			{
 				return;
 			}
 
-			IState previousParent = Parent;
-			Parent = parent;
+			IState previousParent = ParentState;
+			ParentState = parent;
 			previousParent?.RemoveChild(ID);
-			Parent?.AddChild(this);
+			ParentState?.AddChild(this);
 		}
 
 		/// <inheritdoc/>
 		public void SetDefaultChild(string id)
 		{
-			defaultChild = id;
+			DefaultChild = id;
 		}
 
 		/// <inheritdoc/>

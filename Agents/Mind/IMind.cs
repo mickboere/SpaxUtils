@@ -105,6 +105,19 @@ namespace SpaxUtils
 		/// <param name="source">The entity responsible for this satisfaction.</param>
 		void Satisfy(Vector8 satisfaction, IEntity source);
 
+		/// <summary>
+		/// Adds a stimulation filter to stimuli from <paramref name="entity"/>.
+		/// </summary>
+		/// <param name="entity">The source of stimuli to filter.</param>
+		/// <param name="filter">The stimulation multiplier.</param>
+		void SetFilter(IEntity entity, Vector8 filter);
+
+		/// <summary>
+		/// Removes a stimulation filter to no longer filter <paramref name="entity"/>'s stimuli.
+		/// </summary>
+		/// <param name="entity">The source of stimuli to no longer filter.</param>
+		void RemoveFilter(IEntity entity);
+
 		#endregion
 
 		#region Behaviour

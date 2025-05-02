@@ -32,6 +32,11 @@ namespace SpaxUtils.StateMachines
 		public IState HeadState => StateHierarchy.Count > 0 ? StateHierarchy[StateHierarchy.Count - 1] : null;
 
 		/// <summary>
+		/// The lowermost active state in the <see cref="StateHierarchy"/>.
+		/// </summary>
+		public IState RootState => StateHierarchy.Count > 0 ? StateHierarchy[0] : null;
+
+		/// <summary>
 		/// The currently active transition, if any.
 		/// </summary>
 		public ITransition CurrentTransition { get; private set; }

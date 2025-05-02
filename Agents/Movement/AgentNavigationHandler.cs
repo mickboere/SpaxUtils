@@ -212,6 +212,7 @@ namespace SpaxUtils
 		{
 			agent.Transform.position = position;
 			agent.Transform.forward = direction;
+			movementHandler.TargetDirection = direction;
 			ResetInput(true);
 		}
 

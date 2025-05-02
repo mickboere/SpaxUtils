@@ -89,7 +89,7 @@ namespace SpaxUtils
 					enemyData = enemies[enemy];
 				}
 
-				if(enemyData.Agent == agent)
+				if (enemyData.Agent == agent)
 				{
 					SpaxDebug.Error($"[{agent.Identification.TagFull()}] Target is self, this should not be possible.");
 				}

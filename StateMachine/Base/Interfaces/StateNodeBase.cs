@@ -14,10 +14,11 @@ namespace SpaxUtils.StateMachines
 		public virtual string ID => id;
 		public bool Active { get; private set; }
 
-		public IState Parent => _parent ?? GetInputNode<IState>(nameof(inConnection));
+		public IState ParentState => _parent ?? GetInputNode<IState>(nameof(inConnection));
 		private IState _parent;
 
-		public IState DefaultChild => string.IsNullOrEmpty(_defaultChild) ? null : Children[_defaultChild];
+		public string DefaultChild => _defaultChild;
+		public IState DefaultChildState => string.IsNullOrEmpty(_defaultChild) ? null : Children[_defaultChild];
 		protected virtual string _defaultChild { get; private set; }
 
 		public IReadOnlyDictionary<string, IState> Children => _children ?? GetAllChildStates().ToDictionary((s) => s.ID);

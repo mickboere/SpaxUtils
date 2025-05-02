@@ -10,14 +10,19 @@ namespace SpaxUtils.StateMachines
 		bool Active { get; }
 
 		/// <summary>
-		/// The parent state of this state.
+		/// The parent state to this state.
 		/// </summary>
-		IState Parent { get; }
+		IState ParentState { get; }
+
+		/// <summary>
+		/// The id of the default child state to transition to when entering this state.
+		/// </summary>
+		string DefaultChild { get; }
 
 		/// <summary>
 		/// The default child state to transition to when entering this state.
 		/// </summary>
-		IState DefaultChild { get; }
+		IState DefaultChildState { get; }
 
 		/// <summary>
 		/// All direct child states of this state.

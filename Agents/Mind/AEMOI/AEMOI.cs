@@ -52,6 +52,7 @@ namespace SpaxUtils
 		private List<IMindBehaviour> behaviours;
 
 		private Dictionary<IEntity, Vector8> stimuli = new Dictionary<IEntity, Vector8>();
+		private Dictionary<IEntity, Vector8> filters = new Dictionary<IEntity, Vector8>();
 
 		public AEMOI(IDependencyManager dependencyManager, AEMOISettings settings, IOctad inclination, IOctad personality, IEnumerable<IMindBehaviour> behaviours = null)
 		{
@@ -135,11 +136,18 @@ namespace SpaxUtils
 		{
 			if (!stimuli.ContainsKey(source))
 			{
-				stimuli.Add(source, (stimulation * Inclination).Clamp(0f, MAX_STIM));
+				stimuli.Add(source, Filter(stimulation * Inclination).Clamp(0f, MAX_STIM));
 			}
 			else
 			{
-				stimuli[source] = (stimuli[source] + stimulation * Inclination).Clamp(0f, MAX_STIM);
+				stimuli[source] = (stimuli[source] + Filter(stimulation * Inclination)).Clamp(0f, MAX_STIM);
+			}
+
+			Vector8 Filter(Vector8 stim)
+			{
+				if (filters.ContainsKey(source))
+					return stim * filters[source];
+				return stim;
 			}
 		}
 
@@ -156,6 +164,21 @@ namespace SpaxUtils
 		public Vector8 RetrieveStimuli(IEntity source)
 		{
 			return Stimuli.ContainsKey(source) ? Stimuli[source] : Vector8.Zero;
+		}
+
+		/// <inheritdoc/>
+		public void SetFilter(IEntity entity, Vector8 filter)
+		{
+			filters[entity] = filter;
+		}
+
+		/// <inheritdoc/>
+		public void RemoveFilter(IEntity entity)
+		{
+			if (filters.ContainsKey(entity))
+			{
+				filters.Remove(entity);
+			}
 		}
 
 		#endregion
@@ -189,6 +212,7 @@ namespace SpaxUtils
 			{
 				behaviours.Remove(behaviour);
 			}
+			// No need to reassess the active behaviour here as that will be done next update loop anyways.
 		}
 
 		/// <inheritdoc/>
@@ -222,13 +246,16 @@ namespace SpaxUtils
 				}
 			}
 
-			if (match == null || match == ActiveBehaviour)
+			if (match == ActiveBehaviour)
 			{
 				return;
 			}
 
 			StopBehaviour();
-			StartBehaviour(match);
+			if (match != null)
+			{
+				StartBehaviour(match);
+			}
 		}
 
 		private void StopBehaviour()

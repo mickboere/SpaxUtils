@@ -239,7 +239,7 @@ namespace SpaxUtils
 		{
 #if UNITY_EDITOR
 			if (!Application.isPlaying && !gameObject.scene.name.IsNullOrEmpty() && PrefabStageUtility.GetCurrentPrefabStage() == null &&
-				identification.ID.IsNullOrEmpty())
+				identification != null && identification.ID.IsNullOrEmpty())
 			{
 				identification.ID = Guid.NewGuid().ToString();
 			}
