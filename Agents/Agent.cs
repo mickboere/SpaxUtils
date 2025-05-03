@@ -58,7 +58,7 @@ namespace SpaxUtils
 		public void InjectDependencies(
 			IAgentBody body, ITargetable targetableComponent, ITargeter targeterComponent,
 			CallbackService callbackService, AEMOISettings aemoiSettings, InputToActMap inputToActMap,
-			IPerformer[] performers, IRelationData[] relationData, BrainGraph[] brainGraphs,
+			IPerformer[] performers, IRelationData[] relationData, BrainGraph[] brainGraphs, AEMOIBehaviourAsset[] behaviour,
 			[Optional, BindingIdentifier(MindDataIdentifiers.INCLINATION)] Vector8 inclination,
 			[Optional, BindingIdentifier(MindDataIdentifiers.PERSONALITY)] Vector8 personality)
 		{
@@ -85,9 +85,16 @@ namespace SpaxUtils
 			// Initialize all Agent components.
 			Actor = new Actor($"ACTOR_{Identification.ID}", callbackService, inputToActMap, performers);
 			Brain = new Brain(DependencyManager, callbackService, state, null, brainGraphs);
+			// Create new instances of all injected mind behaviours and use them to initialize the Mind.
+			List<IMindBehaviour> mindBehaviours = behaviour.Select(b => (IMindBehaviour)b.CreateInstance()).ToList();
+			foreach (IMindBehaviour b in mindBehaviours)
+			{
+				DependencyManager.Inject(b);
+			}
 			Mind = new AEMOI(DependencyManager, aemoiSettings,
 				new StatOctad(this, aemoiSettings.Inclination, inclination == Vector8.Zero ? Vector8.Half : inclination),
-				new StatOctad(this, aemoiSettings.Personality, personality == Vector8.Zero ? Vector8.Half : personality));
+				new StatOctad(this, aemoiSettings.Personality, personality == Vector8.Zero ? Vector8.Half : personality),
+				mindBehaviours);
 			LoadRelations();
 
 			// Bind Agent components so that later injections can retrieve them easily (this is meant for Nodes, not EntityComponents as they may already be injected before this).

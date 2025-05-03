@@ -327,7 +327,8 @@ namespace SpaxUtils
 			if (baseData != null)
 			{
 				// Data was supplied through dependencies.
-				RuntimeData = baseData.Clone(Identification.ID);
+				//RuntimeData = baseData.Clone(Identification.ID);
+				RuntimeData = baseData;
 			}
 			else
 			{

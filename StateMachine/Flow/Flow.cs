@@ -22,13 +22,16 @@ namespace SpaxUtils.StateMachines
 		private FlowGraph instance;
 		private List<StateMachine> layers = new List<StateMachine>();
 
-		public Flow(FlowGraph graph, IDependencyManager dependencyManager, IHistory history)
+		public Flow(FlowGraph graph, IDependencyManager dependencyManager, IHistory history = null)
 		{
 			this.graph = graph;
 			this.dependencyManager = new DependencyManager(dependencyManager, $"Flow_{graph.name}");
 			this.dependencyManager.Bind(this);
-			this.dependencyManager.Bind(history);
-			this.history = history;
+			if (history != null)
+			{
+				this.dependencyManager.Bind(history);
+				this.history = history;
+			}
 		}
 
 		/// <summary>
@@ -50,7 +53,7 @@ namespace SpaxUtils.StateMachines
 			{
 				StateMachine layer = new StateMachine(dependencyManager, dependencyManager.Get<CallbackService>(), instance.GetNodesOfType<IState>(), startState.ID);
 				layers.Add(layer);
-				history.Add(startState.ID);
+				history?.Add(startState.ID);
 				layer.EnteredStateEvent += OnEnteredStateEvent;
 				layer.TransitionToDefaultState(transition);
 			}
@@ -99,7 +102,7 @@ namespace SpaxUtils.StateMachines
 
 		private void OnEnteredStateEvent(IState state)
 		{
-			history.Add(state.ID);
+			history?.Add(state.ID);
 		}
 	}
 }
