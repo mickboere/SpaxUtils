@@ -19,9 +19,19 @@ namespace SpaxUtils
 		public bool IsFull => Progress.Approx(1f);
 
 		/// <summary>
+		/// Whether the transition is currently being filled.
+		/// </summary>
+		public bool IsFilling => !IsFull && Control > 0;
+
+		/// <summary>
 		/// Whether the progress is currently at 0.
 		/// </summary>
 		public bool IsEmpty => Progress.Approx(0f);
+
+		/// <summary>
+		/// Whether the transition is currently being emptied.
+		/// </summary>
+		public bool IsEmptying => !IsEmpty && Control < 0;
 
 		/// <summary>
 		/// Whether the progress is currently either at 0 or 1.

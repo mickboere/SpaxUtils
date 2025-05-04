@@ -26,6 +26,19 @@ namespace SpaxUtils.UI
 			}
 		}
 
+		public UIGroup UIGroup
+		{
+			get
+			{
+				if (!_uiGroup)
+				{
+					_uiGroup = GetComponent<UIGroup>();
+				}
+				return _uiGroup;
+			}
+		}
+		private UIGroup _uiGroup;
+
 		[SerializeField] private MenuItem menuItemTemplate;
 		[SerializeField] private TMP_Text menuTitle;
 

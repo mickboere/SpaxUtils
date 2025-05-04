@@ -6,16 +6,26 @@ namespace SpaxUtils.UI
 {
 	public static class RectTransformExtensions
 	{
-		public static void MoveToScreenPosition(this RectTransform rectTransform, Camera camera, Vector3 worldPos)
+		public static void MoveToScreenPositionAnchored(this RectTransform rectTransform, Camera camera, Vector3 worldPos)
 		{
-			MoveToScreenPosition(rectTransform, camera, worldPos, Vector2.zero);
+			MoveToScreenPositionAnchored(rectTransform, camera, worldPos, Vector2.zero);
 		}
 
-		public static void MoveToScreenPosition(this RectTransform rectTransform, Camera camera, Vector3 worldPos, Vector2 offset)
+		public static void MoveToScreenPositionAnchored(this RectTransform rectTransform, Camera camera, Vector3 worldPos, Vector2 offset)
 		{
 			Vector2 targetScreenPos = camera.WorldToViewportPoint(worldPos);
-			rectTransform.anchorMin = targetScreenPos;
-			rectTransform.anchorMax = targetScreenPos;
+			MoveToScreenPositionAnchored(rectTransform, targetScreenPos, offset);
+		}
+
+		public static void MoveToScreenPositionAnchored(this RectTransform rectTransform, Vector2 screenPos)
+		{
+			MoveToScreenPositionAnchored(rectTransform, screenPos, new Vector2());
+		}
+
+		public static void MoveToScreenPositionAnchored(this RectTransform rectTransform, Vector2 screenPos, Vector2 offset)
+		{
+			rectTransform.anchorMin = screenPos;
+			rectTransform.anchorMax = screenPos;
 			rectTransform.anchoredPosition = offset;
 		}
 
