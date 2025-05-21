@@ -62,6 +62,12 @@ namespace SpaxUtils
 		/// </summary>
 		public List<Option> GetInteractableOptions(InteractionHandler interactor)
 		{
+			if (Entity.Busy)
+			{
+				// Cannot be interacted with if entity is busy.
+				return new List<Option>();
+			}
+
 			List<Option> result = new List<Option>();
 			foreach (IInteractable interactable in interactables)
 			{
@@ -106,9 +112,9 @@ namespace SpaxUtils
 		/// </summary>
 		public List<Option> GetInteractorOptions(InteractionHandler interactable)
 		{
-			if (Interacting)
+			if (Interacting || Entity.Busy)
 			{
-				// Cannot interact with objects while in an interaction.
+				// Cannot interact with objects while in an interaction or busy.
 				return new List<Option>();
 			}
 

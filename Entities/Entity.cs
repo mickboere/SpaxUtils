@@ -30,6 +30,9 @@ namespace SpaxUtils
 		public string ID => Identification.ID;
 
 		/// <inheritdoc/>
+		public bool Busy => occupiers.Count > 0;
+
+		/// <inheritdoc/>
 		public IIdentification Identification
 		{
 			get
@@ -120,6 +123,7 @@ namespace SpaxUtils
 		protected RuntimeDataService runtimeDataService;
 		protected SceneService sceneService;
 		private bool initialized;
+		private List<object> occupiers = new List<object>();
 		private List<Action<float>> optimizedUpdateCallbacks = new List<Action<float>>();
 
 		public void InjectDependencies(
@@ -268,6 +272,28 @@ namespace SpaxUtils
 				}
 			}
 		}
+
+		#region Occupation
+
+		/// <inheritdoc/>
+		public void Occupy(object occupier)
+		{
+			if (!occupiers.Contains(occupier))
+			{
+				occupiers.Add(occupier);
+			}
+		}
+
+		/// <inheritdoc/>
+		public void Deoccupy(object occupier)
+		{
+			if (occupiers.Contains(occupier))
+			{
+				occupiers.Remove(occupier);
+			}
+		}
+
+		#endregion Occupation
 
 		#region Optimization
 

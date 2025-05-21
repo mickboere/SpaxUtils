@@ -19,6 +19,11 @@ namespace SpaxUtils
 		#region Properties
 
 		/// <summary>
+		/// Whether this entity is currently busy.
+		/// </summary>
+		bool Busy { get; }
+
+		/// <summary>
 		/// The entity's identification.
 		/// </summary>
 		IIdentification Identification { get; }
@@ -59,6 +64,20 @@ namespace SpaxUtils
 		bool Debug { get; }
 
 		#endregion
+
+		#region Occupation
+
+		/// <summary>
+		/// Marks this entity as busy, being occupied with <paramref name="occupier"/>.
+		/// </summary>
+		void Occupy(object occupier);
+
+		/// <summary>
+		/// No longer marks this entity as being occupied with <paramref name="occupier"/>.
+		/// </summary>
+		void Deoccupy(object occupier);
+
+		#endregion Occupation
 
 		#region Optimization
 

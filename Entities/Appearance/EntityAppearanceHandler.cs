@@ -184,6 +184,16 @@ namespace SpaxUtils
 		/// </summary>
 		private void AutoCollectApparel()
 		{
+			// Remove null references.
+			for (int i = 0; i < apparel.Count; i++)
+			{
+				if (apparel[i] == null)
+				{
+					apparel.RemoveAt(i);
+					i--;
+				}
+			}
+
 			SkinnedMeshRenderer[] renderers = transform.GetComponentsInChildren<SkinnedMeshRenderer>();
 			foreach (SkinnedMeshRenderer renderer in renderers)
 			{

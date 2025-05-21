@@ -27,12 +27,12 @@ namespace SpaxUtils
 		#region Properties
 
 		/// <summary>
-		/// Whether this entity is currently alive or not.
+		/// Whether this agent is currently alive or not.
 		/// </summary>
 		bool Alive { get; }
 
 		/// <summary>
-		/// Age this entity has been alive for in seconds.
+		/// Age this agent has been alive for in seconds.
 		/// </summary>
 		float Age { get; }
 
