@@ -47,7 +47,7 @@ namespace SpaxUtils
 		/// <summary>
 		/// A collection of all the agent's friendly targets.
 		/// </summary>
-		IEntityComponentFilter<ITargetable> Friends { get; }
+		IEntityComponentFilter<ITargetable> Allies { get; }
 
 		#endregion Properties
 

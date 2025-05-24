@@ -40,12 +40,12 @@ namespace SpaxUtils
 		public IEntityComponentFilter<ITargetable> Enemies => enemies;
 
 		/// <inheritdoc/>
-		public IEntityComponentFilter<ITargetable> Friends => friends;
+		public IEntityComponentFilter<ITargetable> Allies => allies;
 
 		#endregion Properties
 
 		private EntityComponentFilter<ITargetable> enemies;
-		private EntityComponentFilter<ITargetable> friends;
+		private EntityComponentFilter<ITargetable> allies;
 
 		private IAgent agent;
 
@@ -59,10 +59,10 @@ namespace SpaxUtils
 				(entity) => entity.Identification.HasAny(agent.Relations.Enemies) || agent.Relations.Enemies.Contains(entity.Identification.ID),
 				(c) => true,
 				agent);
-			friends?.Dispose();
-			friends = new EntityComponentFilter<ITargetable>(
+			allies?.Dispose();
+			allies = new EntityComponentFilter<ITargetable>(
 				entityCollection,
-				(entity) => entity.Identification.HasAny(agent.Relations.Friends) || agent.Relations.Friends.Contains(entity.Identification.ID),
+				(entity) => entity.Identification.HasAny(agent.Relations.Allies) || agent.Relations.Allies.Contains(entity.Identification.ID),
 				(c) => true,
 				agent);
 		}
@@ -75,7 +75,7 @@ namespace SpaxUtils
 		protected void OnDestroy()
 		{
 			enemies.Dispose();
-			friends.Dispose();
+			allies.Dispose();
 			agent.Relations.RelationsUpdatedEvent -= OnRelationsUpdatedEvent;
 		}
 
@@ -99,7 +99,7 @@ namespace SpaxUtils
 		private void OnRelationsUpdatedEvent()
 		{
 			enemies.Reevaluate();
-			friends.Reevaluate();
+			allies.Reevaluate();
 		}
 	}
 }

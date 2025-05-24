@@ -82,7 +82,7 @@ namespace SpaxUtils
 			Quaternion rotation = chain.TipBone.rotation;
 			foreach (KeyValuePair<IKInfluencer, float> influencer in rotationWeights)
 			{
-				rotation = rotation.Lerp(influencer.Key.Rotation, influencer.Value);
+				rotation = rotation.Slerp(influencer.Key.Rotation, influencer.Value);
 			}
 
 			chain.Target.SetPositionAndRotation(position, rotation);

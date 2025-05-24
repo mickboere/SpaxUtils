@@ -25,7 +25,7 @@ namespace SpaxUtils
 		public IReadOnlyCollection<string> Enemies => enemies;
 
 		/// <inheritdoc/>
-		public IReadOnlyCollection<string> Friends => friends;
+		public IReadOnlyCollection<string> Allies => friends;
 
 		private RuntimeDataCollection data;
 		private Dictionary<string, float> relations;

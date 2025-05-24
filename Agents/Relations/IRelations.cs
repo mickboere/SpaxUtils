@@ -24,14 +24,14 @@ namespace SpaxUtils
 		IReadOnlyDictionary<string, float> Relations { get; }
 
 		/// <summary>
-		/// All relations invoking negative memories.
+		/// All relations invoking negative stimuli.
 		/// </summary>
 		IReadOnlyCollection<string> Enemies { get; }
 
 		/// <summary>
-		/// All relations invoking positive memories.
+		/// All relations invoking positive stimuli.
 		/// </summary>
-		IReadOnlyCollection<string> Friends { get; }
+		IReadOnlyCollection<string> Allies { get; }
 
 		/// <summary>
 		/// Sets <paramref name="relation"/> to <paramref name="amount"/>.
