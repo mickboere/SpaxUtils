@@ -8,6 +8,7 @@ namespace SpaxUtils
 	{
 		[SerializeField] private LabeledDataCollection data;
 		[SerializeField] private bool overwrite;
+		[SerializeField] private bool dirty;
 
 		private RuntimeDataCollection runtimeDataCollection;
 
@@ -19,7 +20,7 @@ namespace SpaxUtils
 		public override void OnStateEntered()
 		{
 			base.OnStateEntered();
-			data.ApplyToRuntimeDataCollection(runtimeDataCollection, overwrite);
+			data.ApplyToRuntimeDataCollection(runtimeDataCollection, overwrite, dirty);
 		}
 	}
 }

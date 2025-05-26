@@ -25,7 +25,7 @@ namespace SpaxUtils
 			base.Start();
 			foreach (ActMovePair pair in moveSet)
 			{
-				movePerformanceHandler.AddMove(pair.Act, runtimeItemData, PerformanceState.Inactive | PerformanceState.Finishing | PerformanceState.Completed, pair.Move, pair.Prio);
+				movePerformanceHandler.AddMove(pair.Act, pair.Move, PerformanceState.Inactive | PerformanceState.Finishing | PerformanceState.Completed, pair.Prio);
 			}
 		}
 
@@ -34,7 +34,7 @@ namespace SpaxUtils
 			base.Stop();
 			foreach (ActMovePair pair in moveSet)
 			{
-				movePerformanceHandler.RemoveMove(pair.Act, runtimeItemData);
+				movePerformanceHandler.RemoveMove(pair.Act, pair.Move);
 			}
 		}
 	}

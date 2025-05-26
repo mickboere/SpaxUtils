@@ -13,13 +13,11 @@ namespace SpaxUtils
 		public event Action<IEntity> AddedEntityEvent;
 		public event Action<IEntity> RemovedEntityEvent;
 
-		private HashSet<IEntity> entities;
-		private Dictionary<string, IEntity> identifiers;
+		private Dictionary<string, IEntity> entities;
 
 		public EntityService()
 		{
-			entities = new HashSet<IEntity>();
-			identifiers = new Dictionary<string, IEntity>();
+			entities = new Dictionary<string, IEntity>();
 		}
 
 		/// <summary>
@@ -27,8 +25,13 @@ namespace SpaxUtils
 		/// </summary>
 		public void Add(IEntity entity)
 		{
-			entities.Add(entity);
-			identifiers[entity.ID] = entity;
+			if (entities.ContainsKey(entity.ID) && entities[entity.ID] != null)
+			{
+				SpaxDebug.Error($"An entity with ID \"{entity.ID}\" has already been registered!", context: entity.GameObject);
+				return;
+			}
+
+			entities[entity.ID] = entity;
 			AddedEntityEvent?.Invoke(entity);
 		}
 
@@ -37,19 +40,18 @@ namespace SpaxUtils
 		/// </summary>
 		public void Remove(IEntity entity)
 		{
-			entities.Remove(entity);
-			if (identifiers.ContainsKey(entity.ID))
+			if (entities.ContainsKey(entity.ID))
 			{
-				identifiers.Remove(entity.ID);
+				entities.Remove(entity.ID);
+				RemovedEntityEvent?.Invoke(entity);
 			}
-			RemovedEntityEvent?.Invoke(entity);
 		}
 
 		public bool TryGet<T>(string id, out T entity) where T : class, IEntity
 		{
-			if (identifiers.ContainsKey(id))
+			if (entities.ContainsKey(id))
 			{
-				entity = (T)identifiers[id];
+				entity = (T)entities[id];
 				return true;
 			}
 			entity = null;
@@ -66,7 +68,7 @@ namespace SpaxUtils
 		public List<T> Get<T>(Func<T, bool> evaluation, params IEntity[] exclude) where T : class
 		{
 			List<T> filter = new List<T>();
-			foreach (IEntity entity in entities)
+			foreach (IEntity entity in entities.Values)
 			{
 				if (!exclude.Contains(entity) && entity is T castedEntity && evaluation(castedEntity))
 				{
@@ -99,7 +101,7 @@ namespace SpaxUtils
 		public List<T> GetComponents<T>(Func<IEntity, bool> entityEvaluation, Func<T, bool> componentEvaluation, params IEntity[] exclude) where T : class, IEntityComponent
 		{
 			List<T> components = new List<T>();
-			foreach (IEntity entity in entities)
+			foreach (IEntity entity in entities.Values)
 			{
 				if (!exclude.Contains(entity) && entityEvaluation(entity) && entity.TryGetEntityComponent(out T component) && componentEvaluation(component))
 				{

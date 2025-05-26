@@ -41,7 +41,11 @@ namespace SpaxUtils
 		{
 			if (item != null && item.Asset != null && Entity != null)
 			{
-				Entity.Identification.Name = item.Asset.Identification.Name;
+				if (Entity.Identification.Name != item.Asset.Identification.Name)
+				{
+					Entity.Identification.Name = item.Asset.Identification.Name;
+					Entity.Identification.ID = Guid.NewGuid().ToString(); // Reset ID on item change.
+				}
 				Entity.Identification.Add(EntityLabels.ITEM);
 			}
 		}

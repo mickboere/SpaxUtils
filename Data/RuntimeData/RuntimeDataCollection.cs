@@ -191,17 +191,23 @@ namespace SpaxUtils
 		/// <param name="id">The id of data entry we're looking to replace.</param>
 		/// <param name="value">The value to set in the data entry of type <paramref name="id"/>.</param>
 		/// <param name="createIfNull">If the desired data entry does not exist yet, should it be created?</param>
-		public void SetValue(string id, object value, bool createIfNull = true)
+		public void SetValue(string id, object value, bool createIfNull = true, bool dirty = true)
 		{
 			RuntimeDataEntry entry = GetEntry(id);
 			if (entry != null)
 			{
+				bool wasDirty = entry.Dirty;
 				entry.Value = value;
+				if (!wasDirty && !dirty)
+				{
+					// If entry already was dirty, don't make it not dirty.
+					entry.Dirty = false;
+				}
 				DataUpdatedEvent?.Invoke(entry);
 			}
 			else if (createIfNull)
 			{
-				entry = new RuntimeDataEntry(id, value, this, true);
+				entry = new RuntimeDataEntry(id, value, this, dirty);
 				_data.Add(entry.ID, entry);
 				DataUpdatedEvent?.Invoke(entry);
 			}
@@ -430,16 +436,25 @@ namespace SpaxUtils
 
 		#endregion
 
+		/// <summary>
+		/// Converts all runtime data to string using json serializer.
+		/// </summary>
 		public override string ToString()
 		{
 			return SpaxJsonUtils.Serialize(this, false); // Outputs all raw data contained in collection.
 		}
 
+		/// <summary>
+		/// Converts only DIRTY runtime data to string using json serializer.
+		/// </summary>
 		public string ToStringOptimized()
 		{
 			return SpaxJsonUtils.Serialize(this, true); // Outputs only dirty data contained in collection.
 		}
 
+		/// <summary>
+		/// Converts all runtime data to string explicitly, circumventing the json serializer.
+		/// </summary>
 		public override string ToStringExplicit()
 		{
 			return $"{{\n\tID={ID};\n\tData\n\t{{\n\t\t{string.Join(";\n\t\t", Data.Select((d) => d.ToStringExplicit()))}\n\t}}\n}}";

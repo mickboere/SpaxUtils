@@ -26,13 +26,13 @@ namespace SpaxUtils
 		/// <param name="state">The current state of performance required for this move to be performable.</param>
 		/// <param name="move">The move to be performed when the act is invoked.</param>
 		/// <param name="prio">The priority of the move, used to order moves of the same act. Highest prio move gets executed.</param>
-		void AddMove(string act, object context, PerformanceState state, IPerformanceMove move, int prio);
+		void AddMove(string act, IPerformanceMove move, PerformanceState state, int prio);
 
 		/// <summary>
 		/// Removes a <see cref="IPerformanceMove"/> from the combat performer.
 		/// </summary>
 		/// <param name="act">The act to which the move is linked.</param>
 		/// <param name="context">The context refering to the move.</param>
-		void RemoveMove(string act, object context);
+		void RemoveMove(string act, IPerformanceMove move);
 	}
 }

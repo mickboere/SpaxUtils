@@ -41,7 +41,14 @@ namespace SpaxUtils
 					}
 					else
 					{
-						SpaxDebug.Error($"No interpolator data found with key: \"{Interpolator}\".", $"Tried to interpolate a {nameof(Vector8ConfigurationAssetBase)} but no interpolator data was found. A value 0.5 will be used instead.");
+						if (data != null)
+						{
+							SpaxDebug.Error("No interpolator data found.", $"For key: \"{Interpolator}\" in collection: \"{data.ID}\".\nTried to interpolate a {nameof(Vector8ConfigurationAssetBase)} but no interpolator data was found. A value 0.5 will be used instead.\nData:\n{data}");
+						}
+						else
+						{
+							SpaxDebug.Error("No data found for interpolator.", $"For key: \"{Interpolator}\".\nTried to interpolate a {nameof(Vector8ConfigurationAssetBase)} but no interpolator data was found. A value 0.5 will be used instead.");
+						}
 						dependencyManager.Bind(Key, rangedValues.Interpolate(0.5f));
 					}
 				}

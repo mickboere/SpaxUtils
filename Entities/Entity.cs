@@ -408,6 +408,7 @@ namespace SpaxUtils
 		public virtual void SaveData()
 		{
 			OnSavingData();
+			//SpaxDebug.Log("Saving entity:", RuntimeData.ToString());
 			OnSaveEvent?.Invoke(RuntimeData);
 			runtimeDataService.SaveDataToProfile(RuntimeData);
 		}

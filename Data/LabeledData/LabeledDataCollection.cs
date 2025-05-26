@@ -27,24 +27,24 @@ namespace SpaxUtils
 		/// Convert this labeled data collection to a <see cref="RuntimeDataCollection"/>.
 		/// </summary>
 		/// <param name="id">The identifier to give to the data collection. If null, a new Guid will be generated.</param>
-		public RuntimeDataCollection ToRuntimeDataCollection(string id = null)
+		public RuntimeDataCollection ToRuntimeDataCollection(string id = null, bool dirty = false)
 		{
 			RuntimeDataCollection collection = new RuntimeDataCollection(id.IsNullOrEmpty() ? Guid.NewGuid().ToString() : id);
-			ApplyToRuntimeDataCollection(collection, true);
+			ApplyToRuntimeDataCollection(collection, true, dirty);
 			return collection;
 		}
 
 		/// <summary>
 		/// Applies all stored labeled data to <paramref name="runtimeDataCollection"/>.
 		/// </summary>
-		public RuntimeDataCollection ApplyToRuntimeDataCollection(RuntimeDataCollection runtimeDataCollection, bool overwrite)
+		public RuntimeDataCollection ApplyToRuntimeDataCollection(RuntimeDataCollection runtimeDataCollection, bool overwrite, bool dirty)
 		{
 			// Bools
 			foreach (LabeledBoolData b in boolData)
 			{
 				if (overwrite || runtimeDataCollection.GetEntry(b.ID) == null)
 				{
-					runtimeDataCollection.SetValue(b.ID, b.BoolValue);
+					runtimeDataCollection.SetValue(b.ID, b.BoolValue, true, dirty);
 				}
 			}
 
@@ -53,7 +53,7 @@ namespace SpaxUtils
 			{
 				if (overwrite || runtimeDataCollection.GetEntry(f.ID) == null)
 				{
-					runtimeDataCollection.SetValue(f.ID, f.FloatValue);
+					runtimeDataCollection.SetValue(f.ID, f.FloatValue, true, dirty);
 				}
 			}
 
@@ -62,7 +62,7 @@ namespace SpaxUtils
 			{
 				if (overwrite || runtimeDataCollection.GetEntry(i.ID) == null)
 				{
-					runtimeDataCollection.SetValue(i.ID, i.IntValue);
+					runtimeDataCollection.SetValue(i.ID, i.IntValue, true, dirty);
 				}
 			}
 
@@ -71,7 +71,7 @@ namespace SpaxUtils
 			{
 				if (overwrite || runtimeDataCollection.GetEntry(s.ID) == null)
 				{
-					runtimeDataCollection.SetValue(s.ID, s.StringValue);
+					runtimeDataCollection.SetValue(s.ID, s.StringValue, true, dirty);
 				}
 			}
 
@@ -81,14 +81,14 @@ namespace SpaxUtils
 		/// <summary>
 		/// Applies all stored labeled data to <paramref name="entity"/>.
 		/// </summary>
-		public void ApplyToEntity(IEntity entity, bool overwrite = true)
+		public void ApplyToEntity(IEntity entity, bool overwrite, bool dirty)
 		{
 			// Bools
 			foreach (LabeledBoolData b in boolData)
 			{
 				if (overwrite || entity.RuntimeData.GetValue(b.ID) == null)
 				{
-					entity.RuntimeData.SetValue(b.ID, b.BoolValue);
+					entity.RuntimeData.SetValue(b.ID, b.BoolValue, true, dirty);
 				}
 			}
 
@@ -97,7 +97,7 @@ namespace SpaxUtils
 			{
 				if (overwrite || entity.RuntimeData.GetValue(f.ID) == null)
 				{
-					entity.RuntimeData.SetValue(f.ID, f.FloatValue);
+					entity.RuntimeData.SetValue(f.ID, f.FloatValue, true, dirty);
 				}
 			}
 
@@ -106,7 +106,7 @@ namespace SpaxUtils
 			{
 				if (overwrite || entity.RuntimeData.GetValue(i.ID) == null)
 				{
-					entity.RuntimeData.SetValue(i.ID, i.IntValue);
+					entity.RuntimeData.SetValue(i.ID, i.IntValue, true, dirty);
 				}
 			}
 
@@ -115,7 +115,7 @@ namespace SpaxUtils
 			{
 				if (overwrite || entity.RuntimeData.GetValue(s.ID) == null)
 				{
-					entity.RuntimeData.SetValue(s.ID, s.StringValue);
+					entity.RuntimeData.SetValue(s.ID, s.StringValue, true, dirty);
 				}
 			}
 		}

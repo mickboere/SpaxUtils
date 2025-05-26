@@ -61,10 +61,10 @@ namespace SpaxUtils
 		private RigidbodyWrapper rigidbodyWrapper;
 		private CallbackService callbackService;
 
-		private Dictionary<string, Dictionary<object, (PerformanceState state, IPerformanceMove move, int prio)>> moves =
-			new Dictionary<string, Dictionary<object, (PerformanceState state, IPerformanceMove move, int prio)>>();
+		private Dictionary<string, Dictionary<IPerformanceMove, (PerformanceState state, int prio)>> moves =
+			new Dictionary<string, Dictionary<IPerformanceMove, (PerformanceState state, int prio)>>();
 		private Dictionary<string, IPerformanceMove> moveset;
-		private bool updateMoveset = true;
+		private bool autoUpdateMoveset = true;
 		private PerformanceState lastState = PerformanceState.Inactive;
 		private List<MovePerformer> helpers = new List<MovePerformer>();
 
@@ -81,12 +81,12 @@ namespace SpaxUtils
 		protected void Start()
 		{
 			// Add default unarmed moves.
-			updateMoveset = false;
+			autoUpdateMoveset = false;
 			foreach (ActMovePair pair in unarmedMoves)
 			{
-				AddMove(pair.Act, this, PerformanceState.Inactive | PerformanceState.Finishing | PerformanceState.Completed, pair.Move, pair.Prio);
+				AddMove(pair.Act, pair.Move, PerformanceState.Inactive | PerformanceState.Finishing | PerformanceState.Completed, pair.Prio);
 			}
-			updateMoveset = true;
+			autoUpdateMoveset = true;
 			UpdateMoveset();
 		}
 
@@ -139,7 +139,7 @@ namespace SpaxUtils
 			performer.PerformanceCompletedEvent += OnPerformanceCompletedEvent;
 			finalPerformer = performer;
 			helpers.Add(performer);
-			AddFollowUpMoves(performer, move);
+			AddFollowUpMoves(move);
 			return true;
 
 			bool ValidateStat(StatCost cost)
@@ -172,7 +172,7 @@ namespace SpaxUtils
 		#region Move Management
 
 		/// <inheritdoc/>
-		public void AddMove(string act, object context, PerformanceState state, IPerformanceMove move, int prio)
+		public void AddMove(string act, IPerformanceMove move, PerformanceState state, int prio)
 		{
 			if (move == null)
 			{
@@ -182,77 +182,76 @@ namespace SpaxUtils
 			// Ensure act.
 			if (!moves.ContainsKey(act))
 			{
-				moves.Add(act, new Dictionary<object, (PerformanceState state, IPerformanceMove move, int prio)>());
+				moves.Add(act, new Dictionary<IPerformanceMove, (PerformanceState state, int prio)>());
 			}
 
-			// Set move prio.
-			moves[act][context] = (state, move, prio);
+			// Set move.
+			moves[act][move] = (state, prio);
 
-			if (updateMoveset)
+			if (autoUpdateMoveset)
 			{
 				UpdateMoveset();
 			}
 		}
 
 		/// <inheritdoc/>
-		public void RemoveMove(string act, object context)
+		public void RemoveMove(string act, IPerformanceMove move)
 		{
-			if (moves.ContainsKey(act) && moves[act].ContainsKey(context))
+			if (moves.ContainsKey(act) && moves[act].ContainsKey(move))
 			{
-				moves[act].Remove(context);
+				moves[act].Remove(move);
 			}
 			if (moves[act].Count == 0)
 			{
 				moves.Remove(act);
 			}
 
-			if (updateMoveset)
+			if (autoUpdateMoveset)
 			{
 				UpdateMoveset();
 			}
 		}
 
-		private void AddFollowUpMoves(IPerformer performer, IPerformanceMove move)
+		private void AddFollowUpMoves(IPerformanceMove move)
 		{
-			updateMoveset = false;
+			autoUpdateMoveset = false;
 			foreach (MoveFollowUp followUp in move.FollowUps)
 			{
-				AddMove(followUp.Act, performer, followUp.State, followUp.Move, followUp.Prio);
+				AddMove(followUp.Act, followUp.Move, followUp.State, followUp.Prio);
 			}
-			updateMoveset = true;
+			autoUpdateMoveset = true;
 			UpdateMoveset();
 		}
 
-		private void RemoveFollowUpMoves(IPerformer performer)
+		private void RemoveFollowUpMoves(IPerformanceMove move)
 		{
-			updateMoveset = false;
-			string[] acts = moves.Keys.ToArray();
-			foreach (string act in acts)
+			autoUpdateMoveset = false;
+			foreach (MoveFollowUp followUp in move.FollowUps)
 			{
-				RemoveMove(act, performer);
+				RemoveMove(followUp.Act, followUp.Move);
 			}
-			updateMoveset = true;
+			autoUpdateMoveset = true;
 			UpdateMoveset();
 		}
 
 		private void UpdateMoveset()
 		{
-			// Collect all the currently available highest-priority moves.
+			// Collect all the currently available highest-priority moves per act.
 			// Must be updated with each change in either performance state or available moves.
 			moveset = new Dictionary<string, IPerformanceMove>();
 			foreach (string act in moves.Keys)
 			{
-				(PerformanceState state, IPerformanceMove move, int prio)? top = null;
-				foreach (KeyValuePair<object, (PerformanceState state, IPerformanceMove move, int prio)> entry in moves[act])
+				KeyValuePair<IPerformanceMove, (PerformanceState state, int prio)>? top = null;
+				foreach (KeyValuePair<IPerformanceMove, (PerformanceState state, int prio)> entry in moves[act])
 				{
-					if (entry.Value.state.HasFlag(State) && (top == null || entry.Value.prio > top.Value.prio))
+					if (entry.Value.state.HasFlag(State) && (top == null || entry.Value.prio > top.Value.Value.prio))
 					{
-						top = entry.Value;
+						top = entry;
 					}
 				}
 				if (top.HasValue)
 				{
-					moveset.Add(act, top.Value.move);
+					moveset.Add(act, top.Value.Key);
 				}
 			}
 
@@ -278,10 +277,10 @@ namespace SpaxUtils
 
 		private void OnPerformanceCompletedEvent(IPerformer performer)
 		{
-			var helper = (MovePerformer)performer;
-			helpers.Remove(helper);
+			var movePerformer = (MovePerformer)performer;
+			helpers.Remove(movePerformer);
 
-			RemoveFollowUpMoves(performer);
+			RemoveFollowUpMoves(movePerformer.Move);
 
 			performer.PerformanceStartedEvent -= OnPerformanceStartedEvent;
 			performer.PerformanceUpdateEvent -= OnPerformanceUpdateEvent;
@@ -289,7 +288,7 @@ namespace SpaxUtils
 
 			PerformanceCompletedEvent?.Invoke(performer);
 
-			helper.Dispose();
+			movePerformer.Dispose();
 		}
 	}
 }

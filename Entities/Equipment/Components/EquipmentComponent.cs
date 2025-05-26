@@ -391,13 +391,15 @@ namespace SpaxUtils
 				itemData.ItemData is IEquipmentData)
 			{
 				RuntimeItemData runtimeItemData = inventoryComponent.Inventory.AddItem(itemData);
-				TryEquip(runtimeItemData, out _);
-				interaction.Conclude(true);
+				if (TryEquip(runtimeItemData, out _))
+				{
+					interaction.Conclude(true);
+					return;
+				}
 			}
-			else
-			{
-				interaction.Conclude(false);
-			}
+
+			SpaxDebug.Error("Unable to extract or equip item data from interaction.", interaction.ToString());
+			interaction.Conclude(false);
 		}
 
 		#endregion

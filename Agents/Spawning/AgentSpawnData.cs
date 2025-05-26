@@ -25,11 +25,9 @@ namespace SpaxUtils
 					switch (callback)
 					{
 						case AgentFactory.Callback.OnBindDependencies:
-							IIdentification id = dependencyManager.Get<IIdentification>(true, false);
-
 							// Apply data values before they're injected.
 							RuntimeDataCollection runtimeData = dependencyManager.Get<RuntimeDataCollection>(true, false);
-							data.ApplyToRuntimeDataCollection(runtimeData, overwriteData);
+							data.ApplyToRuntimeDataCollection(runtimeData, overwriteData, false);
 							wasAlive = runtimeData.GetValue(EntityDataIdentifiers.ALIVE, false);
 							break;
 					}

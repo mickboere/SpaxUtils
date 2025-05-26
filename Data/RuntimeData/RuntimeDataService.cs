@@ -424,7 +424,7 @@ namespace SpaxUtils
 			}
 
 			// Save data to disk.
-			//SpaxDebug.Notify($"Saving data for profile: {profileId}\n{profileData}");
+			SpaxDebug.Log($"Saving profile to disk: {profileId}\n{profileData.ToStringOptimized()}");
 			SpaxJsonUtils.StreamWrite(profileData, PROFILES_PATH + profileData.ID + PROFILE_FILE_TYPE);
 			return true;
 		}
