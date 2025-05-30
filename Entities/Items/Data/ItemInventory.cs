@@ -113,7 +113,14 @@ namespace SpaxUtils
 		/// <param name="itemID">The ID of the item type (optional when runtime data contains the ID.)</param>
 		public RuntimeItemData AddItem(RuntimeDataCollection runtimeData, string itemID = null)
 		{
-			IItemData itemData = itemDatabase.GetItem(itemID ?? runtimeData.GetValue<string>(ItemDataIdentifiers.ITEM_ID));
+			itemID = itemID ?? runtimeData.GetValue<string>(ItemDataIdentifiers.ITEM_ID);
+			if (itemID.IsNullOrEmpty())
+			{
+				SpaxDebug.Error("Item ID is null!", runtimeData.ToString());
+				return null;
+			}
+
+			IItemData itemData = itemDatabase.GetItem(itemID);
 			return AddItem(itemData, runtimeData);
 		}
 

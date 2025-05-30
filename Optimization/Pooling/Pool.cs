@@ -4,11 +4,19 @@ using UnityEngine;
 
 namespace SpaxUtils
 {
+	public class Pool : IService
+	{
+		/// <summary>
+		/// The prefab this pool manages.
+		/// </summary>
+		public GameObject Prefab { get; protected set; }
+	}
+
 	/// <summary>
 	/// Generic pool service that can manage a collection of <see cref="IPooledItem"/> instances.
 	/// </summary>
 	/// <typeparam name="T"></typeparam>
-	public class Pool<T> : IService where T : MonoBehaviour, IPooledItem
+	public class Pool<T> : Pool where T : MonoBehaviour, IPooledItem
 	{
 		public const int DEFAULT_SIZE = 15;
 		public const bool DEFAULT_DYNAMIC = true;
@@ -30,9 +38,10 @@ namespace SpaxUtils
 				SpaxDebug.Error("Pool could be created:", $"No prefab for type \"{typeof(T).FullName}\" was given.");
 			}
 
+			Prefab = prefab.gameObject;
 			this.prefab = prefab;
 			this.dynamic = dynamic;
-			collectionParent = new GameObject($"Pool<{typeof(T).FullName}>").transform;
+			collectionParent = new GameObject($"Pool<{typeof(T).FullName}>({Prefab.name})").transform;
 
 			inactive = new List<T>();
 			active = new List<T>();

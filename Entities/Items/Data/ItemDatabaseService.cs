@@ -46,6 +46,12 @@ namespace SpaxUtils
 
 		public IItemData GetItem(string id)
 		{
+			if(id.IsNullOrEmpty())
+			{
+				SpaxDebug.Error("Item ID is null!");
+				return null;
+			}
+
 			if (items.ContainsKey(id))
 			{
 				return items[id];

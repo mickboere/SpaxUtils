@@ -18,6 +18,11 @@ namespace SpaxUtils
 
 		protected void Start()
 		{
+			Spawn();
+		}
+
+		private Agent Spawn()
+		{
 			ISpawnpoint spawnpoint = GetComponent<ISpawnpoint>();
 			if (spawnpoint != null)
 			{
@@ -25,11 +30,11 @@ namespace SpaxUtils
 				agentDependencyManager.Bind(spawnpoint);
 				Agent agent = spawnData.Spawn(agentSetup, agentDependencyManager, spawnpoint.Position, spawnpoint.Rotation);
 				agent.Brain.TryTransition(AgentStateIdentifiers.ACTIVE);
+				return agent;
 			}
-			else
-			{
-				SpaxDebug.Warning($"Spawner has no spawnpoint component attached.", $"Agent was not spawned.");
-			}
+
+			SpaxDebug.Warning($"Spawner has no spawnpoint component attached.", $"Agent was not spawned.");
+			return null;
 		}
 
 		protected void OnDrawGizmos()

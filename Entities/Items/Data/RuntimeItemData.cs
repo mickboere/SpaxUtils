@@ -41,7 +41,7 @@ namespace SpaxUtils
 		/// <summary>
 		/// The ID of the item data.
 		/// </summary>
-		public string ItemID => ItemData != null ? ItemData.ID : "";
+		public string ItemID => ItemData != null ? ItemData.ID : "NULL!";
 
 		/// <summary>
 		/// All inventory behaviours running for this item.

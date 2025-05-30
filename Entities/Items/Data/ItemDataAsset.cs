@@ -31,8 +31,6 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public Sprite Icon => icon;
 
-		public GameObject WorldItemPrefab => worldItemPrefab;
-
 		/// <inheritdoc/>
 		public IReadOnlyList<BehaviourAsset> InventoryBehaviour => inventoryBehaviour;
 
@@ -56,7 +54,6 @@ namespace SpaxUtils
 		[SerializeField, Tooltip(TT_UNIQUE)] private bool unique;
 		[SerializeField] private int value = 1;
 		[SerializeField] private Sprite icon;
-		[SerializeField] private GameObject worldItemPrefab;
 		[SerializeField, Expandable] private List<BehaviourAsset> inventoryBehaviour;
 		[SerializeField] private LabeledDataCollection data;
 

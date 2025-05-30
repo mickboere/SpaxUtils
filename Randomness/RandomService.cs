@@ -23,7 +23,10 @@ namespace SpaxUtils
 
 		private void OnCurrentDataProfileChangedEvent(RuntimeDataCollection profile)
 		{
-			GameSeed = runtimeDataService.CurrentProfile.GetValue<int>(ProfileDataIdentifiers.SEED);
+			if (profile != null)
+			{
+				GameSeed = profile.GetValue<int>(ProfileDataIdentifiers.SEED);
+			}
 		}
 
 		/// <summary>

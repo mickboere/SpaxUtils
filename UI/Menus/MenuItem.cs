@@ -77,7 +77,7 @@ namespace SpaxUtils.UI
 			button?.onClick.RemoveListener(OnButtonClicked);
 		}
 
-		public void Visualize(string id, Sprite sprite, string text)
+		public virtual void Visualize(string id, Sprite sprite, string text)
 		{
 			ID = id;
 

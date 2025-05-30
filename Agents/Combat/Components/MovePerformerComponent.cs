@@ -197,13 +197,16 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public void RemoveMove(string act, IPerformanceMove move)
 		{
-			if (moves.ContainsKey(act) && moves[act].ContainsKey(move))
+			if (moves.ContainsKey(act))
 			{
-				moves[act].Remove(move);
-			}
-			if (moves[act].Count == 0)
-			{
-				moves.Remove(act);
+				if (moves[act].ContainsKey(move))
+				{
+					moves[act].Remove(move);
+				}
+				if (moves[act].Count == 0)
+				{
+					moves.Remove(act);
+				}
 			}
 
 			if (autoUpdateMoveset)

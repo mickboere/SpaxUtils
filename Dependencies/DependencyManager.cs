@@ -335,7 +335,10 @@ namespace SpaxUtils
 				if (typeof(IServiceComponent).IsAssignableFrom(type))
 				{
 					GameObject dependencyObject = new GameObject(DEPENDENCY_OBJECT_PREFIX + type.Name);
-					GameObject.DontDestroyOnLoad(dependencyObject);
+					if (Application.isPlaying)
+					{
+						GameObject.DontDestroyOnLoad(dependencyObject);
+					}
 					// Deactivate and later reactivate the gameobject so that we can inject the dependencies before Awake is called.
 					dependencyObject.SetActive(false);
 					dependency = dependencyObject.AddComponent(type);

@@ -3,10 +3,10 @@
 	public class ItemDataIdentifiers : ILabeledDataIdentifiers
 	{
 		#region Base Categories
-		private const string STRING = ILabeledDataIdentifiers.STRING;
-		private const string INT = ILabeledDataIdentifiers.INT;
-		private const string FLOAT = ILabeledDataIdentifiers.FLOAT;
-		private const string BOOL = ILabeledDataIdentifiers.BOOL;
+		private const string STRING = "ITEM/" + ILabeledDataIdentifiers.STRING;
+		private const string INT = "ITEM/" + ILabeledDataIdentifiers.INT;
+		private const string FLOAT = "ITEM/" + ILabeledDataIdentifiers.FLOAT;
+		private const string BOOL = "ITEM/" + ILabeledDataIdentifiers.BOOL;
 		#endregion
 
 		// Strings
