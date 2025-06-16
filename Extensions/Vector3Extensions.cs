@@ -225,6 +225,14 @@ namespace SpaxUtils
 			return vector;
 		}
 
+		/// <summary>
+		/// Clamps the individuals components of <paramref name="v"/> to never exceed <paramref name="min"/> or <paramref name="max"/>.
+		/// </summary>
+		public static Vector3 Clamp(this Vector3 v, float min, float max)
+		{
+			return new Vector3(v.x.Clamp(min, max), v.y.Clamp(min, max), v.z.Clamp(min, max));
+		}
+
 		#endregion Clamping
 
 		#region Projection
