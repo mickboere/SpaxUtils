@@ -12,14 +12,14 @@ namespace SpaxUtils
 		public float Progress => timer.Progress;
 
 		private TimerStruct timer;
-		private AnimationCurve intensity;
+		private AnimationCurve falloff;
 
-		public ShakeSource(Vector3 magnitude, float frequency, float duration, AnimationCurve intensity = null)
+		public ShakeSource(Vector3 magnitude, float frequency, float duration, AnimationCurve falloff = null)
 		{
 			Magnitude = magnitude;
 			Frequency = frequency;
 			timer = new TimerStruct(duration);
-			this.intensity = intensity;
+			this.falloff = falloff;
 		}
 
 		public void Dispose()
@@ -28,7 +28,7 @@ namespace SpaxUtils
 
 		public float Evaluate()
 		{
-			return intensity == null ? Progress : intensity.Evaluate(Progress);
+			return falloff == null ? Progress : falloff.Evaluate(Progress);
 		}
 	}
 }

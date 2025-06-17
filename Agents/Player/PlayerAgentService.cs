@@ -165,6 +165,10 @@ namespace SpaxUtils
 				cameraDependencies = new DependencyManager(playerDependencies, "PlayerCamera");
 				playerDependencies.Bind(EntityLabels.CAMERA, cameraComponent);
 				playerDependencies.Bind(cameraComponent);
+				if (cameraInstance.TryGetComponentInChildren(out CameraHandler cameraHandler))
+				{
+					playerDependencies.Bind(cameraHandler);
+				}
 			}
 			UIRoot hudInstance = null;
 			if (config.UIPrefab != null)

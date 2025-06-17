@@ -10,7 +10,7 @@ namespace SpaxUtils
 		[SerializeField] private Vector3 testMagnitude;
 		[SerializeField] private float testFrequency;
 		[SerializeField] private float testDuration;
-		[SerializeField] private AnimationCurve testIntensity;
+		[SerializeField] private AnimationCurve testFalloff;
 		[SerializeField] private bool test;
 
 		private CameraHandler cameraHandler;
@@ -28,7 +28,7 @@ namespace SpaxUtils
 			{
 				if (test)
 				{
-					Shake(testMagnitude, testFrequency, testDuration, testIntensity);
+					Shake(testMagnitude, testFrequency, testDuration, testFalloff);
 					test = false;
 				}
 			}
@@ -39,9 +39,20 @@ namespace SpaxUtils
 			ApplyShake();
 		}
 
-		public void Shake(Vector3 magnitude, float frequency, float duration, AnimationCurve intensity = null)
+		/// <summary>
+		/// Apply a new screenshake source using provided parameters.
+		/// </summary>
+		public void Shake(Vector3 magnitude, float frequency, float duration, AnimationCurve falloff = null)
 		{
-			sources.Add(new ShakeSource(magnitude, frequency, duration, intensity));
+			sources.Add(new ShakeSource(magnitude, frequency, duration, falloff));
+		}
+
+		/// <summary>
+		/// Applies a new screenshake source.
+		/// </summary>
+		public void Shake(IShakeSource source)
+		{
+			sources.Add(source);
 		}
 
 		private void ApplyShake()
