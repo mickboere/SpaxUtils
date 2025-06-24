@@ -19,6 +19,8 @@ namespace SpaxUtils
 		public string Limb => limb;
 		public float Power => power;
 		public float Offence => offence;
+		public float ChargeBalance => chargeBalance;
+		public float PerformBalance => performBalance;
 
 		[Header("Hit detection")]
 		[SerializeField] private MeleeAttackType attackType;
@@ -34,5 +36,7 @@ namespace SpaxUtils
 		[SerializeField, ConstDropdown(typeof(IStatIdentifiers), filter: AgentStatIdentifiers.SUB_STAT)] private string limb;
 		[SerializeField, Range(0f, 1f), Tooltip("Percentage of user's strength transfered into hit."), FormerlySerializedAs("strength")] private float power = 1f;
 		[SerializeField, Range(0f, 1f), Tooltip("Percentage of user's offence transfered into hit.")] private float offence = 1f;
+		[SerializeField, Range(0.01f, 1f), Tooltip("How much balance is maintained while charging.")] private float chargeBalance = 1f;
+		[SerializeField, Range(0.01f, 1f), Tooltip("How much balance is maintained while performing.")] private float performBalance = 1f;
 	}
 }

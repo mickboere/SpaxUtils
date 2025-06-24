@@ -116,11 +116,11 @@ namespace SpaxUtils
 			}
 		}
 
-		public void EnterStun(HitData stunHit)
+		public void EnterStun(HitData stunHit, float duration = -1f)
 		{
 			Stunned = true;
 			this.stunHit = stunHit;
-			stunTimer = new TimerClass(minStunTime, () => EntityTimeScale, callbackService);
+			stunTimer = new TimerClass(duration > 0f ? duration : minStunTime, () => EntityTimeScale, callbackService);
 			controlMod.SetValue(0f);
 			agent.Actor.AddBlocker(this);
 			getUpTimer?.Dispose();

@@ -44,7 +44,7 @@ namespace SpaxUtils
 		/// </summary>
 		public void Shake(Vector3 magnitude, float frequency, float duration, AnimationCurve falloff = null)
 		{
-			sources.Add(new ShakeSource(magnitude, frequency, duration, falloff));
+			Shake(new ShakeSource(magnitude, frequency, duration, falloff));
 		}
 
 		/// <summary>
@@ -53,6 +53,7 @@ namespace SpaxUtils
 		public void Shake(IShakeSource source)
 		{
 			sources.Add(source);
+			//SpaxDebug.Log("SHAKE", $"mag={source.Magnitude}, freq={source.Frequency}");
 		}
 
 		private void ApplyShake()

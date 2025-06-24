@@ -9,6 +9,6 @@ namespace SpaxUtils
 
 		bool Stunned { get; }
 
-		void EnterStun(HitData hitData);
+		void EnterStun(HitData hitData, float duration = -1f);
 	}
 }

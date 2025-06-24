@@ -57,6 +57,16 @@ namespace SpaxUtils
 		/// </summary>
 		float Offence { get; }
 
+		/// <summary>
+		/// How much balance is maintained while charging.
+		/// </summary>
+		float ChargeBalance { get; }
+
+		/// <summary>
+		/// How much balance is maintained while performing.
+		/// </summary>
+		float PerformBalance { get; }
+
 		#endregion Stats
 	}
 }

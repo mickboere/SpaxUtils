@@ -25,6 +25,7 @@ namespace SpaxUtils
 
 		private EntityStat timescaleStat;
 		private EntityStat defence;
+		private EntityStat guard;
 
 		private TimedCurveModifier hitPauseMod;
 
@@ -46,6 +47,7 @@ namespace SpaxUtils
 		{
 			timescaleStat = agent.Stats.GetStat(EntityStatIdentifiers.TIMESCALE, true);
 			defence = agent.Stats.GetStat(AgentStatIdentifiers.DEFENCE, true);
+			guard = agent.Stats.GetStat(AgentStatIdentifiers.GUARD, true);
 
 			hittable.Subscribe(this, OnHitEvent, 100);
 		}
@@ -61,30 +63,25 @@ namespace SpaxUtils
 		/// <param name="hitData">The incoming <see cref="HitData"/> to process.</param>
 		private void OnHitEvent(HitData hitData)
 		{
-			// Transfer intertia.
-			rigidbodyWrapper.Push(hitData.Inertia, hitData.HitterMass);
-
 			// Calculate damage and impact.
 			if (!hitData.Result_Parried)
 			{
 				hitData.Result_Damage = SpaxFormulas.CalculateDamage(hitData.Offence, defence);
 				hitData.Result_Penetration = hitData.Result_Damage / hitData.Offence;
-				hitData.Result_Impact = hitData.Power / rigidbodyWrapper.Mass;
+				hitData.Result_Impact = hitData.Power / rigidbodyWrapper.Mass;// * hitData.Result_BlockedWeight.Invert();
 				hitData.Result_Force = hitData.Result_Impact * hitData.Mass * hitData.Power;
 			}
 
-			// Apply hit-pause.
-			hitPauseMod?.Dispose();
-			hitPauseMod = new TimedCurveModifier(
-				ModMethod.Absolute,
-				combatSettings.HitPauseCurve,
-				new TimerStruct(combatSettings.HitPauseReceiver.Lerp(hitData.Result_Impact)),
-				callbackService);
-			timescaleStat.RemoveModifier(this);
-			timescaleStat.AddModifier(this, hitPauseMod);
-
 			// Damage endurance.
-			statHandler.PointStats.W.Current.Damage(hitData.Result_Damage + hitData.Result_Force, true, out bool stunned, out float overdraw);
+			float enduranceDamage = hitData.Result_Damage + hitData.Result_Force;
+			float dealtDamage = statHandler.PointStats.W.Current.Damage(enduranceDamage, true, out bool stunned, out float overdraw);
+			overdraw *= enduranceDamage / dealtDamage; // Compensate for cost-multiplier since overdraw is used in force calculations.
+			hitData.Result_BlockedPercentage = enduranceDamage > 0f ? (enduranceDamage - overdraw) / enduranceDamage : 1f;
+
+			// Transfer intertia.
+			rigidbodyWrapper.Push(hitData.Inertia * (1f - hitData.Result_BlockedPercentage * 0.5f), hitData.HitterMass);
+
+			// Apply stun.
 			if (stunned)
 			{
 				hitData.Result_Stunned = true;
@@ -93,15 +90,15 @@ namespace SpaxUtils
 				agent.Actor.TryCancel(true);
 
 				// Transfer Impact.
-				rigidbodyWrapper.Push(hitData.Direction * hitData.Result_Force, 1f);
+				rigidbodyWrapper.Push(hitData.Direction * hitData.Result_Force * hitData.Result_BlockedPercentage, 1f);
 
 				// Apply stun.
 				stunHandler.EnterStun(hitData);
 			}
 
+			// Apply damages.
 			if (!Invulnerable)
 			{
-				// Damage health.
 				statHandler.PointStats.SW.Current.Damage(hitData.Result_Damage, true, out bool dead);
 				if (dead)
 				{
@@ -116,13 +113,23 @@ namespace SpaxUtils
 				}
 			}
 
-			if (stunned || hitData.Result_Blocked.Approx(0f) && !hitData.Result_Parried)
+			if (hitData.Result_BlockedPercentage < 0f && !hitData.Result_Parried)
 			{
 				Hits++;
 			}
 
 			// Build up static for succesful blocking.
-			statHandler.PointStats.NE.Current.BaseValue += hitData.Result_Blocked * hitData.Result_Force * 0.001f;
+			statHandler.PointStats.NE.Current.BaseValue += hitData.Result_BlockedPercentage * hitData.Result_Force * 0.001f;
+
+			// Apply hit-pause.
+			hitPauseMod?.Dispose();
+			hitPauseMod = new TimedCurveModifier(
+				ModMethod.Absolute,
+				combatSettings.HitPauseCurve,
+				new TimerStruct(combatSettings.HitPauseReceiver.Lerp(hitData.Result_Impact) * hitData.Result_BlockedPercentage.InvertClamped()),
+				callbackService);
+			timescaleStat.RemoveModifier(this);
+			timescaleStat.AddModifier(this, hitPauseMod);
 
 			//SpaxDebug.Log($"Hit {agent.Identification.Name}", hitData.ToString(), context: agent.GameObject);
 		}

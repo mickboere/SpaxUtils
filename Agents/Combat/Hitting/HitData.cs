@@ -63,7 +63,12 @@ namespace SpaxUtils
 		/// <summary>
 		/// Return data defining whether the receiver was guarding/blocking against the attack and the amound of guard weight applied to the hit.
 		/// </summary>
-		public float Result_Blocked { get; set; }
+		public float Result_BlockedWeight { get; set; }
+
+		/// <summary>
+		/// The percentage of endurance-damage that was actually blocked.
+		/// </summary>
+		public float Result_BlockedPercentage { get; set; }
 
 		/// <summary>
 		/// Return data defining whether this hit was parried by the receiver.
@@ -131,7 +136,7 @@ namespace SpaxUtils
 				$"\nMass={Mass}," +
 				$"\nPower={Power}," +
 				$"\nOffence={Offence}," +
-				$"\n\nResult_Blocked={Result_Blocked}," +
+				$"\n\nResult_Blocked={Result_BlockedWeight}," +
 				$"\nResult_Parried={Result_Parried}," +
 				$"\nResult_Stunned={Result_Stunned}," +
 				$"\nResult_Penetration={Result_Penetration}," +

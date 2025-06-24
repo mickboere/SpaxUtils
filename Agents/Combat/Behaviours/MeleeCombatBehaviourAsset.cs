@@ -14,6 +14,7 @@ namespace SpaxUtils
 		[SerializeField] private LayerMask hitDetectionMask;
 		[SerializeField] private float chargePower = 2f;
 		[SerializeField, MinMaxRange(0.5f, 1.5f)] private Vector2 speedModRange = new Vector2(0.5f, 1.5f);
+		[SerializeField] private float parriedStunTime = 2f;
 
 		protected IMeleeCombatMove move;
 		protected CallbackService callbackService;
@@ -25,6 +26,7 @@ namespace SpaxUtils
 		protected CombatSettings combatSettings;
 		protected RigidbodyWrapper rigidbodyWrapper;
 		protected ICommunicationChannel comms;
+		protected IStunHandler stunHandler;
 
 		private EntityStat timescaleStat;
 		private EntityStat limbMassStat;
@@ -35,8 +37,10 @@ namespace SpaxUtils
 		private EntityStat chargeStat;
 		private EntityStat chargeSpeedStat;
 		private EntityStat performSpeedStat;
+		private EntityStat enduranceCostStat;
 
 		private FloatFuncModifier speedMod;
+		private FloatOperationModifier balanceMod;
 
 		private CombatHitDetector hitDetector;
 		private TimerClass momentumTimer;
@@ -47,7 +51,7 @@ namespace SpaxUtils
 		public void InjectDependencies(IMeleeCombatMove move, CallbackService callbackService,
 			TransformLookup transformLookup, ITargeter targeter, IAgentMovementHandler movementHandler,
 			AgentNavigationHandler navigationHandler, IEntityCollection entityCollection, CombatSettings combatSettings,
-			RigidbodyWrapper rigidbodyWrapper, ICommunicationChannel communicationChannel)
+			RigidbodyWrapper rigidbodyWrapper, ICommunicationChannel communicationChannel, IStunHandler stunHandler)
 		{
 			this.move = move;
 			this.callbackService = callbackService;
@@ -59,6 +63,7 @@ namespace SpaxUtils
 			this.combatSettings = combatSettings;
 			this.rigidbodyWrapper = rigidbodyWrapper;
 			this.comms = communicationChannel;
+			this.stunHandler = stunHandler;
 
 			timescaleStat = Agent.Stats.GetStat(EntityStatIdentifiers.TIMESCALE, true, 1f);
 			limbMassStat = Agent.Stats.GetStat(AgentStatIdentifiers.MASS.SubStat(this.move.Limb));
@@ -69,6 +74,7 @@ namespace SpaxUtils
 			chargeStat = Agent.Stats.GetStat(move.ChargeCost.Stat);
 			chargeSpeedStat = Agent.Stats.GetStat(move.ChargeSpeedMultiplierStat, false, 1f);
 			performSpeedStat = Agent.Stats.GetStat(move.PerformSpeedMultiplierStat, false, 1f);
+			enduranceCostStat = Agent.Stats.GetStat(AgentStatIdentifiers.ENDURANCE.SubStat(AgentStatIdentifiers.SUB_COST));
 		}
 
 		public override void Start()
@@ -82,6 +88,8 @@ namespace SpaxUtils
 			speedMod = new FloatFuncModifier(ModMethod.Absolute, (float f) => f * (strengthStat / limbMassStat).Clamp(speedModRange.x, speedModRange.y));
 			chargeSpeedStat.AddModifier(this, speedMod);
 			performSpeedStat.AddModifier(this, speedMod);
+			balanceMod = new FloatOperationModifier(ModMethod.Absolute, Operation.Multiply, 1f);
+			enduranceCostStat.AddModifier(this, balanceMod);
 		}
 
 		public override void Stop()
@@ -94,6 +102,8 @@ namespace SpaxUtils
 			chargeSpeedStat.RemoveModifier(this);
 			performSpeedStat.RemoveModifier(this);
 			speedMod.Dispose();
+			enduranceCostStat.RemoveModifier(this);
+			balanceMod.Dispose();
 		}
 
 		public override void ExternalUpdate(float delta)
@@ -104,7 +114,7 @@ namespace SpaxUtils
 
 			if (Performer.State == PerformanceState.Preparing && Performer.Charge > Move.MinCharge)
 			{
-				// Drain charge stat.
+				// Overcharging: Drain charge stat.
 				if (Agent.Stats.TryApplyStatCost(Move.ChargeCost.Stat, move.ChargeCost.Cost * delta * chargeSpeedStat, true, out float damage, out bool drained))
 				{
 					totalCharge += damage * chargePower;
@@ -130,6 +140,9 @@ namespace SpaxUtils
 					momentumTimer = null;
 				}
 			}
+
+			float balance = Performer.State == PerformanceState.Preparing ? move.ChargeBalance : move.PerformBalance;
+			balanceMod.SetValue((1f / balance).Lerp(1f, Weight.Invert()));
 		}
 
 		protected void OnPerformanceStartedEvent(IPerformer performer)
@@ -150,8 +163,8 @@ namespace SpaxUtils
 			movementHandler.ForceRotation();
 
 			// STAT COST:
-			if (massStat == null) SpaxDebug.Error("massStat NULL");
 			if (limbMassStat == null) SpaxDebug.Error("limbMassStat NULL");
+			if (strengthStat == null) SpaxDebug.Error("strengthStat NULL");
 
 			Agent.Stats.TryApplyStatCost(Move.PerformCost.Stat, Move.PerformCost.Cost * (limbMassStat / strengthStat) * 100f, false, out _, out _);
 
@@ -201,6 +214,7 @@ namespace SpaxUtils
 				if (hitData.Result_Parried)
 				{
 					Performer.TryCancel(true);
+					stunHandler.EnterStun(hitData, parriedStunTime);
 				}
 
 				float hitPause = combatSettings.HitPauseReceiver.Lerp(hitData.Result_Impact * (1f / performSpeedStat.Value));

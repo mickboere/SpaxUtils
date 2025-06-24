@@ -202,7 +202,7 @@ namespace SpaxUtils
 				return;
 			}
 
-			if (mass < 0)
+			if (mass <= 0)
 			{
 				mass = Mass;
 			}
