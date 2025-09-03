@@ -61,12 +61,13 @@ namespace SpaxUtils
 		private RigidbodyWrapper rigidbodyWrapper;
 		private CallbackService callbackService;
 
-		private Dictionary<string, Dictionary<IPerformanceMove, (PerformanceState state, int prio)>> moves =
-			new Dictionary<string, Dictionary<IPerformanceMove, (PerformanceState state, int prio)>>();
+		private Dictionary<string, Dictionary<IPerformanceMove, (PerformanceState state, int prio, IPerformanceMove prior)>> moves =
+			new Dictionary<string, Dictionary<IPerformanceMove, (PerformanceState state, int prio, IPerformanceMove prior)>>();
 		private Dictionary<string, IPerformanceMove> moveset;
 		private bool autoUpdateMoveset = true;
 		private PerformanceState lastState = PerformanceState.Inactive;
 		private List<MovePerformer> helpers = new List<MovePerformer>();
+		private List<IPerformanceMove> processing = new List<IPerformanceMove>(); // Used to prevent stack overflows.
 
 		public void InjectDependencies(IDependencyManager dependencyManager, IAgent agent,
 			IGrounderComponent grounder, RigidbodyWrapper rigidbodyWrapper, CallbackService callbackService)
@@ -139,7 +140,6 @@ namespace SpaxUtils
 			performer.PerformanceCompletedEvent += OnPerformanceCompletedEvent;
 			finalPerformer = performer;
 			helpers.Add(performer);
-			AddFollowUpMoves(move);
 			return true;
 
 			bool ValidateStat(StatCost cost)
@@ -172,47 +172,68 @@ namespace SpaxUtils
 		#region Move Management
 
 		/// <inheritdoc/>
-		public void AddMove(string act, IPerformanceMove move, PerformanceState state, int prio)
+		public void AddMove(string act, IPerformanceMove move, PerformanceState state, int prio, IPerformanceMove prior = null)
 		{
-			if (move == null)
+			if (move == null || processing.Contains(move))
 			{
 				return;
 			}
 
+			processing.Add(move);
+
 			// Ensure act.
 			if (!moves.ContainsKey(act))
 			{
-				moves.Add(act, new Dictionary<IPerformanceMove, (PerformanceState state, int prio)>());
+				moves.Add(act, new Dictionary<IPerformanceMove, (PerformanceState state, int prio, IPerformanceMove prior)>());
 			}
 
-			// Set move.
-			moves[act][move] = (state, prio);
+			// Store move.
+			moves[act][move] = (state, prio, prior);
+
+			// Store follow-up moves for this move.
+			AddFollowUpMoves(move);
 
 			if (autoUpdateMoveset)
 			{
+				// Update the active moveset.
 				UpdateMoveset();
 			}
+
+			processing.Remove(move);
 		}
 
 		/// <inheritdoc/>
 		public void RemoveMove(string act, IPerformanceMove move)
 		{
+			if (move == null || processing.Contains(move))
+			{
+				return;
+			}
+
+			processing.Add(move);
+
 			if (moves.ContainsKey(act))
 			{
+				// Remove move from storage.
 				if (moves[act].ContainsKey(move))
 				{
 					moves[act].Remove(move);
 				}
+				// If no moves remain for said act, remove act.
 				if (moves[act].Count == 0)
 				{
 					moves.Remove(act);
 				}
+				// Also remove all follow-up moves for this move.
+				RemoveFollowUpMoves(move);
 			}
 
 			if (autoUpdateMoveset)
 			{
 				UpdateMoveset();
 			}
+
+			processing.Remove(move);
 		}
 
 		private void AddFollowUpMoves(IPerformanceMove move)
@@ -220,10 +241,9 @@ namespace SpaxUtils
 			autoUpdateMoveset = false;
 			foreach (MoveFollowUp followUp in move.FollowUps)
 			{
-				AddMove(followUp.Act, followUp.Move, followUp.State, followUp.Prio);
+				AddMove(followUp.Act, followUp.Move, followUp.State, followUp.Prio, move);
 			}
 			autoUpdateMoveset = true;
-			UpdateMoveset();
 		}
 
 		private void RemoveFollowUpMoves(IPerformanceMove move)
@@ -234,7 +254,6 @@ namespace SpaxUtils
 				RemoveMove(followUp.Act, followUp.Move);
 			}
 			autoUpdateMoveset = true;
-			UpdateMoveset();
 		}
 
 		private void UpdateMoveset()
@@ -244,10 +263,13 @@ namespace SpaxUtils
 			moveset = new Dictionary<string, IPerformanceMove>();
 			foreach (string act in moves.Keys)
 			{
-				KeyValuePair<IPerformanceMove, (PerformanceState state, int prio)>? top = null;
-				foreach (KeyValuePair<IPerformanceMove, (PerformanceState state, int prio)> entry in moves[act])
+				KeyValuePair<IPerformanceMove, (PerformanceState state, int prio, IPerformanceMove prior)>? top = null;
+				foreach (KeyValuePair<IPerformanceMove, (PerformanceState state, int prio, IPerformanceMove prior)> entry in moves[act])
 				{
-					if (entry.Value.state.HasFlag(State) && (top == null || entry.Value.prio > top.Value.Value.prio))
+					if (entry.Value.state.HasFlag(State) &&
+						(entry.Value.prior == null || entry.Value.prior == Move) &&
+						(top == null || entry.Value.prio > top.Value.Value.prio ||
+							(entry.Value.prio == top.Value.Value.prio && top.Value.Value.prior == null && entry.Value.prior != null)))
 					{
 						top = entry;
 					}
@@ -282,8 +304,6 @@ namespace SpaxUtils
 		{
 			var movePerformer = (MovePerformer)performer;
 			helpers.Remove(movePerformer);
-
-			RemoveFollowUpMoves(movePerformer.Move);
 
 			performer.PerformanceStartedEvent -= OnPerformanceStartedEvent;
 			performer.PerformanceUpdateEvent -= OnPerformanceUpdateEvent;
