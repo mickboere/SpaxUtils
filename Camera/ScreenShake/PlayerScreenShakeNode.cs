@@ -46,8 +46,9 @@ namespace SpaxUtils
 		private void Send(HitData hitData, ShakeSettings settings)
 		{
 			Vector3 magnitude = cameraHandler.transform.InverseTransformDirection(hitData.Direction).normalized.Multiply(settings.Magnitude);
-			magnitude.z = settings.Magnitude.z * (hitData.Result_Force > 0f ? Mathf.Log10(hitData.Result_Force) : 1f);
-			float frequency = settings.Frequency * hitData.Result_BlockedWeight.Invert().Clamp(0.5f, 1f);
+			float force = hitData.Data.GetValue<float>(HitDataIdentifiers.FORCE);
+			magnitude.z = settings.Magnitude.z * (force > 0f ? Mathf.Log10(force) : 1f);
+			float frequency = settings.Frequency * hitData.Data.GetValue<float>(HitDataIdentifiers.BLOCKED).Invert().Clamp(0.5f, 1f);
 			cameraHandler.ScreenShaker.Shake(magnitude, frequency, settings.Duration, settings.Falloff);
 		}
 	}

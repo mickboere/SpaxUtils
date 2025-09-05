@@ -96,7 +96,7 @@ namespace SpaxUtils
 			// Fear is proportionate to relative incoming damage and current health.
 			// Hate is the sum of both.
 			float anger = 1f;// hitData.Result_Force / agent.Body.RigidbodyWrapper.Mass;
-			float fear = hitData.Result_Damage / statHandler.PointStats.SW.Current * 3f;
+			float fear = hitData.Data.GetValue<float>(HitDataIdentifiers.DAMAGE) / statHandler.PointStats.SW.Current * 3f;
 			Vector8 stim = new Vector8()
 			{
 				N = anger,

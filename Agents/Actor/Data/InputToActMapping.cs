@@ -29,7 +29,7 @@ namespace SpaxUtils
 		[SerializeField] private bool interuptable;
 		[SerializeField] private bool interuptor;
 		[SerializeField, HideInInspector] private bool hasCustomBuffer;
-		[SerializeField, Conditional(nameof(hasCustomBuffer), drawToggle: true)] private float customBuffer;
+		[SerializeField, Conditional(nameof(hasCustomBuffer), drawToggle: true, hide: false)] private float customBuffer;
 		[SerializeField] private bool holdEveryFrame;
 	}
 }

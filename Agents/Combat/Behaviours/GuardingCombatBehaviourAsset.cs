@@ -11,7 +11,8 @@ namespace SpaxUtils
 	public class GuardingCombatBehaviourAsset : BaseCombatMoveBehaviourAsset
 	{
 		[SerializeField] private bool canParry;
-		[SerializeField, Conditional(nameof(canParry))] private float parryWindow = 0.1f;
+		[SerializeField, Range(0f, 1f), Conditional(nameof(canParry))] private float parryWindow = 0.1f;
+		[SerializeField, Range(0f, 1f), Tooltip("0 is at beginning of charge, 1 is at ending of minimum charge.")] private float windowShift = 1f;
 
 		private AgentStatHandler agentStatHandler;
 		private IHittable hittable;
@@ -70,12 +71,13 @@ namespace SpaxUtils
 		private void OnHitEvent(HitData hitData)
 		{
 			// Hit by enemy attack during guard.
-			hitData.Result_BlockedWeight = Weight;
+			hitData.Data.SetValue(HitDataIdentifiers.BLOCKED, Weight);
 
 			if (canParry &&
-				Performer.Charge > Move.MinCharge && Performer.Charge < Move.MinCharge + parryWindow)
+				Performer.Charge > Move.MinCharge * windowShift &&
+				Performer.Charge < Move.MinCharge * windowShift + parryWindow)
 			{
-				hitData.Result_Parried = true;
+				hitData.Data.SetValue(HitDataIdentifiers.PARRIED, true);
 			}
 		}
 	}

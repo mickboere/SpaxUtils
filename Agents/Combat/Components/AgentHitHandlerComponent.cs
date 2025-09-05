@@ -63,43 +63,53 @@ namespace SpaxUtils
 		/// <param name="hitData">The incoming <see cref="HitData"/> to process.</param>
 		private void OnHitEvent(HitData hitData)
 		{
+			bool parried = hitData.Data.GetValue<bool>(HitDataIdentifiers.PARRIED);
+			bool deflected = hitData.Data.GetValue<bool>(HitDataIdentifiers.DEFLECTED);
+			float damage = 0f, impact = 0f, force = 0f, endured = 0f;
+
 			// Calculate damage and impact.
-			if (!hitData.Result_Parried)
-			{
-				hitData.Result_Damage = SpaxFormulas.CalculateDamage(hitData.Offence, defence);
-				hitData.Result_Penetration = hitData.Result_Damage / hitData.Offence;
-				hitData.Result_Impact = hitData.Power / rigidbodyWrapper.Mass;// * hitData.Result_BlockedWeight.Invert();
-				hitData.Result_Force = hitData.Result_Impact * hitData.Mass * hitData.Power;
-			}
+			damage = parried || deflected ? 0f : SpaxFormulas.CalculateDamage(hitData.Offence, defence);
+			hitData.Data.SetValue(HitDataIdentifiers.DAMAGE, damage);
+			hitData.Data.SetValue(HitDataIdentifiers.PENETRATION, parried || deflected ? 0f : damage / hitData.Offence);
+
+			impact = hitData.Power / rigidbodyWrapper.Mass;
+			hitData.Data.SetValue(HitDataIdentifiers.IMPACT, impact);
+			force = impact * hitData.Mass * hitData.Power;
+			hitData.Data.SetValue(HitDataIdentifiers.FORCE, force);
 
 			// Damage endurance.
-			float enduranceDamage = hitData.Result_Damage + hitData.Result_Force;
-			float dealtDamage = statHandler.PointStats.W.Current.Damage(enduranceDamage, true, out bool stunned, out float overdraw);
-			overdraw *= enduranceDamage / dealtDamage; // Compensate for cost-multiplier since overdraw is used in force calculations.
-			hitData.Result_BlockedPercentage = enduranceDamage > 0f ? (enduranceDamage - overdraw) / enduranceDamage : 1f;
+			float endure = damage + force;
+			float enduranceDamage = statHandler.PointStats.W.Current.Damage(endure, true, out bool stunned, out float enduranceOverdraw);
+			hitData.Data.SetValue(HitDataIdentifiers.STUNNED, stunned);
+			enduranceOverdraw *= endure / enduranceDamage.Max(1f); // Compensate for cost-multiplier since overdraw is used in force calculations.
+			endured = endure > 0f ? (endure - enduranceOverdraw) / endure : 1f;
+			hitData.Data.SetValue(HitDataIdentifiers.ENDURED, endured);
 
-			// Transfer intertia.
-			rigidbodyWrapper.Push(hitData.Inertia * (1f - hitData.Result_BlockedPercentage * 0.5f), hitData.HitterMass);
+			// Transfer half intertia.
+			rigidbodyWrapper.Push(hitData.Inertia * (endured.Invert() * 0.5f), hitData.HitterMass);
 
 			// Apply stun.
 			if (stunned)
 			{
-				hitData.Result_Stunned = true;
-
 				// Stun.
 				agent.Actor.TryCancel(true);
 
 				// Transfer Impact.
-				rigidbodyWrapper.Push(hitData.Direction * hitData.Result_Force * hitData.Result_BlockedPercentage, 1f);
+				rigidbodyWrapper.Push(hitData.Direction * force * endured.Invert(), 1f);
 
 				// Apply stun.
 				stunHandler.EnterStun(hitData);
+			}
+			else if (deflected)
+			{
+				// Share Impact.
+				rigidbodyWrapper.Push(hitData.Direction * force, 1f);
 			}
 
 			// Apply damages.
 			if (!Invulnerable)
 			{
-				statHandler.PointStats.SW.Current.Damage(hitData.Result_Damage, true, out bool dead);
+				statHandler.PointStats.SW.Current.Damage(damage, true, out bool dead);
 				if (dead)
 				{
 					if (stunHandler.Stunned)
@@ -113,20 +123,20 @@ namespace SpaxUtils
 				}
 			}
 
-			if (hitData.Result_BlockedPercentage < 0f && !hitData.Result_Parried)
+			if (hitData.Data.GetValue<float>(HitDataIdentifiers.BLOCKED) < 0.01f && !parried && !deflected)
 			{
 				Hits++;
 			}
 
 			// Build up static for succesful blocking.
-			statHandler.PointStats.NE.Current.BaseValue += hitData.Result_BlockedPercentage * hitData.Result_Force * 0.001f;
+			statHandler.PointStats.NE.Current.BaseValue += endured * force * 0.001f;
 
 			// Apply hit-pause.
 			hitPauseMod?.Dispose();
 			hitPauseMod = new TimedCurveModifier(
 				ModMethod.Absolute,
 				combatSettings.HitPauseCurve,
-				new TimerStruct(combatSettings.HitPauseReceiver.Lerp(hitData.Result_Impact) * hitData.Result_BlockedPercentage.InvertClamped()),
+				new TimerStruct(combatSettings.HitPauseReceiver.Lerp(impact) * endured.InvertClamped()),
 				callbackService);
 			timescaleStat.RemoveModifier(this);
 			timescaleStat.AddModifier(this, hitPauseMod);

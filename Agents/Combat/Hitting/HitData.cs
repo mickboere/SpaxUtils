@@ -9,8 +9,6 @@ namespace SpaxUtils
 	/// </summary>
 	public class HitData
 	{
-		#region Send
-
 		/// <summary>
 		/// The entity which was hit.
 		/// </summary>
@@ -56,51 +54,10 @@ namespace SpaxUtils
 		/// </summary>
 		public float Offence { get; }
 
-		#endregion Send
-
-		#region Return
-
 		/// <summary>
-		/// Return data defining whether the receiver was guarding/blocking against the attack and the amound of guard weight applied to the hit.
+		/// Runtime data container used to store additional hit data.
 		/// </summary>
-		public float Result_BlockedWeight { get; set; }
-
-		/// <summary>
-		/// The percentage of endurance-damage that was actually blocked.
-		/// </summary>
-		public float Result_BlockedPercentage { get; set; }
-
-		/// <summary>
-		/// Return data defining whether this hit was parried by the receiver.
-		/// </summary>
-		public bool Result_Parried { get; set; }
-
-		/// <summary>
-		/// Return data defining whether this hit caused the receiver to be stunned.
-		/// </summary>
-		public bool Result_Stunned { get; set; }
-
-		/// <summary>
-		/// Return data defining the percentage of penetration dealt to receiver (0-1~).
-		/// </summary>
-		public float Result_Penetration { get; set; }
-
-		/// <summary>
-		/// Return data defining percentage of impact dealt to receiver (0-1~).
-		/// </summary>
-		public float Result_Impact { get; set; }
-
-		/// <summary>
-		/// Return data defining total amount of damage dealt to receiver.
-		/// </summary>
-		public float Result_Damage { get; set; }
-
-		/// <summary>
-		/// Return data defining total amount of force transfered to receiver.
-		/// </summary>
-		public float Result_Force { get; set; }
-
-		#endregion Return
+		public RuntimeDataCollection Data;
 
 		public HitData(
 			IHittable receiver,
@@ -111,7 +68,8 @@ namespace SpaxUtils
 			Vector3 direction,
 			float mass,
 			float power,
-			float offence)
+			float offence,
+			RuntimeDataCollection data = null)
 		{
 			Receiver = receiver;
 			Hitter = hitter;
@@ -122,6 +80,7 @@ namespace SpaxUtils
 			Mass = mass;
 			Power = power;
 			Offence = offence;
+			Data = data ?? new RuntimeDataCollection(null);
 		}
 
 		public override string ToString()
@@ -136,13 +95,56 @@ namespace SpaxUtils
 				$"\nMass={Mass}," +
 				$"\nPower={Power}," +
 				$"\nOffence={Offence}," +
-				$"\n\nResult_Blocked={Result_BlockedWeight}," +
-				$"\nResult_Parried={Result_Parried}," +
-				$"\nResult_Stunned={Result_Stunned}," +
-				$"\nResult_Penetration={Result_Penetration}," +
-				$"\nResult_Impact={Result_Impact}," +
-				$"\nResult_Damage={Result_Damage}," +
-				$"\nResult_Force={Result_Force}";
+				$"\n\nData:\n{Data},";
 		}
+	}
+
+	public class HitDataIdentifiers
+	{
+		#region Return
+		// BOOLS
+		/// <summary>
+		/// Return data defining whether this hit was parried by the receiver.
+		/// </summary>
+		public const string PARRIED = "Parried";
+		/// <summary>
+		/// Return data defining whether this hit was deflected by the receiver.
+		/// </summary>
+		public const string DEFLECTED = "Deflected";
+		/// <summary>
+		/// Return data defining whether this hit caused the receiver to be stunned.
+		/// </summary>
+		public const string STUNNED = "Stunned";
+
+		// FLOATS
+		/// <summary>
+		/// Return data defining whether the receiver was guarding/blocking against the attack and the amound of guard weight applied to the hit.
+		/// </summary>
+		public const string BLOCKED = "Blocked";
+		/// <summary>
+		/// The percentage of endurance-damage that was endured.
+		/// Examples:
+		///		0 =	The endurance was already empty and thus nothing was endured, receiver is stunned.
+		///		0.5 = Only half of the force was endured, receiver is stunned.
+		///		1 = The full force of the hit was endured by the receiver, receiver is NOT stunned.
+		/// </summary>
+		public const string ENDURED = "Endured";
+		/// <summary>
+		/// Return data defining the percentage of penetration dealt to receiver (0-1~).
+		/// </summary>
+		public const string PENETRATION = "Penetration";
+		/// <summary>
+		/// Return data defining percentage of impact dealt to receiver (0-1~).
+		/// </summary>
+		public const string IMPACT = "Impact";
+		/// <summary>
+		/// Return data defining total amount of damage dealt to receiver.
+		/// </summary>
+		public const string DAMAGE = "Damage";
+		/// <summary>
+		/// Return data defining total amount of force transfered to receiver.
+		/// </summary>
+		public const string FORCE = "Force";
+		#endregion Return
 	}
 }

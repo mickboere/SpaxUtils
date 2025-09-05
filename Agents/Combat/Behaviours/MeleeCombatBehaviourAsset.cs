@@ -13,8 +13,9 @@ namespace SpaxUtils
 		[SerializeField] private float autoAimRange = 2f;
 		[SerializeField] private LayerMask hitDetectionMask;
 		[SerializeField] private float chargePower = 2f;
-		[SerializeField, MinMaxRange(0.5f, 1.5f)] private Vector2 speedModRange = new Vector2(0.5f, 1.5f);
-		[SerializeField] private float parriedStunTime = 2f;
+		[SerializeField, MinMaxRange(0.5f, 1.5f)] private Vector2 strengthSpeedModRange = new Vector2(0.7f, 1.15f);
+		[SerializeField] private float parriedStunTime = 1.5f;
+		[SerializeField] private float deflectedStunTime = 0.75f;
 
 		protected IMeleeCombatMove move;
 		protected CallbackService callbackService;
@@ -85,7 +86,7 @@ namespace SpaxUtils
 			Performer.PerformanceStartedEvent += OnPerformanceStartedEvent;
 			totalCharge = 1f;
 
-			speedMod = new FloatFuncModifier(ModMethod.Absolute, (float f) => f * (strengthStat / limbMassStat).Clamp(speedModRange.x, speedModRange.y));
+			speedMod = new FloatFuncModifier(ModMethod.Absolute, (float f) => f * (strengthStat / limbMassStat).Clamp(strengthSpeedModRange.x, strengthSpeedModRange.y));
 			chargeSpeedStat.AddModifier(this, speedMod);
 			performSpeedStat.AddModifier(this, speedMod);
 			balanceMod = new FloatOperationModifier(ModMethod.Absolute, Operation.Multiply, 1f);
@@ -204,20 +205,28 @@ namespace SpaxUtils
 			// Send hit and apply return data.
 			if (hittable.Hit(hitData))
 			{
+				float force = hitData.Data.GetValue<float>(HitDataIdentifiers.FORCE);
+
 				rigidbodyWrapper.Velocity *= 0.5f;
 
 				if (chargeStat != null)
 				{
-					chargeStat.BaseValue += hitData.Result_Force * 0.001f;
+					chargeStat.BaseValue += force * 0.001f;
 				}
 
-				if (hitData.Result_Parried)
+				if (hitData.Data.GetValue<bool>(HitDataIdentifiers.PARRIED))
 				{
 					Performer.TryCancel(true);
 					stunHandler.EnterStun(hitData, parriedStunTime);
 				}
+				else if (hitData.Data.GetValue<bool>(HitDataIdentifiers.DEFLECTED))
+				{
+					Performer.TryCancel(true);
+					stunHandler.EnterStun(hitData, deflectedStunTime);
+					rigidbodyWrapper.Push(-hitData.Direction * force, 1f); // Share force.
+				}
 
-				float hitPause = combatSettings.HitPauseReceiver.Lerp(hitData.Result_Impact * (1f / performSpeedStat.Value));
+				float hitPause = combatSettings.HitPauseReceiver.Lerp(hitData.Data.GetValue<float>(HitDataIdentifiers.IMPACT) * (1f / performSpeedStat.Value));
 				if (hitPauseMod == null || hitPause > hitPauseMod.Timer.Remaining)
 				{
 					// Apply hit-pause.
