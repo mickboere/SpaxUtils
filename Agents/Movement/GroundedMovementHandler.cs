@@ -193,8 +193,8 @@ namespace SpaxUtils
 			}
 
 			Entity.GameObject.transform.rotation = direction.HasValue ?
-				Quaternion.LookRotation(direction.Value, Entity.GameObject.transform.up) :
-				Quaternion.LookRotation(rigidbodyWrapper.TargetVelocity.FlattenY());
+				Quaternion.LookRotation(direction.Value, Vector3.up) :
+				Quaternion.LookRotation(rigidbodyWrapper.TargetVelocity.FlattenY(), Vector3.up);
 		}
 	}
 }

@@ -12,12 +12,29 @@ namespace SpaxUtils
 	public class RigidbodyWrapper : MonoBehaviour, IDependency
 	{
 		/// <summary>
+		/// The current physics iteration count for this RigidBody.
+		/// </summary>
+		public int PhysicsStep { get; private set; }
+
+		/// <summary>
 		/// Protected property because all modifications to the rigidbody should be done through the wrapper.
 		/// </summary>
 		protected Rigidbody Rigidbody => rigidbody;
 
-		#region Orientation
-		public Vector3 Position { get => Rigidbody.position; set => Rigidbody.position = value; }
+		#region Transform
+		public Vector3 Position
+		{
+			get => Rigidbody.position;
+			set
+			{
+				Vector3 p = Rigidbody.position;
+				Rigidbody.position = value;
+				if (debug && log)
+				{
+					Log("SET Position", $"p={Position}, pP={p}");
+				}
+			}
+		}
 		public Quaternion Rotation { get => Rigidbody.rotation; set => Rigidbody.rotation = value; }
 		public Vector3 Right => Rotation * Vector3.right;
 		public Vector3 Left => Rotation * Vector3.left;
@@ -25,7 +42,7 @@ namespace SpaxUtils
 		public Vector3 Down => Rotation * Vector3.down;
 		public Vector3 Forward => Rotation * Vector3.forward;
 		public Vector3 Back => Rotation * Vector3.back;
-		#endregion
+		#endregion Transform
 
 		#region Property Wrappers
 
@@ -47,7 +64,19 @@ namespace SpaxUtils
 		/// <summary>
 		/// Velocity of the rigidbody in world space.
 		/// </summary>
-		public Vector3 Velocity { get => Rigidbody.linearVelocity; set => Rigidbody.linearVelocity = value; }
+		public Vector3 Velocity
+		{
+			get => Rigidbody.linearVelocity;
+			set
+			{
+				Vector3 p = Velocity;
+				Rigidbody.linearVelocity = value;
+				if (debug && log)
+				{
+					Log("SET Velocity", $"v={Velocity}, pV={p}");
+				}
+			}
+		}
 
 		/// <summary>
 		/// Velocity of the rigidbody in local space.
@@ -70,6 +99,8 @@ namespace SpaxUtils
 		public bool IsKinematic { get => Rigidbody.isKinematic; set => Rigidbody.isKinematic = value; }
 
 		#endregion // Property Wrappers.
+
+		#region Custom Properties
 
 		/// <summary>
 		/// Average change in velocity of the rigidbody in world space (readonly).
@@ -108,15 +139,20 @@ namespace SpaxUtils
 		/// </summary>
 		public float Grip { get; private set; }
 
+		#endregion Custom Properties
+
 		[SerializeField] new private Rigidbody rigidbody;
 		[SerializeField] private int accelerationSmoothing = 3;
 		[SerializeField] private float gripScale = 10f;
+		[SerializeField] private bool debug;
+		[SerializeField, Conditional(nameof(debug))] private bool log;
 
 		private EntityStat timeScale;
 		private StatSubscription massStatSub;
 
-		private Vector3 lastVelocity;
+		private Vector3 previousVelocity;
 		private SmoothVector3 velocityDelta;
+		private Vector3 previousPosition;
 
 		public void InjectDependencies([Optional] IEntity entity)
 		{
@@ -152,18 +188,31 @@ namespace SpaxUtils
 
 		protected void FixedUpdate()
 		{
-			Vector3 delta = Velocity - lastVelocity;
+			// Calculate acceleration and grip.
+			Vector3 delta = Velocity - previousVelocity;
 			velocityDelta.Push(delta);
 			Acceleration = velocityDelta;
-			lastVelocity = Velocity;
-
 			Grip = CalculateGrip();
 
-			// Apply local entity timescale.
+			// Manual velocity delta check.
+			delta = Position - previousPosition;
+
+			// Apply local entity timescale to physics.
 			if (timeScale != null)
 			{
 				Position = (Position - Velocity * Time.fixedDeltaTime) + Velocity * timeScale * Time.fixedDeltaTime;
 			}
+
+			if (debug && log)
+			{
+				Log($"FixedUpdate:", $"V={Velocity}, pV={previousVelocity}\n" +
+					$"d={delta}, dV={delta / Time.fixedDeltaTime}, P={Position}, pP={previousPosition}\n" +
+					$"A={Acceleration}, G={Grip}");
+			}
+
+			previousVelocity = Velocity;
+			previousPosition = Position;
+			PhysicsStep++;
 		}
 
 		protected void Initialize()
@@ -178,14 +227,20 @@ namespace SpaxUtils
 
 		#region Forces
 
-		public void AddForce(Vector3 force, ForceMode forceMode)
+		public void AddForce(Vector3 force, ForceMode forceMode = ForceMode.Force)
 		{
-			Rigidbody.AddForce(force, forceMode);
+			float multiplier = forceMode == ForceMode.Force || forceMode == ForceMode.Acceleration ? timeScale : 1f;
+			Rigidbody.AddForce(force * multiplier, forceMode);
+
+			if (debug && log)
+			{
+				Log($"AddForce({force} * {multiplier}, {forceMode})", $"current={Velocity}, previous={previousVelocity}");
+			}
 		}
 
-		public void AddForceRelative(Vector3 force, ForceMode forceMode)
+		public void AddForceRelative(Vector3 force, ForceMode forceMode = ForceMode.Force)
 		{
-			Rigidbody.AddForce(force.GlobalizeDirection(Rigidbody.transform), forceMode);
+			AddForce(force.GlobalizeDirection(Rigidbody.transform), forceMode);
 		}
 
 		/// <summary>
@@ -207,16 +262,9 @@ namespace SpaxUtils
 				mass = Mass;
 			}
 
-			#region Physics Based (falls apart on consecutive impacts)
-			//Vector3 kE = velocity.KineticEnergy(mass);
-			//Vector3 impactForce = (kE - KineticEnergy) / velocity.magnitude * Time.fixedDeltaTime;
-
-			//Velocity += impactForce;
-			#endregion
-
 			Vector3 diff = (velocity - Velocity);
 			float effect = velocity.normalized.NormalizedDot(diff.normalized);
-			Velocity += diff * effect * mass / Mass;
+			AddForce(diff * effect * mass / Mass, ForceMode.VelocityChange);
 		}
 
 		/// <summary>
@@ -231,7 +279,18 @@ namespace SpaxUtils
 			Push(velocity.GlobalizeDirection(Rigidbody.transform), mass);
 		}
 
+		/// <summary>
+		/// Resets the rigidbody's velocities to zero.
+		/// </summary>
+		public void ResetVelocity()
+		{
+			Velocity = Vector3.zero;
+			AngularVelocity = Vector3.zero;
+		}
+
 		#endregion
+
+		#region Movement
 
 		/// <summary>
 		/// Apply a force to reach the <see cref="TargetVelocity"/>
@@ -251,7 +310,7 @@ namespace SpaxUtils
 				maxForce * scale * (timeScale ?? 1f))
 				.LocalizeDirection(transform).Multiply(ControlAxis).GlobalizeDirection(transform);
 
-			Rigidbody.AddForce(force);
+			AddForce(force);
 		}
 
 		/// <summary>
@@ -272,6 +331,8 @@ namespace SpaxUtils
 			return grip;
 		}
 
+		#endregion Movement
+
 		private bool EnsureRigidbody()
 		{
 			if (rigidbody == null)
@@ -279,6 +340,11 @@ namespace SpaxUtils
 				rigidbody = GetComponentInParent<Rigidbody>();
 			}
 			return rigidbody != null;
+		}
+
+		private void Log(string a, string b)
+		{
+			SpaxDebug.Log($"<b>p[{PhysicsStep}]</b> {a}", b);
 		}
 	}
 }

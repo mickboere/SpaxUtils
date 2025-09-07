@@ -73,6 +73,8 @@ namespace SpaxUtils
 
 		public bool Paused { get; private set; }
 
+		public int PhysicsStep { get; private set; }
+
 		private CallbackService callbackService;
 		private RuntimeDataService runtimeDataService;
 
@@ -86,6 +88,7 @@ namespace SpaxUtils
 			this.runtimeDataService = runtimeDataService;
 
 			callbackService.UpdateCallback += Update;
+			callbackService.FixedUpdateCallback += FixedUpdate;
 			runtimeDataService.CurrentProfileChangedEvent += OnCurrentProfileChangedEvent;
 
 			Load();
@@ -94,6 +97,7 @@ namespace SpaxUtils
 		public void Dispose()
 		{
 			callbackService.UpdateCallback -= Update;
+			callbackService.FixedUpdateCallback -= FixedUpdate;
 			runtimeDataService.CurrentProfileChangedEvent -= OnCurrentProfileChangedEvent;
 		}
 
@@ -208,6 +212,11 @@ namespace SpaxUtils
 
 			// Set global float for unscaled time in shader use.
 			Shader.SetGlobalFloat("_UnscaledTime", UnityEngine.Time.unscaledTime);
+		}
+
+		private void FixedUpdate()
+		{
+			PhysicsStep++;
 		}
 
 		private void OnCurrentProfileChangedEvent(RuntimeDataCollection profile)

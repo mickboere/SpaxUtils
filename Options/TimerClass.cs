@@ -29,22 +29,26 @@ namespace SpaxUtils
 
 		private CallbackService callbackService;
 
-		public TimerClass(float? duration = null, CallbackService callbackService = null)
+		public TimerClass(float? duration = null, CallbackService callbackService = null, UpdateMode updateMode = UpdateMode.Update)
 		{
 			Duration = duration;
 			if (callbackService != null)
 			{
 				this.callbackService = callbackService;
-				callbackService.SubscribeUpdate(UpdateMode.Update, this, OnUpdate, -9999);
+				callbackService.SubscribeUpdate(updateMode, this, OnUpdate, -9999);
 			}
 		}
 
-		public TimerClass(float? duration, float timescale = 1f, CallbackService callbackService = null) : this(duration, callbackService)
+		public TimerClass(float? duration, float timescale = 1f,
+			CallbackService callbackService = null, UpdateMode updateMode = UpdateMode.Update)
+			: this(duration, callbackService, updateMode)
 		{
 			_timescale = timescale;
 		}
 
-		public TimerClass(float? duration, Func<float> timescale = null, CallbackService callbackService = null) : this(duration, callbackService)
+		public TimerClass(float? duration, Func<float> timescale = null,
+			CallbackService callbackService = null, UpdateMode updateMode = UpdateMode.Update)
+			: this(duration, callbackService, updateMode)
 		{
 			TimescaleFunc = timescale;
 		}

@@ -13,6 +13,8 @@ namespace SpaxUtils
 		public MeleeAttackType AttackType => attackType;
 		public List<string> HitBoxes => hitBoxes;
 		public float HitDetectionDelay => hitDetectionDelay;
+		public bool CustomDirection => customDirection;
+		public Vector3 HitDirection => hitDirection;
 		public Vector3 Inertia => inertia;
 		public float InertiaDelay => inertiaDelay;
 		public float ProlongThreshold => prolongThreshold;
@@ -26,6 +28,8 @@ namespace SpaxUtils
 		[SerializeField] private MeleeAttackType attackType;
 		[SerializeField, ConstDropdown(typeof(ITransformLookupIdentifiers), showAdress: true)] private List<string> hitBoxes;
 		[SerializeField] private float hitDetectionDelay = 0f;
+		[SerializeField, HideInInspector] private bool customDirection;
+		[SerializeField, Conditional(nameof(customDirection), false, true, false)] private Vector3 hitDirection;
 
 		[Header("Momentum")]
 		[SerializeField, FormerlySerializedAs("momentum")] private Vector3 inertia;

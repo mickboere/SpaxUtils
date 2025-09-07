@@ -14,8 +14,6 @@ namespace SpaxUtils
 		[SerializeField] private LayerMask hitDetectionMask;
 		[SerializeField] private float chargePower = 2f;
 		[SerializeField, MinMaxRange(0.5f, 1.5f)] private Vector2 strengthSpeedModRange = new Vector2(0.7f, 1.15f);
-		[SerializeField] private float parriedStunTime = 1.5f;
-		[SerializeField] private float deflectedStunTime = 0.75f;
 
 		protected IMeleeCombatMove move;
 		protected CallbackService callbackService;
@@ -28,13 +26,13 @@ namespace SpaxUtils
 		protected RigidbodyWrapper rigidbodyWrapper;
 		protected ICommunicationChannel comms;
 		protected IStunHandler stunHandler;
+		protected AgentStatHandler statHandler;
 
 		private EntityStat timescaleStat;
 		private EntityStat limbMassStat;
 		private EntityStat strengthStat;
 		private EntityStat powerStat;
 		private EntityStat limbOffenceStat;
-		private EntityStat massStat;
 		private EntityStat chargeStat;
 		private EntityStat chargeSpeedStat;
 		private EntityStat performSpeedStat;
@@ -52,7 +50,8 @@ namespace SpaxUtils
 		public void InjectDependencies(IMeleeCombatMove move, CallbackService callbackService,
 			TransformLookup transformLookup, ITargeter targeter, IAgentMovementHandler movementHandler,
 			AgentNavigationHandler navigationHandler, IEntityCollection entityCollection, CombatSettings combatSettings,
-			RigidbodyWrapper rigidbodyWrapper, ICommunicationChannel communicationChannel, IStunHandler stunHandler)
+			RigidbodyWrapper rigidbodyWrapper, ICommunicationChannel comms, IStunHandler stunHandler,
+			AgentStatHandler statHandler)
 		{
 			this.move = move;
 			this.callbackService = callbackService;
@@ -63,15 +62,15 @@ namespace SpaxUtils
 			this.entityCollection = entityCollection;
 			this.combatSettings = combatSettings;
 			this.rigidbodyWrapper = rigidbodyWrapper;
-			this.comms = communicationChannel;
+			this.comms = comms;
 			this.stunHandler = stunHandler;
+			this.statHandler = statHandler;
 
 			timescaleStat = Agent.Stats.GetStat(EntityStatIdentifiers.TIMESCALE, true, 1f);
 			limbMassStat = Agent.Stats.GetStat(AgentStatIdentifiers.MASS.SubStat(this.move.Limb));
 			strengthStat = Agent.Stats.GetStat(AgentStatIdentifiers.STRENGTH);
 			powerStat = Agent.Stats.GetStat(AgentStatIdentifiers.POWER);
 			limbOffenceStat = Agent.Stats.GetStat(AgentStatIdentifiers.OFFENCE.SubStat(this.move.Limb));
-			massStat = Agent.Stats.GetStat(AgentStatIdentifiers.MASS);
 			chargeStat = Agent.Stats.GetStat(move.ChargeCost.Stat);
 			chargeSpeedStat = Agent.Stats.GetStat(move.ChargeSpeedMultiplierStat, false, 1f);
 			performSpeedStat = Agent.Stats.GetStat(move.PerformSpeedMultiplierStat, false, 1f);
@@ -134,6 +133,7 @@ namespace SpaxUtils
 				}
 
 				// Apply momentum to user after delay.
+				// TODO: Create homing system that pulls and steers agent towards enemy, performing attack once in range.
 				if (momentumTimer != null && momentumTimer.Expired)
 				{
 					RigidbodyWrapper.PushRelative(move.Inertia * totalCharge);
@@ -159,6 +159,7 @@ namespace SpaxUtils
 				distance < autoAimRange)
 			{
 				// Auto aim to closest targetable in range.
+				// TODO: Utilize attack range instead of autoAimRange.
 				rigidbodyWrapper.TargetVelocity = closest.Center - RigidbodyWrapper.Position;
 			}
 			movementHandler.ForceRotation();
@@ -179,7 +180,9 @@ namespace SpaxUtils
 				if (hit.GameObject.TryGetComponentRelative(out IHittable hittable))
 				{
 					// Generate hit data.
-					Vector3 inertia = move.Inertia.Look((hittable.Entity.Transform.position - Agent.Transform.position).FlattenY().normalized) * totalCharge;
+					Vector3 lookDir = (hittable.Entity.Transform.position - Agent.Transform.position).FlattenY().normalized;
+					Vector3 inertia = move.Inertia.Look(lookDir) * totalCharge;
+					Vector3 direction = move.CustomDirection ? move.HitDirection.Look(lookDir) : hit.Direction;
 					float power = powerStat * move.Power * totalCharge;
 					float offence = limbOffenceStat * move.Offence;
 
@@ -189,7 +192,7 @@ namespace SpaxUtils
 						rigidbodyWrapper.Mass,
 						inertia,
 						hit.Point,
-						hit.Direction,
+						direction,
 						limbMassStat,
 						power,
 						offence
@@ -207,23 +210,33 @@ namespace SpaxUtils
 			{
 				float force = hitData.Data.GetValue<float>(HitDataIdentifiers.FORCE);
 
-				rigidbodyWrapper.Velocity *= 0.5f;
+				rigidbodyWrapper.AddForce(-rigidbodyWrapper.Velocity * 0.5f, ForceMode.VelocityChange);
 
 				if (chargeStat != null)
 				{
 					chargeStat.BaseValue += force * 0.001f;
 				}
 
-				if (hitData.Data.GetValue<bool>(HitDataIdentifiers.PARRIED))
+				if (hitData.Data.GetValue<bool>(HitDataIdentifiers.BLOCKED))
 				{
 					Performer.TryCancel(true);
-					stunHandler.EnterStun(hitData, parriedStunTime);
+					rigidbodyWrapper.ResetVelocity();
+					stunHandler.EnterStun(hitData, combatSettings.BlockedStunTime);
+				}
+				else if (hitData.Data.GetValue<bool>(HitDataIdentifiers.PARRIED))
+				{
+					Performer.TryCancel(true);
+					rigidbodyWrapper.ResetVelocity();
+					statHandler.PointStats.W.Current.BaseValue = 0f; // Drain endurance.
+					stunHandler.EnterStun(hitData, combatSettings.ParriedStunTime);
 				}
 				else if (hitData.Data.GetValue<bool>(HitDataIdentifiers.DEFLECTED))
 				{
 					Performer.TryCancel(true);
-					stunHandler.EnterStun(hitData, deflectedStunTime);
+					rigidbodyWrapper.ResetVelocity();
+					statHandler.PointStats.W.Current.BaseValue = 0f; // Drain endurance.
 					rigidbodyWrapper.Push(-hitData.Direction * force, 1f); // Share force.
+					stunHandler.EnterStun(hitData, combatSettings.DeflectedStunTime);
 				}
 
 				float hitPause = combatSettings.HitPauseReceiver.Lerp(hitData.Data.GetValue<float>(HitDataIdentifiers.IMPACT) * (1f / performSpeedStat.Value));

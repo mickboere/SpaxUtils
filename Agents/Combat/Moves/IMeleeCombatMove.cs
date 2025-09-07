@@ -26,6 +26,18 @@ namespace SpaxUtils
 		float HitDetectionDelay { get; }
 
 		/// <summary>
+		/// Whether the attack has a custom hit-direction.
+		/// When FALSE, the default calculated direction will be passed into the hit.
+		/// </summary>
+		bool CustomDirection { get; }
+
+		/// <summary>
+		/// The custom relative hit-direction to use when <see cref="CustomDirection"/> is TRUE.
+		/// Does not need to be a normalized value, can exceed power capacity.
+		/// </summary>
+		Vector3 HitDirection { get; }
+
+		/// <summary>
 		/// The relative inertia of this combat move to apply to the user.
 		/// </summary>
 		public Vector3 Inertia { get; }

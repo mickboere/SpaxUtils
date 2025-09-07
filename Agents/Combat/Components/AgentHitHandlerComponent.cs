@@ -63,14 +63,16 @@ namespace SpaxUtils
 		/// <param name="hitData">The incoming <see cref="HitData"/> to process.</param>
 		private void OnHitEvent(HitData hitData)
 		{
+			bool blocked = hitData.Data.GetValue<bool>(HitDataIdentifiers.BLOCKED);
 			bool parried = hitData.Data.GetValue<bool>(HitDataIdentifiers.PARRIED);
 			bool deflected = hitData.Data.GetValue<bool>(HitDataIdentifiers.DEFLECTED);
-			float damage = 0f, impact = 0f, force = 0f, endured = 0f;
+			bool neglect = blocked || parried || deflected;
 
 			// Calculate damage and impact.
-			damage = parried || deflected ? 0f : SpaxFormulas.CalculateDamage(hitData.Offence, defence);
+			float damage = 0f, impact = 0f, force = 0f, endured = 0f;
+			damage = neglect ? 0f : SpaxFormulas.CalculateDamage(hitData.Offence, defence);
 			hitData.Data.SetValue(HitDataIdentifiers.DAMAGE, damage);
-			hitData.Data.SetValue(HitDataIdentifiers.PENETRATION, parried || deflected ? 0f : damage / hitData.Offence);
+			hitData.Data.SetValue(HitDataIdentifiers.PENETRATION, neglect ? 0f : damage / hitData.Offence);
 
 			impact = hitData.Power / rigidbodyWrapper.Mass;
 			hitData.Data.SetValue(HitDataIdentifiers.IMPACT, impact);
@@ -85,26 +87,30 @@ namespace SpaxUtils
 			endured = endure > 0f ? (endure - enduranceOverdraw) / endure : 1f;
 			hitData.Data.SetValue(HitDataIdentifiers.ENDURED, endured);
 
-			// Transfer half intertia.
-			rigidbodyWrapper.Push(hitData.Inertia * (endured.Invert() * 0.5f), hitData.HitterMass);
-
 			// Apply stun.
 			if (stunned)
 			{
-				// Stun.
+				// Cancel all performances.
 				agent.Actor.TryCancel(true);
 
+				// Prevent same-frame dodge sliding during stun?
+				rigidbodyWrapper.ResetVelocity();
+
 				// Transfer Impact.
+				//SpaxDebug.Log($"Impact={hitData.Direction * force * endured.Invert()}", hitData.ToString());
 				rigidbodyWrapper.Push(hitData.Direction * force * endured.Invert(), 1f);
 
 				// Apply stun.
 				stunHandler.EnterStun(hitData);
 			}
-			else if (deflected)
+			else if (neglect)
 			{
 				// Share Impact.
 				rigidbodyWrapper.Push(hitData.Direction * force, 1f);
 			}
+
+			// Transfer half intertia.
+			rigidbodyWrapper.Push(hitData.Inertia * (endured.Invert() * 0.5f), hitData.HitterMass);
 
 			// Apply damages.
 			if (!Invulnerable)
@@ -123,7 +129,7 @@ namespace SpaxUtils
 				}
 			}
 
-			if (hitData.Data.GetValue<float>(HitDataIdentifiers.BLOCKED) < 0.01f && !parried && !deflected)
+			if (hitData.Data.GetValue<float>(HitDataIdentifiers.GUARD) < 0.01f && !neglect)
 			{
 				Hits++;
 			}

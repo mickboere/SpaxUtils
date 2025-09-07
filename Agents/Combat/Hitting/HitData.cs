@@ -104,6 +104,10 @@ namespace SpaxUtils
 		#region Return
 		// BOOLS
 		/// <summary>
+		/// Return data defining whether this hit was perfectly blocked.
+		/// </summary>
+		public const string BLOCKED = "Blocked";
+		/// <summary>
 		/// Return data defining whether this hit was parried by the receiver.
 		/// </summary>
 		public const string PARRIED = "Parried";
@@ -118,9 +122,9 @@ namespace SpaxUtils
 
 		// FLOATS
 		/// <summary>
-		/// Return data defining whether the receiver was guarding/blocking against the attack and the amound of guard weight applied to the hit.
+		/// Return data defining the amount of guard the receiver had during the hit (0=no guard, 1=full guard).
 		/// </summary>
-		public const string BLOCKED = "Blocked";
+		public const string GUARD = "Guard";
 		/// <summary>
 		/// The percentage of endurance-damage that was endured.
 		/// Examples:

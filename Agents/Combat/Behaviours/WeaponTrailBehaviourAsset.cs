@@ -12,6 +12,7 @@ namespace SpaxUtils
 	{
 		[SerializeField] private PooledWeaponTrail trailPrefab;
 		[SerializeField] private float duration = 0.2f;
+		[SerializeField] private PerformanceState state;
 
 		private GlobalPoolingManager globalPoolingManager;
 		private TransformLookup transformLookup;
@@ -19,6 +20,7 @@ namespace SpaxUtils
 		private Pool<PooledWeaponTrail> trailPool;
 		private PooledWeaponTrail lastTrail;
 		private WeaponComponent weapon;
+		private bool initialized;
 
 		public void InjectDependencies(GlobalPoolingManager globalPoolingManager, TransformLookup transformLookup)
 		{
@@ -49,34 +51,35 @@ namespace SpaxUtils
 			}
 
 			trailPool = globalPoolingManager.Request(trailPrefab);
-			Performer.PerformanceStartedEvent += OnPerformanceStartedEvent;
 			Performer.PerformanceUpdateEvent += OnPerformanceUpdateEvent;
+			initialized = false;
 		}
 
 		public override void Stop()
 		{
 			base.Stop();
 
-			Performer.PerformanceStartedEvent -= OnPerformanceStartedEvent;
 			Performer.PerformanceUpdateEvent -= OnPerformanceUpdateEvent;
-		}
-
-		protected void OnPerformanceStartedEvent(IPerformer performer)
-		{
-			if (lastTrail != null && lastTrail.WeaponTrail.Cast)
-			{
-				lastTrail.WeaponTrail.Cast = false;
-			}
-
-			lastTrail = trailPool.Request();
-			lastTrail.WeaponTrail.Bottom = weapon.Base;
-			lastTrail.WeaponTrail.Top = weapon.Tip;
-			lastTrail.WeaponTrail.Duration = duration;
-			lastTrail.WeaponTrail.Cast = true;
 		}
 
 		protected void OnPerformanceUpdateEvent(IPerformer performer)
 		{
+			if (state.HasFlag(performer.State) && !initialized)
+			{
+				// Initialize.
+				if (lastTrail != null && lastTrail.WeaponTrail.Cast)
+				{
+					lastTrail.WeaponTrail.Cast = false;
+				}
+
+				lastTrail = trailPool.Request();
+				lastTrail.WeaponTrail.Bottom = weapon.Base;
+				lastTrail.WeaponTrail.Top = weapon.Tip;
+				lastTrail.WeaponTrail.Duration = duration;
+				lastTrail.WeaponTrail.Cast = true;
+				initialized = true;
+			}
+
 			if (lastTrail != null && lastTrail.WeaponTrail.Cast &&
 				performer.State is PerformanceState.Finishing or PerformanceState.Completed)
 			{

@@ -186,6 +186,15 @@ namespace SpaxUtils
 						SpaxDebug.Log("Apply Instruction", $"({settings.GetInterpolationParam(toPoseIndex - 1, toPoseIndex)} = {Control.Instructions[i].Transition.Transition}, {settings.GetWeightParam(toPoseIndex - 1, toPoseIndex)} = {Control.Instructions[i].Weight})");
 					}
 				}
+				if (Control.Instructions.Length < settings.MaxInstructions)
+				{
+					// Reset the unused pose weights to prevent "ghost-poses".
+					for (int i = Control.Instructions.Length; i < settings.MaxInstructions; i++)
+					{
+						int toPoseIndex = (i + 1) * 2 - 1;
+						animatorWrapper.SetFloat(settings.GetWeightParam(toPoseIndex - 1, toPoseIndex), 0f);
+					}
+				}
 			}
 
 			void ApplyPoseClip(IPose pose, string poseName, string mirroringParam, int index = -1)
@@ -222,7 +231,7 @@ namespace SpaxUtils
 
 					if (weight < 0.01f)
 					{
-						// No weight is no use, continue.
+						// Skip invisible weight, continue.
 						continue;
 					}
 

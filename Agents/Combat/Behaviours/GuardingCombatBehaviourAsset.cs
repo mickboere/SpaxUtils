@@ -10,8 +10,11 @@ namespace SpaxUtils
 	[CreateAssetMenu(fileName = "CombatBehaviour_Guarding", menuName = "ScriptableObjects/Combat/GuardingCombatBehaviourAsset")]
 	public class GuardingCombatBehaviourAsset : BaseCombatMoveBehaviourAsset
 	{
-		[SerializeField] private bool canParry;
-		[SerializeField, Range(0f, 1f), Conditional(nameof(canParry))] private float parryWindow = 0.1f;
+		protected bool InWindow =>
+			Performer.Charge > Move.MinCharge * windowShift &&
+			Performer.Charge < Move.MinCharge * windowShift + blockWindow;
+
+		[SerializeField, Range(0f, 1f), Tooltip("The perfect-block time window which negates all damages.")] private float blockWindow = 0.1f;
 		[SerializeField, Range(0f, 1f), Tooltip("0 is at beginning of charge, 1 is at ending of minimum charge.")] private float windowShift = 1f;
 
 		private AgentStatHandler agentStatHandler;
@@ -39,7 +42,7 @@ namespace SpaxUtils
 			defenceMod = new FloatFuncModifier(ModMethod.Additive, (defence) => defence + defence * guardStat * Weight);
 			defenceStat.AddModifier(this, defenceMod);
 
-			enduranceDamageMod = new FloatFuncModifier(ModMethod.Absolute, (damage) => damage * (1f / (guardStat * Weight).Max(1f)));
+			enduranceDamageMod = new FloatFuncModifier(ModMethod.Absolute, (damage) => damage * (InWindow ? 0f : (1f / (guardStat * Weight).Max(1f))));
 			agentStatHandler.PointStats.W.Cost.AddModifier(this, enduranceDamageMod);
 
 			hittable.Subscribe(this, OnHitEvent, 1000);
@@ -51,6 +54,10 @@ namespace SpaxUtils
 
 			defenceStat.RemoveModifier(this);
 			agentStatHandler.PointStats.W.Cost.RemoveModifier(this);
+
+			defenceMod.Dispose();
+			enduranceDamageMod.Dispose();
+
 			hittable.Unsubscribe(this);
 		}
 
@@ -71,13 +78,11 @@ namespace SpaxUtils
 		private void OnHitEvent(HitData hitData)
 		{
 			// Hit by enemy attack during guard.
-			hitData.Data.SetValue(HitDataIdentifiers.BLOCKED, Weight);
+			hitData.Data.SetValue(HitDataIdentifiers.GUARD, Weight);
 
-			if (canParry &&
-				Performer.Charge > Move.MinCharge * windowShift &&
-				Performer.Charge < Move.MinCharge * windowShift + parryWindow)
+			if (InWindow)
 			{
-				hitData.Data.SetValue(HitDataIdentifiers.PARRIED, true);
+				hitData.Data.SetValue(HitDataIdentifiers.BLOCKED, true);
 			}
 		}
 	}

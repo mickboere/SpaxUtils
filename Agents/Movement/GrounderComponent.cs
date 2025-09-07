@@ -99,6 +99,7 @@ namespace SpaxUtils
 		[SerializeField] private float groundOffset = 1f;
 		[SerializeField] private float groundReach = 0.25f;
 		[SerializeField] private float groundRadius = 0.2f;
+		[SerializeField] private float jumpThreshold = 4f;
 		[Header("Stepping")]
 		[SerializeField] private float stepHeight = 1f;
 		[SerializeField] private Vector2 stepRadius = new Vector2(0.25f, 0.25f);
@@ -238,19 +239,27 @@ namespace SpaxUtils
 
 		private void ApplyForces()
 		{
-			if (Ground && Grounded)
+			if (!Ground)
+			{
+				return;
+			}
+
+			if (Grounded && rigidbodyWrapper.Velocity.y < jumpThreshold)
 			{
 				if (Sliding)
 				{
+					// Slide down slope.
 					Vector3 slidingForce = (Vector3.down * Gravity).ProjectOnPlane(TerrainNormal);
 					rigidbodyWrapper.AddForce(slidingForce * SurfaceSlope, ForceMode.Acceleration);
 				}
 				else
 				{
+					// Disperse along slope.
 					Vector3 movementDispersion = rigidbodyWrapper.Velocity.DisperseOnPlane(TerrainNormal) * Mobility;
 					rigidbodyWrapper.AddForce(movementDispersion, ForceMode.VelocityChange);
 				}
 
+				// Glue to ground.
 				rigidbodyWrapper.Position = rigidbodyWrapper.Position.SetY(StepPoint.y + Elevation);
 			}
 			else

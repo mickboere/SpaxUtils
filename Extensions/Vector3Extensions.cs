@@ -591,6 +591,12 @@ namespace SpaxUtils
 		public static Vector3 KineticEnergy(this Vector3 velocity, float mass)
 		{
 			return 0.5f * mass * velocity * velocity.magnitude;
+
+			#region Legacy Physics Based push method (falls apart on consecutive impacts)
+			//Vector3 kE = velocity.KineticEnergy(mass);
+			//Vector3 impactForce = (kE - KineticEnergy) / velocity.magnitude * Time.fixedDeltaTime;
+			//Velocity += impactForce;
+			#endregion
 		}
 
 		#endregion // Physics
