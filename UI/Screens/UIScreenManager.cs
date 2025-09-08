@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using static UnityEngine.InputSystem.InputAction;
@@ -7,6 +8,8 @@ namespace SpaxUtils.UI
 {
 	public class UIScreenManager : MonoBehaviour, IDependency
 	{
+		public event Action<string> ContextChangedEvent;
+
 		public string CurrentContext => context;
 
 		[SerializeField, ReadOnly] private string context;
@@ -120,6 +123,7 @@ namespace SpaxUtils.UI
 			}
 
 			this.context = context;
+			ContextChangedEvent?.Invoke(context);
 		}
 
 		private void OnSwitchBaseContextMsg(SwitchBaseContextMsg msg)
