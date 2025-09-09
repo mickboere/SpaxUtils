@@ -21,6 +21,7 @@ namespace SpaxUtils
 		private AudioFader music;
 		private IEnvironmentAudioSettings currentSettings;
 		private IEnvironmentAudioSettings overrideSettings;
+		private float musicTimeBackup;
 
 		public void InjectDependencies(CallbackService callbackService, PlayerAgentService playerAgentService, WorldService worldService, AudioManager audioManager)
 		{
@@ -44,13 +45,15 @@ namespace SpaxUtils
 		{
 			if (settings == null && overrideSettings != null)
 			{
-				Switch(currentSettings, overrideSettings.AmbienceTransition, overrideSettings.MusicTransition, 0f);
+				// Remove override.
+				Switch(currentSettings, overrideSettings.AmbienceTransition, overrideSettings.MusicTransition, 0f, musicTimeBackup);
 				overrideSettings = null;
 			}
-
-			if (overrideSettings != settings)
+			else if (overrideSettings != settings)
 			{
+				// Apply override.
 				overrideSettings = settings;
+				musicTimeBackup = music.CurrentAudioSource.time;
 				Switch(settings);
 			}
 		}

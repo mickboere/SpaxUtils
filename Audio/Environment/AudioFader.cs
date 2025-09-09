@@ -6,14 +6,15 @@ namespace SpaxUtils
 {
 	public class AudioFader : IDisposable
 	{
+		public AudioSource CurrentAudioSource;
+		public AudioSource PreviousAudioSource;
+
+		private TransitionHelper currentTransition;
+		private TransitionHelper previousTransition;
+
 		private AudioSource a;
 		private AudioSource b;
 		private CallbackService callbackService;
-
-		private TransitionHelper previousTransition;
-		private AudioSource previousAudioSource;
-		private TransitionHelper currentTransition;
-		private AudioSource currentAudioSource;
 
 		public AudioFader(AudioSource a, AudioSource b, CallbackService callbackService)
 		{
@@ -21,8 +22,8 @@ namespace SpaxUtils
 			this.b = b;
 			this.callbackService = callbackService;
 
-			previousAudioSource = a;
-			currentAudioSource = b;
+			PreviousAudioSource = a;
+			CurrentAudioSource = b;
 
 			callbackService.SubscribeUpdate(UpdateMode.Update, this, OnUpdate);
 		}
@@ -38,7 +39,7 @@ namespace SpaxUtils
 
 		public void Fade(AudioClip clip, TransitionSettings transitionSettings, float delay = 0f, bool loop = true, float startTime = 0f)
 		{
-			if (!currentAudioSource || currentAudioSource.clip == clip)
+			if (!CurrentAudioSource || CurrentAudioSource.clip == clip)
 			{
 				// Destroyed |or| Already fading to this clip.
 				return;
@@ -47,7 +48,7 @@ namespace SpaxUtils
 			if (previousTransition != null)
 			{
 				// Already fading out previous.
-				if (previousAudioSource.clip == clip)
+				if (PreviousAudioSource.clip == clip)
 				{
 					// Clips match, revert progress.
 					SwitchSources();
@@ -73,25 +74,25 @@ namespace SpaxUtils
 			}
 			// Else: fresh initialize.
 
-			if (currentAudioSource) // OnDestroy edgecase
+			if (CurrentAudioSource) // OnDestroy edgecase
 			{
-				currentAudioSource.Stop();
-				currentAudioSource.volume = 0f;
-				currentAudioSource.clip = clip;
-				currentAudioSource.loop = loop;
-				currentAudioSource.time = startTime;
+				CurrentAudioSource.Stop();
+				CurrentAudioSource.volume = 0f;
+				CurrentAudioSource.clip = clip;
+				CurrentAudioSource.loop = loop;
+				CurrentAudioSource.time = startTime;
 
 				currentTransition = transitionSettings != null ? new TransitionHelper(transitionSettings) : new TransitionHelper();
 				float trueDelay = delay + (previousTransition == null ? 0f : previousTransition.TimeRemaining);
 				currentTransition.Fill(delay: trueDelay);
-				currentAudioSource.PlayDelayed(trueDelay * currentTransition.RelativeDelay);
+				CurrentAudioSource.PlayDelayed(trueDelay * currentTransition.RelativeDelay);
 			}
 		}
 
 		protected void OnUpdate(float delta)
 		{
-			Update(previousAudioSource, previousTransition);
-			Update(currentAudioSource, currentTransition);
+			Update(PreviousAudioSource, previousTransition);
+			Update(CurrentAudioSource, currentTransition);
 		}
 
 		private void Update(AudioSource source, TransitionHelper transition)
@@ -104,15 +105,15 @@ namespace SpaxUtils
 
 		private void SwitchSources()
 		{
-			if (previousAudioSource == a)
+			if (PreviousAudioSource == a)
 			{
-				previousAudioSource = b;
-				currentAudioSource = a;
+				PreviousAudioSource = b;
+				CurrentAudioSource = a;
 			}
 			else
 			{
-				previousAudioSource = a;
-				currentAudioSource = b;
+				PreviousAudioSource = a;
+				CurrentAudioSource = b;
 			}
 		}
 
@@ -120,9 +121,9 @@ namespace SpaxUtils
 		{
 			previousTransition.Empty(() =>
 			{
-				if (previousAudioSource)
+				if (PreviousAudioSource)
 				{
-					previousAudioSource.Stop();
+					PreviousAudioSource.Stop();
 				}
 				previousTransition.Dispose();
 				previousTransition = null;
