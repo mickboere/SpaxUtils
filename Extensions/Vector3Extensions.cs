@@ -203,7 +203,7 @@ namespace SpaxUtils
 		/// <summary>
 		/// Treats the <see cref="Vector3"/> as a rotatable direction and clamps its rotation to the <paramref name="maxAngle"/> along the <paramref name="axis"/>.
 		/// </summary>
-		public static Vector3 ClampDirection(this Vector3 direction, Vector3 axis, float maxAngle)
+		public static Vector3 ClampAngle(this Vector3 direction, Vector3 axis, float maxAngle)
 		{
 			float angle = Vector3.Angle(direction, axis);
 			if (angle > maxAngle)
@@ -649,8 +649,8 @@ namespace SpaxUtils
 #if UNITY_EDITOR
 				if (debug)
 				{
-					Debug.DrawRay(points[i], a.normalized * debugSize, Color.red);
-					Debug.DrawRay(points[i], b.normalized * debugSize, Color.green);
+					Debug.DrawRay(points[i], a, Color.red);
+					Debug.DrawRay(points[i], b, Color.green);
 					Debug.DrawRay(points[i], n * debugSize, Color.cyan);
 				}
 #endif

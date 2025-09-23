@@ -5,11 +5,11 @@ using UnityEngine;
 
 namespace SpaxUtils
 {
-	public class AgentLegsComponent : EntityComponentMono, ILegsComponent
+	public class AgentLegsComponent : EntityComponentMono
 	{
-		public event Action<ILeg, bool> FootstepEvent;
+		public event Action<Leg, bool> FootstepEvent;
 
-		public IReadOnlyList<ILeg> Legs => legs;
+		public IReadOnlyList<Leg> Legs => legs;
 
 		[SerializeField, Range(-1f, 1f)] private float mainCycleOffset;
 		[SerializeField] private List<Leg> legs = new List<Leg>();
@@ -41,6 +41,14 @@ namespace SpaxUtils
 			grounderComponent.Elevation = elevation;
 		}
 
+		protected void LateUpdate()
+		{
+			foreach (Leg leg in legs)
+			{
+				leg.UpdatePositions();
+			}
+		}
+
 		protected void OnDisable()
 		{
 			foreach (Leg leg in legs)
@@ -49,7 +57,7 @@ namespace SpaxUtils
 			}
 		}
 
-		private void OnFootstepEvent(ILeg leg, bool grounded)
+		private void OnFootstepEvent(Leg leg, bool grounded)
 		{
 			FootstepEvent?.Invoke(leg, grounded);
 		}

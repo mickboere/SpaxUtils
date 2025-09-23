@@ -11,31 +11,30 @@ namespace SpaxUtils
 		[Serializable]
 		public class LegIK
 		{
-			public ILeg Leg => legs.Legs[legIndex];
+			public Leg Leg => legs.Legs[legIndex];
 
-			public Vector3 FootPositionOffset => Leg.Foot.position - footHelper.position;
-			public Quaternion FootRotationOffset => Quaternion.Inverse(footHelper.rotation) * Leg.Foot.rotation;
+			public Vector3 FootPositionOffset => Leg.Foot.position - Leg.Sole.position;
+			public Quaternion FootRotationOffset => Quaternion.Inverse(Leg.Sole.rotation) * Leg.Foot.rotation;
 			public Quaternion TargetRotation => Leg.GroundedHit.normal == Vector3.zero ? Quaternion.identity :
-				Quaternion.LookRotation(Vector3.Cross(footHelper.right, Leg.GroundedHit.normal), Leg.GroundedHit.normal);
+				Quaternion.LookRotation(Vector3.Cross(Leg.Sole.right, Leg.GroundedHit.normal), Leg.GroundedHit.normal);
 
 			public Vector3 TargetPosition => Leg.TargetPoint + TargetRotation * FootPositionOffset + Leg.GroundedHit.normal * Leg.Elevation;
-			public Vector3 HintPosition => Leg.Knee.position + footHelper.forward;
+			public Vector3 HintPosition => Leg.Knee.position + Leg.Sole.forward;
 
 			[SerializeField, ConstDropdown(typeof(IIKChainConstants))] private string ikChain;
 			[SerializeField] private int legIndex;
-			[SerializeField] private Transform footHelper;
 			[SerializeField] private Transform hint;
 			[SerializeField] private bool debug;
 
 			private IIKComponent ikComponent;
 			private IGrounderComponent grounder;
-			private ILegsComponent legs;
+			private AgentLegsComponent legs;
 			private RigidbodyWrapper rigidbodyWrapper;
 
 			public void InjectDependencies(
 				IIKComponent ikComponent,
 				IGrounderComponent grounder,
-				ILegsComponent legs,
+				AgentLegsComponent legs,
 				RigidbodyWrapper wrapper)
 			{
 				this.ikComponent = ikComponent;

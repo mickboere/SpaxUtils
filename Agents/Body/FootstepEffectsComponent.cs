@@ -12,12 +12,12 @@ namespace SpaxUtils
 		[SerializeField, Range(0f, 1f)] private float slipThreshold = 0.01f;
 		[SerializeField] private int stepEmitAmount = 3;
 
-		private ILegsComponent legs;
+		private AgentLegsComponent legs;
 		private RigidbodyWrapper rigidbodyWrapper;
 
-		private Dictionary<ILeg, ParticleSystem> effects = new Dictionary<ILeg, ParticleSystem>();
+		private Dictionary<Leg, ParticleSystem> effects = new Dictionary<Leg, ParticleSystem>();
 
-		public void InjectDependencies(ILegsComponent legs, RigidbodyWrapper rigidbodyWrapper)
+		public void InjectDependencies(AgentLegsComponent legs, RigidbodyWrapper rigidbodyWrapper)
 		{
 			this.legs = legs;
 			this.rigidbodyWrapper = rigidbodyWrapper;
@@ -27,7 +27,7 @@ namespace SpaxUtils
 		{
 			legs.FootstepEvent += OnFootstepEvent;
 
-			foreach (ILeg leg in legs.Legs)
+			foreach (Leg leg in legs.Legs)
 			{
 				effects[leg] = Instantiate(stepEffect, Entity.Transform);
 			}
@@ -37,7 +37,7 @@ namespace SpaxUtils
 		{
 			legs.FootstepEvent -= OnFootstepEvent;
 
-			foreach (KeyValuePair<ILeg, ParticleSystem> effect in effects)
+			foreach (KeyValuePair<Leg, ParticleSystem> effect in effects)
 			{
 				Destroy(effect.Value.gameObject);
 			}
@@ -46,7 +46,7 @@ namespace SpaxUtils
 
 		protected void Update()
 		{
-			foreach (KeyValuePair<ILeg, ParticleSystem> e in effects)
+			foreach (KeyValuePair<Leg, ParticleSystem> e in effects)
 			{
 				float slip = rigidbodyWrapper.Grip.Invert().OutQuad();
 				if (e.Key.Grounded && slip >= slipThreshold)
@@ -73,7 +73,7 @@ namespace SpaxUtils
 			}
 		}
 
-		private void OnFootstepEvent(ILeg leg, bool grounded)
+		private void OnFootstepEvent(Leg leg, bool grounded)
 		{
 			if (grounded && leg.ValidGround)
 			{
@@ -82,7 +82,7 @@ namespace SpaxUtils
 			}
 		}
 
-		private void Orient(ILeg leg)
+		private void Orient(Leg leg)
 		{
 			effects[leg].transform.position = leg.TargetPoint;
 			effects[leg].transform.rotation = Quaternion.LookRotation(-Entity.Transform.forward, leg.GroundedHit.normal);

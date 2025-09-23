@@ -14,9 +14,9 @@ namespace SpaxUtils
 
 		private RigidbodyWrapper wrapper;
 		private SurveyorComponent walker;
-		private ILegsComponent legs;
+		private AgentLegsComponent legs;
 
-		public void InjectDependencies(RigidbodyWrapper wrapper, SurveyorComponent walker, ILegsComponent legs)
+		public void InjectDependencies(RigidbodyWrapper wrapper, SurveyorComponent walker, AgentLegsComponent legs)
 		{
 			this.wrapper = wrapper;
 			this.walker = walker;
@@ -26,7 +26,7 @@ namespace SpaxUtils
 		protected void FixedUpdate()
 		{
 			float height = 0f;
-			foreach (ILeg leg in legs.Legs)
+			foreach (Leg leg in legs.Legs)
 			{
 				height = Mathf.Max(height, bobCurve.Evaluate(walker.CalculateFootHeight(walker.GetProgress(leg.WalkCycleOffset + cycleOffset))));
 			}

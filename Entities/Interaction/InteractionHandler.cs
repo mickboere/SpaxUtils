@@ -271,7 +271,7 @@ namespace SpaxUtils
 			}
 		}
 
-		protected void OnDrawGizmos()
+		protected void OnDrawGizmosSelected()
 		{
 			Gizmos.color = Color.green;
 			Gizmos.DrawWireSphere(InteractionPoint, InteractionRange);
