@@ -11,11 +11,6 @@ namespace SpaxUtils
 		float BaseMass { get; }
 
 		/// <summary>
-		/// The unmodified default base movement speed of this agent body.
-		/// </summary>
-		float BaseSpeed { get; }
-
-		/// <summary>
 		/// The unmodified default base size of this agent body when it is at rest.
 		/// </summary>
 		Vector3 BaseSize { get; }

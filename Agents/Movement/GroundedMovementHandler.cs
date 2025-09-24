@@ -66,12 +66,12 @@ namespace SpaxUtils
 		private Vector3 _forwardDirection;
 
 		/// <inheritdoc/>
-		public float MovementSpeed { get { return speed * moveSpeedStat; } set { speed = value; } }
-
-		/// <inheritdoc/>
 		public bool LockRotation { get; set; }
 
-		[SerializeField] private float speed = 4.5f;
+		[field: SerializeField] public float MinSpeed { get; set; } = 1f;
+		[field: SerializeField] public float HalfSpeed { get; set; } = 1.5f;
+		[field: SerializeField] public float FullSpeed { get; set; } = 4.5f;
+
 		[SerializeField] private float rotationSmoothingSpeed = 30f;
 		[SerializeField] private float controlForce = 1800f;
 		[SerializeField] private float brakeForce = 900f;
@@ -131,8 +131,8 @@ namespace SpaxUtils
 			if (!targetVelocity.HasValue)
 			{
 				// Calculate target velocity from current input.
-				//rigidbodyWrapper.TargetVelocity = InputRaw == Vector3.zero ? Vector3.zero : Quaternion.LookRotation(InputAxis) * InputSmooth * MovementSpeed;
-				rigidbodyWrapper.TargetVelocity = InputSmooth == Vector3.zero ? Vector3.zero : Quaternion.LookRotation(InputAxis) * InputSmooth * MovementSpeed;
+				rigidbodyWrapper.TargetVelocity = InputSmooth == Vector3.zero ? Vector3.zero :
+					Quaternion.LookRotation(InputAxis) * InputSmooth.normalized * CalculateSpeed(InputSmooth.magnitude) * moveSpeedStat;
 			}
 
 			if (!grounder.Sliding)
@@ -195,6 +195,15 @@ namespace SpaxUtils
 			Entity.GameObject.transform.rotation = direction.HasValue ?
 				Quaternion.LookRotation(direction.Value, Vector3.up) :
 				Quaternion.LookRotation(rigidbodyWrapper.TargetVelocity.FlattenY(), Vector3.up);
+		}
+
+		/// <inheritdoc/>
+		public float CalculateSpeed(float input)
+		{
+			return input < 0.5f ?
+				MinSpeed.Lerp(HalfSpeed, input * 2f) :
+				input < 1f ? HalfSpeed.Lerp(FullSpeed, (input - 0.5f) * 2f) :
+				FullSpeed * input;
 		}
 	}
 }

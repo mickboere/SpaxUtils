@@ -10,7 +10,7 @@ namespace SpaxUtils
 		[SerializeField] private float speed = 6f;
 		[SerializeField] private float maxAngle = 20f;
 		[SerializeField] private int frameRate;
-		[SerializeField] private bool fixedUpdate;
+		[SerializeField] private UpdateMode updateMode;
 
 		private RigidbodyWrapper wrapper;
 		private CallbackService callbackService;
@@ -29,6 +29,10 @@ namespace SpaxUtils
 			{
 				callbackService.AddCustom(this, 1f / frameRate, UpdateRotation);
 			}
+			else
+			{
+				callbackService.SubscribeUpdate(updateMode, this, UpdateRotation);
+			}
 		}
 
 		protected void OnDisable()
@@ -36,22 +40,7 @@ namespace SpaxUtils
 			if (callbackService != null)
 			{
 				callbackService.RemoveCustom(this);
-			}
-		}
-
-		protected void Update()
-		{
-			if (!fixedUpdate && frameRate <= 0)
-			{
-				UpdateRotation(Time.deltaTime);
-			}
-		}
-
-		protected void FixedUpdate()
-		{
-			if (fixedUpdate && frameRate <= 0)
-			{
-				UpdateRotation(Time.fixedDeltaTime);
+				callbackService.UnsubscribeUpdates(this);
 			}
 		}
 

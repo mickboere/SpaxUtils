@@ -3,7 +3,7 @@
 namespace SpaxUtils
 {
 	[CreateAssetMenu(fileName = "MovementInputSettings", menuName = "ScriptableObjects/MovementInputSettings")]
-	public class MovementInputSettings : ScriptableObject, IMovementInputSettings, IService
+	public class MovementInputSettings : ScriptableObject, IService
 	{
 		public float ChangeThreshold => changeThreshold;
 		public AnimationCurve InputRamp => inputRamp;

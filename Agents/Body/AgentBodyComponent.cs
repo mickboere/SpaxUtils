@@ -6,7 +6,6 @@ namespace SpaxUtils
 	public class AgentBodyComponent : AgentComponentBase, IAgentBody
 	{
 		public float BaseMass => baseMass;
-		public float BaseSpeed => baseSpeed;
 		public Vector3 BaseSize => baseSize;
 		public float Scale => scale;
 
@@ -27,7 +26,6 @@ namespace SpaxUtils
 
 		[Header("Base Values")]
 		[SerializeField] private float baseMass = 100f;
-		[SerializeField] private float baseSpeed = 4f;
 		[SerializeField] private Vector3 baseSize = new Vector3(0.5f, 1.8f, 0.5f);
 		[Header("Active Values")]
 		[SerializeField] private float scale = 1f;

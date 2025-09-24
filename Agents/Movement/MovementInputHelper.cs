@@ -8,14 +8,14 @@ namespace SpaxUtils
 	/// </summary>
 	public class MovementInputHelper : IDisposable
 	{
-		private IMovementInputSettings settings;
+		private MovementInputSettings settings;
 		private Vector3 previousInput;
 		private Vector3 current;
 		private Vector3 shiftPoint;
 		private float progress;
 		private float swiftness;
 
-		public MovementInputHelper(IMovementInputSettings settings, float swiftness = 1f)
+		public MovementInputHelper(MovementInputSettings settings, float swiftness = 1f)
 		{
 			this.settings = settings;
 			this.swiftness = swiftness;

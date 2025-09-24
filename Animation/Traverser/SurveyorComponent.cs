@@ -44,18 +44,21 @@ namespace SpaxUtils
 		private float progress;
 		private RigidbodyWrapper rigidbodyWrapper;
 		private AgentLegsComponent legs;
-		private IGrounderComponent grounder;
 		private IAgentBody body;
+		private IGrounderComponent grounder;
+		private IAgentMovementHandler movementHandler;
 
 		private float smoothAccel;
 		private float previousAccel;
 
-		public void InjectDependencies(RigidbodyWrapper wrapper, AgentLegsComponent legs, IGrounderComponent grounder, IAgentBody body)
+		public void InjectDependencies(RigidbodyWrapper wrapper, AgentLegsComponent legs, IAgentBody body,
+			IGrounderComponent grounder, IAgentMovementHandler movementHandler)
 		{
 			this.rigidbodyWrapper = wrapper;
 			this.legs = legs;
 			this.grounder = grounder;
 			this.body = body;
+			this.movementHandler = movementHandler;
 		}
 
 		public void ResetSurveyor()
@@ -80,7 +83,7 @@ namespace SpaxUtils
 				return;
 			}
 
-			Effect = velocity / body.BaseSpeed;
+			Effect = velocity / movementHandler.FullSpeed;
 
 			// Mobility Influence
 			Effect *= Mathf.Lerp(1f, grounder.Mobility, mobilityStrideInfluence);

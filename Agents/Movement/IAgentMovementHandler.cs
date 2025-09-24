@@ -25,14 +25,24 @@ namespace SpaxUtils
 		Vector3 TargetDirection { get; set; }
 
 		/// <summary>
-		/// Movement speed (m/s) when input length is equal to 1.
-		/// </summary>
-		float MovementSpeed { get; set; }
-
-		/// <summary>
 		/// Whether the agent's rotation should be locked, preventing it from automatically pointing in the movement direction.
 		/// </summary>
 		bool LockRotation { get; set; }
+
+		/// <summary>
+		/// Movement speed (m/s) when input length is exceeds the input deadzone.
+		/// </summary>
+		float MinSpeed { get; set; }
+
+		/// <summary>
+		/// Movement speed (m/s) when input length is equal to 0.5.
+		/// </summary>
+		float HalfSpeed { get; set; }
+
+		/// <summary>
+		/// Movement speed (m/s) when input length is equal to 1.
+		/// </summary>
+		float FullSpeed { get; set; }
 
 		/// <summary>
 		/// Update agent's velocity to match target velocity.
@@ -54,5 +64,10 @@ namespace SpaxUtils
 		/// Force update rotation to directly face either <paramref name="direction"/> or else the RigidbodyWrapper's target velocity.
 		/// </summary>
 		void ForceRotation(Vector3? direction = null);
+
+		/// <summary>
+		/// Calculates the resulting output speed for an input length of <paramref name="inputLength"/>.
+		/// </summary>
+		float CalculateSpeed(float inputLength);
 	}
 }
