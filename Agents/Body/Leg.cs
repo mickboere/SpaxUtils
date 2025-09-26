@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace SpaxUtils
@@ -10,9 +11,9 @@ namespace SpaxUtils
 	public class Leg
 	{
 		/// <summary>
-		/// Invoked when the leg enters grounded state while previously raised.
+		/// Invoked when the leg's grounded state is updated.
 		/// </summary>
-		public event Action<Leg, bool> FootstepEvent;
+		public event Action<Leg, bool, Dictionary<SurfaceConfiguration, float>> FootstepEvent;
 
 		/// <summary>
 		/// Whether the leg is currently grounded.
@@ -65,6 +66,11 @@ namespace SpaxUtils
 		public float Elevation { get { return elevationOverride.Approx(0f) ? elevation : elevationOverride; } set { elevationOverride = value; } }
 
 		/// <summary>
+		/// All data concerning the surface this leg last stepped on.
+		/// </summary>
+		public Dictionary<SurfaceConfiguration, float> SurfaceData { get; private set; }
+
+		/// <summary>
 		/// The total length of this leg.
 		/// </summary>
 		public float Length => (KneePos - ThighPos).magnitude + (FootPos - KneePos).magnitude;
@@ -84,7 +90,15 @@ namespace SpaxUtils
 		[SerializeField, Range(-1f, 1f)] private float walkCycleOffset;
 		[SerializeField] private float elevation;
 
+		private SurfaceLibrary surfaceLibrary;
+
 		private float elevationOverride;
+
+		public void Initialize(SurfaceLibrary surfaceLibrary)
+		{
+			this.surfaceLibrary = surfaceLibrary;
+			SurfaceData = new Dictionary<SurfaceConfiguration, float>();
+		}
 
 		/// <summary>
 		/// Update the foot physics data.
@@ -100,7 +114,27 @@ namespace SpaxUtils
 			if (grounded != Grounded)
 			{
 				Grounded = grounded;
-				FootstepEvent?.Invoke(this, grounded);
+
+				// Collect surface data.
+				SurfaceData.Clear();
+				SurfaceComponent.TryGetSurfaceValues(GroundedHit, out Dictionary<string, float> surfaces);
+				if (surfaces != null && surfaces.Count > 0)
+				{
+					foreach (KeyValuePair<string, float> surface in surfaces)
+					{
+						if (surfaceLibrary.TryGet(surface.Key, out SurfaceConfiguration config))
+						{
+							SurfaceData[config] = surface.Value;
+						}
+					}
+				}
+				else
+				{
+					SurfaceData[surfaceLibrary.Get(DefaultSurfaceTypes.DEFAULT)] = 1f;
+				}
+
+				// Invoke event with collected data.
+				FootstepEvent?.Invoke(this, grounded, SurfaceData);
 			}
 		}
 

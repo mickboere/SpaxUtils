@@ -7,11 +7,14 @@ namespace SpaxUtils
 	public class SurfaceConfiguration
 	{
 		public string Surface => surface;
+		public SFXData SlideSFX => slideSFX;
 
 		[SerializeField, ConstDropdown(typeof(ISurfaceTypeConstants))] private string surface;
+		[SerializeField, Range(0f, 1f)] private float hardness = 1f;
 		[SerializeField] private ImpactSFXData[] impactSFX;
+		[SerializeField] private SFXData slideSFX;
 
-		public SFXData GetImpactSFX(float impact)
+		public SFXData GetImpactSFX(float impactForce)
 		{
 			if (impactSFX.Length == 0)
 			{
@@ -26,7 +29,7 @@ namespace SpaxUtils
 				ImpactSFXData match = impactSFX[0];
 				for (int i = 1; i < impactSFX.Length; i++)
 				{
-					if (impact > impactSFX[i].Force && impactSFX[i].Force > match.Force)
+					if (impactForce > impactSFX[i].Force && impactSFX[i].Force > match.Force)
 					{
 						match = impactSFX[i];
 					}

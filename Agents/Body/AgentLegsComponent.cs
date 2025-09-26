@@ -7,7 +7,7 @@ namespace SpaxUtils
 {
 	public class AgentLegsComponent : EntityComponentMono
 	{
-		public event Action<Leg, bool> FootstepEvent;
+		public event Action<Leg, bool, Dictionary<SurfaceConfiguration, float>> FootstepEvent;
 
 		public IReadOnlyList<Leg> Legs => legs;
 
@@ -15,17 +15,28 @@ namespace SpaxUtils
 		[SerializeField] private List<Leg> legs = new List<Leg>();
 
 		private IGrounderComponent grounderComponent;
+		private SurfaceLibrary surfaceLibrary;
 
-		public void InjectDependencies(IGrounderComponent grounderComponent)
+		public void InjectDependencies(IGrounderComponent grounderComponent, SurfaceLibrary surfaceLibrary)
 		{
 			this.grounderComponent = grounderComponent;
+			this.surfaceLibrary = surfaceLibrary;
 		}
 
 		protected void OnEnable()
 		{
 			foreach (Leg leg in legs)
 			{
+				leg.Initialize(surfaceLibrary);
 				leg.FootstepEvent += OnFootstepEvent;
+			}
+		}
+
+		protected void OnDisable()
+		{
+			foreach (Leg leg in legs)
+			{
+				leg.FootstepEvent -= OnFootstepEvent;
 			}
 		}
 
@@ -49,17 +60,9 @@ namespace SpaxUtils
 			}
 		}
 
-		protected void OnDisable()
+		private void OnFootstepEvent(Leg leg, bool grounded, Dictionary<SurfaceConfiguration, float> surfaces)
 		{
-			foreach (Leg leg in legs)
-			{
-				leg.FootstepEvent -= OnFootstepEvent;
-			}
-		}
-
-		private void OnFootstepEvent(Leg leg, bool grounded)
-		{
-			FootstepEvent?.Invoke(leg, grounded);
+			FootstepEvent?.Invoke(leg, grounded, surfaces);
 		}
 	}
 }

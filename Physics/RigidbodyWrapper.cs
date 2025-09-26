@@ -126,7 +126,7 @@ namespace SpaxUtils
 		/// Modifiable float value indicating the total amount of movement control.
 		/// Modding it to '0' will remove all movement control.
 		/// </summary>
-		public CompositeFloat Control { get; set; } = new CompositeFloat(1f);
+		public CompositeFloat Control { get; } = new CompositeFloat(1f);
 
 		/// <summary>
 		/// Indicates which relative axis the rigidbody has movement control over.
@@ -146,6 +146,7 @@ namespace SpaxUtils
 		[SerializeField] private float gripScale = 10f;
 		[SerializeField] private bool debug;
 		[SerializeField, Conditional(nameof(debug))] private bool log;
+		[SerializeField, Conditional(nameof(log))] private bool forces;
 
 		private EntityStat timeScale;
 		private StatSubscription massStatSub;
@@ -232,7 +233,7 @@ namespace SpaxUtils
 			float multiplier = forceMode == ForceMode.Force || forceMode == ForceMode.Acceleration ? timeScale : 1f;
 			Rigidbody.AddForce(force * multiplier, forceMode);
 
-			if (debug && log)
+			if (debug && log && forces)
 			{
 				Log($"AddForce({force} * {multiplier}, {forceMode})", $"current={Velocity}, previous={previousVelocity}");
 			}

@@ -5,21 +5,21 @@ namespace SpaxUtils
 	/// <summary>
 	/// <see cref="IPooledItem"/> for audio sources.
 	/// </summary>
-	[RequireComponent(typeof(AudioSource))]
+	[RequireComponent(typeof(AudioSourceWrapper))]
 	public class PooledAudioSource : PooledItemBase
 	{
-		public override bool Finished => !AudioSource.isPlaying;
+		public override bool Finished => !AudioSourceWrapper.IsPlaying;
 		public override int DefaultPoolSize => defaultPoolSize;
+		public AudioSource AudioSource => AudioSourceWrapper.AudioSource;
 
-		[field: SerializeField] public AudioSource AudioSource { get; private set; }
+		[field: SerializeField] public AudioSourceWrapper AudioSourceWrapper { get; private set; }
 		[SerializeField] private int defaultPoolSize = 25;
-
 
 		protected void Awake()
 		{
-			if (AudioSource == null)
+			if (AudioSourceWrapper == null)
 			{
-				AudioSource = GetComponent<AudioSource>();
+				AudioSourceWrapper = GetComponent<AudioSourceWrapper>();
 			}
 		}
 	}

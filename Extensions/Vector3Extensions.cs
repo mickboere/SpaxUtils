@@ -265,6 +265,11 @@ namespace SpaxUtils
 			return Vector3.Lerp(a, b, t);
 		}
 
+		public static Vector3 Slerp(this Vector3 a, Vector3 b, float t)
+		{
+			return Vector3.Slerp(a, b, t);
+		}
+
 		/// <summary>
 		/// Projects <paramref name="a"/>-><paramref name="v"/> onto <paramref name="a"/>-><paramref name="b"/> 
 		/// to give the Vector3 inverse-lerp value as it would work in <see cref="Mathf.InverseLerp(float, float, float)"/>.

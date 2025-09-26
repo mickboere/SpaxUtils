@@ -60,7 +60,7 @@ namespace SpaxUtils
 			PoserInstructions = Evaluate(out float weight);
 			Weight = weight;
 
-			Poser.ProvideInstructions(this, PoserLayerConstants.BODY, PoserInstructions, 2, Weight);
+			Poser.ProvideInstructions(this, PoserLayerConstants.BODY, PoserInstructions, 10, Weight);
 
 			// Set control from pose weight.
 			float control = 1f - Weight;

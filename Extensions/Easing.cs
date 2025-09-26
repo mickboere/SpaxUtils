@@ -32,6 +32,13 @@ namespace SpaxUtils
 					return f.OutCubic();
 				case EasingMethod.InOutCubic:
 					return f.InOutCubic();
+				// Quint
+				case EasingMethod.InQuint:
+					return f.InQuint();
+				case EasingMethod.OutQuint:
+					return f.OutQuint();
+				case EasingMethod.InOutQuint:
+					return f.InOutQuint();
 				// Quart
 				case EasingMethod.InQuart:
 					return f.InQuart();
@@ -159,6 +166,34 @@ namespace SpaxUtils
 		}
 
 		#endregion Cubic
+
+		#region Quint
+
+		/// <summary>
+		/// https://easings.net/#easeInQuint
+		/// </summary>
+		public static float InQuint(this float x)
+		{
+			return x * x * x * x * x;
+		}
+
+		/// <summary>
+		/// https://easings.net/#easeOutQuint
+		/// </summary>
+		public static float OutQuint(this float x)
+		{
+			return 1f - Mathf.Pow(1f - x, 5f);
+		}
+
+		/// <summary>
+		/// https://easings.net/#easeInOutQuint
+		/// </summary>
+		public static float InOutQuint(this float x)
+		{
+			return x < 0.5f ? 16f * x * x * x * x * x : 1f - Mathf.Pow(-2f * x + 2f, 5f) / 2f;
+		}
+
+		#endregion Quint
 
 		#region Quart
 

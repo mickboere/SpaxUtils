@@ -73,7 +73,7 @@ namespace SpaxUtils
 			}
 		}
 
-		private void OnFootstepEvent(Leg leg, bool grounded)
+		private void OnFootstepEvent(Leg leg, bool grounded, Dictionary<SurfaceConfiguration, float> surfaces)
 		{
 			if (grounded && leg.ValidGround)
 			{

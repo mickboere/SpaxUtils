@@ -30,12 +30,17 @@ namespace SpaxUtils
 
 		protected override Dictionary<string, UpdateMode> Settings { get; set; }
 
+		[SerializeField] protected Transform ikTransformsRoot;
 		[SerializeField] protected FullBodyBipedIK fullBodyIK;
 		[SerializeField] protected LookAtIK lookAtIk;
 		[SerializeField] protected List<Chain> chains;
 
 		protected void Awake()
 		{
+			// First parent IK transforms root to entity root so that transformations to the body are ignored by IK.
+			ikTransformsRoot.SetParent(Entity.Transform);
+			ikTransformsRoot.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
+
 			if (fullBodyIK == null)
 			{
 				fullBodyIK = GetComponentInChildren<FullBodyBipedIK>();

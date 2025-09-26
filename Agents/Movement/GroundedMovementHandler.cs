@@ -68,16 +68,22 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public bool LockRotation { get; set; }
 
+		[Header("Movement")]
 		[field: SerializeField] public float MinSpeed { get; set; } = 1f;
 		[field: SerializeField] public float HalfSpeed { get; set; } = 1.5f;
 		[field: SerializeField] public float FullSpeed { get; set; } = 4.5f;
-
-		[SerializeField] private float rotationSmoothingSpeed = 30f;
-		[SerializeField] private float controlForce = 1800f;
-		[SerializeField] private float brakeForce = 900f;
-		[SerializeField] private float power = 40f;
+		[Header("Physics")]
+		[SerializeField, Tooltip("Movement force at 100% control.")] private float controlForce = 1800f;
+		[SerializeField] private AnimationCurve controlFalloff = new AnimationCurve(new Keyframe(0f, 1f), new Keyframe(1.5f, 0.333f));
+		[SerializeField, Tooltip("Movement force at 0% control.")] private float brakeForce = 900f;
+		[SerializeField, Tooltip("Movement power.")] private float power = 40f;
+		[Header("Rotation")]
+		[SerializeField] private float rotationSmoothing = 30f;
+		[Header("Stats")]
 		[SerializeField] private StatCost sprintCost;
-		[SerializeField] private float tiredInputLimiter = 0.666f;
+		[SerializeField] private float tiredInputLimiter = 0.75f;
+		[Header("Debugging")]
+		[SerializeField] private bool debug;
 
 		private RigidbodyWrapper rigidbodyWrapper;
 		private IGrounderComponent grounder;
@@ -85,7 +91,6 @@ namespace SpaxUtils
 		private MovementInputHelper inputHelper;
 
 		private EntityStat moveSpeedStat;
-		private float swiftness;
 
 		public void InjectDependencies(RigidbodyWrapper rigidbodyWrapper, IGrounderComponent grounder, MovementInputSettings inputSettings)
 		{
@@ -94,12 +99,11 @@ namespace SpaxUtils
 			this.inputSettings = inputSettings;
 
 			moveSpeedStat = Agent.Stats.GetStat(AgentStatIdentifiers.MOVEMENT_SPEED, true, 1f);
-			swiftness = Agent.RuntimeData.GetValue(MindDataIdentifiers.SWIFTNESS, 1f);
 		}
 
 		protected void OnEnable()
 		{
-			inputHelper = new MovementInputHelper(inputSettings, swiftness);
+			inputHelper = new MovementInputHelper(inputSettings);
 			InputAxis = Transform.forward;
 			TargetDirection = Transform.forward;
 		}
@@ -137,7 +141,8 @@ namespace SpaxUtils
 
 			if (!grounder.Sliding)
 			{
-				rigidbodyWrapper.ApplyMovement(targetVelocity, controlForce, brakeForce, power, ignoreControl, grounder.Mobility);
+				rigidbodyWrapper.ApplyMovement(targetVelocity, controlForce * controlFalloff.Evaluate(rigidbodyWrapper.Speed / FullSpeed),
+					brakeForce, power, ignoreControl, grounder.Mobility);
 
 				if (InputRaw.magnitude > 1.01f)
 				{
@@ -149,37 +154,43 @@ namespace SpaxUtils
 			// TODO: Allow for sliding control & overhaul sliding altogether.
 			//}
 
-			if (!LockRotation)
+			if (debug)
 			{
-				TargetDirection = Vector3.Lerp(
-					Vector3.Lerp(Transform.forward, rigidbodyWrapper.Velocity, InputRaw.magnitude.Clamp01()),
-					rigidbodyWrapper.TargetVelocity,
-					rigidbodyWrapper.Grip);
+				SpaxDebug.Log($"[{Agent.ID}]", $"InputRaw={InputRaw}, InputSmooth={InputSmooth}, target={rigidbodyWrapper.TargetVelocity}");
 			}
 		}
 
 		/// <inheritdoc/>
-		public void UpdateRotation(float delta, Vector3? direction = null, bool ignoreControl = false)
+		public void UpdateRotation(float delta, Vector3? targetDirection = null, bool ignoreControl = false)
 		{
-			float t = delta * (ignoreControl ? 1f : rigidbodyWrapper.Control);
-			Vector3 d = direction.HasValue ? direction.Value == Vector3.zero ? TargetDirection : direction.Value : TargetDirection;
-
-			if (d == Vector3.zero)
+			float time = delta * (ignoreControl ? 1f : rigidbodyWrapper.Control);
+			if (!targetDirection.HasValue)
 			{
-				if (rigidbodyWrapper.Velocity.FlattenY() != Vector3.zero)
+				if (LockRotation && TargetDirection != Vector3.zero)
 				{
-					rigidbodyWrapper.Rotation = Quaternion.Lerp(
-						rigidbodyWrapper.Rotation,
-						Quaternion.LookRotation(rigidbodyWrapper.Velocity.FlattenY()),
-						rotationSmoothingSpeed * t);
+					// Lock rotation in set target direction.
+					Turn(TargetDirection);
+				}
+				else if (!(rigidbodyWrapper.TargetVelocity == Vector3.zero || rigidbodyWrapper.Velocity.FlattenY() == Vector3.zero))
+				{
+					// Rotation isn't locked, look in velocity direction when at 100% grip and at target velocity direction when at 0% grip.
+					Turn(rigidbodyWrapper.Velocity.FlattenY().normalized.Slerp(
+						rigidbodyWrapper.TargetVelocity.FlattenY().normalized,
+						rigidbodyWrapper.Grip.InvertClamped().InOutQuint()));
 				}
 			}
-			else
+			else if (targetDirection.Value != Vector3.zero)
 			{
-				rigidbodyWrapper.Rotation = Quaternion.Lerp(
+				// Turn towards target direction.
+				Turn(targetDirection.Value);
+			}
+
+			void Turn(Vector3 dir, float speed = 1f)
+			{
+				rigidbodyWrapper.Rotation = Quaternion.Slerp(
 					rigidbodyWrapper.Rotation,
-					Quaternion.LookRotation(d),
-					rotationSmoothingSpeed * t);
+					Quaternion.LookRotation(dir),
+					speed * rotationSmoothing * time);
 			}
 		}
 
@@ -200,8 +211,8 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public float CalculateSpeed(float input)
 		{
-			return input < 0.5f ?
-				MinSpeed.Lerp(HalfSpeed, input * 2f) :
+			return input < inputSettings.MinimumInput ? MinSpeed * (input / inputSettings.MinimumInput) :
+				input < 0.5f ? MinSpeed.Lerp(HalfSpeed, input * 2f) :
 				input < 1f ? HalfSpeed.Lerp(FullSpeed, (input - 0.5f) * 2f) :
 				FullSpeed * input;
 		}
