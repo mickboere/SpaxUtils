@@ -78,7 +78,7 @@ namespace SpaxUtils
 		/// <returns>An active instance of type <typeparamref name="T"/>.</returns>
 		public T Request(Vector3 position, Quaternion rotation, Transform parent = null)
 		{
-			if (inactive.Count > 0 || dynamic)
+			if (inactive.Count > 0)
 			{
 				// Item(s) are available, return the first.
 				T item = inactive[0];

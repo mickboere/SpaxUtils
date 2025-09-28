@@ -328,7 +328,7 @@ namespace SpaxUtils
 		/// <returns>The current grip calculated using the target velocity and current velocity.</returns>
 		public float CalculateGrip()
 		{
-			float grip = Mathf.Clamp01(Mathf.Abs((Velocity.Multiply(ControlAxis) - TargetVelocity * Control).magnitude) * (1f / gripScale)).ReverseInOutCubic();
+			float grip = Mathf.Clamp01((Velocity.Multiply(ControlAxis) - TargetVelocity * Control).magnitude * (1f / gripScale)).ReverseInOutCubic();
 			return grip;
 		}
 

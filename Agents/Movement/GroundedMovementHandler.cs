@@ -174,9 +174,10 @@ namespace SpaxUtils
 				else if (!(rigidbodyWrapper.TargetVelocity == Vector3.zero || rigidbodyWrapper.Velocity.FlattenY() == Vector3.zero))
 				{
 					// Rotation isn't locked, look in velocity direction when at 100% grip and at target velocity direction when at 0% grip.
-					Turn(rigidbodyWrapper.Velocity.FlattenY().normalized.Slerp(
-						rigidbodyWrapper.TargetVelocity.FlattenY().normalized,
-						rigidbodyWrapper.Grip.InvertClamped().InOutQuint()));
+					// Make turning speed depend on angle difference in target and current velocity.
+					Vector3 a = rigidbodyWrapper.Velocity.FlattenY().normalized;
+					Vector3 b = rigidbodyWrapper.TargetVelocity.FlattenY().normalized;
+					Turn(a.Slerp(b, rigidbodyWrapper.Grip.InvertClamped().InOutQuint()), a.NormalizedDot(b).InOutSine());
 				}
 			}
 			else if (targetDirection.Value != Vector3.zero)

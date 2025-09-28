@@ -609,6 +609,22 @@ namespace SpaxUtils
 		#region Coordination
 
 		/// <summary>
+		/// Calculates the angle in degrees between vectors <paramref name="a"/> and <paramref name="b"/>.
+		/// </summary>
+		public static float Angle(this Vector3 a, Vector3 b)
+		{
+			return Vector3.Angle(a, b);
+		}
+
+		/// <summary>
+		/// Calculates the signed angle in degrees between vectors <paramref name="a"/> and <paramref name="b"/> around <paramref name="axis"/>.
+		/// </summary>
+		public static float SignedAngle(this Vector3 a, Vector3 b, Vector3 axis)
+		{
+			return Vector3.SignedAngle(a, b, axis);
+		}
+
+		/// <summary>
 		/// Compute barycentric coordinates for point p with respect to triangle (a, b, c).
 		/// https://gamedev.stackexchange.com/questions/23743/whats-the-most-efficient-way-to-find-barycentric-coordinates
 		/// </summary>

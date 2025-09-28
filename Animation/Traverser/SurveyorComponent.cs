@@ -7,15 +7,22 @@ namespace SpaxUtils
 	/// </summary>
 	public class SurveyorComponent : EntityComponentMono
 	{
-		public float Effect { get; private set; }
+		public float Speed { get; private set; }
 		public float Stride { get; private set; }
 		public float Circumference { get; private set; }
 
-		[Header("Surveyor")]
-		[SerializeField] private float strideLength = 1f;
-		[SerializeField] private float minStride = 0.3f;
+		[Header("Stride")]
+		[SerializeField] private float minStride = 0.5f;
+		[SerializeField] private float fullStride = 1f;
 		[SerializeField] private float maxStride = 1.3f;
 		[SerializeField] private AnimationCurve strideSpeed = new AnimationCurve(new Keyframe(0f, 0f), new Keyframe(1f, 1f));
+		[Header("Stride Influence")]
+		[SerializeField, Range(0f, 1f)] private float mobilityStrideInfluence = 1f;
+		[SerializeField, Range(0f, 1f)] private float accelerationStrideInfluence = 1f;
+		[SerializeField, Range(0f, 2f)] private float accelerationScale = 1f;
+		[SerializeField] private Vector2 accelerationSmoothing = new Vector2(20f, 0.1f);
+		[Header("Surveying")]
+		[SerializeField, Range(0f, 1f)] private float resetProgress;
 		[SerializeField, MinMaxRange(0f, 1f, true)] private Vector2 groundedRange = new Vector2(0.35f, 0.65f);
 		[SerializeField, Range(0f, 1f)] private float groundThreshold = 0.5f;
 		[SerializeField] private float liftThreshold = 0.025f;
@@ -25,10 +32,6 @@ namespace SpaxUtils
 		[SerializeField, Range(0f, 1f)] private float surveyOriginCOMInfluence = 0f;
 		[SerializeField, Range(0f, 2f)] private float surveyOriginVelocityInfluence = 1.25f;
 		[SerializeField] private float maxFootingAngle = 75f;
-		[Header("Stride Influence")]
-		[SerializeField, Range(0f, 1f)] private float mobilityStrideInfluence = 1f;
-		[SerializeField, Range(0f, 1f)] private float accelerationStrideInfluence = 1f;
-		[SerializeField] private Vector2 accelerationSmoothing = new Vector2(10f, 2f);
 		[Header("Ground check")]
 		[SerializeField] private LayerMask layerMask;
 		[SerializeField, Tooltip("Grounded amount calculated from raycast approaching the ground.")] private AnimationCurve anticipationCurve = new AnimationCurve(new Keyframe(0f, 0f), new Keyframe(1f, 1f));
@@ -40,6 +43,7 @@ namespace SpaxUtils
 		[SerializeField, Header("Gizmos")] private bool debug;
 		[SerializeField, Conditional(nameof(debug))] private bool drawSpokes;
 		[SerializeField, Conditional(nameof(debug))] private bool drawRaycasts;
+		[SerializeField, Conditional(nameof(debug))] private bool log;
 
 		private float progress;
 		private RigidbodyWrapper rigidbodyWrapper;
@@ -61,9 +65,9 @@ namespace SpaxUtils
 			this.movementHandler = movementHandler;
 		}
 
-		public void ResetSurveyor()
+		public void ResetSurveyor(float progress = 0f)
 		{
-			progress = 0f;
+			this.progress = progress;
 			foreach (Leg leg in legs.Legs)
 			{
 				leg.UpdateFoot(false, 0f, false, default, default);
@@ -80,21 +84,25 @@ namespace SpaxUtils
 		{
 			if (!grounder.Grounded || grounder.Sliding || velocity < 0.01f)
 			{
+				ResetSurveyor(resetProgress);
 				return;
 			}
 
-			Effect = velocity / movementHandler.FullSpeed;
+			Speed = velocity / movementHandler.FullSpeed;
 
 			// Mobility Influence
-			Effect *= Mathf.Lerp(1f, grounder.Mobility, mobilityStrideInfluence);
+			Speed *= Mathf.Lerp(1f, grounder.Mobility, mobilityStrideInfluence);
 
 			// Acceleration Influence
-			float accel = rigidbodyWrapper.Acceleration.magnitude;
-			smoothAccel = Mathf.Lerp(smoothAccel, 1f - accel, (accel > previousAccel ? accelerationSmoothing.x : accelerationSmoothing.y) * delta);
+			float accel = ((rigidbodyWrapper.Acceleration.magnitude * accelerationScale).Clamp01().OutQuad() *
+				Speed.Clamp01().InQuad()).InvertClamped();
+			smoothAccel = Mathf.Lerp(smoothAccel, accel,
+				(accel < previousAccel ? accelerationSmoothing.x : accelerationSmoothing.y) * delta);
 			previousAccel = accel;
-			Effect *= Mathf.Lerp(1f, smoothAccel, accelerationStrideInfluence);
+			Speed *= Mathf.Lerp(1f, smoothAccel, accelerationStrideInfluence);
 
-			Stride = Mathf.Clamp(strideLength * Effect, minStride, maxStride);
+			float strideInterpolation = velocity.InverseLerp(movementHandler.MinSpeed, movementHandler.FullSpeed);
+			Stride = minStride.Lerp(fullStride, strideInterpolation).Lerp(maxStride, ((Speed - 1f) * 2f).Clamp01());
 			Circumference = Stride * Mathf.PI;
 
 			float travel = velocity / Circumference;
