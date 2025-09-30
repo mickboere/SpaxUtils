@@ -57,6 +57,7 @@ namespace SpaxUtils
 			foreach (Leg leg in legs)
 			{
 				leg.UpdatePositions();
+				leg.Update();
 			}
 		}
 

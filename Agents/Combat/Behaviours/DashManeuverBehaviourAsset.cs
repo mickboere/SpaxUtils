@@ -37,6 +37,7 @@ namespace SpaxUtils
 				RigidbodyWrapper.Forward * dashSpeed * (movementSpeed ?? 1f) :
 				Quaternion.LookRotation(movementHandler.InputAxis) * movementHandler.InputRaw.normalized * dashSpeed * (movementSpeed ?? 1f);
 			RigidbodyWrapper.Push(startVelocity);
+			// TODO: Instead of push, animate the target velocity.
 		}
 
 		public override void Stop()

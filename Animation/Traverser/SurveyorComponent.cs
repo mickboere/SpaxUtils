@@ -70,43 +70,21 @@ namespace SpaxUtils
 			this.progress = progress;
 			foreach (Leg leg in legs.Legs)
 			{
-				leg.UpdateFoot(false, 0f, false, default, default);
+				leg.UpdateGround(false, 0f, false, default, default);
 			}
 		}
 
 		public void UpdateSurveyor(float delta)
 		{
-			UpdateSurveyor(delta * EntityTimeScale, rigidbodyWrapper.Velocity.FlattenY().magnitude);
-			UpdateLegs(delta * EntityTimeScale);
-		}
-
-		public void UpdateSurveyor(float delta, float velocity)
-		{
-			if (!grounder.Grounded || grounder.Sliding || velocity < 0.01f)
+			float velocity = rigidbodyWrapper.Velocity.FlattenY().magnitude;
+			if (!grounder.Grounded || grounder.Sliding || rigidbodyWrapper.Control < 0.5f || velocity < 0.01f)
 			{
 				ResetSurveyor(resetProgress);
 				return;
 			}
 
-			Speed = velocity / movementHandler.FullSpeed;
-
-			// Mobility Influence
-			Speed *= Mathf.Lerp(1f, grounder.Mobility, mobilityStrideInfluence);
-
-			// Acceleration Influence
-			float accel = ((rigidbodyWrapper.Acceleration.magnitude * accelerationScale).Clamp01().OutQuad() *
-				Speed.Clamp01().InQuad()).InvertClamped();
-			smoothAccel = Mathf.Lerp(smoothAccel, accel,
-				(accel < previousAccel ? accelerationSmoothing.x : accelerationSmoothing.y) * delta);
-			previousAccel = accel;
-			Speed *= Mathf.Lerp(1f, smoothAccel, accelerationStrideInfluence);
-
-			float strideInterpolation = velocity.InverseLerp(movementHandler.MinSpeed, movementHandler.FullSpeed);
-			Stride = minStride.Lerp(fullStride, strideInterpolation).Lerp(maxStride, ((Speed - 1f) * 2f).Clamp01());
-			Circumference = Stride * Mathf.PI;
-
-			float travel = velocity / Circumference;
-			progress = (progress + travel * delta).Repeat();
+			UpdateProgress(delta * EntityTimeScale, velocity);
+			Survey(delta * EntityTimeScale);
 		}
 
 		public float GetProgress(float offset = 0f, bool applyStrideSpeedCurve = true)
@@ -135,28 +113,31 @@ namespace SpaxUtils
 			return dir;
 		}
 
-		private void UpdateLegs(float delta)
+		private void UpdateProgress(float delta, float velocity)
 		{
-			if (rigidbodyWrapper.Control < 0.5f || grounder.Sliding)
-			{
-				foreach (Leg leg in legs.Legs)
-				{
-					Vector3 dir = leg.SolePos - leg.KneePos;
-					float length = dir.magnitude + clipThreshold * 2f;
-					if (Physics.Raycast(leg.KneePos, dir, out RaycastHit hit, length, layerMask) &&
-						length - hit.distance > clipThreshold)
-					{
-						leg.UpdateFoot(grounder.Grounded, 1f, true, hit.point, hit);
-					}
-					else
-					{
-						leg.UpdateFoot(grounder.Grounded, 0f, false, leg.TargetPoint, leg.GroundedHit);
-					}
-				}
+			Speed = velocity / movementHandler.FullSpeed;
 
-				return;
-			}
+			// Mobility Influence
+			Speed *= Mathf.Lerp(1f, grounder.Mobility, mobilityStrideInfluence);
 
+			// Acceleration Influence
+			float accel = ((rigidbodyWrapper.Acceleration.magnitude * accelerationScale).Clamp01().OutQuad() *
+				Speed.Clamp01().InQuad()).InvertClamped();
+			smoothAccel = Mathf.Lerp(smoothAccel, accel,
+				(accel < previousAccel ? accelerationSmoothing.x : accelerationSmoothing.y) * delta);
+			previousAccel = accel;
+			Speed *= Mathf.Lerp(1f, smoothAccel, accelerationStrideInfluence);
+
+			float strideInterpolation = velocity.InverseLerp(movementHandler.MinSpeed, movementHandler.FullSpeed);
+			Stride = minStride.Lerp(fullStride, strideInterpolation).Lerp(maxStride, ((Speed - 1f) * 2f).Clamp01());
+			Circumference = Stride * Mathf.PI;
+
+			float travel = velocity / Circumference * rigidbodyWrapper.Grip.InOutQuint();
+			progress = (progress + travel * delta).Repeat();
+		}
+
+		private void Survey(float delta)
+		{
 			foreach (Leg leg in legs.Legs)
 			{
 				float progress = GetProgress(leg.WalkCycleOffset);
@@ -164,9 +145,11 @@ namespace SpaxUtils
 
 				// Adjust sideways-spacing to always cast above the foot.
 				origin += (leg.SolePos - origin).LocalizeDirection(rigidbodyWrapper.transform).FlattenYZ().GlobalizeDirection(rigidbodyWrapper.transform);
-				// ^ TODO: Flatten in movement direction instead of Z.
+				// ^ TODO: Flatten in movement direction instead of Z for strafing.
+
 				// Move origin forwards to meet center of mass.
 				origin += (body.Center - origin).LocalizeDirection(transform).FlattenXY().GlobalizeDirection(transform) * surveyOriginCOMInfluence;
+
 				// Move origin to match velocity.
 				origin += rigidbodyWrapper.Velocity * delta * surveyOriginVelocityInfluence;
 
@@ -178,9 +161,6 @@ namespace SpaxUtils
 				Vector3 targetPoint = leg.TargetPoint;
 				RaycastHit groundedHit = leg.GroundedHit;
 				bool validGround = false;
-				float lift = leg.Sole.position.LocalizePoint(rigidbodyWrapper.transform).y;
-				bool lifted = lift < liftThreshold * body.Scale;
-				bool grounded = grounder.Grounded && !lifted;
 				float groundRange = progress < groundedRange.x ? progress / groundedRange.x : progress > groundedRange.y ? progress.InverseLerp(groundedRange.y, 1f) : 1f;
 
 				// Cast to find valid target foot position.
@@ -210,18 +190,20 @@ namespace SpaxUtils
 					groundedAmount = progress < groundThreshold ? anticipationCurve.Evaluate(fade) : exitCurve.Evaluate(fade);
 
 					// Only allow changing target point if foot is not grounded.
-					if (progress < groundThreshold && (!lifted || groundedAmount < 0.99f))
+					if (progress < groundThreshold)
 					{
-						targetPoint = hit.point;
+						targetPoint = groundedHit.point;
 					}
 				}
 
 				if (targetPoint.Distance(leg.ThighPos) > leg.Length * maxReach)
 				{
 					groundedAmount = 0f;
+					validGround = false;
 				}
 
-				leg.UpdateFoot(grounded, groundedAmount, validGround, targetPoint, groundedHit);
+				bool grounded = grounder.Grounded && groundRange.Approx(1f);
+				leg.UpdateGround(grounded, groundedAmount, validGround, targetPoint, groundedHit);
 			}
 		}
 
