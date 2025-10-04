@@ -29,13 +29,13 @@ namespace SpaxUtils
 			[SerializeField] private bool debug;
 
 			private IIKComponent ikComponent;
-			private IGrounderComponent grounder;
+			private GrounderComponent grounder;
 			private AgentLegsComponent legs;
 			private RigidbodyWrapper rigidbodyWrapper;
 
 			public void InjectDependencies(
 				IIKComponent ikComponent,
-				IGrounderComponent grounder,
+				GrounderComponent grounder,
 				AgentLegsComponent legs,
 				RigidbodyWrapper wrapper)
 			{
@@ -97,10 +97,10 @@ namespace SpaxUtils
 
 		[SerializeField] private List<LegIK> legs;
 
-		private IGrounderComponent grounderComponent;
+		private GrounderComponent grounderComponent;
 		private GrounderFBBIK grounderFBBIK;
 
-		public void InjectDependencies(IDependencyManager dependencyManager, IGrounderComponent grounderComponent)
+		public void InjectDependencies(IDependencyManager dependencyManager, GrounderComponent grounderComponent)
 		{
 			this.grounderComponent = grounderComponent;
 			foreach (LegIK leg in legs)

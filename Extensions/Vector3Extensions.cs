@@ -649,7 +649,7 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
-		/// Approximate a normal vector from a collection of points by comparing the highest and the lowest.
+		/// Approximate a normal vector from a collection of points by comparing their heights.
 		/// </summary>
 		public static Vector3 ApproxNormalFromPoints(this Vector3[] points, Vector3 up, out Vector3 center, bool debug = false, float debugSize = 1f)
 		{

@@ -82,17 +82,20 @@ namespace SpaxUtils
 		[Header("Stats")]
 		[SerializeField] private StatCost sprintCost;
 		[SerializeField] private float tiredInputLimiter = 0.75f;
+		[Header("Sliding")]
+		[SerializeField] private float slideSteeringSpeed = 4f;
+		[SerializeField, Range(0f, 1f)] private float slideSpeedSteerDamp = 0.2f;
 		[Header("Debugging")]
 		[SerializeField] private bool debug;
 
 		private RigidbodyWrapper rigidbodyWrapper;
-		private IGrounderComponent grounder;
+		private GrounderComponent grounder;
 		private MovementInputSettings inputSettings;
 		private MovementInputHelper inputHelper;
 
 		private EntityStat moveSpeedStat;
 
-		public void InjectDependencies(RigidbodyWrapper rigidbodyWrapper, IGrounderComponent grounder, MovementInputSettings inputSettings)
+		public void InjectDependencies(RigidbodyWrapper rigidbodyWrapper, GrounderComponent grounder, MovementInputSettings inputSettings)
 		{
 			this.rigidbodyWrapper = rigidbodyWrapper;
 			this.grounder = grounder;
@@ -141,6 +144,7 @@ namespace SpaxUtils
 
 			if (!grounder.Sliding)
 			{
+				// Default movement control.
 				rigidbodyWrapper.ApplyMovement(targetVelocity, controlForce * controlFalloff.Evaluate(rigidbodyWrapper.Speed / FullSpeed),
 					brakeForce, power, ignoreControl, grounder.Mobility);
 
@@ -149,10 +153,21 @@ namespace SpaxUtils
 					Entity.Stats.TryApplyStatCost(sprintCost.Stat, sprintCost.Cost * rigidbodyWrapper.Mass * (InputRaw.magnitude - 1f) * delta);
 				}
 			}
-			//else
-			//{
-			// TODO: Allow for sliding control & overhaul sliding altogether.
-			//}
+			else
+			{
+				// Sliding control.
+				Vector3 right = Vector3.Cross(Vector3.up, grounder.SurfaceNormal);
+				Vector3 downhill = right.Cross(grounder.SurfaceNormal);
+				Quaternion downQ = Quaternion.LookRotation(downhill, grounder.SurfaceNormal).Inverse();
+				float current = (downQ * rigidbodyWrapper.Velocity).x;
+				float target = (downQ * (Quaternion.LookRotation(InputAxis) * InputSmooth).ProjectOnPlane(downhill)).x;
+				float scale = (rigidbodyWrapper.Velocity.y * slideSpeedSteerDamp).Abs().Clamp01().InOutSine();
+				Vector3 force = right * current.CalculateForce(
+					target * moveSpeedStat * slideSteeringSpeed * scale,
+					power * EntityTimeScale * scale,
+					controlForce * EntityTimeScale * scale);
+				rigidbodyWrapper.AddForce(force);
+			}
 
 			if (debug)
 			{
@@ -166,16 +181,22 @@ namespace SpaxUtils
 			float time = delta * (ignoreControl ? 1f : rigidbodyWrapper.Control);
 			if (!targetDirection.HasValue)
 			{
-				if (LockRotation && TargetDirection != Vector3.zero)
+				Vector3 flatVelocity = rigidbodyWrapper.Velocity.FlattenY();
+				if (grounder.Sliding)
+				{
+					// Turn towards velocity direction.
+					Turn(flatVelocity.normalized);
+				}
+				else if (LockRotation && TargetDirection != Vector3.zero)
 				{
 					// Lock rotation in set target direction.
 					Turn(TargetDirection);
 				}
-				else if (!(rigidbodyWrapper.TargetVelocity == Vector3.zero || rigidbodyWrapper.Velocity.FlattenY() == Vector3.zero))
+				else if (!(rigidbodyWrapper.TargetVelocity == Vector3.zero || flatVelocity == Vector3.zero))
 				{
 					// Rotation isn't locked, look in velocity direction when at 100% grip and at target velocity direction when at 0% grip.
 					// Make turning speed depend on angle difference in target and current velocity.
-					Vector3 a = rigidbodyWrapper.Velocity.FlattenY().normalized;
+					Vector3 a = flatVelocity.normalized;
 					Vector3 b = rigidbodyWrapper.TargetVelocity.FlattenY().normalized;
 					Turn(a.Slerp(b, rigidbodyWrapper.Grip.InvertClamped().InOutQuint()), a.NormalizedDot(b).InOutSine());
 				}

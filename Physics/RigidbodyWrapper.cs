@@ -300,7 +300,8 @@ namespace SpaxUtils
 		/// <param name="brakeForce">Force used at 0% control.</param>
 		/// <param name="power">Scaling of forces; responsiveness.</param>
 		/// <param name="ignoreControl">TRUE will always use 100% control, false will use current <see cref="Control"/> percentage.</param>
-		public void ApplyMovement(Vector3? targetVelocity = null, float controlForce = 2000f, float brakeForce = 200f, float power = 20f, bool ignoreControl = false, float scale = 1f)
+		public void ApplyMovement(Vector3? targetVelocity = null, float controlForce = 2000f, float brakeForce = 200f, float power = 20f,
+			bool ignoreControl = false, float scale = 1f)
 		{
 			float control = ignoreControl ? 1f : Control;
 			float maxForce = Mathf.Lerp(brakeForce, controlForce, control);

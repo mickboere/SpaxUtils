@@ -14,10 +14,10 @@ namespace SpaxUtils
 		[SerializeField, Range(-1f, 1f)] private float mainCycleOffset;
 		[SerializeField] private List<Leg> legs = new List<Leg>();
 
-		private IGrounderComponent grounderComponent;
+		private GrounderComponent grounderComponent;
 		private SurfaceLibrary surfaceLibrary;
 
-		public void InjectDependencies(IGrounderComponent grounderComponent, SurfaceLibrary surfaceLibrary)
+		public void InjectDependencies(GrounderComponent grounderComponent, SurfaceLibrary surfaceLibrary)
 		{
 			this.grounderComponent = grounderComponent;
 			this.surfaceLibrary = surfaceLibrary;

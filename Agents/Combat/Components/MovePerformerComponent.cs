@@ -57,7 +57,7 @@ namespace SpaxUtils
 
 		private IDependencyManager dependencyManager;
 		private IAgent agent;
-		private IGrounderComponent grounder;
+		private GrounderComponent grounder;
 		private RigidbodyWrapper rigidbodyWrapper;
 		private CallbackService callbackService;
 
@@ -70,7 +70,7 @@ namespace SpaxUtils
 		private List<IPerformanceMove> processing = new List<IPerformanceMove>(); // Used to prevent stack overflows.
 
 		public void InjectDependencies(IDependencyManager dependencyManager, IAgent agent,
-			IGrounderComponent grounder, RigidbodyWrapper rigidbodyWrapper, CallbackService callbackService)
+			GrounderComponent grounder, RigidbodyWrapper rigidbodyWrapper, CallbackService callbackService)
 		{
 			this.dependencyManager = dependencyManager;
 			this.agent = agent;

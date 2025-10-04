@@ -184,6 +184,35 @@ namespace SpaxUtils
 
 		#endregion Rounding
 
+		#region Physics
+
+		/// <summary>
+		/// Calculates the force required to go from <paramref name="current"/>(this) to <paramref name="target"/> velocity.
+		/// </summary>
+		/// <param name="current">Current velocity.</param>
+		/// <param name="target">Target velocity.</param>
+		/// <param name="power">The amount of power we are allowed to use to reach the target velocity, a higher power will feel more immediate but has the possibility to overshoot.</param>
+		/// <returns>The force required to go from <paramref name="current"/>(this) to <paramref name="target"/> velocity.</returns>
+		public static float CalculateForce(this float current, float target, float power = 1f)
+		{
+			return (target - current) / Time.fixedDeltaTime * power;
+		}
+
+		/// <summary>
+		/// Calculates the force required to go from <paramref name="current"/>(this) to <paramref name="target"/> velocity,
+		/// clamping the result to <paramref name="maxForce"/>.
+		/// </summary>
+		/// <param name="current">Current velocity.</param>
+		/// <param name="target">Target velocity.</param>
+		/// <param name="power">The amount of power we are allowed to use to reach the target velocity, a higher power will feel more immediate but has the possibility to overshoot.</param>
+		/// <param name="maxForce">The value to clamp the force magnitude to.</param>
+		public static float CalculateForce(this float current, float target, float power, float maxForce)
+		{
+			return current.CalculateForce(target, power).Clamp(-maxForce, maxForce);
+		}
+
+		#endregion Physics
+
 		/// <summary>
 		/// Uses this float to evaluate <see cref="AnimationCurve"/> <paramref name="curve"/>.
 		/// </summary>

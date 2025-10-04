@@ -47,7 +47,7 @@ namespace SpaxUtils
 		private AnimatorPoser animatorPoser;
 		private IAgentMovementHandler movementHandler;
 		private AgentArmsComponent arms;
-		private IGrounderComponent grounder;
+		private GrounderComponent grounder;
 		private CallbackService callbackService;
 
 		private Pose airbornePose;
@@ -70,7 +70,7 @@ namespace SpaxUtils
 
 		public void InjectDependencies(IAgent agent, RigidbodyWrapper rigidbodyWrapper,
 			AnimatorPoser animatorPoser, IAgentMovementHandler movementHandler,
-			AgentArmsComponent arms, IGrounderComponent grounder, CallbackService callbackService)
+			AgentArmsComponent arms, GrounderComponent grounder, CallbackService callbackService)
 		{
 			this.agent = agent;
 			this.rigidbodyWrapper = rigidbodyWrapper;

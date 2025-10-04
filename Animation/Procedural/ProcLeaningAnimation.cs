@@ -14,9 +14,9 @@ namespace SpaxUtils
 
 		private RigidbodyWrapper wrapper;
 		private CallbackService callbackService;
-		private IGrounderComponent grounder;
+		private GrounderComponent grounder;
 
-		public void InjectDependencies(RigidbodyWrapper wrapper, CallbackService callbackService, IGrounderComponent grounder)
+		public void InjectDependencies(RigidbodyWrapper wrapper, CallbackService callbackService, GrounderComponent grounder)
 		{
 			this.wrapper = wrapper;
 			this.callbackService = callbackService;

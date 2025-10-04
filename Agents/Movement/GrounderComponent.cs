@@ -6,10 +6,10 @@ using UnityEngine;
 namespace SpaxUtils
 {
 	/// <summary>
-	/// Component responsible for grounding an entity, allowing it to traverse slopes and stairs.
+	/// Component responsible for grounding an agent, allowing it to traverse slopes and stairs.
 	/// </summary>
 	[DefaultExecutionOrder(-200)]
-	public class GrounderComponent : EntityComponentMono, IGrounderComponent
+	public class GrounderComponent : EntityComponentMono
 	{
 		[Serializable]
 		private class OptimizationSettings
@@ -58,38 +58,71 @@ namespace SpaxUtils
 			}
 		}
 
-		/// <inheritdoc/>
+		/// <summary>
+		/// Whether this entity should ground itself.
+		/// </summary>
 		public bool Ground { get; set; } = true;
 
-		/// <inheritdoc/>
+		/// <summary>
+		/// Returns true when the entity is touching the ground.
+		/// </summary>
 		public bool Grounded { get; private set; }
 
-		/// <inheritdoc/>
+		/// <summary>
+		/// Grounded percentage: 1 = fully grounded, 0 = ground exceeds reach.
+		/// </summary>
 		public float GroundedAmount { get; private set; }
 
-		/// <inheritdoc/>
+		/// <summary>
+		/// The amount of gravitational force applied to the agent.
+		/// </summary>
 		public CompositeFloat Gravity { get; private set; }
 
-		/// <inheritdoc/>
-		public bool Sliding => Grounded && Traction <= slidingThreshold;
+		/// <summary>
+		/// Normal vector of the average surface normal.
+		/// </summary>
+		public Vector3 SurfaceNormal { get; private set; }
 
-		/// <inheritdoc/>
+		/// <summary>
+		/// Normalized slope of the average surface normal.
+		/// </summary>
 		public float SurfaceSlope { get; private set; }
 
-		/// <inheritdoc/>
-		public float TerrainSlope { get; private set; }
-
-		/// <inheritdoc/>
+		/// <summary>
+		/// The grip on the current surface.
+		/// When too low, <see cref="Sliding"/> will be true.
+		/// </summary>
 		public float Traction { get; private set; }
 
-		/// <inheritdoc/>
+		/// <summary>
+		/// Returns true when the entity is unable to move due to too low <see cref="Traction"/>.
+		/// </summary>
+		public bool Sliding => Grounded && Traction <= slidingThreshold;
+
+		/// <summary>
+		/// Normal vector of the averaged terrain height.
+		/// </summary>
+		public Vector3 TerrainNormal { get; private set; }
+
+		/// <summary>
+		/// Normalized slope of the average terrain height.
+		/// </summary>
+		public float TerrainSlope { get; private set; }
+
+		/// <summary>
+		/// The ability to move on the current terrain.
+		/// Running down-hill may increase mobility, up-hill decrease. Stuff like walking in water may also decrease it.
+		/// </summary>
 		public float Mobility { get; private set; }
 
-		/// <inheritdoc/>
+		/// <summary>
+		/// The added elevation to the grounded position.
+		/// </summary>
 		public float Elevation { get; set; }
 
-		public Vector3 SurfaceNormal { get; private set; }
-		public Vector3 TerrainNormal { get; private set; }
+		/// <summary>
+		/// The average elevation point of the grounding terrain.
+		/// </summary>
 		public Vector3 StepPoint { get; private set; }
 
 		[SerializeField] private LayerMask layerMask;
@@ -119,19 +152,23 @@ namespace SpaxUtils
 		[SerializeField, Conditional(nameof(debug))] private float debugSize = 0.25f;
 
 		private RigidbodyWrapper rigidbodyWrapper;
+		private IAgent agent;
 
 		private RaycastHit groundedHit;
 		private Vector3[] stepPoints;
 		private Vector3[] stepNormals;
 
-		public void InjectDependencies(RigidbodyWrapper rigidbodyWrapper)
+		public void InjectDependencies(RigidbodyWrapper rigidbodyWrapper, IAgent agent)
 		{
 			this.rigidbodyWrapper = rigidbodyWrapper;
+			this.agent = agent;
 		}
 
 		protected void Awake()
 		{
 			Gravity = new CompositeFloat(gravity);
+			SurfaceNormal = rigidbodyWrapper.Up;
+			TerrainNormal = rigidbodyWrapper.Up;
 		}
 
 		protected void FixedUpdate()
@@ -140,6 +177,7 @@ namespace SpaxUtils
 			StepCheck();
 			CalculateTraction();
 			ApplyForces();
+			BlockActor();
 		}
 
 		private void GroundCheck()
@@ -172,37 +210,42 @@ namespace SpaxUtils
 			}
 
 			// Map ground surface.
-			Vector3 origin = rigidbodyWrapper.Position + rigidbodyWrapper.Up * stepHeight;
+			Vector3 origin = rigidbodyWrapper.Position + SurfaceNormal * stepHeight;
 			Vector2 radius = new Vector2(
 				Mathf.Max(stepRadius.x, rigidbodyWrapper.RelativeVelocity.x * stepRadius.x * 0.5f),
 				Mathf.Max(stepRadius.y, rigidbodyWrapper.RelativeVelocity.z * stepRadius.y * 0.5f));
-
-			if (!PhysicsUtils.TubeCast(origin, radius, -rigidbodyWrapper.Up, rigidbodyWrapper.Forward, stepHeight * 2f, layerMask, settings.Get(Entity.Priority).RayCount, out List<RaycastHit> hits, true))
+			if (!PhysicsUtils.TubeCast(origin, radius, -SurfaceNormal, rigidbodyWrapper.Forward, stepHeight * 2f,
+				layerMask, settings.Get(Entity.Priority).RayCount, out List<RaycastHit> hits, true, debug))
 			{
-				SurfaceNormal = Vector3.Lerp(SurfaceNormal, groundedHit.normal, normalSmoothing * Time.fixedDeltaTime);
-				TerrainNormal = Vector3.Lerp(TerrainNormal, rigidbodyWrapper.Up, normalSmoothing * Time.fixedDeltaTime);
+				SurfaceNormal = Vector3.Slerp(SurfaceNormal, groundedHit.normal, normalSmoothing * Time.fixedDeltaTime);
+				TerrainNormal = Vector3.Slerp(TerrainNormal, rigidbodyWrapper.Up, normalSmoothing * Time.fixedDeltaTime);
+				StepPoint = rigidbodyWrapper.Position;
 				return;
 			}
 
 			// Calculate surface (traction)
 			stepNormals = hits.Select(h => h.normal).ToArray();
-			SurfaceNormal = Vector3.Lerp(SurfaceNormal, stepNormals.AverageDirection(), normalSmoothing * Time.fixedDeltaTime);
+			SurfaceNormal = Vector3.Slerp(SurfaceNormal, stepNormals.AverageDirection(), normalSmoothing * Time.fixedDeltaTime);
 
 			// Calculate terrain (mobility)
 			stepPoints = hits.Select(h => h.point).ToArray();
-			TerrainNormal = Vector3.Lerp(TerrainNormal, stepPoints.ApproxNormalFromPoints(rigidbodyWrapper.Up, out Vector3 center, debug, debugSize), normalSmoothing * Time.fixedDeltaTime);
+			TerrainNormal = Vector3.Slerp(TerrainNormal, stepPoints.ApproxNormalFromPoints(rigidbodyWrapper.Up,
+				out Vector3 center, debug, debugSize), normalSmoothing * Time.fixedDeltaTime);
 
-			// Calculate desired position.
-			StepPoint = rigidbodyWrapper.Position + Vector3.Lerp(StepPoint - rigidbodyWrapper.Position, center - rigidbodyWrapper.Position, stepSmooth * Time.fixedDeltaTime);
+			// Calculate desired step-position.
+			StepPoint = rigidbodyWrapper.Position +
+				Vector3.Lerp(StepPoint - rigidbodyWrapper.Position,
+				center - rigidbodyWrapper.Position,
+				stepSmooth * rigidbodyWrapper.Velocity.y.Abs().Clamp(1f, 10f) * Time.fixedDeltaTime);
 
 			if (debug)
 			{
 				Debug.DrawRay(StepPoint, TerrainNormal * debugSize, Color.magenta);
 
-				foreach (RaycastHit hit in hits)
-				{
-					Debug.DrawLine(origin, hit.point, Color.blue);
-				}
+				//foreach (RaycastHit hit in hits)
+				//{
+				//	Debug.DrawLine(origin, hit.point, Color.blue);
+				//}
 			}
 		}
 
@@ -250,11 +293,12 @@ namespace SpaxUtils
 				{
 					// Slide down slope.
 					Vector3 slidingForce = (Vector3.down * Gravity).ProjectOnPlane(TerrainNormal);
+					slidingForce *= Mathf.Clamp(rigidbodyWrapper.Velocity.y * 10f, 1f, 10f); // Upward-sliding resistance.
 					rigidbodyWrapper.AddForce(slidingForce * SurfaceSlope, ForceMode.Acceleration);
 				}
 				else
 				{
-					// Disperse along slope.
+					// Disperse along terrain normal.
 					Vector3 movementDispersion = rigidbodyWrapper.Velocity.DisperseOnPlane(TerrainNormal) * Mobility;
 					rigidbodyWrapper.AddForce(movementDispersion, ForceMode.VelocityChange);
 				}
@@ -265,6 +309,19 @@ namespace SpaxUtils
 			else
 			{
 				rigidbodyWrapper.AddForce(Vector3.down * Gravity, ForceMode.Acceleration);
+			}
+		}
+
+		private void BlockActor()
+		{
+			// Block agent from acting while not grounded or sliding.
+			if (!Grounded || Sliding)
+			{
+				agent.Actor.AddBlocker(this);
+			}
+			else
+			{
+				agent.Actor.RemoveBlocker(this);
 			}
 		}
 	}

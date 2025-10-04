@@ -49,14 +49,14 @@ namespace SpaxUtils
 		private RigidbodyWrapper rigidbodyWrapper;
 		private AgentLegsComponent legs;
 		private IAgentBody body;
-		private IGrounderComponent grounder;
+		private GrounderComponent grounder;
 		private IAgentMovementHandler movementHandler;
 
 		private float smoothAccel;
 		private float previousAccel;
 
 		public void InjectDependencies(RigidbodyWrapper wrapper, AgentLegsComponent legs, IAgentBody body,
-			IGrounderComponent grounder, IAgentMovementHandler movementHandler)
+			GrounderComponent grounder, IAgentMovementHandler movementHandler)
 		{
 			this.rigidbodyWrapper = wrapper;
 			this.legs = legs;
