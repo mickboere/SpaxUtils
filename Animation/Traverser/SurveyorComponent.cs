@@ -144,8 +144,8 @@ namespace SpaxUtils
 				Vector3 direction = GetSurveyorSpoke(progress, out Vector3 origin);
 
 				// Adjust sideways-spacing to always cast above the foot.
-				origin += (leg.SolePos - origin).LocalizeDirection(rigidbodyWrapper.transform).FlattenYZ().GlobalizeDirection(rigidbodyWrapper.transform);
-				// ^ TODO: Flatten in movement direction instead of Z for strafing.
+				Vector3 offsetDir = rigidbodyWrapper.Velocity == Vector3.zero ? transform.forward : rigidbodyWrapper.Velocity;
+				origin += offsetDir.LookRotation() * (offsetDir.LookRotation().Inverse() * (leg.SolePos - origin)).FlattenYZ();
 
 				// Move origin forwards to meet center of mass.
 				origin += (body.Center - origin).LocalizeDirection(transform).FlattenXY().GlobalizeDirection(transform) * surveyOriginCOMInfluence;

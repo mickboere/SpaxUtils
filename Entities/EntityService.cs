@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using UnityEngine;
 
 namespace SpaxUtils
 {
@@ -101,14 +102,17 @@ namespace SpaxUtils
 		public List<T> GetComponents<T>(Func<IEntity, bool> entityEvaluation, Func<T, bool> componentEvaluation, params IEntity[] exclude) where T : class, IEntityComponent
 		{
 			List<T> components = new List<T>();
+			List<IEntity> ex = exclude.ToList();
 			foreach (IEntity entity in entities.Values)
 			{
-				if (!exclude.Contains(entity) && entityEvaluation(entity) && entity.TryGetEntityComponent(out T component) && componentEvaluation(component))
+				if (!ex.Contains(entity) &&
+					entityEvaluation(entity) &&
+					entity.TryGetEntityComponent(out T component) &&
+					componentEvaluation(component))
 				{
 					components.Add(component);
 				}
 			}
-
 			return components;
 		}
 

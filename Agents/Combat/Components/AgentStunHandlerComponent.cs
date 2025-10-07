@@ -21,7 +21,7 @@ namespace SpaxUtils
 		#endregion Tooltips
 
 		[Header("Grounded")]
-		[SerializeField] private PoseSequenceBlendTree hitBlendTree;
+		[SerializeField] private PoseBlendMap hitBlendTree;
 		[SerializeField] private float minStunTime = 0.5f;
 		[SerializeField, Tooltip(TT_RECOVERY_THRESH)] private float recoveryThreshold = 1.5f;
 		[SerializeField, Tooltip(TT_RECOVERED_THRESH)] private float recoveredThreshold = 0.5f;

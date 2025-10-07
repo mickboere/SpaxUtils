@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -8,6 +9,8 @@ namespace SpaxUtils
 {
 	public static class StringExtensions
 	{
+		#region Alphabet
+
 		public static readonly string[] Alphabet = new string[] { "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z" };
 
 		/// <summary>
@@ -25,6 +28,10 @@ namespace SpaxUtils
 			return Alphabet[i];
 		}
 
+		#endregion Alphabet
+
+		#region Checks
+
 		/// <summary>
 		/// Shorthand for <see cref="string.IsNullOrEmpty(string)"/>.
 		/// </summary>
@@ -34,6 +41,10 @@ namespace SpaxUtils
 		{
 			return string.IsNullOrEmpty(s);
 		}
+
+		#endregion Checks
+
+		#region Splitting
 
 		/// <summary>
 		/// Returns the last character in this string.
@@ -84,6 +95,37 @@ namespace SpaxUtils
 			return "";
 		}
 
+		/// <summary>
+		/// Split <paramref name="s"/> into camel cased words.
+		/// </summary>
+		public static string[] SplitCamelCase(this string s)
+		{
+			return Regex.Split(s, @"(?<!^)(?=[A-Z])");
+		}
+
+		/// <summary>
+		/// Turns a <paramref name="collection"/> into a single string using the <paramref name="selector>.
+		/// </summary>
+		public static string Print<T>(this IEnumerable<T> collection, Func<T, string> selector, string separator = ", ")
+		{
+			return string.Join(separator, collection.Select((i) => selector(i)).ToList());
+		}
+
+		/// <summary>
+		/// Returns a sub-stat identifier for stat <paramref name="s"/> with the last division ("/") of <paramref name="subStat"/>.
+		/// </summary>
+		/// <param name="s">The main stat identifier.</param>
+		/// <param name="subStat">The desired sub-stat to attach with the identifier.</param>
+		/// <returns>A sub-stat identifier for stat <paramref name="s"/> with the last division ("/") of <paramref name="subStat"/>.</returns>
+		public static string SubStat(this string s, string subStat)
+		{
+			return s + "/" + subStat.LastDivision();
+		}
+
+		#endregion Splitting
+
+		#region Wrapping
+
 		public static string Wrap(this string s, string prefix, string suffix)
 		{
 			return prefix + s + suffix;
@@ -99,13 +141,33 @@ namespace SpaxUtils
 			return $"<{tag}={value}>" + s + $"</{tag}>";
 		}
 
+		#endregion Wrapping
+
+		#region Sanitization
+
 		/// <summary>
-		/// Split <paramref name="s"/> into camel cased words.
+		/// Sanitizes a string to only leave letters and single spaces with all special characters and leading/trailing/double spaces removed.
 		/// </summary>
-		public static string[] SplitCamelCase(this string s)
+		public static string Sanitize(this string s)
 		{
-			return Regex.Split(s, @"(?<!^)(?=[A-Z])");
+			StringBuilder sb = new StringBuilder();
+			char? last = null;
+			for (int i = 0; i < s.Length; i++)
+			{
+				char c = s[i];
+				if (char.IsLetter(c) ||
+					(c == ' ' && (!last.HasValue || last.Value != ' ')))
+				{
+					sb.Append(c);
+					last = c;
+				}
+			}
+			return sb.ToString();
 		}
+
+		#endregion Sanitization
+
+		#region Hashing
 
 		/// <summary>
 		/// Converts a string into an integer which remains consistent across sessions.
@@ -130,25 +192,7 @@ namespace SpaxUtils
 			}
 		}
 
-		/// <summary>
-		/// Sanitizes a string to only leave letters and single spaces with all special characters and leading/trailing/double spaces removed.
-		/// </summary>
-		public static string Sanitize(this string s)
-		{
-			StringBuilder sb = new StringBuilder();
-			char? last = null;
-			for (int i = 0; i < s.Length; i++)
-			{
-				char c = s[i];
-				if (char.IsLetter(c) ||
-					(c == ' ' && (!last.HasValue || last.Value != ' ')))
-				{
-					sb.Append(c);
-					last = c;
-				}
-			}
-			return sb.ToString();
-		}
+		#endregion Hashing
 
 		#region Distance functions
 
@@ -223,24 +267,13 @@ namespace SpaxUtils
 
 		#endregion
 
-		/// <summary>
-		/// Returns a sub-stat identifier for stat <paramref name="s"/> with the last division ("/") of <paramref name="subStat"/>.
-		/// </summary>
-		/// <param name="s">The main stat identifier.</param>
-		/// <param name="subStat">The desired sub-stat to attach with the identifier.</param>
-		/// <returns>A sub-stat identifier for stat <paramref name="s"/> with the last division ("/") of <paramref name="subStat"/>.</returns>
-		public static string SubStat(this string s, string subStat)
-		{
-			return s + "/" + subStat.LastDivision();
-		}
-
-		#region Char
+		#region Chars
 
 		public static bool IsNewLine(this char c)
 		{
 			return c == '\n' || c == '\r';
 		}
 
-		#endregion
+		#endregion Chars
 	}
 }

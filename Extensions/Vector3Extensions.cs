@@ -390,6 +390,11 @@ namespace SpaxUtils
 
 		#region Transformation
 
+		public static Vector2 TwoD(this Vector3 v)
+		{
+			return new Vector2(v.x, v.z);
+		}
+
 		/// <summary>
 		/// Converts global vector to local vector (InverseTransformVector).
 		/// </summary>

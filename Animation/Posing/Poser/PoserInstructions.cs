@@ -73,6 +73,12 @@ namespace SpaxUtils
 			instructions[1] = new PoseInstruction(toSequence.Evaluate(toTime), interpolation);
 		}
 
+		public PoserInstructions(PoseSequence sequence, float time = 0f, float weight = 1f)
+		{
+			instructions = new PoseInstruction[1];
+			instructions[0] = new PoseInstruction(sequence.Evaluate(time), weight);
+		}
+
 		public void NormalizeWeights()
 		{
 			float totalWeight = instructions.Sum((i) => i.Weight);

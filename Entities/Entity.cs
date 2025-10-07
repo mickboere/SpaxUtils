@@ -139,7 +139,17 @@ namespace SpaxUtils
 			}
 
 			DependencyManager = dependencyManager;
-			Components = new List<IEntityComponent>(entityComponents);
+			Components = new List<IEntityComponent>();
+			foreach (IEntityComponent component in entityComponents)
+			{
+				// Only add component if it actually belongs to this entity.
+				// Sometimes one entity's components are injected into another for easy reference,
+				// -but that doesn't mean the components belong to this entity.
+				if (component.Entity == this)
+				{
+					Components.Add(component);
+				}
+			}
 			this.entityCollection = entityCollection;
 			this.optimizationService = optimizationService;
 			this.cameraService = cameraService;

@@ -4,16 +4,19 @@ using UnityEngine;
 namespace SpaxUtils
 {
 	[Serializable]
-	public class PoseBlendTreeSequence
+	public class PoseBlendMapEntry
 	{
+		/// <summary>
+		/// The pose sequence at this blendtree point.
+		/// </summary>
+		public PoseSequence Sequence => sequence;
+
 		/// <summary>
 		/// The location of this sequence within the blend tree.
 		/// </summary>
 		public Vector3 Position => position;
 
-		public PoseSequence Sequence => sequence;
-
-		[SerializeField] private Vector3 position;
 		[SerializeField] private PoseSequence sequence;
+		[SerializeField] private Vector3 position;
 	}
 }

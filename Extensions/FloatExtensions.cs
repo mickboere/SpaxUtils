@@ -98,6 +98,14 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
+		/// Clamps the float to 0 or above.
+		/// </summary>
+		public static float Pos(this float f)
+		{
+			return f < 0f ? 0f : f;
+		}
+
+		/// <summary>
 		/// Returns the lowest value between <paramref name="f"/> and <paramref name="values"/>.
 		/// </summary>
 		public static float Min(this float f, params float[] values)
