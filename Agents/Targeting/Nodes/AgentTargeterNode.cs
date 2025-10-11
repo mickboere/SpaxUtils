@@ -11,18 +11,19 @@ namespace SpaxUtils
 		[SerializeField] private float maxDistance;
 
 		private IAgent agent;
-		private IEntityCollection entityCollection;
 		private AgentNavigationHandler navigationHandler;
 		private IAgentMovementHandler movementHandler;
 		private IVisionComponent visionComponent;
+		private IEntityCollection entityCollection;
 
 		public void InjectDependencies(IAgent agent, AgentNavigationHandler navigationHandler,
-			IAgentMovementHandler movementHandler, IVisionComponent visionComponent)
+			IAgentMovementHandler movementHandler, IVisionComponent visionComponent, IEntityCollection entityCollection)
 		{
 			this.agent = agent;
 			this.navigationHandler = navigationHandler;
 			this.movementHandler = movementHandler;
 			this.visionComponent = visionComponent;
+			this.entityCollection = entityCollection;
 		}
 
 		public override void OnStateEntered()
@@ -59,7 +60,7 @@ namespace SpaxUtils
 				}
 				else
 				{
-					ITargetable best = visionComponent.GetMostLikelyTarget(agent.Targeter.Enemies.Components);
+					ITargetable best = visionComponent.GetMostLikelyTarget(entityCollection.GetComponents<ITargetable>(agent));
 					if (best != null)
 					{
 						agent.Targeter.SetTarget(best);

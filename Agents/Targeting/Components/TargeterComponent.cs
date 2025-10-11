@@ -7,7 +7,7 @@ namespace SpaxUtils
 	/// <summary>
 	/// Implementation of <see cref="ITargeter"/>.
 	/// Stores an entity's current target as <see cref="ITargetable"/>.
-	/// Also keeps track of the agent's friends and enemies as collections of <see cref="IEntityComponentFilter{ITargetable}"/>
+	/// Also keeps track of the agent's enemies and allies as collections of <see cref="IEntityComponentFilter{ITargetable}"/>
 	/// </summary>
 	public class TargeterComponent : EntityComponentMono, ITargeter
 	{

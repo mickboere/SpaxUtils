@@ -143,9 +143,7 @@ namespace SpaxUtils
 			foreach (IEntityComponent component in entityComponents)
 			{
 				// Only add component if it actually belongs to this entity.
-				// Sometimes one entity's components are injected into another for easy reference,
-				// -but that doesn't mean the components belong to this entity.
-				if (component.Entity == this)
+				if (component.Entity == null || component.Entity == this)
 				{
 					Components.Add(component);
 				}

@@ -142,31 +142,34 @@ namespace SpaxUtils
 					Quaternion.LookRotation(InputAxis) * InputSmooth.normalized * CalculateSpeed(InputSmooth.magnitude) * moveSpeedStat;
 			}
 
-			if (!grounder.Sliding)
+			if (grounder.Grounded)
 			{
-				// Default movement control.
-				rigidbodyWrapper.ApplyMovement(targetVelocity, controlForce * controlFalloff.Evaluate(rigidbodyWrapper.Speed / FullSpeed),
-					brakeForce, power, ignoreControl, grounder.Mobility);
-
-				if (InputRaw.magnitude > 1.01f)
+				if (!grounder.Sliding)
 				{
-					Entity.Stats.TryApplyStatCost(sprintCost.Stat, sprintCost.Cost * rigidbodyWrapper.Mass * (InputRaw.magnitude - 1f) * delta);
+					// Default movement control.
+					rigidbodyWrapper.ApplyMovement(targetVelocity, controlForce * controlFalloff.Evaluate(rigidbodyWrapper.Speed / FullSpeed),
+						brakeForce, power, ignoreControl, grounder.Mobility);
+
+					if (InputRaw.magnitude > 1.01f)
+					{
+						Entity.Stats.TryApplyStatCost(sprintCost.Stat, sprintCost.Cost * rigidbodyWrapper.Mass * (InputRaw.magnitude - 1f) * delta);
+					}
 				}
-			}
-			else
-			{
-				// Sliding control.
-				Vector3 right = Vector3.Cross(Vector3.up, grounder.SurfaceNormal);
-				Vector3 downhill = right.Cross(grounder.SurfaceNormal);
-				Quaternion downQ = Quaternion.LookRotation(downhill, grounder.SurfaceNormal).Inverse();
-				float current = (downQ * rigidbodyWrapper.Velocity).x;
-				float target = (downQ * (Quaternion.LookRotation(InputAxis) * InputSmooth).ProjectOnPlane(downhill)).x;
-				float scale = (rigidbodyWrapper.Velocity.y * slideSpeedSteerDamp).Abs().Clamp01().InOutSine();
-				Vector3 force = right * current.CalculateForce(
-					target * moveSpeedStat * slideSteeringSpeed * scale,
-					power * EntityTimeScale * scale,
-					controlForce * EntityTimeScale * scale);
-				rigidbodyWrapper.AddForce(force);
+				else if (grounder.SurfaceNormal != Vector3.up)
+				{
+					// Sliding control.
+					Vector3 right = Vector3.Cross(Vector3.up, grounder.SurfaceNormal);
+					Vector3 downhill = right.Cross(grounder.SurfaceNormal);
+					Quaternion downQ = Quaternion.LookRotation(downhill, grounder.SurfaceNormal).Inverse();
+					float current = (downQ * rigidbodyWrapper.Velocity).x;
+					float target = (downQ * (Quaternion.LookRotation(InputAxis) * InputSmooth).ProjectOnPlane(downhill)).x;
+					float scale = (rigidbodyWrapper.Velocity.y * slideSpeedSteerDamp).Abs().Clamp01().InOutSine();
+					Vector3 force = right * current.CalculateForce(
+						target * moveSpeedStat * slideSteeringSpeed * scale,
+						power * EntityTimeScale * scale,
+						controlForce * EntityTimeScale * scale);
+					rigidbodyWrapper.AddForce(force);
+				}
 			}
 
 			if (debug)
