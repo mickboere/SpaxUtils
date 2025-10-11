@@ -166,12 +166,16 @@ namespace SpaxUtils
 				// For each surface, add it's color channel value to the surface values.
 				foreach (SurfaceData surface in surfaces)
 				{
-					surfaceValues[surface.surfaceType] = GetColorValue(blend, surface.vertexColor);
+					if (!surfaceValues.ContainsKey(surface.surfaceType))
+					{
+						surfaceValues.Add(surface.surfaceType, 0f);
+					}
+					surfaceValues[surface.surfaceType] = (surfaceValues[surface.surfaceType] + GetColorValue(blend, surface.vertexColor)).Clamp01();
 				}
 
 				// Add default surface to fill out default audio.
 				if (!surfaceValues.ContainsKey(defaultSurfaceType)) { surfaceValues.Add(defaultSurfaceType, 0f); }
-				surfaceValues[defaultSurfaceType] += blend.Sum().Invert();
+				surfaceValues[defaultSurfaceType] += blend.Sum().InvertClamped();
 			}
 			else
 			{
@@ -179,16 +183,6 @@ namespace SpaxUtils
 			}
 
 			return surfaceValues;
-		}
-
-		private void AddSurfaceValueToDictionary(Dictionary<string, float> surfaceValues, string surface, float value)
-		{
-			if (!surfaceValues.ContainsKey(surface))
-			{
-				surfaceValues.Add(surface, 0f);
-			}
-
-			surfaceValues[surface] += value;
 		}
 
 		private void EnsureOneSurfacePerColor()

@@ -16,14 +16,14 @@
 		InCubic,
 		OutCubic,
 		InOutCubic,
-		// Quint
-		InQuint,
-		OutQuint,
-		InOutQuint,
 		// Quart
 		InQuart,
 		OutQuart,
 		InOutQuart,
+		// Quint
+		InQuint,
+		OutQuint,
+		InOutQuint,
 		// Expo
 		InExpo,
 		OutExpo,

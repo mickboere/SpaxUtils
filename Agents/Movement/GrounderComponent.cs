@@ -293,7 +293,7 @@ namespace SpaxUtils
 				{
 					// Slide down slope.
 					Vector3 slidingForce = (Vector3.down * Gravity).ProjectOnPlane(TerrainNormal);
-					slidingForce *= Mathf.Clamp(rigidbodyWrapper.Velocity.y * 10f, 1f, 10f); // Upward-sliding resistance.
+					slidingForce *= Mathf.Clamp(1f + rigidbodyWrapper.Velocity.y * 10f, 1f, 10f); // Upward-sliding resistance.
 					rigidbodyWrapper.AddForce(slidingForce * SurfaceSlope, ForceMode.Acceleration);
 				}
 				else

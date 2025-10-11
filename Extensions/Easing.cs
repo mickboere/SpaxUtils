@@ -32,13 +32,6 @@ namespace SpaxUtils
 					return f.OutCubic();
 				case EasingMethod.InOutCubic:
 					return f.InOutCubic();
-				// Quint
-				case EasingMethod.InQuint:
-					return f.InQuint();
-				case EasingMethod.OutQuint:
-					return f.OutQuint();
-				case EasingMethod.InOutQuint:
-					return f.InOutQuint();
 				// Quart
 				case EasingMethod.InQuart:
 					return f.InQuart();
@@ -46,6 +39,13 @@ namespace SpaxUtils
 					return f.OutQuart();
 				case EasingMethod.InOutQuart:
 					return f.InOutQuart();
+				// Quint
+				case EasingMethod.InQuint:
+					return f.InQuint();
+				case EasingMethod.OutQuint:
+					return f.OutQuint();
+				case EasingMethod.InOutQuint:
+					return f.InOutQuint();
 				// Expo
 				case EasingMethod.InExpo:
 					return f.InExpo();
@@ -70,7 +70,7 @@ namespace SpaxUtils
 		#region Sine
 
 		/// <summary>
-		/// https://easings.net/#easeInSine
+		/// First order ease. https://easings.net/#easeInSine
 		/// </summary>
 		public static float InSine(this float x)
 		{
@@ -78,7 +78,7 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
-		/// https://easings.net/#easeOutSine
+		/// First order ease. https://easings.net/#easeOutSine
 		/// </summary>
 		public static float OutSine(this float x)
 		{
@@ -86,7 +86,7 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
-		/// https://easings.net/#easeInOutSine
+		/// First order ease. https://easings.net/#easeInOutSine
 		/// </summary>
 		public static float InOutSine(this float x)
 		{
@@ -94,7 +94,7 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
-		/// https://easings.net/#easeInOutSine
+		/// First order ease. https://easings.net/#easeInOutSine
 		/// </summary>
 		public static float ReverseInOutSine(this float x)
 		{
@@ -106,7 +106,7 @@ namespace SpaxUtils
 		#region Quad
 
 		/// <summary>
-		/// https://easings.net/#easeInQuad
+		/// Second order ease. https://easings.net/#easeInQuad
 		/// </summary>
 		public static float InQuad(this float x)
 		{
@@ -114,7 +114,7 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
-		/// https://easings.net/#easeOutQuad
+		/// Second order ease. https://easings.net/#easeOutQuad
 		/// </summary>
 		public static float OutQuad(this float x)
 		{
@@ -122,7 +122,7 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
-		/// https://easings.net/#easeInOutQuad
+		/// Second order ease. https://easings.net/#easeInOutQuad
 		/// </summary>
 		public static float InOutQuad(this float x)
 		{
@@ -134,7 +134,7 @@ namespace SpaxUtils
 		#region Cubic
 
 		/// <summary>
-		/// https://easings.net/#easeInCubic
+		/// Third order ease. https://easings.net/#easeInCubic
 		/// </summary>
 		public static float InCubic(this float x)
 		{
@@ -142,7 +142,7 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
-		/// https://easings.net/#easeOutCubic
+		/// Third order ease. https://easings.net/#easeOutCubic
 		/// </summary>
 		public static float OutCubic(this float x)
 		{
@@ -150,7 +150,7 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
-		/// https://easings.net/#easeInOutCubic
+		/// Third order ease. https://easings.net/#easeInOutCubic
 		/// </summary>
 		public static float InOutCubic(this float x)
 		{
@@ -158,7 +158,7 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
-		/// 1f - https://easings.net/#easeInOutCubic
+		/// Third order ease. 1f - https://easings.net/#easeInOutCubic
 		/// </summary>
 		public static float ReverseInOutCubic(this float x)
 		{
@@ -167,38 +167,10 @@ namespace SpaxUtils
 
 		#endregion Cubic
 
-		#region Quint
-
-		/// <summary>
-		/// https://easings.net/#easeInQuint
-		/// </summary>
-		public static float InQuint(this float x)
-		{
-			return x * x * x * x * x;
-		}
-
-		/// <summary>
-		/// https://easings.net/#easeOutQuint
-		/// </summary>
-		public static float OutQuint(this float x)
-		{
-			return 1f - Mathf.Pow(1f - x, 5f);
-		}
-
-		/// <summary>
-		/// https://easings.net/#easeInOutQuint
-		/// </summary>
-		public static float InOutQuint(this float x)
-		{
-			return x < 0.5f ? 16f * x * x * x * x * x : 1f - Mathf.Pow(-2f * x + 2f, 5f) / 2f;
-		}
-
-		#endregion Quint
-
 		#region Quart
 
 		/// <summary>
-		/// https://easings.net/#easeInQuart
+		/// Fourth order ease. https://easings.net/#easeInQuart
 		/// </summary>
 		public static float InQuart(this float x)
 		{
@@ -206,7 +178,7 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
-		/// https://easings.net/#easeOutQuart
+		/// Fourth order ease. https://easings.net/#easeOutQuart
 		/// </summary>
 		public static float OutQuart(this float x)
 		{
@@ -214,7 +186,7 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
-		/// https://easings.net/#easeInOutQuart
+		/// Fourth order ease. https://easings.net/#easeInOutQuart
 		/// </summary>
 		public static float InOutQuart(this float x)
 		{
@@ -223,10 +195,38 @@ namespace SpaxUtils
 
 		#endregion Quart
 
+		#region Quint
+
+		/// <summary>
+		/// Fifth order ease. https://easings.net/#easeInQuint
+		/// </summary>
+		public static float InQuint(this float x)
+		{
+			return x * x * x * x * x;
+		}
+
+		/// <summary>
+		/// Fifth order ease. https://easings.net/#easeOutQuint
+		/// </summary>
+		public static float OutQuint(this float x)
+		{
+			return 1f - Mathf.Pow(1f - x, 5f);
+		}
+
+		/// <summary>
+		/// Fifth order ease. https://easings.net/#easeInOutQuint
+		/// </summary>
+		public static float InOutQuint(this float x)
+		{
+			return x < 0.5f ? 16f * x * x * x * x * x : 1f - Mathf.Pow(-2f * x + 2f, 5f) / 2f;
+		}
+
+		#endregion Quint
+
 		#region Expo
 
 		/// <summary>
-		/// https://easings.net/#easeInExpo
+		/// Sixth order ease. https://easings.net/#easeInExpo
 		/// </summary>
 		public static float InExpo(this float x)
 		{
@@ -234,7 +234,7 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
-		/// https://easings.net/#easeOutExpo
+		/// Sixth order ease. https://easings.net/#easeOutExpo
 		/// </summary>
 		public static float OutExpo(this float x)
 		{
@@ -242,7 +242,7 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
-		/// https://easings.net/#easeInOutExpo
+		/// Sixth order ease. https://easings.net/#easeInOutExpo
 		/// </summary>
 		public static float InOutExpo(this float x)
 		{
