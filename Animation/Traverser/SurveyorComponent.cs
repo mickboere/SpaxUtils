@@ -70,7 +70,7 @@ namespace SpaxUtils
 			this.progress = progress;
 			foreach (Leg leg in legs.Legs)
 			{
-				leg.UpdateGround(false, 0f, false, default, default);
+				leg.UpdateGround(grounder.Grounded, 0f, false, default, default);
 			}
 		}
 

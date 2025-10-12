@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace SpaxUtils
 {
-	[CreateAssetMenu(fileName = "EquipmentCarryBehaviourAsset", menuName = "ScriptableObjects/EquipmentCarryBehaviourAsset")]
+	[CreateAssetMenu(fileName = "EquipmentCarryBehaviourAsset", menuName = "ScriptableObjects/Behaviours/EquipmentCarryBehaviourAsset")]
 	public class EquipmentCarryBehaviourAsset : BehaviourAsset
 	{
 		private float ElbowHintWeight
@@ -17,11 +17,9 @@ namespace SpaxUtils
 		[SerializeField] private int ikPrio = 0;
 		[SerializeField] private float smoothTime = 0.5f;
 		[Header("Position")]
-		[SerializeField] private float accelerationInfluence = 1f;
-		[SerializeField] private float maxAccelerationInfluence = 1f;
-		[SerializeField] private float velocityInfluence = 1f;
-		[SerializeField] private float maxVelocityInfluence = 1f;
+		[SerializeField] private float posTimeMult = 1f;
 		[Header("Rotation")]
+		[SerializeField] private float rotTimeMult = 1f;
 		[SerializeField] private float smoothMaxAngle = 60f;
 		[SerializeField] private float absoluteMaxAngle = 90f;
 		[SerializeField] private float smoothAnglePower = 10f;
@@ -119,12 +117,10 @@ namespace SpaxUtils
 
 			// CALCULATE POSITION.
 			Vector3 targetPos = hand.position - agent.Transform.position;
-			//targetPos += (rigidbodyWrapper.Acceleration * accelerationInfluence).ClampMagnitude(maxAccelerationInfluence);
-			//targetPos += (rigidbodyWrapper.Velocity * velocityInfluence).ClampMagnitude(maxVelocityInfluence);
 			targetPosSmooth =
 				targetPosSmooth == Vector3.zero ?
 					targetPos :
-					targetPosSmooth.SmoothDamp(targetPos, ref posVelocity, time, delta);
+					targetPosSmooth.SmoothDamp(targetPos, ref posVelocity, time * posTimeMult, delta);
 
 			// - Prevent position going out of bounds.
 			targetPosSmooth = (targetPosSmooth + agent.Transform.position).LocalizePoint(agent.Transform);
@@ -144,7 +140,7 @@ namespace SpaxUtils
 			targetRotationSmooth =
 				targetRotationSmooth == Quaternion.identity ?
 					targetRotation :
-					targetRotationSmooth.SmoothDamp(targetRotation, ref rotVelocity, time, delta);
+					targetRotationSmooth.SmoothDamp(targetRotation, ref rotVelocity, time * rotTimeMult, delta);
 			targetRotationSmooth = targetRotationSmooth.SmoothClampForward(agent.Transform.forward, smoothMaxAngle, absoluteMaxAngle, smoothAnglePower * delta);
 
 			// APPLY INFLUENCE.

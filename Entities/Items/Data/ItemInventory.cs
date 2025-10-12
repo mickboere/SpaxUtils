@@ -121,6 +121,12 @@ namespace SpaxUtils
 			}
 
 			IItemData itemData = itemDatabase.GetItem(itemID);
+			if(itemData == null)
+			{
+				SpaxDebug.Error("Item ID does not exist in database!", runtimeData.ToString());
+				return null;
+			}
+
 			return AddItem(itemData, runtimeData);
 		}
 

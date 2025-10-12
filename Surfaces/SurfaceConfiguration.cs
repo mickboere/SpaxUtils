@@ -7,6 +7,7 @@ namespace SpaxUtils
 	public class SurfaceConfiguration
 	{
 		public string Surface => surface;
+		public float Hardness => hardness;
 		public SFXData SlideSFX => slideSFX;
 
 		[SerializeField, ConstDropdown(typeof(ISurfaceTypeConstants))] private string surface;

@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace SpaxUtils
 {
@@ -10,22 +11,30 @@ namespace SpaxUtils
 	[CreateAssetMenu(fileName = nameof(StatMap), menuName = "ScriptableObjects/Stats/" + nameof(StatMap))]
 	public class StatMap : ScriptableObject
 	{
-		public IReadOnlyList<StatMapping> Mappings => mappings;
+		public IReadOnlyList<StatMapping> StatMappings => statMappings;
 
-		public IReadOnlyDictionary<string, StatMapping> FromMappings
+		public IReadOnlyDictionary<string, StatMapping> FromStatMappings
 		{
 			get
 			{
-				if (_fromMappings == null)
+				if (_fromStatMappings == null)
 				{
-					_fromMappings = mappings.ToDictionary((s) => s.FromStat, (s) => s);
+					_fromStatMappings = statMappings.ToDictionary((s) => s.FromStat, (s) => s);
 				}
-				return _fromMappings;
+				return _fromStatMappings;
 			}
 		}
-		private Dictionary<string, StatMapping> _fromMappings;
+		private Dictionary<string, StatMapping> _fromStatMappings;
+
+		/// <summary>
+		/// Direct value-to-value data mappings.
+		/// </summary>
+		public IList<string> DataMappings => dataMappings;
 
 		[SerializeField, TextArea] private string notes;
-		[SerializeField] private List<StatMapping> mappings;
+		[SerializeField, FormerlySerializedAs("mappings")] private List<StatMapping> statMappings;
+		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifiers)),
+			Tooltip("Direct value-to-value data mappings.")]
+		private List<string> dataMappings;
 	}
 }

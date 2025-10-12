@@ -39,7 +39,7 @@ namespace SpiritAxis
 		private void AddMap(StatMap map)
 		{
 			// Configure the defined stat-to-stat mappings.
-			foreach (StatMapping mapping in map.Mappings)
+			foreach (StatMapping mapping in map.StatMappings)
 			{
 				// Get the target stat to add the mapping to.
 				EntityStat toStat = Entity.Stats.GetStat(mapping.ToStat, true);

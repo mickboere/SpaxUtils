@@ -49,7 +49,7 @@ namespace SpaxUtils
 			{
 				float weight = Leg.GroundedAmount * rigidbodyWrapper.Grip;
 
-				if (grounder.Grounded && (grounder.Sliding || rigidbodyWrapper.Control < 0.5f || weight < 0.9f))
+				if (grounder.Grounded && (grounder.Sliding || rigidbodyWrapper.Control < 0.5f || weight < 0.5f))
 				{
 					// Prevent feet clipping through ground.
 					Vector3 dir = Leg.SolePos - Leg.KneePos;

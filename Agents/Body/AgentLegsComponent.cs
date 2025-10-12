@@ -16,11 +16,16 @@ namespace SpaxUtils
 
 		private GrounderComponent grounderComponent;
 		private SurfaceLibrary surfaceLibrary;
+		private EntityStat elevationStat;
+		private RuntimeDataEntry feetSurfaceData;
 
 		public void InjectDependencies(GrounderComponent grounderComponent, SurfaceLibrary surfaceLibrary)
 		{
 			this.grounderComponent = grounderComponent;
 			this.surfaceLibrary = surfaceLibrary;
+			elevationStat = Entity.Stats.GetStat(AgentDataIdentifiers.ELEVATION, true, 0f);
+			feetSurfaceData = Entity.RuntimeData.GetEntry(AgentDataIdentifiers.FEET_SURFACE,
+				new RuntimeDataEntry(AgentDataIdentifiers.FEET_SURFACE, "", false));
 		}
 
 		protected void OnEnable()
@@ -30,6 +35,9 @@ namespace SpaxUtils
 				leg.Initialize(surfaceLibrary);
 				leg.FootstepEvent += OnFootstepEvent;
 			}
+			elevationStat.ValueChangedEvent += OnElevationChange;
+			feetSurfaceData.ValueChangedEvent += OnFeetSurfaceChange;
+			OnElevationChange();
 		}
 
 		protected void OnDisable()
@@ -38,6 +46,8 @@ namespace SpaxUtils
 			{
 				leg.FootstepEvent -= OnFootstepEvent;
 			}
+			elevationStat.ValueChangedEvent -= OnElevationChange;
+			feetSurfaceData.ValueChangedEvent -= OnFeetSurfaceChange;
 		}
 
 		protected void Update()
@@ -57,6 +67,14 @@ namespace SpaxUtils
 			foreach (Leg leg in legs)
 			{
 				leg.UpdatePositions();
+				//leg.Update();
+			}
+		}
+
+		protected void FixedUpdate()
+		{
+			foreach (Leg leg in legs)
+			{
 				leg.Update();
 			}
 		}
@@ -64,6 +82,22 @@ namespace SpaxUtils
 		private void OnFootstepEvent(Leg leg, bool grounded, Dictionary<SurfaceConfiguration, float> surfaces)
 		{
 			FootstepEvent?.Invoke(leg, grounded, surfaces);
+		}
+
+		private void OnElevationChange()
+		{
+			foreach (Leg leg in legs)
+			{
+				leg.Elevation = elevationStat.Value;
+			}
+		}
+
+		private void OnFeetSurfaceChange(object value)
+		{
+			foreach (Leg leg in legs)
+			{
+				leg.FootSurface = (string)value;
+			}
 		}
 	}
 }

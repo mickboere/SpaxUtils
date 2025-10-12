@@ -46,13 +46,16 @@ namespace SpaxUtils
 		public IDependencyManager DependencyManager { get; private set; }
 
 		private List<DataStatMappingModifier> statModifiers = new List<DataStatMappingModifier>();
+		private Dictionary<string, object> dataBackup = new Dictionary<string, object>();
 		private List<BehaviourAsset> behaviours = new List<BehaviourAsset>();
+		private IEntity entity;
 
-		public RuntimeEquipedData(RuntimeItemData runtimeItemData, IEquipmentSlot slot, IDependencyManager dependencyManager, GameObject equipedInstance = null)
+		public RuntimeEquipedData(RuntimeItemData runtimeItemData, IEquipmentSlot slot, IDependencyManager dependencyManager, IEntity entity, GameObject equipedInstance = null)
 		{
 			RuntimeItemData = runtimeItemData;
 			Slot = slot;
 			DependencyManager = dependencyManager;
+			this.entity = entity;
 			EquipedInstance = equipedInstance;
 
 			AddStatMappings();
@@ -63,6 +66,10 @@ namespace SpaxUtils
 			foreach (DataStatMappingModifier mod in statModifiers)
 			{
 				mod.Dispose();
+			}
+			foreach (KeyValuePair<string, object> backup in dataBackup)
+			{
+				entity.RuntimeData.SetValue(backup.Key, backup.Value);
 			}
 			foreach (BehaviourAsset behaviour in behaviours)
 			{
@@ -97,31 +104,39 @@ namespace SpaxUtils
 
 		private void AddStatMappings()
 		{
-			Agent agent = DependencyManager.Get<Agent>(true, false);
-
-			foreach (StatMap statMappingSheet in EquipmentData.EquipedStatMappings)
+			foreach (RuntimeDataEntry item in RuntimeItemData.RuntimeData.Data)
 			{
-				foreach (StatMapping mapping in statMappingSheet.Mappings)
+				foreach (StatMap statMappingSheet in EquipmentData.EquipedStatMappings)
 				{
-					// Retrieve target stat to add mapping modifier to.
-					EntityStat toStat = agent.Stats.GetStat(mapping.ToStat, true);
-					// Generate unique mod identifier for this equipment in case multiple items utilize the same mapping.
-					string identifier = GetModID(mapping.FromStat);
-
-					if (!toStat.HasModifier(identifier))
+					if (statMappingSheet.FromStatMappings.ContainsKey(item.ID))
 					{
-						if (RuntimeItemData.RuntimeData.TryGetEntry(mapping.FromStat, out RuntimeDataEntry fromData))
+						// STAT MOD MAPPING:
+						StatMapping mapping = statMappingSheet.FromStatMappings[item.ID];
+
+						// Retrieve target stat to add mapping modifier to.
+						EntityStat toStat = entity.Stats.GetStat(mapping.ToStat, true);
+
+						// Generate unique mod identifier for this equipment in case multiple items utilize the same mapping.
+						string identifier = GetModID(mapping.FromStat);
+
+						// If mod isn't present yet, add it to stat.
+						if (!toStat.HasModifier(identifier))
 						{
-							DataStatMappingModifier mod = new DataStatMappingModifier(mapping, fromData);
+							DataStatMappingModifier mod = new DataStatMappingModifier(mapping, item);
 							statModifiers.Add(mod);
 							toStat.AddModifier(identifier, mod);
 						}
-						// The "from" data could not be found in item data.
-						// No need to log since the StatMappingSheet can include mappings not relevant to this item.
+						else
+						{
+							SpaxDebug.Error($"Stat '{mapping.ToStat}' already contains a mapping from '{identifier}'.", "Mapping was not added.");
+						}
+						break;
 					}
-					else
+					else if (statMappingSheet.DataMappings.Contains(item.ID))
 					{
-						SpaxDebug.Error($"Stat '{mapping.ToStat}' already contains a mapping from '{identifier}'.", "Mapping was not added.");
+						// DIRECT DATA MAPPING:
+						dataBackup[item.ID] = entity.RuntimeData.GetValue(item.ID, item.ValueType.GetDefault());
+						entity.RuntimeData.SetValue(item.ID, item.Value, true, false);
 					}
 				}
 			}

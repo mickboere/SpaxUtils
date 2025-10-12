@@ -66,6 +66,11 @@ namespace SpaxUtils
 		public float Elevation { get { return elevationOverride.Approx(0f) ? elevation : elevationOverride; } set { elevationOverride = value; } }
 
 		/// <summary>
+		/// Overridable foot-surface value, if set to null/empty will return default elevation value.
+		/// </summary>
+		public string FootSurface { get { return surfaceOverride.IsNullOrEmpty() ? footSurface : surfaceOverride; } set { surfaceOverride = value; } }
+
+		/// <summary>
 		/// All data concerning the surface this leg last stepped on.
 		/// </summary>
 		public Dictionary<SurfaceConfiguration, float> SurfaceData { get; private set; }
@@ -89,10 +94,12 @@ namespace SpaxUtils
 
 		[SerializeField, Range(-1f, 1f)] private float walkCycleOffset;
 		[SerializeField] private float elevation;
+		[SerializeField, ConstDropdown(typeof(ISurfaceTypeConstants), true)] private string footSurface;
 
 		private SurfaceLibrary surfaceLibrary;
 
 		private float elevationOverride;
+		private string surfaceOverride;
 		private bool wasGrounded;
 
 		public void Initialize(SurfaceLibrary surfaceLibrary)

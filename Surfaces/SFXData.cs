@@ -11,7 +11,25 @@ namespace SpaxUtils
 		public const float DISTANCE_MAX = 100f;
 
 		public IReadOnlyList<AudioClip> Clips => clips;
-		public AudioClip RandomClip => clips[UnityEngine.Random.Range(0, clips.Count)];
+		public AudioClip RandomClip
+		{
+			get
+			{
+				if (clips.Count > 1)
+				{
+					// Prevent clip repetition.
+					int i;
+					do { i = UnityEngine.Random.Range(0, clips.Count); }
+					while (i == lastClip);
+					lastClip = i;
+					return clips[i];
+				}
+				else
+				{
+					return clips[0];
+				}
+			}
+		}
 
 		public Vector2 VolumeRange => volumeRange;
 		public float RandomVolume => UnityEngine.Random.Range(volumeRange.x, volumeRange.y);
@@ -24,6 +42,8 @@ namespace SpaxUtils
 		[SerializeField, MinMaxRange(0.01f, 1f, true)] private Vector2 volumeRange = new Vector2(1f, 1f);
 		[SerializeField, MinMaxRange(0.01f, 3f, true, false)] private Vector2 pitchRange = new Vector2(1f, 1f);
 		[SerializeField] private float distance = 1f;
+
+		[NonSerialized] private int lastClip = -1;
 
 		public void Play(AudioSource audioSource, float volume = 1f, float range = 1f)
 		{
@@ -60,7 +80,7 @@ namespace SpaxUtils
 			audioSourceWrapper.Clip = RandomClip;
 			audioSourceWrapper.MinDistance = MinDistance;
 			audioSourceWrapper.MaxDistance = MaxDistance;
-			if (randomStart) audioSourceWrapper.Time = UnityEngine.Random.value * audioSourceWrapper.Duration; 
+			if (randomStart) audioSourceWrapper.Time = UnityEngine.Random.value * audioSourceWrapper.Duration;
 			audioSourceWrapper.Play();
 		}
 	}

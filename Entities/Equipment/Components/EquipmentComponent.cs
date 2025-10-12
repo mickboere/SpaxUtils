@@ -206,11 +206,18 @@ namespace SpaxUtils
 			string slotId = null, bool overwrite = false)
 		{
 			slot = null;
+			overlap = new List<RuntimeEquipedData>();
 
-			// Make sure item data is equipment to begin with.
+			// Ensure item data validity.
+			if (runtimeItemData == null || runtimeItemData.ItemData == null)
+			{
+				reason = "Data is null.";
+				return false;
+			}
+
+			// Ensure item data is actually equipment.
 			if (runtimeItemData.ItemData is not IEquipmentData equipmentData)
 			{
-				overlap = new List<RuntimeEquipedData>();
 				reason = "Item data does not implement IEquipmentData.";
 				return false;
 			}
@@ -278,7 +285,7 @@ namespace SpaxUtils
 				GameObject visual = InstantiateEquipmentDeactivated(itemData, slot);
 
 				// Create and bind equiped data.
-				equipedData = new RuntimeEquipedData(runtimeItemData, slot, dependencyManager, visual);
+				equipedData = new RuntimeEquipedData(runtimeItemData, slot, dependencyManager, Entity, visual);
 				dependencyManager.Bind(equipedData);
 
 				if (visual != null)

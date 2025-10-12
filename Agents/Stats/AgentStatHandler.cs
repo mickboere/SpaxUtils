@@ -82,7 +82,7 @@ namespace SpaxUtils
 			Vector8 targetLevels = distribution.Normalize() * level;
 			for (int i = 0; i < 8; i++)
 			{
-				experience[i].BaseValue = experience[i].BaseValue.Max(map.FromMappings[experience[i].Identifier].GetInverseModifierValue((targetLevels[i] - 1f).Round().Max(0f)));
+				experience[i].BaseValue = experience[i].BaseValue.Max(map.FromStatMappings[experience[i].Identifier].GetInverseModifierValue((targetLevels[i] - 1f).Round().Max(0f)));
 			}
 		}
 
