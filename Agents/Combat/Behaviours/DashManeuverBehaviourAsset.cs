@@ -82,7 +82,7 @@ namespace SpaxUtils
 			if (State == PerformanceState.Preparing && Performer.Charge > glideDelay)
 			{
 				// Drain charge stat.
-				float cost = massStat * GlideSpeed * Move.ChargeCost.Cost * delta;
+				float cost = massStat * GlideSpeed * Move.ChargeCost.Cost * delta * 0.1f;
 				if (Agent.Stats.TryApplyStatCost(Move.ChargeCost.Stat, cost, false, out _, out bool drained) && drained)
 				{
 					// Exit dash.

@@ -45,7 +45,13 @@ namespace SpaxUtils
 
 		[NonSerialized] private int lastClip = -1;
 
-		public void Play(AudioSource audioSource, float volume = 1f, float range = 1f)
+		/// <summary>
+		/// Plays a random clip at random pitch and random volume, within the defined ranges, from <paramref name="audioSourceWrapper"/>.
+		/// </summary>
+		/// <param name="audioSourceWrapper">The <see cref="AudioSourceWrapper"/> the play the clip from.</param>
+		/// <param name="volume">Volume multiplier.</param>
+		/// <param name="distance">Distance multiplier.</param>
+		public void Play(AudioSourceWrapper audioSourceWrapper, float volume = 1f, float distance = 1f)
 		{
 			if (clips == null || clips.Count == 0)
 			{
@@ -53,24 +59,12 @@ namespace SpaxUtils
 				return;
 			}
 
-			audioSource.pitch = RandomPitch;
-			audioSource.volume = RandomVolume * volume;
-			audioSource.clip = RandomClip;
-			audioSource.minDistance = MinDistance * range;
-			audioSource.maxDistance = MaxDistance * range;
-			audioSource.Play();
-		}
-
-		public void PlayOneShot(AudioSource audioSource, float volume = 1f)
-		{
-			if (clips == null || clips.Count == 0)
-			{
-				SpaxDebug.Warning("No clips defined.");
-				return;
-			}
-
-			audioSource.pitch = RandomPitch;
-			audioSource.PlayOneShot(RandomClip, RandomVolume * volume);
+			audioSourceWrapper.Pitch.BaseValue = RandomPitch;
+			audioSourceWrapper.Volume.BaseValue = RandomVolume * volume;
+			audioSourceWrapper.Clip = RandomClip;
+			audioSourceWrapper.MinDistance = MinDistance * distance;
+			audioSourceWrapper.MaxDistance = MaxDistance * distance;
+			audioSourceWrapper.Play();
 		}
 
 		public void PlayLoop(AudioSourceWrapper audioSourceWrapper, bool randomStart = false)
@@ -82,6 +76,22 @@ namespace SpaxUtils
 			audioSourceWrapper.MaxDistance = MaxDistance;
 			if (randomStart) audioSourceWrapper.Time = UnityEngine.Random.value * audioSourceWrapper.Duration;
 			audioSourceWrapper.Play();
+		}
+
+		/// <summary>
+		/// Plays a one-shot of a random clip at random volume, within the defined ranges, from <paramref name="audioSourceWrapper"/>.
+		/// </summary>
+		/// <param name="audioSourceWrapper">The <see cref="AudioSourceWrapper"/> to play the one-shot from.</param>
+		/// <param name="volume">Volume multiplier.</param>
+		public void PlayOneShot(AudioSourceWrapper audioSourceWrapper, float volume = 1f)
+		{
+			if (clips == null || clips.Count == 0)
+			{
+				SpaxDebug.Warning("No clips defined.");
+				return;
+			}
+
+			audioSourceWrapper.PlayOneShot(RandomClip, RandomVolume * volume);
 		}
 	}
 }

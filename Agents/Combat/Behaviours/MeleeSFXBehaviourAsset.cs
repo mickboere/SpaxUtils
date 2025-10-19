@@ -35,7 +35,7 @@ namespace SpaxUtils
 
 		protected void OnPerformanceStartedEvent(IPerformer performer)
 		{
-			swingSFX.Play(audioPool.Request(Agent.Targetable.Center).AudioSource);
+			swingSFX.Play(audioPool.Request(Agent.Targetable.Center).AudioSourceWrapper);
 		}
 	}
 }
