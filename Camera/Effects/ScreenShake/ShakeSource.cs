@@ -7,8 +7,10 @@ namespace SpaxUtils
 	/// </summary>
 	public class ShakeSource : IShakeSource
 	{
+		public int Seed { get; private set; }
 		public Vector3 Magnitude { get; private set; }
 		public float Frequency { get; private set; }
+		public float Time => timer.Time;
 		public float Progress => timer.Progress;
 
 		private TimerStruct timer;
@@ -16,6 +18,7 @@ namespace SpaxUtils
 
 		public ShakeSource(Vector3 magnitude, float frequency, float duration, AnimationCurve falloff = null)
 		{
+			Seed = Random.Range(int.MinValue, int.MaxValue);
 			Magnitude = magnitude;
 			Frequency = frequency;
 			timer = new TimerStruct(duration);

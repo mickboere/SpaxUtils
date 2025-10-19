@@ -163,8 +163,8 @@ namespace SpaxUtils
 				}
 
 				// Desire to retreat (fear) is defined by crucial stats that need time to recover.
-				float retreat = statHandler.PointStats.SW.PercentileMax.Invert(); // Health
-				retreat += statHandler.PointStats.W.PercentileRecoverable.Invert().Remap(-1f, 1f); // Endurance
+				float retreat = statHandler.PointStats.SW.PercentageMax.Invert(); // Health
+				retreat += statHandler.PointStats.W.PercentageRecoverable.Invert().Remap(-1f, 1f); // Endurance
 				retreat *= retreat > 0 ? enemy.Threat : AEMOI.MAX_STIM; // If positive, scale stim by threat. If negative (stats are sufficiently recovered) maximally satisfy fear.
 
 				// Danger is defined by how close to the attacking enemy's range one is.

@@ -145,6 +145,11 @@ namespace SpaxUtils
 			return Mathf.Pow(f, p);
 		}
 
+		public static float Sign(this float f)
+		{
+			return Mathf.Sign(f);
+		}
+
 		#endregion Math
 
 		#region Rounding

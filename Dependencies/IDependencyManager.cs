@@ -22,6 +22,11 @@ namespace SpaxUtils
 		T Get<T>(bool includeParents = true, bool createIfNull = true);
 
 		/// <summary>
+		/// Returns first dependency of type <typeparamref name="T"/>, if any.
+		/// </summary>
+		bool TryGet<T>(out T result, bool includeParents = true);
+
+		/// <summary>
 		/// Returns dependency of type <typeparamref name="T"/> bound with <see cref="object"/> <paramref name="key"/>.
 		/// </summary>
 		T Get<T>(object key, bool includeParents = true, bool createIfNull = true);

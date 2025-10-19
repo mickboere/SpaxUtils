@@ -27,6 +27,7 @@ namespace SpaxUtils
 		protected ICommunicationChannel comms;
 		protected IStunHandler stunHandler;
 		protected AgentStatHandler statHandler;
+		protected AwarenessComponent awarenessComponent;
 
 		private EntityStat timescaleStat;
 		private EntityStat limbMassStat;
@@ -51,7 +52,7 @@ namespace SpaxUtils
 			TransformLookup transformLookup, ITargeter targeter, IAgentMovementHandler movementHandler,
 			AgentNavigationHandler navigationHandler, IEntityCollection entityCollection, CombatSettings combatSettings,
 			RigidbodyWrapper rigidbodyWrapper, ICommunicationChannel comms, IStunHandler stunHandler,
-			AgentStatHandler statHandler)
+			AgentStatHandler statHandler, AwarenessComponent awarenessComponent)
 		{
 			this.move = move;
 			this.callbackService = callbackService;
@@ -65,6 +66,7 @@ namespace SpaxUtils
 			this.comms = comms;
 			this.stunHandler = stunHandler;
 			this.statHandler = statHandler;
+			this.awarenessComponent = awarenessComponent;
 
 			timescaleStat = Agent.Stats.GetStat(EntityStatIdentifiers.TIMESCALE, true, 1f);
 			limbMassStat = Agent.Stats.GetStat(AgentStatIdentifiers.MASS.SubStat(this.move.Limb));
@@ -254,6 +256,15 @@ namespace SpaxUtils
 				}
 
 				comms.Send(hitData);
+				awarenessComponent.ReportImpact(new ImpactData()
+				{
+					Source = Agent,
+					Victim = hitData.Receiver.Entity,
+					HitObject = hitData.Receiver.Entity.GameObject,
+					Location = hitData.Point,
+					Force = hitData.Data.GetValue(HitDataIdentifiers.FORCE, 1f),
+					Direction = hitData.Direction
+				});
 			}
 		}
 	}

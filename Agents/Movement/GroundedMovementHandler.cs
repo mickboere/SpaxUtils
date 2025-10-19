@@ -80,7 +80,7 @@ namespace SpaxUtils
 		[Header("Rotation")]
 		[SerializeField] private float rotationSmoothing = 30f;
 		[Header("Stats")]
-		[SerializeField] private StatCost sprintCost;
+		[SerializeField] private float sprintCost = 0.25f;
 		[SerializeField] private float tiredInputLimiter = 0.75f;
 		[Header("Sliding")]
 		[SerializeField] private float slideSteeringSpeed = 4f;
@@ -91,17 +91,23 @@ namespace SpaxUtils
 		private RigidbodyWrapper rigidbodyWrapper;
 		private GrounderComponent grounder;
 		private MovementInputSettings inputSettings;
+		private AgentStatHandler statHandler;
+
 		private MovementInputHelper inputHelper;
-
 		private EntityStat moveSpeedStat;
+		private EntityStat recoveryStat;
+		private FloatOperationModifier recoveryMod;
 
-		public void InjectDependencies(RigidbodyWrapper rigidbodyWrapper, GrounderComponent grounder, MovementInputSettings inputSettings)
+		public void InjectDependencies(RigidbodyWrapper rigidbodyWrapper, GrounderComponent grounder,
+			MovementInputSettings inputSettings, AgentStatHandler statHandler)
 		{
 			this.rigidbodyWrapper = rigidbodyWrapper;
 			this.grounder = grounder;
 			this.inputSettings = inputSettings;
+			this.statHandler = statHandler;
 
 			moveSpeedStat = Agent.Stats.GetStat(AgentStatIdentifiers.MOVEMENT_SPEED, true, 1f);
+			recoveryStat = Agent.Stats.GetStat(AgentStatIdentifiers.RECOVERY);
 		}
 
 		protected void OnEnable()
@@ -109,11 +115,20 @@ namespace SpaxUtils
 			inputHelper = new MovementInputHelper(inputSettings);
 			InputAxis = Transform.forward;
 			TargetDirection = Transform.forward;
+			recoveryMod = new FloatOperationModifier(ModMethod.Absolute, Operation.Multiply, 1f);
+			recoveryStat.AddModifier(this, recoveryMod);
 		}
 
 		protected void OnDisable()
 		{
 			inputHelper.Dispose();
+			recoveryStat.RemoveModifier(recoveryMod);
+			recoveryMod.Dispose();
+		}
+
+		protected void Update()
+		{
+			recoveryMod.SetValue((rigidbodyWrapper.Speed / FullSpeed - 0.33f).InvertClamped().InOutSine());
 		}
 
 		protected void FixedUpdate()
@@ -129,8 +144,9 @@ namespace SpaxUtils
 			rigidbodyWrapper.ControlAxis = Vector3.one.FlattenY();
 
 			// Calculate appropriate input value according to stats.
-			Vector3 input = Entity.Stats.TryGetStat(sprintCost.Stat, out EntityStat cost) ?
-					(cost > 0f || InputRaw == Vector3.zero ? InputRaw : InputRaw.ClampMagnitude(tiredInputLimiter)) :
+			Vector3 input =
+				statHandler.PointStats.E.IsRecoveringFromZero && InputRaw != Vector3.zero ?
+					InputRaw.ClampMagnitude(tiredInputLimiter) :
 					InputRaw;
 			// Update smooth input value.
 			InputSmooth = inputHelper.Update(input, delta);
@@ -150,14 +166,16 @@ namespace SpaxUtils
 					rigidbodyWrapper.ApplyMovement(targetVelocity, controlForce * controlFalloff.Evaluate(rigidbodyWrapper.Speed / FullSpeed),
 						brakeForce, power, ignoreControl, grounder.Mobility);
 
-					if (InputRaw.magnitude > 1.01f)
+					if (input.magnitude > 1.01f)
 					{
-						Entity.Stats.TryApplyStatCost(sprintCost.Stat, sprintCost.Cost * rigidbodyWrapper.Mass * (InputRaw.magnitude - 1f) * delta);
+						// Apply sprint cost.
+						statHandler.PointStats.E.Current.Damage(sprintCost * rigidbodyWrapper.Mass *
+							(rigidbodyWrapper.Speed / (FullSpeed * 1.5f * moveSpeedStat)) * rigidbodyWrapper.Control * delta);
 					}
 				}
 				else if (grounder.SurfaceNormal != Vector3.up)
 				{
-					// Sliding control.
+					// Slope-sliding control.
 					Vector3 right = Vector3.Cross(Vector3.up, grounder.SurfaceNormal);
 					Vector3 downhill = right.Cross(grounder.SurfaceNormal);
 					Quaternion downQ = Quaternion.LookRotation(downhill, grounder.SurfaceNormal).Inverse();

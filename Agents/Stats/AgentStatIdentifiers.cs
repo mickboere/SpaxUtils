@@ -102,6 +102,8 @@
 		// Air
 		public const string STAMINA = BODY_STAT + "Stamina";
 		public const string MOVEMENT_SPEED = BODY_STAT + "Movement_Speed";
+		public const string DASH_SPEED = BODY_STAT + "Dash_Speed";
+		public const string GLIDE_SPEED = BODY_STAT + "Glide_Speed";
 
 		// Faeth
 		public const string FRAILTY = BODY_STAT + "Frailty";

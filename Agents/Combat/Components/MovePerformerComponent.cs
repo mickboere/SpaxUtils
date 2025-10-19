@@ -113,23 +113,31 @@ namespace SpaxUtils
 		{
 			finalPerformer = null;
 
-			// Must be grounded and in control.
+			// 1. Must be grounded and in control (default prerequisite for all moves, may be changed in future).
 			if (!grounder.Grounded || (State == PerformanceState.Inactive && rigidbodyWrapper.Control <= minimumControl))
 			{
 				return false;
 			}
 
-			// Must have a supported move.
+			// 2. Must have a supported move.
 			if (!Moveset.ContainsKey(act.Title))
 			{
 				return false;
 			}
 			IPerformanceMove move = Moveset[act.Title];
 
-			// Utilized stats must exceed 0.
+			// 3. All behavioral prerequisites must be met.
+			foreach (BehaviourAsset behaviour in move.Behaviour)
+			{
+				if (behaviour is IPrerequisite prerequisite && !prerequisite.IsMet(dependencyManager))
+				{
+					return false;
+				}
+			}
+
+			// 4. Utilized stats must exceed 0.
 			// Note: (most) stats don't have to exceed costs since they will overdraw from the "recoverable" stat.
 			if ((move.HasCharge && !ValidateStat(move.ChargeCost)) || (move.HasPerformance && !ValidateStat(move.PerformCost)))
-			//if (move.HasPerformance && !ValidateStat(move.PerformCost))
 			{
 				return false;
 			}

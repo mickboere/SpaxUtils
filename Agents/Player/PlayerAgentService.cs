@@ -165,7 +165,7 @@ namespace SpaxUtils
 				cameraDependencies = new DependencyManager(playerDependencies, "PlayerCamera");
 				playerDependencies.Bind(EntityLabels.CAMERA, cameraComponent);
 				playerDependencies.Bind(cameraComponent);
-				if (cameraInstance.TryGetComponentInChildren(out CameraHandler cameraHandler))
+				if (cameraInstance.TryGetComponentInChildren(out CameraWrapper cameraHandler))
 				{
 					playerDependencies.Bind(cameraHandler);
 				}

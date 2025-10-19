@@ -113,6 +113,13 @@ namespace SpaxUtils
 		}
 
 		/// <inheritdoc/>
+		public bool TryGet<T>(out T result, bool includeParents = true)
+		{
+			result = Get<T>(includeParents, false);
+			return result != null;
+		}
+
+		/// <inheritdoc/>
 		public virtual T Get<T>(object key, bool includeParents = true, bool createIfNull = true)
 		{
 			return (T)Get(key, typeof(T), includeParents, createIfNull);

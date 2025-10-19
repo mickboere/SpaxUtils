@@ -96,6 +96,9 @@ namespace SpaxUtils
 			agent.RecoverEvent -= RecoverAll;
 		}
 
+		/// <summary>
+		/// Updates the point stats with <paramref name="delta"/> time.
+		/// </summary>
 		public void UpdateStats(float delta)
 		{
 			if (recoveryMod != null)
@@ -112,6 +115,26 @@ namespace SpaxUtils
 		public void RecoverAll()
 		{
 			pointStatOctad.Recover();
+		}
+
+		/// <summary>
+		/// Will try to return a defined <see cref="PointsStat"/> with ID <paramref name="stat"/>.
+		/// </summary>
+		/// <param name="stat"></param>
+		/// <param name="pointStat"></param>
+		/// <returns></returns>
+		public bool TryGetPointStat(string stat, out PointsStat pointStat)
+		{
+			for (int i = 0; i < 8; i++)
+			{
+				if (pointStatOctad[i].Identifier == stat)
+				{
+					pointStat = pointStatOctad[i];
+					return true;
+				}
+			}
+			pointStat = null;
+			return false;
 		}
 	}
 }

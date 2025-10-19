@@ -9,6 +9,11 @@ namespace SpaxUtils
 	public interface IShakeSource : IDisposable
 	{
 		/// <summary>
+		/// The seed to initialize the random offset with.
+		/// </summary>
+		int Seed { get; }
+
+		/// <summary>
 		/// X = left/right bias.
 		/// Y = down/up bias.
 		/// Z = general shake intensity.
@@ -21,7 +26,12 @@ namespace SpaxUtils
 		float Frequency { get; }
 
 		/// <summary>
-		/// The diminishing progress of the shake source (0 = full intensity, 1 = depleted)
+		/// The elapsed time of the shake source.
+		/// </summary>
+		float Time { get; }
+
+		/// <summary>
+		/// The progress of the shake source (0 = full intensity, 1 = depleted)
 		/// </summary>
 		float Progress { get; }
 

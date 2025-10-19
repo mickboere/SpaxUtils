@@ -32,19 +32,27 @@ namespace SpaxUtils
 		/// <summary>
 		/// How much the curent points make up of the max points.
 		/// </summary>
-		public float PercentileMax => Current / Max;
+		public float PercentageMax => Current / Max;
+
 		/// <summary>
 		/// How much the current points make up of the recoverable points.
 		/// </summary>
-		public float PercentileRecoverable => IsRecoverable ? Current / Recoverable : PercentileMax;
+		public float PercentageRecoverable => IsRecoverable ? Current / Recoverable : PercentageMax;
+
 		/// <summary>
 		/// How much the recoverable points make up of the max points.
 		/// </summary>
-		public float RecoverablePercentile => IsRecoverable ? Recoverable / Max : 1f;
+		public float RecoverablePercentage => IsRecoverable ? Recoverable / Max : 1f;
+
 		/// <summary>
 		/// Whether the stat points are currently recovering.
 		/// </summary>
-		public bool IsRecovering => HasRecovery && (recoveryTimer == null || recoveryTimer.Expired) && !PercentileRecoverable.Approx(1f);
+		public bool IsRecovering => HasRecovery && (recoveryTimer == null || recoveryTimer.Expired) && !PercentageRecoverable.Approx(1f);
+
+		/// <summary>
+		/// Whether the stat points are currently recovering after having been drained completely.
+		/// </summary>
+		public bool IsRecoveringFromZero => wasDrained && (Current.BaseValue.Approx(0f) || IsRecovering);
 
 		[SerializeField, ConstDropdown(typeof(IStatIdentifiers), includeEmpty: true)] private string stat;
 		[SerializeField, Tooltip(TT_hasMax)] private bool hasMax = true;
@@ -56,6 +64,7 @@ namespace SpaxUtils
 		private EntityStat timescale;
 		private float lastCurrent;
 		private float lastDamage;
+		private bool wasDrained;
 
 		private TimerClass recoveryTimer;
 
@@ -75,7 +84,7 @@ namespace SpaxUtils
 			{
 				lastCurrent = Current;
 				Current.ValueChangedEvent += OnCurrentChangedEvent;
-				
+
 				Max = entity.Stats.GetStat(stat.SubStat(AgentStatIdentifiers.SUB_MAX), true);
 				Max.ValueChangedEvent += OnMaxChangedEvent;
 			}
@@ -144,8 +153,7 @@ namespace SpaxUtils
 
 		private void OnCurrentChangedEvent()
 		{
-			float current = this.Current.BaseValue;
-
+			float current = Current.BaseValue;
 			if (current > Max)
 			{
 				// Current cannot exceed Max.
@@ -154,10 +162,21 @@ namespace SpaxUtils
 				return;
 			}
 
+			if (PercentageRecoverable.Approx(1f))
+			{
+				wasDrained = false;
+			}
+
 			if (current < lastCurrent)
 			{
 				// Damage has occured to the Current stat.
 				lastDamage = lastCurrent - current;
+
+				if (current < 0f || current.Approx(0f))
+				{
+					wasDrained = true;
+				}
+
 				if (IsRecoverable)
 				{
 					if (Frailty != null)
@@ -166,7 +185,7 @@ namespace SpaxUtils
 						Recoverable.BaseValue -= lastDamage * Frailty;
 					}
 
-					if (current < 0)
+					if (current <= 0)
 					{
 						// Substract overdraw damage from recoverable.
 						if (lastCurrent < 0)

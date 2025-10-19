@@ -5,27 +5,40 @@ using UnityEngine;
 namespace SpaxUtils
 {
 	[CreateAssetMenu(fileName = "Behaviour_Maneuver_Dash", menuName = "ScriptableObjects/Combat/DashManeuverBehaviourAsset")]
-	public class DashManeuverBehaviourAsset : CorePerformanceMoveBehaviourAsset
+	public class DashManeuverBehaviourAsset : CorePerformanceMoveBehaviourAsset, IPrerequisite
 	{
+		protected float DashSpeed => dashSpeed * (dashSpeedStat ?? 1f);
+		protected float GlideSpeed => dashSpeed * (glideSpeedStat ?? 1f);
+
 		[SerializeField] private float dashSpeed = 10f;
 		[SerializeField] private float glideSpeed = 5f;
+		[SerializeField] private float glideDelay = 0.25f;
 		[SerializeField] private float controlForce = 1800f;
 		[SerializeField] private float brakeForce = 900f;
 		[SerializeField] private float power = 40f;
 
 		private CallbackService callbackService;
 		private IAgentMovementHandler movementHandler;
+		private AwarenessComponent awarenessComponent;
 
 		private EntityStat massStat;
-		private EntityStat movementSpeed;
+		private EntityStat dashSpeedStat;
+		private EntityStat glideSpeedStat;
 
-		public void InjectDependencies(CallbackService callbackService, IAgentMovementHandler movementHandler)
+		public bool IsMet(IDependencyManager dependencies)
+		{
+			return dependencies.TryGet(out AgentStatHandler statHandler) && !statHandler.PointStats.E.IsRecoveringFromZero;
+		}
+
+		public void InjectDependencies(CallbackService callbackService, IAgentMovementHandler movementHandler, AwarenessComponent awarenessComponent)
 		{
 			this.callbackService = callbackService;
 			this.movementHandler = movementHandler;
+			this.awarenessComponent = awarenessComponent;
 
 			massStat = Agent.Stats.GetStat(AgentStatIdentifiers.MASS);
-			movementSpeed = Agent.Stats.GetStat(AgentStatIdentifiers.MOVEMENT_SPEED);
+			dashSpeedStat = Agent.Stats.GetStat(AgentStatIdentifiers.DASH_SPEED);
+			glideSpeedStat = Agent.Stats.GetStat(AgentStatIdentifiers.GLIDE_SPEED);
 		}
 
 		public override void Start()
@@ -33,11 +46,27 @@ namespace SpaxUtils
 			base.Start();
 			callbackService.SubscribeUpdate(UpdateMode.FixedUpdate, this, OnFixedUpdate);
 
-			Vector3 startVelocity = movementHandler.InputRaw == Vector3.zero ?
-				RigidbodyWrapper.Forward * dashSpeed * (movementSpeed ?? 1f) :
-				Quaternion.LookRotation(movementHandler.InputAxis) * movementHandler.InputRaw.normalized * dashSpeed * (movementSpeed ?? 1f);
-			RigidbodyWrapper.Push(startVelocity);
-			// TODO: Instead of push, animate the target velocity.
+			// Push agent in dash direction.
+			Vector3 direction = movementHandler.InputRaw == Vector3.zero ?
+				RigidbodyWrapper.Forward :
+				Quaternion.LookRotation(movementHandler.InputAxis) * movementHandler.InputRaw.normalized;
+			RigidbodyWrapper.Push(direction * DashSpeed);
+
+			// Override smooth input to match dash direction, preventing sudden brakes.
+			Vector3 inputOverride = (Quaternion.LookRotation(movementHandler.InputAxis).Inverse() * direction).normalized;
+			movementHandler.InputSmooth = inputOverride;
+
+			// Drain charge stat.
+			float cost = massStat * DashSpeed * Move.ChargeCost.Cost * 0.1f;
+			Agent.Stats.TryApplyStatCost(Move.ChargeCost.Stat, cost, false);
+
+			awarenessComponent.ReportImpact(new ImpactData()
+			{
+				Source = Agent,
+				Direction = direction,
+				Location = Agent.Transform.position,
+				Force = 10f // Overcome Log10
+			});
 		}
 
 		public override void Stop()
@@ -50,10 +79,10 @@ namespace SpaxUtils
 		{
 			base.ExternalUpdate(delta);
 
-			if (State == PerformanceState.Preparing)
+			if (State == PerformanceState.Preparing && Performer.Charge > glideDelay)
 			{
 				// Drain charge stat.
-				float cost = Move.ChargeCost.Cost * (massStat * RigidbodyWrapper.Speed + massStat * RigidbodyWrapper.Acceleration.magnitude) * delta;
+				float cost = massStat * GlideSpeed * Move.ChargeCost.Cost * delta;
 				if (Agent.Stats.TryApplyStatCost(Move.ChargeCost.Stat, cost, false, out _, out bool drained) && drained)
 				{
 					// Exit dash.
@@ -82,9 +111,12 @@ namespace SpaxUtils
 				return;
 			}
 
-			Vector3 velocity = Quaternion.LookRotation(movementHandler.InputAxis) * movementHandler.InputRaw * glideSpeed * (movementSpeed ?? 1f);
-			RigidbodyWrapper.ApplyMovement(velocity, controlForce, brakeForce, power, true);
-			movementHandler.UpdateRotation(delta, null, true);
+			if (Performer.Charge > glideDelay)
+			{
+				Vector3 velocity = Quaternion.LookRotation(movementHandler.InputAxis) * movementHandler.InputSmooth.ClampMagnitude(1f) * GlideSpeed;
+				RigidbodyWrapper.ApplyMovement(velocity, controlForce, brakeForce, power, true);
+				movementHandler.UpdateRotation(delta, null, true);
+			}
 		}
 	}
 }
