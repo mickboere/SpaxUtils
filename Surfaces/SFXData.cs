@@ -59,9 +59,11 @@ namespace SpaxUtils
 				return;
 			}
 
+			audioSourceWrapper.Stop();
+			audioSourceWrapper.Clip = RandomClip;
+			audioSourceWrapper.Loop = false;
 			audioSourceWrapper.Pitch.BaseValue = RandomPitch;
 			audioSourceWrapper.Volume.BaseValue = RandomVolume * volume;
-			audioSourceWrapper.Clip = RandomClip;
 			audioSourceWrapper.MinDistance = MinDistance * distance;
 			audioSourceWrapper.MaxDistance = MaxDistance * distance;
 			audioSourceWrapper.Play();
@@ -70,8 +72,10 @@ namespace SpaxUtils
 		public void PlayLoop(AudioSourceWrapper audioSourceWrapper, bool randomStart = false)
 		{
 			audioSourceWrapper.Stop();
-			audioSourceWrapper.Loop = true;
 			audioSourceWrapper.Clip = RandomClip;
+			audioSourceWrapper.Loop = true;
+			audioSourceWrapper.Pitch.BaseValue = 1f;
+			audioSourceWrapper.Volume.BaseValue = 1f;
 			audioSourceWrapper.MinDistance = MinDistance;
 			audioSourceWrapper.MaxDistance = MaxDistance;
 			if (randomStart) audioSourceWrapper.Time = UnityEngine.Random.value * audioSourceWrapper.Duration;

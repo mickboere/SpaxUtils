@@ -18,7 +18,7 @@ namespace SpaxUtils
 		}
 		private float _timescale = 1f;
 		private Func<float> TimescaleFunc { get; set; }
-
+		public bool Paused { get; set; }
 		public float Progress
 		{
 			get { return Duration.HasValue ? Time / Duration.Value : 1f; }
@@ -76,6 +76,11 @@ namespace SpaxUtils
 		/// <returns>Whether the timer has expired.</returns>
 		public bool Update(float delta)
 		{
+			if (Paused)
+			{
+				return Expired;
+			}
+
 			bool wasExpired = Expired;
 			Time += delta * Timescale;
 			if (!wasExpired && Expired)
@@ -83,6 +88,16 @@ namespace SpaxUtils
 				TimerExpiredEvent?.Invoke();
 			}
 			return Expired;
+		}
+
+		public void Pause()
+		{
+			Paused = true;
+		}
+
+		public void Continue()
+		{
+			Paused = false;
 		}
 
 		/// <summary>

@@ -16,25 +16,34 @@ namespace SpaxUtils
 		[SerializeField] private float controlForce = 1800f;
 		[SerializeField] private float brakeForce = 900f;
 		[SerializeField] private float power = 40f;
+		[Header("SFX")]
+		[SerializeField] private SFXData dashSFX;
+		[SerializeField] private SFXData glideSFX;
+		[SerializeField] private float glideFadeout = 0.2f;
 
 		private CallbackService callbackService;
 		private IAgentMovementHandler movementHandler;
 		private AwarenessComponent awarenessComponent;
+		private Pool<PooledAudioSource> audioPool;
 
 		private EntityStat massStat;
 		private EntityStat dashSpeedStat;
 		private EntityStat glideSpeedStat;
+		private AudioSourceWrapper glideAudio;
 
 		public bool IsMet(IDependencyManager dependencies)
 		{
-			return dependencies.TryGet(out AgentStatHandler statHandler) && !statHandler.PointStats.E.IsRecoveringFromZero;
+			return dependencies.TryGet(out AgentStatHandler statHandler) &&
+				!statHandler.PointStats.E.IsRecoveringFromZero;
 		}
 
-		public void InjectDependencies(CallbackService callbackService, IAgentMovementHandler movementHandler, AwarenessComponent awarenessComponent)
+		public void InjectDependencies(CallbackService callbackService, IAgentMovementHandler movementHandler,
+			AwarenessComponent awarenessComponent, Pool<PooledAudioSource> audioPool)
 		{
 			this.callbackService = callbackService;
 			this.movementHandler = movementHandler;
 			this.awarenessComponent = awarenessComponent;
+			this.audioPool = audioPool;
 
 			massStat = Agent.Stats.GetStat(AgentStatIdentifiers.MASS);
 			dashSpeedStat = Agent.Stats.GetStat(AgentStatIdentifiers.DASH_SPEED);
@@ -46,6 +55,18 @@ namespace SpaxUtils
 			base.Start();
 			callbackService.SubscribeUpdate(UpdateMode.FixedUpdate, this, OnFixedUpdate);
 
+			InitiateDash();
+		}
+
+		public override void Stop()
+		{
+			base.Stop();
+			callbackService.UnsubscribeUpdate(UpdateMode.FixedUpdate, this);
+			glideAudio.FadeOut(glideFadeout, EasingMethod.InOutSine);
+		}
+
+		private void InitiateDash()
+		{
 			// Push agent in dash direction.
 			Vector3 direction = movementHandler.InputRaw == Vector3.zero ?
 				RigidbodyWrapper.Forward :
@@ -56,10 +77,11 @@ namespace SpaxUtils
 			Vector3 inputOverride = (Quaternion.LookRotation(movementHandler.InputAxis).Inverse() * direction).normalized;
 			movementHandler.InputSmooth = inputOverride;
 
-			// Drain charge stat.
+			// Drain stat.
 			float cost = massStat * DashSpeed * Move.ChargeCost.Cost * 0.1f;
 			Agent.Stats.TryApplyStatCost(Move.ChargeCost.Stat, cost, false);
 
+			// Report impact for awareness.
 			awarenessComponent.ReportImpact(new ImpactData()
 			{
 				Source = Agent,
@@ -67,12 +89,32 @@ namespace SpaxUtils
 				Location = Agent.Transform.position,
 				Force = 10f // Overcome Log10
 			});
+
+			// Play dash SFX.
+			dashSFX.Play(audioPool.Request(Agent.Transform.position, Agent.Transform).AudioSourceWrapper);
+
+			// Start glide SFX.
+			glideAudio = audioPool.Request(Agent.Transform.position, Agent.Transform).AudioSourceWrapper;
+			glideSFX.PlayLoop(glideAudio, true);
 		}
 
-		public override void Stop()
+		// Applies physics.
+		private void OnFixedUpdate(float delta)
 		{
-			base.Stop();
-			callbackService.UnsubscribeUpdate(UpdateMode.FixedUpdate, this);
+			if (RigidbodyWrapper.Speed < 0.1f)
+			{
+				// Exit dash.
+				Performer.TryPerform();
+				return;
+			}
+
+			if (Performer.Charge > glideDelay)
+			{
+				// Apply glide control after dash is initiated.
+				Vector3 velocity = Quaternion.LookRotation(movementHandler.InputAxis) * movementHandler.InputSmooth.ClampMagnitude(1f) * GlideSpeed;
+				RigidbodyWrapper.ApplyMovement(velocity, controlForce, brakeForce, power, true);
+				movementHandler.UpdateRotation(delta, null, true);
+			}
 		}
 
 		public override void ExternalUpdate(float delta)
@@ -89,6 +131,10 @@ namespace SpaxUtils
 					Performer.TryPerform();
 				}
 			}
+
+			// Update glide SFX.
+			glideAudio.Pitch.BaseValue = glideSFX.PitchRange.Lerp(RigidbodyWrapper.Speed / glideSpeed);
+			glideAudio.Volume.BaseValue = (Performer.Charge / glideDelay).Clamp01() * glideSFX.VolumeRange.Lerp(RigidbodyWrapper.Speed / glideSpeed);
 		}
 
 		protected override IPoserInstructions Evaluate(out float weight)
@@ -100,23 +146,6 @@ namespace SpaxUtils
 			weight *= (Performer.CancelTime / Move.CancelDuration).InvertClamped();
 
 			return instructions;
-		}
-
-		private void OnFixedUpdate(float delta)
-		{
-			if (RigidbodyWrapper.Speed < 0.1f)
-			{
-				// Exit dash.
-				Performer.TryPerform();
-				return;
-			}
-
-			if (Performer.Charge > glideDelay)
-			{
-				Vector3 velocity = Quaternion.LookRotation(movementHandler.InputAxis) * movementHandler.InputSmooth.ClampMagnitude(1f) * GlideSpeed;
-				RigidbodyWrapper.ApplyMovement(velocity, controlForce, brakeForce, power, true);
-				movementHandler.UpdateRotation(delta, null, true);
-			}
 		}
 	}
 }
