@@ -55,7 +55,7 @@ namespace SpaxUtils
 		{
 			if (clips == null || clips.Count == 0)
 			{
-				SpaxDebug.Warning("No clips defined.");
+				//SpaxDebug.Warning("No clips defined.");
 				return;
 			}
 
@@ -71,6 +71,12 @@ namespace SpaxUtils
 
 		public void PlayLoop(AudioSourceWrapper audioSourceWrapper, bool randomStart = false)
 		{
+			if (clips == null || clips.Count == 0)
+			{
+				//SpaxDebug.Warning("No clips defined.");
+				return;
+			}
+
 			audioSourceWrapper.Stop();
 			audioSourceWrapper.Clip = RandomClip;
 			audioSourceWrapper.Loop = true;
@@ -91,7 +97,7 @@ namespace SpaxUtils
 		{
 			if (clips == null || clips.Count == 0)
 			{
-				SpaxDebug.Warning("No clips defined.");
+				//SpaxDebug.Warning("No clips defined.");
 				return;
 			}
 
