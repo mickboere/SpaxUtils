@@ -28,13 +28,13 @@ namespace SpaxUtils
 		public override void Start()
 		{
 			base.Start();
-			Performer.PerformanceStartedEvent += OnPerformanceStartedEvent;
+			Performer.StartedPerformingEvent += OnPerformanceStartedEvent;
 		}
 
 		public override void Stop()
 		{
 			base.Stop();
-			Performer.PerformanceStartedEvent -= OnPerformanceStartedEvent;
+			Performer.StartedPerformingEvent -= OnPerformanceStartedEvent;
 		}
 
 		private void OnPerformanceStartedEvent(IPerformer performer)

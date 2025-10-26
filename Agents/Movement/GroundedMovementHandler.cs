@@ -80,6 +80,7 @@ namespace SpaxUtils
 		[Header("Rotation")]
 		[SerializeField] private float rotationSmoothing = 30f;
 		[Header("Stats")]
+		[SerializeField, Range(0f, 1f)] private float velocityRecoveryMod = 0.5f;
 		[SerializeField] private float sprintCost = 0.25f;
 		[SerializeField] private float tiredInputLimiter = 0.75f;
 		[Header("Sliding")]
@@ -128,7 +129,8 @@ namespace SpaxUtils
 
 		protected void Update()
 		{
-			recoveryMod.SetValue((rigidbodyWrapper.Speed / FullSpeed - 0.33f).InvertClamped().InOutSine());
+			// Slow down recovery while running.
+			recoveryMod.SetValue(1f - Mathf.InverseLerp(HalfSpeed, FullSpeed * moveSpeedStat, rigidbodyWrapper.Speed).InOutSine() * velocityRecoveryMod);
 		}
 
 		protected void FixedUpdate()
@@ -155,7 +157,7 @@ namespace SpaxUtils
 			{
 				// Calculate target velocity from current input.
 				rigidbodyWrapper.TargetVelocity = InputSmooth == Vector3.zero ? Vector3.zero :
-					Quaternion.LookRotation(InputAxis) * InputSmooth.normalized * CalculateSpeed(InputSmooth.magnitude) * moveSpeedStat;
+					Quaternion.LookRotation(InputAxis) * InputSmooth.normalized * CalculateSpeed(InputSmooth.magnitude);
 			}
 
 			if (grounder.Grounded)
@@ -256,8 +258,8 @@ namespace SpaxUtils
 		{
 			return input < inputSettings.MinimumInput ? MinSpeed * (input / inputSettings.MinimumInput) :
 				input < 0.5f ? MinSpeed.Lerp(HalfSpeed, input * 2f) :
-				input < 1f ? HalfSpeed.Lerp(FullSpeed, (input - 0.5f) * 2f) :
-				FullSpeed * input;
+				input < 1f ? HalfSpeed.Lerp(FullSpeed * moveSpeedStat, (input - 0.5f) * 2f) :
+				FullSpeed * moveSpeedStat * input;
 		}
 	}
 }

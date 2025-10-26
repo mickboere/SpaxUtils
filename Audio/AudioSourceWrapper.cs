@@ -39,8 +39,6 @@ namespace SpaxUtils
 		#endregion Property Wrappers
 
 		[SerializeField] private AudioSource audioSource;
-		// TODO: private bool useScaledTime;
-		// TODO: private bool useScaledEntityTime;
 
 		private TimerClass timer;
 		private FloatFuncModifier mod;

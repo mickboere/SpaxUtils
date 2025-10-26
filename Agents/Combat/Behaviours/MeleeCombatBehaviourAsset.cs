@@ -84,7 +84,7 @@ namespace SpaxUtils
 			base.Start();
 
 			hitDetector = new CombatHitDetector(Agent, transformLookup, move, hitDetectionMask);
-			Performer.PerformanceStartedEvent += OnPerformanceStartedEvent;
+			Performer.StartedPerformingEvent += OnPerformanceStartedEvent;
 			totalCharge = 1f;
 
 			speedMod = new FloatFuncModifier(ModMethod.Absolute, (float f) => f * (strengthStat / limbMassStat).Clamp(strengthSpeedModRange.x, strengthSpeedModRange.y));
@@ -99,7 +99,7 @@ namespace SpaxUtils
 			base.Stop();
 
 			hitDetector.Dispose();
-			Performer.PerformanceStartedEvent -= OnPerformanceStartedEvent;
+			Performer.StartedPerformingEvent -= OnPerformanceStartedEvent;
 
 			chargeSpeedStat.RemoveModifier(this);
 			performSpeedStat.RemoveModifier(this);

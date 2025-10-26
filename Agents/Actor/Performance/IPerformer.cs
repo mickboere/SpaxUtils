@@ -9,9 +9,14 @@ namespace SpaxUtils
 	public interface IPerformer
 	{
 		/// <summary>
-		/// Invoked on the first frame of performance (not preparing, but actual <see cref="PerformanceState.Performing"/>).
+		/// Invoked on the first frame of preparing a new performance.
 		/// </summary>
-		event Action<IPerformer> PerformanceStartedEvent;
+		event Action<IPerformer> StartedPreparingEvent;
+
+		/// <summary>
+		/// Invoked on the first frame of performance (NOT preparing, but actual <see cref="PerformanceState.Performing"/>).
+		/// </summary>
+		event Action<IPerformer> StartedPerformingEvent;
 
 		/// <summary>
 		/// Invoked every frame during every state of performance, including preparation and completion.

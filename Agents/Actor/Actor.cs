@@ -12,7 +12,8 @@ namespace SpaxUtils
 	/// </summary>
 	public class Actor : ChannelBase<string, IAct>, IActor, IDisposable
 	{
-		public event Action<IPerformer> PerformanceStartedEvent;
+		public event Action<IPerformer> StartedPreparingEvent;
+		public event Action<IPerformer> StartedPerformingEvent;
 		public event Action<IPerformer> PerformanceUpdateEvent;
 		public event Action<IPerformer> PerformanceCompletedEvent;
 
@@ -168,7 +169,8 @@ namespace SpaxUtils
 				availablePerformers.Sort((a, b) => b.Priority.CompareTo(a.Priority));
 			}
 
-			performer.PerformanceStartedEvent += OnPerformanceStartedEvent;
+			performer.StartedPreparingEvent += OnStartedPreparingEvent;
+			performer.StartedPerformingEvent += OnStartedPerformingEvent;
 			performer.PerformanceUpdateEvent += OnPerformanceUpdateEvent;
 			performer.PerformanceCompletedEvent += OnPerformanceCompletedEvent;
 		}
@@ -182,7 +184,8 @@ namespace SpaxUtils
 			}
 
 			availablePerformers.Remove(performer);
-			performer.PerformanceStartedEvent -= OnPerformanceStartedEvent;
+			performer.StartedPreparingEvent -= OnStartedPreparingEvent;
+			performer.StartedPerformingEvent -= OnStartedPerformingEvent;
 			performer.PerformanceUpdateEvent -= OnPerformanceUpdateEvent;
 			performer.PerformanceCompletedEvent -= OnPerformanceCompletedEvent;
 		}
@@ -314,9 +317,14 @@ namespace SpaxUtils
 			return MainPerformer == null ? false : MainPerformer.TryCancel(force);
 		}
 
-		private void OnPerformanceStartedEvent(IPerformer performer)
+		private void OnStartedPreparingEvent(IPerformer performer)
 		{
-			PerformanceStartedEvent?.Invoke(performer);
+			StartedPreparingEvent?.Invoke(performer);
+		}
+
+		private void OnStartedPerformingEvent(IPerformer performer)
+		{
+			StartedPerformingEvent?.Invoke(performer);
 		}
 
 		private void OnPerformanceUpdateEvent(IPerformer performer)

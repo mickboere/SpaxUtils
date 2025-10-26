@@ -62,14 +62,16 @@ namespace SpaxUtils
 			audioSourceWrapper.Stop();
 			audioSourceWrapper.Clip = RandomClip;
 			audioSourceWrapper.Loop = false;
-			audioSourceWrapper.Pitch.BaseValue = RandomPitch;
-			audioSourceWrapper.Volume.BaseValue = RandomVolume * volume;
+			audioSourceWrapper.AudioSource.pitch = RandomPitch;
+			audioSourceWrapper.Pitch.BaseValue = audioSourceWrapper.AudioSource.pitch;
+			audioSourceWrapper.AudioSource.volume = RandomVolume * volume;
+			audioSourceWrapper.Volume.BaseValue = audioSourceWrapper.AudioSource.volume;
 			audioSourceWrapper.MinDistance = MinDistance * distance;
 			audioSourceWrapper.MaxDistance = MaxDistance * distance;
 			audioSourceWrapper.Play();
 		}
 
-		public void PlayLoop(AudioSourceWrapper audioSourceWrapper, bool randomStart = false)
+		public void PlayLoop(AudioSourceWrapper audioSourceWrapper, bool randomStart = false, float pitch = 1f, float volume = 1f, float distance = 1f)
 		{
 			if (clips == null || clips.Count == 0)
 			{
@@ -80,10 +82,12 @@ namespace SpaxUtils
 			audioSourceWrapper.Stop();
 			audioSourceWrapper.Clip = RandomClip;
 			audioSourceWrapper.Loop = true;
-			audioSourceWrapper.Pitch.BaseValue = 1f;
-			audioSourceWrapper.Volume.BaseValue = 1f;
-			audioSourceWrapper.MinDistance = MinDistance;
-			audioSourceWrapper.MaxDistance = MaxDistance;
+			audioSourceWrapper.AudioSource.pitch = pitch;
+			audioSourceWrapper.Pitch.BaseValue = pitch;
+			audioSourceWrapper.AudioSource.volume = volume;
+			audioSourceWrapper.Volume.BaseValue = volume;
+			audioSourceWrapper.MinDistance = MinDistance * distance;
+			audioSourceWrapper.MaxDistance = MaxDistance * distance;
 			if (randomStart) audioSourceWrapper.Time = UnityEngine.Random.value * audioSourceWrapper.Duration;
 			audioSourceWrapper.Play();
 		}

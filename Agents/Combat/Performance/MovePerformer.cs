@@ -10,7 +10,8 @@ namespace SpaxUtils
 	/// </summary>
 	public class MovePerformer : IMovePerformer, IDisposable
 	{
-		public event Action<IPerformer> PerformanceStartedEvent;
+		public event Action<IPerformer> StartedPreparingEvent; // < Can never be listened to because it would be invoked on construction.
+		public event Action<IPerformer> StartedPerformingEvent;
 		public event Action<IPerformer> PerformanceUpdateEvent;
 		public event Action<IPerformer> PerformanceCompletedEvent;
 
@@ -153,7 +154,7 @@ namespace SpaxUtils
 				{
 					if (!started)
 					{
-						PerformanceStartedEvent?.Invoke(this);
+						StartedPerformingEvent?.Invoke(this);
 						started = true;
 					}
 

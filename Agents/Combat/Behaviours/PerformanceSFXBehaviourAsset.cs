@@ -34,7 +34,7 @@ namespace SpaxUtils
 
 			if (onPerform)
 			{
-				Performer.PerformanceStartedEvent += OnPerformanceStartedEvent;
+				Performer.StartedPerformingEvent += OnPerformanceStartedEvent;
 			}
 		}
 
@@ -44,7 +44,7 @@ namespace SpaxUtils
 
 			if (onPerform)
 			{
-				Performer.PerformanceStartedEvent -= OnPerformanceStartedEvent;
+				Performer.StartedPerformingEvent -= OnPerformanceStartedEvent;
 			}
 		}
 

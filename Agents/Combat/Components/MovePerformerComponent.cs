@@ -11,7 +11,8 @@ namespace SpaxUtils
 	/// </summary>
 	public class MovePerformerComponent : EntityComponentMono, IMovePerformanceHandler
 	{
-		public event Action<IPerformer> PerformanceStartedEvent;
+		public event Action<IPerformer> StartedPreparingEvent;
+		public event Action<IPerformer> StartedPerformingEvent;
 		public event Action<IPerformer> PerformanceUpdateEvent;
 		public event Action<IPerformer> PerformanceCompletedEvent;
 		public event Action MovesetUpdatedEvent;
@@ -143,11 +144,12 @@ namespace SpaxUtils
 			}
 
 			var performer = new MovePerformer(dependencyManager, act, move, agent, EntityTimeScale, callbackService);
-			performer.PerformanceStartedEvent += OnPerformanceStartedEvent;
+			performer.StartedPerformingEvent += OnPerformanceStartedEvent;
 			performer.PerformanceUpdateEvent += OnPerformanceUpdateEvent;
 			performer.PerformanceCompletedEvent += OnPerformanceCompletedEvent;
 			finalPerformer = performer;
 			helpers.Add(performer);
+			StartedPreparingEvent?.Invoke(performer);
 			return true;
 
 			bool ValidateStat(StatCost cost)
@@ -295,7 +297,7 @@ namespace SpaxUtils
 
 		private void OnPerformanceStartedEvent(IPerformer performer)
 		{
-			PerformanceStartedEvent?.Invoke(performer);
+			StartedPerformingEvent?.Invoke(performer);
 		}
 
 		private void OnPerformanceUpdateEvent(IPerformer performer)
@@ -313,7 +315,7 @@ namespace SpaxUtils
 			var movePerformer = (MovePerformer)performer;
 			helpers.Remove(movePerformer);
 
-			performer.PerformanceStartedEvent -= OnPerformanceStartedEvent;
+			performer.StartedPerformingEvent -= OnPerformanceStartedEvent;
 			performer.PerformanceUpdateEvent -= OnPerformanceUpdateEvent;
 			performer.PerformanceCompletedEvent -= OnPerformanceCompletedEvent;
 
