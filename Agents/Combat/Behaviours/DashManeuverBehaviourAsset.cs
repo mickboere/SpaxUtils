@@ -8,14 +8,19 @@ namespace SpaxUtils
 	public class DashManeuverBehaviourAsset : CorePerformanceMoveBehaviourAsset, IPrerequisite
 	{
 		protected float DashSpeed => dashSpeed * (dashSpeedStat ?? 1f);
+		protected float DashDuration => dashDistance / DashSpeed;
 		protected float GlideSpeed => dashSpeed * (glideSpeedStat ?? 1f);
 
+		[Header("Control")]
+		[SerializeField] private float maxAcceleration = 20000f;
+		[SerializeField] private float maxDeceleration = 2000f;
+		[SerializeField] private float power = 50f;
+		[Header("Dashing")]
+		[SerializeField] private float dashDistance = 5f;
 		[SerializeField] private float dashSpeed = 10f;
+		[Header("Gliding")]
+		//[SerializeField] private float glideDelay = 0.25f;
 		[SerializeField] private float glideSpeed = 5f;
-		[SerializeField] private float glideDelay = 0.25f;
-		[SerializeField] private float controlForce = 1800f;
-		[SerializeField] private float brakeForce = 900f;
-		[SerializeField] private float power = 40f;
 		[Header("SFX")]
 		[SerializeField] private SFXData dashSFX;
 		[SerializeField] private SFXData glideSFX;
@@ -30,6 +35,7 @@ namespace SpaxUtils
 		private EntityStat dashSpeedStat;
 		private EntityStat glideSpeedStat;
 		private AudioSourceWrapper glideAudio;
+		private Vector3 direction;
 
 		public bool IsMet(IDependencyManager dependencies)
 		{
@@ -63,25 +69,22 @@ namespace SpaxUtils
 			base.Stop();
 			callbackService.UnsubscribeUpdate(UpdateMode.FixedUpdate, this);
 			glideAudio.FadeOut(glideFadeout, EasingMethod.InOutSine);
+			movementHandler.AutoUpdateMovement = true;
 		}
 
 		private void InitiateDash()
 		{
-			// Push agent in dash direction.
-			Vector3 direction = movementHandler.InputRaw == Vector3.zero ?
-				RigidbodyWrapper.Forward :
-				Quaternion.LookRotation(movementHandler.InputAxis) * movementHandler.InputRaw.normalized;
-			RigidbodyWrapper.Push(direction * DashSpeed);
+			SetDirection(movementHandler.InputRaw);
 
-			// Override smooth input to match dash direction, preventing sudden brakes.
-			Vector3 inputOverride = (Quaternion.LookRotation(movementHandler.InputAxis).Inverse() * direction).normalized;
-			movementHandler.InputSmooth = inputOverride;
+			// Disable default movement application from interfering.
+			movementHandler.AutoUpdateMovement = false;
 
 			// Drain stat.
 			float cost = massStat * DashSpeed * Move.ChargeCost.Cost * 0.1f;
 			Agent.Stats.TryApplyStatCost(Move.ChargeCost.Stat, cost, false);
 
 			// Report impact for awareness.
+			// TODO: Make continuous while gliding.
 			awarenessComponent.ReportImpact(new ImpactData()
 			{
 				Source = Agent,
@@ -101,18 +104,24 @@ namespace SpaxUtils
 		// Applies physics.
 		private void OnFixedUpdate(float delta)
 		{
-			if (RigidbodyWrapper.Speed < 0.1f)
+			if (Performer.Charge < DashDuration)
 			{
-				// Exit dash.
-				Performer.TryPerform();
-				return;
+				// Apply dash control.
+				RigidbodyWrapper.ApplyMovement(direction * DashSpeed, maxAcceleration, maxDeceleration, power, true);
+				movementHandler.UpdateRotation(delta, null, true);
 			}
-
-			if (Performer.Charge > glideDelay)
+			else
 			{
-				// Apply glide control after dash is initiated.
+				if (RigidbodyWrapper.Speed < 0.1f)
+				{
+					// Exit dash.
+					Exit();
+					return;
+				}
+
+				// Apply glide control.
 				Vector3 velocity = Quaternion.LookRotation(movementHandler.InputAxis) * movementHandler.InputSmooth.ClampMagnitude(1f) * GlideSpeed;
-				RigidbodyWrapper.ApplyMovement(velocity, controlForce, brakeForce, power, true);
+				RigidbodyWrapper.ApplyMovement(velocity, maxAcceleration, maxDeceleration, power, true);
 				movementHandler.UpdateRotation(delta, null, true);
 			}
 		}
@@ -121,20 +130,25 @@ namespace SpaxUtils
 		{
 			base.ExternalUpdate(delta);
 
-			if (State == PerformanceState.Preparing && Performer.Charge > glideDelay)
+			if (Performer.Charge < DashDuration)
 			{
-				// Drain charge stat.
+				SetDirection(movementHandler.InputSmooth);
+			}
+
+			if (State == PerformanceState.Preparing && Performer.Charge > DashDuration)
+			{
+				// Gliding, drain stat.
 				float cost = massStat * GlideSpeed * Move.ChargeCost.Cost * delta * 0.1f;
 				if (Agent.Stats.TryApplyStatCost(Move.ChargeCost.Stat, cost, false, out _, out bool drained) && drained)
 				{
 					// Exit dash.
-					Performer.TryPerform();
+					Exit();
 				}
 			}
 
 			// Update glide SFX.
 			glideAudio.Pitch.BaseValue = glideSFX.PitchRange.Lerp(RigidbodyWrapper.Speed / glideSpeed);
-			glideAudio.Volume.BaseValue = (Performer.Charge / glideDelay).Clamp01() * glideSFX.VolumeRange.Lerp(RigidbodyWrapper.Speed / glideSpeed);
+			glideAudio.Volume.BaseValue = (Performer.Charge / DashDuration).Clamp01() * glideSFX.VolumeRange.Lerp(RigidbodyWrapper.Speed / glideSpeed);
 		}
 
 		protected override IPoserInstructions Evaluate(out float weight)
@@ -146,6 +160,24 @@ namespace SpaxUtils
 			weight *= (Performer.CancelTime / Move.CancelDuration).InvertClamped();
 
 			return instructions;
+		}
+
+		private void SetDirection(Vector3 input)
+		{
+			// Set initial direction.
+			direction = input == Vector3.zero ?
+				RigidbodyWrapper.Forward :
+				Quaternion.LookRotation(movementHandler.InputAxis) * input.normalized;
+
+			// Override smooth input to match dash direction, preventing sudden brake when stopping.
+			Vector3 inputOverride = (Quaternion.LookRotation(movementHandler.InputAxis).Inverse() * direction).normalized;
+			movementHandler.InputSmooth = inputOverride;
+		}
+
+		private void Exit()
+		{
+			movementHandler.AutoUpdateMovement = true;
+			Performer.TryPerform();
 		}
 	}
 }

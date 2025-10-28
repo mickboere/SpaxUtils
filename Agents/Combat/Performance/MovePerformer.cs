@@ -42,7 +42,7 @@ namespace SpaxUtils
 
 		private List<BehaviourAsset> behaviours;
 		private bool released;
-		private bool started;
+		private bool startedPerformance;
 
 		public MovePerformer(IDependencyManager dependencyManager, IAct act,
 			IPerformanceMove move, IAgent agent, EntityStat entityTimeScale,
@@ -100,7 +100,7 @@ namespace SpaxUtils
 			if (!Move.HasCharge || released)
 			{
 				// Already performing.
-				return false;
+				return true;
 			}
 
 			released = true;
@@ -152,10 +152,10 @@ namespace SpaxUtils
 				// No else statement here to remove frame delay.
 				if (State != PerformanceState.Preparing)
 				{
-					if (!started)
+					if (!startedPerformance)
 					{
 						StartedPerformingEvent?.Invoke(this);
-						started = true;
+						startedPerformance = true;
 					}
 
 					// Performing.

@@ -263,9 +263,8 @@ namespace SpaxUtils
 				mass = Mass;
 			}
 
-			Vector3 diff = (velocity - Velocity);
-			float effect = velocity.normalized.NormalizedDot(diff.normalized);
-			AddForce(diff * effect * mass / Mass, ForceMode.VelocityChange);
+			Vector3 push = Velocity.CalculatePush(velocity, out _);
+			AddForce(push * mass / Mass, ForceMode.VelocityChange);
 		}
 
 		/// <summary>
@@ -294,18 +293,21 @@ namespace SpaxUtils
 		#region Movement
 
 		/// <summary>
-		/// Apply a force to reach the <see cref="TargetVelocity"/>
+		/// Applies a force that intends to reach the target velocity.
 		/// </summary>
-		/// <param name="controlForce">Force used at 100% control.</param>
-		/// <param name="brakeForce">Force used at 0% control.</param>
-		/// <param name="power">Scaling of forces; responsiveness.</param>
+		/// <param name="targetVelocity">The desired velocity of the rigidbody. If NULL, will use <see cref="TargetVelocity"/></param>
+		/// <param name="maxAcceleration">The max amount of force that can be applied per application.</param>
+		/// <param name="power">Responsiveness of the applied forces.</param>
 		/// <param name="ignoreControl">TRUE will always use 100% control, false will use current <see cref="Control"/> percentage.</param>
-		public void ApplyMovement(Vector3? targetVelocity = null, float controlForce = 2000f, float brakeForce = 200f, float power = 20f,
+		/// <param name="scale">Float that scales every single calculation involved, used to simulate reduced mobility.</param>
+		public void ApplyMovement(Vector3? targetVelocity = null, float maxAcceleration = 2000f, float maxDeceleration = 2000f, float power = 20f,
 			bool ignoreControl = false, float scale = 1f)
 		{
-			float control = ignoreControl ? 1f : Control;
-			float maxForce = Mathf.Lerp(brakeForce, controlForce, control);
 			Vector3 target = targetVelocity == null ? TargetVelocity : targetVelocity.Value;
+			float control = ignoreControl ? 1f : Control;
+			float acceleration = target == Vector3.zero ? 0f : Velocity == Vector3.zero ? 1f :
+				Velocity.normalized.NormalizedDot((target - Velocity).normalized);
+			float maxForce = maxDeceleration.Lerp(maxAcceleration, acceleration);
 			Vector3 force = Velocity.CalculateForce(
 				target * control * scale,
 				power * scale * (timeScale ?? 1f),
@@ -313,14 +315,6 @@ namespace SpaxUtils
 				.LocalizeDirection(transform).Multiply(ControlAxis).GlobalizeDirection(transform);
 
 			AddForce(force);
-		}
-
-		/// <summary>
-		/// <see cref="ApplyMovement(Vector3, float, float, float, bool, float)"/>
-		/// </summary>
-		public void ApplyMovement(float controlForce = 2000f, float brakeForce = 200f, float power = 20f, bool ignoreControl = false, float scale = 1f)
-		{
-			ApplyMovement(TargetVelocity, controlForce, brakeForce, power, ignoreControl, scale);
 		}
 
 		/// <summary>

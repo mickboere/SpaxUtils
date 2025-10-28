@@ -30,6 +30,16 @@ namespace SpaxUtils
 		bool LockRotation { get; set; }
 
 		/// <summary>
+		/// Whether to automatically apply the default movement behaviour.
+		/// </summary>
+		bool AutoUpdateMovement { get; set; }
+
+		/// <summary>
+		/// Whether to automatically apply the default rotation behaviour.
+		/// </summary>
+		bool AutoUpdateRotation { get; set; }
+
+		/// <summary>
 		/// Movement speed (m/s) when input length is exceeds the input deadzone.
 		/// </summary>
 		float MinSpeed { get; set; }

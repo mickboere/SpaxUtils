@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace SpaxUtils
 {
@@ -68,15 +69,22 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public bool LockRotation { get; set; }
 
+		/// <inheritdoc/>
+		public bool AutoUpdateMovement { get; set; } = true;
+
+		/// <inheritdoc/>
+		public bool AutoUpdateRotation { get; set; } = true;
+
 		[Header("Movement")]
 		[field: SerializeField] public float MinSpeed { get; set; } = 1f;
 		[field: SerializeField] public float HalfSpeed { get; set; } = 1.5f;
 		[field: SerializeField] public float FullSpeed { get; set; } = 4.5f;
 		[Header("Physics")]
-		[SerializeField, Tooltip("Movement force at 100% control.")] private float controlForce = 1800f;
-		[SerializeField] private AnimationCurve controlFalloff = new AnimationCurve(new Keyframe(0f, 1f), new Keyframe(1.5f, 0.333f));
-		[SerializeField, Tooltip("Movement force at 0% control.")] private float brakeForce = 900f;
-		[SerializeField, Tooltip("Movement power.")] private float power = 40f;
+		[SerializeField, Tooltip("The max amount of force that can be applied to reach the desired velocity.")] private float maxAcceleration = 2500f;
+		[SerializeField, Tooltip("The falloff curve of maxForce over current relative movement speed."), FormerlySerializedAs("controlFalloff")] private AnimationCurve accelerationFalloff = new AnimationCurve(new Keyframe(0f, 1f), new Keyframe(1.5f, 0.333f));
+		[SerializeField, Tooltip("The max amount of force that can be applied to reach the desired velocity.")] private float maxDeceleration = 1500f;
+		[SerializeField, Tooltip("The falloff curve of maxForce over current relative movement speed.")] private AnimationCurve decelerationFalloff = new AnimationCurve(new Keyframe(0f, 1f), new Keyframe(3f, 3f));
+		[SerializeField, Tooltip("General force responsiveness.")] private float power = 50f;
 		[Header("Rotation")]
 		[SerializeField] private float rotationSmoothing = 30f;
 		[Header("Stats")]
@@ -94,6 +102,7 @@ namespace SpaxUtils
 		private MovementInputSettings inputSettings;
 		private AgentStatHandler statHandler;
 
+		private Vector3 processedInput;
 		private MovementInputHelper inputHelper;
 		private EntityStat moveSpeedStat;
 		private EntityStat recoveryStat;
@@ -129,14 +138,28 @@ namespace SpaxUtils
 
 		protected void Update()
 		{
+			// Calculate appropriate input value according to stats.
+			processedInput =
+				statHandler.PointStats.E.IsRecoveringFromZero && InputRaw != Vector3.zero ?
+					InputRaw.ClampMagnitude(tiredInputLimiter) :
+					InputRaw;
+			// Update smooth input value.
+			InputSmooth = inputHelper.Update(processedInput, Time.deltaTime);
+
 			// Slow down recovery while running.
 			recoveryMod.SetValue(1f - Mathf.InverseLerp(HalfSpeed, FullSpeed * moveSpeedStat, rigidbodyWrapper.Speed).InOutSine() * velocityRecoveryMod);
 		}
 
 		protected void FixedUpdate()
 		{
-			UpdateMovement(Time.fixedDeltaTime * EntityTimeScale);
-			UpdateRotation(Time.fixedDeltaTime * EntityTimeScale);
+			if (AutoUpdateMovement)
+			{
+				UpdateMovement(Time.fixedDeltaTime * EntityTimeScale);
+			}
+			if (AutoUpdateRotation)
+			{
+				UpdateRotation(Time.fixedDeltaTime * EntityTimeScale);
+			}
 		}
 
 		/// <inheritdoc/>
@@ -144,14 +167,6 @@ namespace SpaxUtils
 		{
 			// Grounded movement does not utilize Y axis.
 			rigidbodyWrapper.ControlAxis = Vector3.one.FlattenY();
-
-			// Calculate appropriate input value according to stats.
-			Vector3 input =
-				statHandler.PointStats.E.IsRecoveringFromZero && InputRaw != Vector3.zero ?
-					InputRaw.ClampMagnitude(tiredInputLimiter) :
-					InputRaw;
-			// Update smooth input value.
-			InputSmooth = inputHelper.Update(input, delta);
 
 			if (!targetVelocity.HasValue)
 			{
@@ -165,10 +180,12 @@ namespace SpaxUtils
 				if (!grounder.Sliding)
 				{
 					// Default movement control.
-					rigidbodyWrapper.ApplyMovement(targetVelocity, controlForce * controlFalloff.Evaluate(rigidbodyWrapper.Speed / FullSpeed),
-						brakeForce, power, ignoreControl, grounder.Mobility);
+					float acFalloff = accelerationFalloff.Evaluate(rigidbodyWrapper.Speed * rigidbodyWrapper.Control / FullSpeed);
+					float deFalloff = decelerationFalloff.Evaluate(rigidbodyWrapper.Speed * rigidbodyWrapper.Control / FullSpeed);
+					rigidbodyWrapper.ApplyMovement(targetVelocity, maxAcceleration * acFalloff, maxDeceleration * deFalloff,
+						power, ignoreControl, grounder.Mobility);
 
-					if (input.magnitude > 1.01f)
+					if (processedInput.magnitude > 1.01f)
 					{
 						// Apply sprint cost.
 						statHandler.PointStats.E.Current.Damage(sprintCost * rigidbodyWrapper.Mass *
@@ -187,7 +204,7 @@ namespace SpaxUtils
 					Vector3 force = right * current.CalculateForce(
 						target * moveSpeedStat * slideSteeringSpeed * scale,
 						power * EntityTimeScale * scale,
-						controlForce * EntityTimeScale * scale);
+						maxAcceleration * EntityTimeScale * scale);
 					rigidbodyWrapper.AddForce(force);
 				}
 			}

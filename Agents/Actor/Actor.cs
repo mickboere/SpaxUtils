@@ -199,7 +199,7 @@ namespace SpaxUtils
 		{
 			base.OnReceived(key, act);
 
-			if (!SupportsAct(act.Title) || Blocked)
+			if (Blocked || !SupportsAct(act.Title))
 			{
 				return;
 			}
@@ -221,32 +221,18 @@ namespace SpaxUtils
 						lastPerformedInput.Value.Title == input.Title && lastPerformedInput.Value.Value &&
 						MainPerformer.TryPerform()))
 				{
+					// Successful input.
 					lastPerformedInput = act.Title == ActorActs.CANCEL ? null : input;
 					lastFailedAttempt = null;
 					act.Callback?.Invoke(performer ?? MainPerformer);
 				}
 				else
 				{
+					// Unsuccessful input, retry later.
 					lastFailedAttempt = (input, new TimerStruct(act.Buffer));
+					// TODO: BUG: Releasing button after an auto-completed performance counts as failure, while the action itself was successful.
+					// FIX: After a performance has exited prep
 				}
-
-				//IPerformer performer = null;
-				//bool tryPerform = !input.Value &&
-				//		MainPerformer != null &&
-				//		lastPerformedInput.HasValue &&
-				//		lastPerformedInput.Value.Title == input.Title &&
-				//		lastPerformedInput.Value.Value;
-				//if ((input.Value && TryPrepare(input, out performer)) ||
-				//	(tryPerform && MainPerformer.TryPerform()))
-				//{
-				//	lastPerformedInput = act.Title == ActorActs.CANCEL ? null : input;
-				//	lastFailedAttempt = null;
-				//	act.Callback?.Invoke(performer ?? MainPerformer);
-				//}
-				//else if (input.Value || tryPerform)
-				//{
-				//	lastFailedAttempt = (input, new TimerStruct(act.Buffer));
-				//}
 			}
 		}
 
@@ -278,7 +264,7 @@ namespace SpaxUtils
 			if (MainPerformer != null && act.Title == ActorActs.CANCEL)
 			{
 				finalPerformer = MainPerformer;
-				return MainPerformer.TryCancel(false);
+				return MainPerformer.TryCancel();
 			}
 
 			// Ensure Support and Non-Occupance or Interuptability.

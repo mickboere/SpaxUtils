@@ -596,6 +596,26 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
+		/// Calculates the effective change in velocity of pushing on a moving object.
+		/// </summary>
+		/// <param name="current">The current velocity of the object being pushed.</param>
+		/// <param name="push">The velocity with which to push on the object.</param>
+		/// <param name="effect">The resulting effectiveness of the push.</param>
+		/// <returns>The effective change in velocity.</returns>
+		public static Vector3 CalculatePush(this Vector3 current, Vector3 push, out float effect)
+		{
+			if (push == Vector3.zero)
+			{
+				effect = 0f;
+				return Vector3.zero;
+			}
+
+			Vector3 diff = (push - current);
+			effect = push.normalized.NormalizedDot(diff.normalized);
+			return diff * effect;
+		}
+
+		/// <summary>
 		/// Calculates kinetic energy of a body.
 		/// </summary>
 		public static Vector3 KineticEnergy(this Vector3 velocity, float mass)
