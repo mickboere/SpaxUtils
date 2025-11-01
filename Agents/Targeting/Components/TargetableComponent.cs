@@ -46,13 +46,20 @@ namespace SpaxUtils
 		public Vector3 Center => Bounds.center;
 
 		/// <inheritdoc/>
-		public Vector3 Size => Application.isPlaying && useSizeAtStart ? startingSize : Bounds.size;
+		public float Radius => radius.Approx(0f) ? Mathf.Max(Size.x, Size.z) * 0.5f : radius;
+
+		/// <inheritdoc/>
+		public Vector3 Size => Application.isPlaying && useSizeAtStart ? startingSize :
+			size == Vector3.zero ? Bounds.size :
+			size;
 
 		/// <inheritdoc/>
 		public bool IsTargetable { get; private set; } = true;
 
 		[SerializeField] private bool debug;
 		[SerializeField] private bool useSizeAtStart;
+		[SerializeField, Conditional(nameof(useSizeAtStart), true, false, false)] private Vector3 size;
+		[SerializeField] private float radius;
 
 		protected IHeadProvider headProvider;
 		protected Vector3 startingSize;
@@ -90,7 +97,7 @@ namespace SpaxUtils
 			}
 
 			Gizmos.color = Color.yellow;
-			Gizmos.DrawSphere(Center, 0.1f);
+			Gizmos.DrawWireSphere(Center, Radius);
 			Gizmos.color = Color.red;
 			Gizmos.DrawSphere(Center, 0.05f);
 			Gizmos.color = Color.blue;

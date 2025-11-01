@@ -13,7 +13,7 @@ namespace SpaxUtils
 		///		- Horizontal: Best way to avoid is moving backwards.
 		///		- Vertical: Best way to avoid is moving to the side.
 		/// </summary>
-		MeleeAttackType AttackType { get; }
+		MeleeAttackDirection AttackDirection { get; }
 
 		/// <summary>
 		/// Collection of hit-box bone identifiers for this move's performance.
@@ -37,6 +37,8 @@ namespace SpaxUtils
 		/// </summary>
 		Vector3 HitDirection { get; }
 
+		#region Momentum
+
 		/// <summary>
 		/// The relative inertia of this combat move to apply to the user.
 		/// </summary>
@@ -48,9 +50,21 @@ namespace SpaxUtils
 		public float InertiaDelay { get; }
 
 		/// <summary>
+		/// The (maximum) traversable distance when performing a charged attack.
+		/// </summary>
+		public float StormDistance { get; }
+
+		/// <summary>
+		/// Whether the charge pose should be held until done applying momentum.
+		/// </summary>
+		public bool PrelongCharge { get; }
+
+		/// <summary>
 		/// The velocity above which the performance should be prolonged.
 		/// </summary>
 		public float ProlongThreshold { get; }
+
+		#endregion Momentum
 
 		#region Stats
 

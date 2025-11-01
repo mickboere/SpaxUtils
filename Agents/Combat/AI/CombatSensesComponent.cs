@@ -3,14 +3,13 @@ using System.Collections;
 namespace SpaxUtils
 {
 	/// <summary>
-	/// Entity component that tracks all combat variables and sends appropriate stimuli to the mind so the agent can react to them.
+	/// Agent component that tracks all combat variables and sends appropriate stimuli to the mind so the agent can react to them.
 	/// </summary>
-	public class CombatSensesComponent : EntityComponentMono
+	public class CombatSensesComponent : AgentComponentBase
 	{
 		public EnemySense EnemySense { get; private set; }
 		public ProjectileSense ProjectileSense { get; private set; }
 
-		private IAgent agent;
 		private IVisionComponent vision;
 		private IHittable hittable;
 		private ISpawnpoint spawnpoint;
@@ -18,11 +17,10 @@ namespace SpaxUtils
 		private CombatSensesSettings settings;
 		private ProjectileService projectileService;
 
-		public void InjectDependencies(IAgent agent, IVisionComponent vision,
+		public void InjectDependencies(IVisionComponent vision,
 			IHittable hittable, [Optional] ISpawnpoint spawnpoint,
 			AgentStatHandler statHandler, CombatSensesSettings settings, ProjectileService projectileService)
 		{
-			this.agent = agent;
 			this.vision = vision;
 			this.hittable = hittable;
 			this.spawnpoint = spawnpoint;
@@ -33,10 +31,10 @@ namespace SpaxUtils
 
 		protected void Awake()
 		{
-			agent.Mind.ActivatedEvent += OnMindActivated;
-			agent.Mind.DeactivatedEvent += OnMindDeactivated;
+			Agent.Mind.ActivatedEvent += OnMindActivated;
+			Agent.Mind.DeactivatedEvent += OnMindDeactivated;
 
-			if (agent.Mind.Active)
+			if (Agent.Mind.Active)
 			{
 				OnMindActivated();
 			}
@@ -44,19 +42,19 @@ namespace SpaxUtils
 
 		public void OnMindActivated()
 		{
-			agent.Mind.UpdatingEvent += OnMindUpdating;
-			agent.Mind.MotivatedEvent += OnMindMotivated;
+			Agent.Mind.UpdatingEvent += OnMindUpdating;
+			Agent.Mind.MotivatedEvent += OnMindMotivated;
 
 			hittable.Subscribe(this, OnReceivedHitEvent);
 
-			EnemySense = new EnemySense(agent, spawnpoint, vision, statHandler, settings);
-			ProjectileSense = new ProjectileSense(agent, projectileService);
+			EnemySense = new EnemySense(Agent, spawnpoint, vision, statHandler, settings);
+			ProjectileSense = new ProjectileSense(Agent, projectileService);
 		}
 
 		public void OnMindDeactivated()
 		{
-			agent.Mind.UpdatingEvent -= OnMindUpdating;
-			agent.Mind.MotivatedEvent -= OnMindMotivated;
+			Agent.Mind.UpdatingEvent -= OnMindUpdating;
+			Agent.Mind.MotivatedEvent -= OnMindMotivated;
 
 			hittable.Unsubscribe(this);
 
@@ -67,12 +65,12 @@ namespace SpaxUtils
 		private void OnMindMotivated()
 		{
 			// Invoked when the mind's motivation has settled.
-			if (agent.Mind.Motivation.target != null)
+			if (Agent.Mind.Motivation.target != null)
 			{
-				if (agent.Targeter.Target == null || agent.Targeter.Target.Entity != agent.Mind.Motivation.target)
+				if (Agent.Targeter.Target == null || Agent.Targeter.Target.Entity != Agent.Mind.Motivation.target)
 				{
 					// Set target to the entity responsible for the mind's motivation.
-					agent.Targeter.SetTarget(agent.Mind.Motivation.target.GetEntityComponent<ITargetable>());
+					Agent.Targeter.SetTarget(Agent.Mind.Motivation.target.GetEntityComponent<ITargetable>());
 				}
 			}
 			//else
@@ -103,7 +101,7 @@ namespace SpaxUtils
 				S = fear,
 				NW = anger + fear,
 			};
-			agent.Mind.Stimulate(stim, hitData.Hitter);
+			Agent.Mind.Stimulate(stim, hitData.Hitter);
 		}
 	}
 }

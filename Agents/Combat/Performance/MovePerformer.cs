@@ -10,7 +10,7 @@ namespace SpaxUtils
 	/// </summary>
 	public class MovePerformer : IMovePerformer, IDisposable
 	{
-		public event Action<IPerformer> StartedPreparingEvent; // < Can never be listened to because it would be invoked on construction.
+		public event Action<IPerformer> StartedPreparingEvent; // < Can never be listened to in this implementation because it would be invoked on construction.
 		public event Action<IPerformer> StartedPerformingEvent;
 		public event Action<IPerformer> PerformanceUpdateEvent;
 		public event Action<IPerformer> PerformanceCompletedEvent;
@@ -28,6 +28,7 @@ namespace SpaxUtils
 
 		public IPerformanceMove Move { get; private set; }
 		public float Charge { get; private set; }
+		public bool Prelong { get; set; }
 		public bool Prolong { get; set; }
 		public bool Paused { get; set; }
 		public bool Canceled { get; private set; }
@@ -119,7 +120,7 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public bool TryCancel(bool force)
 		{
-			if (force || State == PerformanceState.Preparing)
+			if (force || State == PerformanceState.Preparing || (State == PerformanceState.Performing && RunTime.Approx(0f)))
 			{
 				// Delay setting state to "Finishing" to prevent state change during Followup Move.
 				Canceled = true;

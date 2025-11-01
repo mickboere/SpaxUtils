@@ -13,11 +13,11 @@ namespace SpaxUtils
 		[SerializeField] private bool test;
 
 		private CameraWrapper cameraHandler;
-		private AwarenessComponent awarenessComponent;
+		private AgentSenseComponent awarenessComponent;
 
 		private List<IShakeSource> sources = new List<IShakeSource>();
 
-		public void InjectDependencies(CameraWrapper cameraHandler, AwarenessComponent awarenessComponent)
+		public void InjectDependencies(CameraWrapper cameraHandler, AgentSenseComponent awarenessComponent)
 		{
 			this.cameraHandler = cameraHandler;
 			this.awarenessComponent = awarenessComponent;

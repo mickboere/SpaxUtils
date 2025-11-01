@@ -6,7 +6,7 @@ namespace SpaxUtils
 	/// <summary>
 	/// Global service that broadcasts reported impacts.
 	/// </summary>
-	public class AwarenessService : IService
+	public class GlobalImpactService : IService
 	{
 		public event Action<ImpactData> ImpactEvent;
 

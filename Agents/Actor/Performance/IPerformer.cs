@@ -52,11 +52,6 @@ namespace SpaxUtils
 		float RunTime { get; }
 
 		/// <summary>
-		/// Whether the current performance should halt its the runtime once minimum duration has been reached.
-		/// </summary>
-		bool Prolong { get; set; }
-
-		/// <summary>
 		/// Whether this performer's runtime is currently paused.
 		/// </summary>
 		bool Paused { get; set; }

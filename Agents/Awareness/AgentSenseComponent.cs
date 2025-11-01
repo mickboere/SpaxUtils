@@ -4,30 +4,30 @@ namespace SpaxUtils
 {
 	/// <summary>
 	/// Agent component that transmits reported impacts both locally through the <see cref="ICommunicationChannel"/>
-	/// and globally through the <see cref="AwarenessService"/>.
-	/// Will also listen for any impacts it was a victim of and transmit them locally.
+	/// and globally through the <see cref="GlobalImpactService"/>.
+	/// Will also listen for any impacts it was a victim of and pass them on locally.
 	/// </summary>
-	public class AwarenessComponent : AgentComponentBase
+	public class AgentSenseComponent : AgentComponentBase
 	{
 		public event Action<ImpactData> ImpactEvent;
 
-		private AwarenessService awarenessService;
+		private GlobalImpactService impactService;
 		private ICommunicationChannel comms;
 
-		public void InjectDependencies(AwarenessService awarenessService, ICommunicationChannel comms)
+		public void InjectDependencies(GlobalImpactService awarenessService, ICommunicationChannel comms)
 		{
-			this.awarenessService = awarenessService;
+			this.impactService = awarenessService;
 			this.comms = comms;
 		}
 
 		protected void OnEnable()
 		{
-			awarenessService.AddListener(Entity, OnMentioned);
+			impactService.AddListener(Entity, OnMentioned);
 		}
 
 		protected void OnDisable()
 		{
-			awarenessService.RemoveListener(Entity);
+			impactService.RemoveListener(Entity);
 		}
 
 		private void OnMentioned(ImpactData impact)
@@ -40,7 +40,7 @@ namespace SpaxUtils
 		{
 			ImpactEvent?.Invoke(impact);
 			comms.Send(impact);
-			awarenessService.ReportImpact(impact);
+			impactService.ReportImpact(impact);
 		}
 	}
 }

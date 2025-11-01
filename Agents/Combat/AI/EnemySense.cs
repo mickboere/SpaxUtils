@@ -7,7 +7,7 @@ namespace SpaxUtils
 {
 	public class EnemySense : IDisposable
 	{
-		private Dictionary<ITargetable, EnemyData> enemies = new Dictionary<ITargetable, EnemyData>();
+		private Dictionary<ITargetable, EnemyAwarenessData> enemies = new Dictionary<ITargetable, EnemyAwarenessData>();
 
 		private IAgent agent;
 		private ISpawnpoint spawnpoint;
@@ -42,9 +42,9 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
-		/// Retrieve the <see cref="EnemyData"/> for the currently targeted entity.
+		/// Retrieve the <see cref="EnemyAwarenessData"/> for the currently targeted entity.
 		/// </summary>
-		public EnemyData GetEnemyData()
+		public EnemyAwarenessData GetEnemyData()
 		{
 			if (agent.Targeter.Target == null || !enemies.ContainsKey(agent.Targeter.Target))
 			{
@@ -54,7 +54,7 @@ namespace SpaxUtils
 			return enemies[agent.Targeter.Target];
 		}
 
-		public EnemyData GetEnemyData(ITargetable targetable)
+		public EnemyAwarenessData GetEnemyData(ITargetable targetable)
 		{
 			return enemies[targetable];
 		}
@@ -76,10 +76,10 @@ namespace SpaxUtils
 					continue;
 				}
 
-				EnemyData enemyData;
+				EnemyAwarenessData enemyData;
 				if (!enemies.ContainsKey(enemy))
 				{
-					enemyData = new EnemyData(enemyAgent);
+					enemyData = new EnemyAwarenessData(enemyAgent);
 					enemies.Add(enemy, enemyData);
 					enemyAgent.DiedEvent += OnEnemyDiedEvent;
 					enemyData.Resentment = agent.Relations.Score(enemyAgent.Identification).Abs();
@@ -96,9 +96,17 @@ namespace SpaxUtils
 
 				// - UPDATE ENEMY INTEL -
 				enemyData.LastSeen = Time.time;
+				enemyData.LastLocation = enemyData.Agent.Transform.position;
 				enemyData.Direction = enemyData.Agent.Transform.position - agent.Transform.position;
 				enemyData.Distance = enemyData.Direction.magnitude;
-				enemyData.Direction = enemyData.Direction.normalized; // Direction should be normalized for dotting.
+				enemyData.Direction = enemyData.Direction.normalized;
+				enemyData.Projection = agent.Body.RigidbodyWrapper.Velocity.normalized.Dot(enemyData.Direction) * agent.Body.RigidbodyWrapper.Speed +
+					enemyData.Agent.Body.RigidbodyWrapper.Velocity.normalized.Dot(-enemyData.Direction) * enemyData.Agent.Body.RigidbodyWrapper.Speed;
+				// V TODO: Create general "AgentCombatComponent" which stores stuff like Reach, Openness, etc. since such data is self-relevant.
+				enemyData.Reach = enemyAgent.Stats.GetStat(AgentStatIdentifiers.REACH) +
+					Mathf.Max(
+						enemyData.Agent.Stats.GetStat(AgentStatIdentifiers.REACH.SubStat(AgentStatIdentifiers.SUB_LEFT_HAND)),
+						enemyData.Agent.Stats.GetStat(AgentStatIdentifiers.REACH.SubStat(AgentStatIdentifiers.SUB_RIGHT_HAND)));
 
 				// Threat is defined by distance to enemy.
 				enemyData.Threat = (enemyData.Distance / (vision.Range * settings.ThreatRange)).InvertClamped().Evaluate(settings.ThreatCurve);
@@ -109,12 +117,7 @@ namespace SpaxUtils
 				float enemyPointSum = enemyData.Agent.GetEntityComponent<AgentStatHandler>().PointStats.Vector8.Sum();
 				enemyData.Advantage = pointSum / enemyPointSum;
 				enemyData.Disadvantage = enemyPointSum / pointSum;
-				enemyData.Reach = enemyAgent.Stats.GetStat(AgentStatIdentifiers.REACH) +
-					Mathf.Max(
-						enemyData.Agent.Stats.GetStat(AgentStatIdentifiers.REACH.SubStat(AgentStatIdentifiers.SUB_LEFT_HAND)),
-						enemyData.Agent.Stats.GetStat(AgentStatIdentifiers.REACH.SubStat(AgentStatIdentifiers.SUB_RIGHT_HAND)));
-				enemyData.Projection = agent.Body.RigidbodyWrapper.Velocity.normalized.Dot(enemyData.Direction) * agent.Body.RigidbodyWrapper.Speed +
-					enemyData.Agent.Body.RigidbodyWrapper.Velocity.normalized.Dot(-enemyData.Direction) * enemyData.Agent.Body.RigidbodyWrapper.Speed;
+
 			}
 
 			// Check for any enemies that have been out of view for too long and forget about them.
@@ -150,7 +153,7 @@ namespace SpaxUtils
 
 		private void SendContinuousStimuli(float delta)
 		{
-			foreach (EnemyData enemy in enemies.Values)
+			foreach (EnemyAwarenessData enemy in enemies.Values)
 			{
 				Vector8 current = agent.Mind.RetrieveStimuli(enemy.Agent);
 

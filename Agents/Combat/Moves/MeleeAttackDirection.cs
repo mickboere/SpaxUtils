@@ -1,6 +1,6 @@
 ﻿namespace SpaxUtils
 {
-	public enum MeleeAttackType
+	public enum MeleeAttackDirection
 	{
 		Horizontal,
 		Vertical

@@ -95,9 +95,10 @@
 		public const string POWER = BODY_STAT + "Power"; // The body's output force.
 
 		// Light
-		public const string STATIC = BODY_STAT + "Static"; // Amount of available charge.
+		public const string STATIC = BODY_STAT + "Static"; // Amount of available charging power.
 		public const string ATTACK_CHARGE_SPEED = BODY_STAT + "Attack_Charge_Speed";
 		public const string ATTACK_PERFORM_SPEED = BODY_STAT + "Attack_Perform_Speed";
+		public const string ATTACK_STORM_SPEED = BODY_STAT + "Attack_Storm_Speed";
 
 		// Air
 		public const string STAMINA = BODY_STAT + "Stamina";

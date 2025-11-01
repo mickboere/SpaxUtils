@@ -36,13 +36,6 @@ namespace SpaxUtils
 		public float RunTime => MainPerformer != null ? MainPerformer.RunTime : 0f;
 
 		/// <inheritdoc/>
-		public bool Prolong
-		{
-			get { return MainPerformer != null ? MainPerformer.Prolong : false; }
-			set { if (MainPerformer != null) MainPerformer.Prolong = value; }
-		}
-
-		/// <inheritdoc/>
 		public bool Paused
 		{
 			get { return MainPerformer != null ? MainPerformer.Paused : false; }

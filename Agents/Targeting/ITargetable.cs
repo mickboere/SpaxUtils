@@ -40,7 +40,12 @@ namespace SpaxUtils
 		Vector3 Center { get; }
 
 		/// <summary>
-		/// The size of the targetable.
+		/// The top-down radius of the targetable.
+		/// </summary>
+		float Radius { get; }
+
+		/// <summary>
+		/// The box-size of the targetable.
 		/// </summary>
 		Vector3 Size { get; }
 

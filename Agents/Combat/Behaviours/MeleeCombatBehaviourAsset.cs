@@ -10,10 +10,14 @@ namespace SpaxUtils
 	[CreateAssetMenu(fileName = "CombatBehaviour_MeleeAttack", menuName = "ScriptableObjects/Combat/MeleeCombatBehaviourAsset")]
 	public class MeleeCombatBehaviourAsset : BaseCombatMoveBehaviourAsset
 	{
-		[SerializeField] private float autoAimRange = 2f;
 		[SerializeField] private LayerMask hitDetectionMask;
 		[SerializeField] private float chargePower = 2f;
-		[SerializeField, MinMaxRange(0.5f, 1.5f)] private Vector2 strengthSpeedModRange = new Vector2(0.7f, 1.15f);
+		[SerializeField, MinMaxRange(0.5f, 1.5f), Tooltip("Attack speed modifier by strength / weapon mass relation.")]
+		private Vector2 strengthSpeedModRange = new Vector2(0.7f, 1.15f);
+		[Header("Storming")]
+		[SerializeField] private float maxAcceleration = 20000f;
+		[SerializeField] private float maxDeceleration = 2000f;
+		[SerializeField] private float power = 50f;
 
 		protected IMeleeCombatMove move;
 		protected CallbackService callbackService;
@@ -27,7 +31,7 @@ namespace SpaxUtils
 		protected ICommunicationChannel comms;
 		protected IStunHandler stunHandler;
 		protected AgentStatHandler statHandler;
-		protected AwarenessComponent awarenessComponent;
+		protected AgentSenseComponent awarenessComponent;
 
 		private EntityStat timescaleStat;
 		private EntityStat limbMassStat;
@@ -37,22 +41,27 @@ namespace SpaxUtils
 		private EntityStat chargeStat;
 		private EntityStat chargeSpeedStat;
 		private EntityStat performSpeedStat;
+		private EntityStat stormSpeedStat;
 		private EntityStat enduranceCostStat;
 
 		private FloatFuncModifier speedMod;
 		private FloatOperationModifier balanceMod;
 
 		private CombatHitDetector hitDetector;
-		private TimerClass momentumTimer;
+		private TimerClass inertiaTimer;
 		private TimedCurveModifier hitPauseMod;
-
 		private float totalCharge;
+		private float attackRange;
+		private ITargetable target;
+		private float stormDuration;
+		private float stormSpeed;
+		private TimerClass stormTimer;
 
 		public void InjectDependencies(IMeleeCombatMove move, CallbackService callbackService,
 			TransformLookup transformLookup, ITargeter targeter, IAgentMovementHandler movementHandler,
 			AgentNavigationHandler navigationHandler, IEntityCollection entityCollection, CombatSettings combatSettings,
 			RigidbodyWrapper rigidbodyWrapper, ICommunicationChannel comms, IStunHandler stunHandler,
-			AgentStatHandler statHandler, AwarenessComponent awarenessComponent)
+			AgentStatHandler statHandler, AgentSenseComponent awarenessComponent)
 		{
 			this.move = move;
 			this.callbackService = callbackService;
@@ -76,7 +85,12 @@ namespace SpaxUtils
 			chargeStat = Agent.Stats.GetStat(move.ChargeCost.Stat);
 			chargeSpeedStat = Agent.Stats.GetStat(move.ChargeSpeedMultiplierStat, false, 1f);
 			performSpeedStat = Agent.Stats.GetStat(move.PerformSpeedMultiplierStat, false, 1f);
+			stormSpeedStat = Agent.Stats.GetStat(AgentStatIdentifiers.ATTACK_STORM_SPEED, false, 1f);
 			enduranceCostStat = Agent.Stats.GetStat(AgentStatIdentifiers.ENDURANCE.SubStat(AgentStatIdentifiers.SUB_COST));
+
+			attackRange = this.move.Range +
+				Agent.Stats.GetStat(AgentStatIdentifiers.REACH) +
+				(Agent.Stats.GetStat(AgentStatIdentifiers.REACH.SubStat(this.move.Limb)) ?? 0f);
 		}
 
 		public override void Start()
@@ -84,7 +98,7 @@ namespace SpaxUtils
 			base.Start();
 
 			hitDetector = new CombatHitDetector(Agent, transformLookup, move, hitDetectionMask);
-			Performer.StartedPerformingEvent += OnPerformanceStartedEvent;
+			Performer.StartedPerformingEvent += OnStartedPerformingEvent;
 			totalCharge = 1f;
 
 			speedMod = new FloatFuncModifier(ModMethod.Absolute, (float f) => f * (strengthStat / limbMassStat).Clamp(strengthSpeedModRange.x, strengthSpeedModRange.y));
@@ -99,13 +113,15 @@ namespace SpaxUtils
 			base.Stop();
 
 			hitDetector.Dispose();
-			Performer.StartedPerformingEvent -= OnPerformanceStartedEvent;
+			Performer.StartedPerformingEvent -= OnStartedPerformingEvent;
 
 			chargeSpeedStat.RemoveModifier(this);
 			performSpeedStat.RemoveModifier(this);
 			speedMod.Dispose();
 			enduranceCostStat.RemoveModifier(this);
 			balanceMod.Dispose();
+
+			movementHandler.AutoUpdateMovement = true;
 		}
 
 		public override void ExternalUpdate(float delta)
@@ -134,45 +150,98 @@ namespace SpaxUtils
 					OnNewHitDetected(newHits);
 				}
 
-				// Apply momentum to user after delay.
-				// TODO: Create homing system that pulls and steers agent towards enemy, performing attack once in range.
-				if (momentumTimer != null && momentumTimer.Expired)
+				// Apply inertia.
+				if (inertiaTimer != null && inertiaTimer.Expired)
 				{
-					RigidbodyWrapper.PushRelative(move.Inertia * totalCharge);
-					momentumTimer.Dispose();
-					momentumTimer = null;
+					float strength = 1f;
+					if (target != null)
+					{
+						strength = (Vector3.Distance(target.Position, RigidbodyWrapper.Position) / (attackRange + target.Radius)).Clamp01().InCubic();
+					}
+					RigidbodyWrapper.PushRelative(move.Inertia * strength);
+					inertiaTimer.Dispose();
+					inertiaTimer = null;
 				}
+				// Apply storm.
+				if (inertiaTimer == null &&
+					stormTimer != null)
+				{
+					Vector3 dir = target != null ?
+						target.Position - RigidbodyWrapper.Position :
+						rigidbodyWrapper.Forward; // TODO: Steering control?
+					if (stormTimer.Expired || (target != null && dir.magnitude < attackRange + target.Radius))
+					{
+						// If in range or out of time, end storm.
+						stormTimer.Dispose();
+						stormTimer = null;
+						rigidbodyWrapper.TargetVelocity = Vector3.zero;
+						Performer.Paused = false;
+					}
+					else
+					{
+						// Storm towards target.
+						rigidbodyWrapper.TargetVelocity = dir.normalized * stormSpeed;
+						rigidbodyWrapper.ApplyMovement(null, maxAcceleration, maxDeceleration, power, true);
+					}
+				}
+				// Brake storm.
+				if (totalCharge > 1f && inertiaTimer == null && stormTimer == null)
+				{
+					rigidbodyWrapper.ApplyMovement(Vector3.zero, maxAcceleration, maxDeceleration, power, true);
+				}
+			}
+
+			if (Performer.State is PerformanceState.Finishing)
+			{
+				movementHandler.AutoUpdateMovement = true;
 			}
 
 			float balance = Performer.State == PerformanceState.Preparing ? move.ChargeBalance : move.PerformBalance;
 			balanceMod.SetValue((1f / balance).Lerp(1f, Weight.Invert()));
 		}
 
-		protected void OnPerformanceStartedEvent(IPerformer performer)
+		protected void OnStartedPerformingEvent(IPerformer performer)
 		{
-			// AIMING:
+			// TARGETING
 			if (targeter.Target != null)
 			{
-				// Auto aim to target.
-				rigidbodyWrapper.TargetVelocity = targeter.Target.Center - RigidbodyWrapper.Position;
+				// Aim to selected target.
+				target = targeter.Target;
 			}
 			else if (RigidbodyWrapper.TargetVelocity.magnitude <= 1f &&
 				navigationHandler.TryGetClosestTarget(Agent.Targeter.Enemies.Components, false, out ITargetable closest, out float distance) &&
-				distance < autoAimRange)
+				distance < attackRange + closest.Radius)
 			{
 				// Auto aim to closest targetable in range.
-				// TODO: Utilize attack range instead of autoAimRange.
-				rigidbodyWrapper.TargetVelocity = closest.Center - RigidbodyWrapper.Position;
+				target = closest;
+			}
+
+			if (target != null)
+			{
+				rigidbodyWrapper.TargetVelocity = (target.Position - RigidbodyWrapper.Position).normalized;
 			}
 			movementHandler.ForceRotation();
 
-			// STAT COST:
-			if (limbMassStat == null) SpaxDebug.Error("limbMassStat NULL");
-			if (strengthStat == null) SpaxDebug.Error("strengthStat NULL");
+			// CHARGING
+			if (totalCharge > 1f)
+			{
+				// Initialize charge > storm.
+				movementHandler.AutoUpdateMovement = false; // Don't auto brake during storm.
+				stormSpeed = totalCharge * (stormSpeedStat ?? 1f);
+				stormDuration = ((totalCharge - 1f) * move.StormDistance) / stormSpeed;
+				stormTimer = new TimerClass(move.InertiaDelay + stormDuration, () => timescaleStat, callbackService);
+				if (move.PrelongCharge)
+				{
+					// Hold charge pose.
+					performer.Paused = true;
+				}
+			}
 
+			// STAT COST
 			Agent.Stats.TryApplyStatCost(Move.PerformCost.Stat, Move.PerformCost.Cost * (limbMassStat / strengthStat) * 100f, false, out _, out _);
 
-			momentumTimer = new TimerClass(move.InertiaDelay, () => timescaleStat, callbackService);
+			// Set timer for initial force application.
+			inertiaTimer = new TimerClass(move.InertiaDelay, () => timescaleStat, callbackService);
 		}
 
 		protected void OnNewHitDetected(List<HitScanHitData> newHits)

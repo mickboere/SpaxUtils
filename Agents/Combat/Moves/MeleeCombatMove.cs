@@ -10,13 +10,15 @@ namespace SpaxUtils
 	[CreateAssetMenu(fileName = "MeleeCombatMove", menuName = "ScriptableObjects/Combat/MeleeCombatMove")]
 	public class MeleeCombatMove : BaseCombatMove, IMeleeCombatMove
 	{
-		public MeleeAttackType AttackType => attackType;
+		public MeleeAttackDirection AttackDirection => attackDirection;
 		public List<string> HitBoxes => hitBoxes;
 		public float HitDetectionDelay => hitDetectionDelay;
 		public bool CustomDirection => customDirection;
 		public Vector3 HitDirection => hitDirection;
 		public Vector3 Inertia => inertia;
 		public float InertiaDelay => inertiaDelay;
+		public float StormDistance => stormDistance;
+		public bool PrelongCharge => prelongCharge;
 		public float ProlongThreshold => prolongThreshold;
 		public string Limb => limb;
 		public float Power => power;
@@ -25,7 +27,7 @@ namespace SpaxUtils
 		public float PerformBalance => performBalance;
 
 		[Header("Hit detection")]
-		[SerializeField] private MeleeAttackType attackType;
+		[SerializeField, FormerlySerializedAs("attackType")] private MeleeAttackDirection attackDirection;
 		[SerializeField, ConstDropdown(typeof(ITransformLookupIdentifiers), showAdress: true)] private List<string> hitBoxes;
 		[SerializeField] private float hitDetectionDelay = 0f;
 		[SerializeField, HideInInspector] private bool customDirection;
@@ -34,6 +36,8 @@ namespace SpaxUtils
 		[Header("Momentum")]
 		[SerializeField, FormerlySerializedAs("momentum")] private Vector3 inertia;
 		[SerializeField, FormerlySerializedAs("forceDelay")] private float inertiaDelay;
+		[SerializeField, Tooltip("Whether the charge pose should be held until within attack release range.")] private bool prelongCharge;
+		[SerializeField] private float stormDistance = 5f;
 		[SerializeField, Tooltip("Velocity above which the performance should be prolonged.")] private float prolongThreshold = 1f;
 
 		[Header("Stats")]
