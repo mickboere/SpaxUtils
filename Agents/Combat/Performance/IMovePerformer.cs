@@ -15,7 +15,7 @@ namespace SpaxUtils
 		/// <summary>
 		/// The amount of time this combat performance has spent charging.
 		/// </summary>
-		float Charge { get; set; }
+		float Charge { get; }
 
 		/// <summary>
 		/// Whether the current performance should halt its the runtime once minimum duration has been reached.

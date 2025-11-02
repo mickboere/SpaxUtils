@@ -27,7 +27,7 @@ namespace SpaxUtils
 		#region IMovePerformer Properties
 
 		public IPerformanceMove Move { get; private set; }
-		public float Charge { get; set; }
+		public float Charge { get; private set; }
 		public bool Prelong { get; set; }
 		public bool Prolong { get; set; }
 		public bool Paused { get; set; }
@@ -141,15 +141,21 @@ namespace SpaxUtils
 
 				if (State == PerformanceState.Preparing)
 				{
-					if (Charge >= Move.MinCharge && released)
+					// Preparing (charging).
+					if (Charge < Move.MinCharge && released && Charge + delta >= Move.MinCharge)
 					{
-						// Finished charging.
+						// Released before we finished charging, make sure we don't overcharge.
+						Charge = Move.MinCharge;
 						State = PerformanceState.Performing;
 					}
 					else
 					{
-						// Preparing (charging).
 						Charge += delta;
+						if (Charge >= Move.MinCharge && released)
+						{
+							// Finished charging.
+							State = PerformanceState.Performing;
+						}
 					}
 				}
 				// No else statement here to remove frame delay.

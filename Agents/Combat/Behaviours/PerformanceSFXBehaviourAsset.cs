@@ -50,6 +50,7 @@ namespace SpaxUtils
 
 		protected void OnPerformanceStartedEvent(IPerformer performer)
 		{
+			// TODO: FOR WEAPON SWING, DELAY UNTIL AFTER RUNTIME ACTUALLY INCREASES.
 			performSFX.Play(audioPool.Request(Agent.Targetable.Center).AudioSourceWrapper);
 		}
 	}

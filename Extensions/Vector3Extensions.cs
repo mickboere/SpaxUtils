@@ -711,6 +711,15 @@ namespace SpaxUtils
 		#region Parsing
 
 		/// <summary>
+		/// Returns whether the Vector3 contains any NaN's or Infinity's.
+		/// </summary>
+		public static bool IsValid(this Vector3 v)
+		{
+			return !(float.IsNaN(v.x) || float.IsNaN(v.y) || float.IsNaN(v.z)
+				|| float.IsInfinity(v.x) || float.IsInfinity(v.y) || float.IsInfinity(v.z));
+		}
+
+		/// <summary>
 		/// Will convert <paramref name="vector3"/> to a string following the format: "0,0,0".
 		/// </summary>
 		public static string ToParseableString(this Vector3 vector3)

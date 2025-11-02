@@ -7,9 +7,10 @@ namespace SpaxUtils
 	/// </summary>
 	public class SurveyorComponent : EntityComponentMono
 	{
-		public float Speed { get; private set; }
 		public float Stride { get; private set; }
+		public float Influence { get; private set; }
 		public float Circumference { get; private set; }
+		public float Progress { get; private set; }
 
 		[Header("Stride")]
 		[SerializeField] private float minStride = 0.5f;
@@ -19,8 +20,9 @@ namespace SpaxUtils
 		[Header("Stride Influence")]
 		[SerializeField, Range(0f, 1f)] private float mobilityStrideInfluence = 1f;
 		[SerializeField, Range(0f, 1f)] private float accelerationStrideInfluence = 1f;
-		[SerializeField, Range(0f, 2f)] private float accelerationScale = 1f;
-		[SerializeField] private Vector2 accelerationSmoothing = new Vector2(20f, 0.1f);
+		[SerializeField] private float accelerationScale = 1f;
+		[SerializeField, Tooltip("X=acceleration smooth speed, Y=deceleration smooth speed")]
+		private Vector2 accelerationSmoothing = new Vector2(20f, 0.1f);
 		[Header("Surveying")]
 		[SerializeField, Range(0f, 1f)] private float resetProgress;
 		[SerializeField, MinMaxRange(0f, 1f, true)] private Vector2 groundedRange = new Vector2(0.35f, 0.65f);
@@ -45,15 +47,14 @@ namespace SpaxUtils
 		[SerializeField, Conditional(nameof(debug))] private bool drawRaycasts;
 		[SerializeField, Conditional(nameof(debug))] private bool log;
 
-		private float progress;
 		private RigidbodyWrapper rigidbodyWrapper;
 		private AgentLegsComponent legs;
 		private IAgentBody body;
 		private GrounderComponent grounder;
 		private IAgentMovementHandler movementHandler;
+		private EntityStat moveSpeedStat;
 
-		private float smoothAccel;
-		private float previousAccel;
+		public float smoothAccel;
 
 		public void InjectDependencies(RigidbodyWrapper wrapper, AgentLegsComponent legs, IAgentBody body,
 			GrounderComponent grounder, IAgentMovementHandler movementHandler)
@@ -63,11 +64,15 @@ namespace SpaxUtils
 			this.grounder = grounder;
 			this.body = body;
 			this.movementHandler = movementHandler;
+
+			moveSpeedStat = Entity.Stats.GetStat(AgentStatIdentifiers.MOVEMENT_SPEED, false, 1f);
 		}
 
 		public void ResetSurveyor(float progress = 0f)
 		{
-			this.progress = progress;
+			Progress = progress;
+			smoothAccel = 0f;
+
 			foreach (Leg leg in legs.Legs)
 			{
 				leg.UpdateGround(grounder.Grounded, 0f, false, default, default);
@@ -89,7 +94,7 @@ namespace SpaxUtils
 
 		public float GetProgress(float offset = 0f, bool applyStrideSpeedCurve = true)
 		{
-			float p = (progress + offset).Repeat();
+			float p = (Progress + offset).Repeat();
 			return applyStrideSpeedCurve ? strideSpeed.Evaluate(p) : p;
 		}
 
@@ -115,25 +120,28 @@ namespace SpaxUtils
 
 		private void UpdateProgress(float delta, float velocity)
 		{
-			Speed = velocity / movementHandler.FullSpeed;
-
-			// Mobility Influence
-			Speed *= Mathf.Lerp(1f, grounder.Mobility, mobilityStrideInfluence);
-
-			// Acceleration Influence
-			float accel = ((rigidbodyWrapper.Acceleration.magnitude * accelerationScale).Clamp01().OutQuad() *
-				Speed.Clamp01().InQuad()).InvertClamped();
-			smoothAccel = Mathf.Lerp(smoothAccel, accel,
-				(accel < previousAccel ? accelerationSmoothing.x : accelerationSmoothing.y) * delta);
-			previousAccel = accel;
-			Speed *= Mathf.Lerp(1f, smoothAccel, accelerationStrideInfluence);
-
+			// Calculate stride length.
 			float strideInterpolation = velocity.InverseLerp(movementHandler.MinSpeed, movementHandler.FullSpeed);
-			Stride = minStride.Lerp(fullStride, strideInterpolation).Lerp(maxStride, ((Speed - 1f) * 2f).Clamp01());
-			Circumference = Stride * Mathf.PI;
+			float relativeSpeed = velocity / movementHandler.FullSpeed;
+			Stride = minStride.Lerp(fullStride, strideInterpolation).Lerp(
+				maxStride, ((relativeSpeed - 1f) * 2f).Clamp01());
 
+			// Calculate stride influence.
+			Influence = 1f;
+			// 1. Mobility Influence
+			Influence *= Mathf.Lerp(1f, grounder.Mobility, mobilityStrideInfluence);
+			// 2. Acceleration Influence
+			float accel = (rigidbodyWrapper.Acceleration.magnitude * accelerationScale).Clamp01() * 
+				(relativeSpeed * (1f / moveSpeedStat) * 0.5f).InvertClamped();
+			smoothAccel = Mathf.Lerp(smoothAccel, accel,
+				(accel > smoothAccel ? accelerationSmoothing.x : accelerationSmoothing.y) * delta);
+			Influence *= Mathf.Lerp(1f, smoothAccel.Invert(), accelerationStrideInfluence);
+
+			// Calculate updated progress with influenced stride.
+			Stride = (Stride * Influence).Max(minStride);
+			Circumference = Stride * Mathf.PI;
 			float travel = velocity / Circumference * rigidbodyWrapper.Grip.InOutQuint();
-			progress = (progress + travel * delta).Repeat();
+			Progress = (Progress + travel * delta).Repeat();
 		}
 
 		private void Survey(float delta)

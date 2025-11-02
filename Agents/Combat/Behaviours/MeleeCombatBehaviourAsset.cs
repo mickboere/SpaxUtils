@@ -10,15 +10,19 @@ namespace SpaxUtils
 	[CreateAssetMenu(fileName = "CombatBehaviour_MeleeAttack", menuName = "ScriptableObjects/Combat/MeleeCombatBehaviourAsset")]
 	public class MeleeCombatBehaviourAsset : BaseCombatMoveBehaviourAsset
 	{
+		[Header("Hit Detection")]
 		[SerializeField] private LayerMask hitDetectionMask;
-		[SerializeField] private float chargePower = 2f;
+		[Header("Swinging")]
 		[SerializeField, MinMaxRange(0.5f, 1.5f), Tooltip("Attack speed modifier by strength / weapon mass relation.")]
 		private Vector2 strengthSpeedModRange = new Vector2(0.7f, 1.15f);
+		[SerializeField] private float swingShakeMagnitude = 1f;
+		[Header("Charging")]
+		[SerializeField] private float chargePower = 1f;
 		[Header("Storming")]
 		[SerializeField] private float maxAcceleration = 20000f;
 		[SerializeField] private float maxDeceleration = 2000f;
 		[SerializeField] private float power = 50f;
-		[SerializeField] private Vector3 shakeMagnitude = Vector3.one;
+		[SerializeField] private Vector3 stormShakeMagnitude = Vector3.one;
 
 		protected IMeleeCombatMove move;
 		protected CallbackService callbackService;
@@ -57,6 +61,7 @@ namespace SpaxUtils
 		private float stormDuration;
 		private float stormSpeed;
 		private TimerClass stormTimer;
+		private ContinuousShakeSource swingShake;
 		private ContinuousShakeSource stormShake;
 
 		public void InjectDependencies(IMeleeCombatMove move, CallbackService callbackService,
@@ -125,6 +130,7 @@ namespace SpaxUtils
 
 			movementHandler.AutoUpdateMovement = true;
 			stormShake?.Dispose();
+			swingShake?.Dispose();
 		}
 
 		public override void ExternalUpdate(float delta)
@@ -139,11 +145,6 @@ namespace SpaxUtils
 				if (Agent.Stats.TryApplyStatCost(Move.ChargeCost.Stat, move.ChargeCost.Cost * delta * chargeSpeedStat, true, out float damage, out bool drained, out float overdraw))
 				{
 					totalCharge += (damage - overdraw) * chargePower;
-					if (totalCharge.Approx(1f))
-					{
-						// No charge was available to begin with, clamp Performer.Charge to MinCharge value.
-						Performer.Charge = Move.MinCharge;
-					}
 					if (drained)
 					{
 						// Charge stat was drained, exit charge and enter performance.
@@ -185,6 +186,7 @@ namespace SpaxUtils
 						stormTimer = null;
 						rigidbodyWrapper.TargetVelocity = Vector3.zero;
 						Performer.Paused = false;
+						OnSwing();
 					}
 					else
 					{
@@ -206,6 +208,10 @@ namespace SpaxUtils
 			}
 
 			// Shaking.
+			if(swingShake != null)
+			{
+				swingShake.Intensity = (Performer.RunTime / Move.MinDuration).InvertClamped();
+			}
 			if (stormShake != null)
 			{
 				stormShake.Direction = -rigidbodyWrapper.Velocity.normalized;
@@ -246,7 +252,7 @@ namespace SpaxUtils
 				movementHandler.AutoUpdateMovement = false; // Don't auto brake during storm.
 				stormSpeed = totalCharge * (stormSpeedStat ?? 1f);
 				stormDuration = ((totalCharge - 1f) * move.StormDistance) / stormSpeed;
-				stormTimer = new TimerClass(move.InertiaDelay + stormDuration, () => timescaleStat, callbackService);
+				stormTimer = new TimerClass(stormDuration, () => timescaleStat, callbackService);
 				if (move.PrelongCharge)
 				{
 					// Hold charge pose.
@@ -256,7 +262,7 @@ namespace SpaxUtils
 				if (Agent.Identification.HasAll(EntityLabels.PLAYER))
 				{
 					// Shake screen during storm.
-					stormShake = new ContinuousShakeSource(shakeMagnitude, -rigidbodyWrapper.TargetVelocity);
+					stormShake = new ContinuousShakeSource(stormShakeMagnitude, -rigidbodyWrapper.TargetVelocity);
 					agentSenseComponent.ReportImpact(new ImpactData()
 					{
 						Source = Agent,
@@ -266,12 +272,30 @@ namespace SpaxUtils
 					});
 				}
 			}
+			else
+			{
+				OnSwing();
+				// Set timer for initial force application.
+				inertiaTimer = new TimerClass(move.InertiaDelay, () => timescaleStat, callbackService);
+			}
 
 			// STAT COST
 			Agent.Stats.TryApplyStatCost(Move.PerformCost.Stat, Move.PerformCost.Cost * (limbMassStat / strengthStat) * 100f, false);
+		}
 
-			// Set timer for initial force application.
-			inertiaTimer = new TimerClass(move.InertiaDelay, () => timescaleStat, callbackService);
+		private void OnSwing()
+		{
+			if (Agent.Identification.HasAll(EntityLabels.PLAYER))
+			{
+				swingShake = new ContinuousShakeSource(new Vector3(0f, 0f, swingShakeMagnitude), rigidbodyWrapper.TargetVelocity);
+				agentSenseComponent.ReportImpact(new ImpactData()
+				{
+					Source = Agent,
+					Location = Agent.Transform.position,
+					Force = 10f,
+					ShakeSource = swingShake
+				});
+			}
 		}
 
 		protected void OnNewHitDetected(List<HitScanHitData> newHits)

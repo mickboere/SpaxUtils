@@ -110,7 +110,7 @@ namespace SpaxUtils
 
 		public void Update()
 		{
-			if (wasGrounded != Grounded)
+			if ((ValidGround || !Grounded) && wasGrounded != Grounded)
 			{
 				// Foot was either grounded or lifted.
 				wasGrounded = Grounded;
