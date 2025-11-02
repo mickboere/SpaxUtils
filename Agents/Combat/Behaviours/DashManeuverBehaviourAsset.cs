@@ -21,6 +21,7 @@ namespace SpaxUtils
 		[Header("Gliding")]
 		//[SerializeField] private float glideDelay = 0.25f;
 		[SerializeField] private float glideSpeed = 5f;
+		[SerializeField] private Vector3 shakeMagnitude = Vector3.one;
 		[Header("SFX")]
 		[SerializeField] private SFXData dashSFX;
 		[SerializeField] private SFXData glideSFX;
@@ -28,7 +29,7 @@ namespace SpaxUtils
 
 		private CallbackService callbackService;
 		private IAgentMovementHandler movementHandler;
-		private AgentSenseComponent awarenessComponent;
+		private AgentSenseComponent senseComponent;
 		private Pool<PooledAudioSource> audioPool;
 
 		private EntityStat massStat;
@@ -36,6 +37,7 @@ namespace SpaxUtils
 		private EntityStat glideSpeedStat;
 		private AudioSourceWrapper glideAudio;
 		private Vector3 direction;
+		private ContinuousShakeSource shakeSource;
 
 		public bool IsMet(IDependencyManager dependencies)
 		{
@@ -44,11 +46,11 @@ namespace SpaxUtils
 		}
 
 		public void InjectDependencies(CallbackService callbackService, IAgentMovementHandler movementHandler,
-			AgentSenseComponent awarenessComponent, Pool<PooledAudioSource> audioPool)
+			AgentSenseComponent senseComponent, Pool<PooledAudioSource> audioPool)
 		{
 			this.callbackService = callbackService;
 			this.movementHandler = movementHandler;
-			this.awarenessComponent = awarenessComponent;
+			this.senseComponent = senseComponent;
 			this.audioPool = audioPool;
 
 			massStat = Agent.Stats.GetStat(AgentStatIdentifiers.MASS);
@@ -70,6 +72,7 @@ namespace SpaxUtils
 			callbackService.UnsubscribeUpdate(UpdateMode.FixedUpdate, this);
 			glideAudio.FadeOut(glideFadeout, EasingMethod.InOutSine);
 			movementHandler.AutoUpdateMovement = true;
+			shakeSource?.Dispose();
 		}
 
 		private void InitiateDash()
@@ -83,14 +86,18 @@ namespace SpaxUtils
 			float cost = massStat * DashSpeed * Move.ChargeCost.Cost * 0.1f;
 			Agent.Stats.TryApplyStatCost(Move.ChargeCost.Stat, cost, false);
 
-			// Report impact for awareness.
-			// TODO: Make continuous while gliding.
-			awarenessComponent.ReportImpact(new ImpactData()
+			// Report impact for senses / shaking.
+			if (Agent.Identification.HasAll(EntityLabels.PLAYER))
+			{
+				shakeSource = new ContinuousShakeSource(shakeMagnitude, direction);
+			}
+			senseComponent.ReportImpact(new ImpactData()
 			{
 				Source = Agent,
 				Direction = direction,
 				Location = Agent.Transform.position,
-				Force = 10f // Overcome Log10
+				Force = 10f, // Overcome Log10
+				ShakeSource = shakeSource
 			});
 
 			// Play dash SFX.
@@ -146,9 +153,20 @@ namespace SpaxUtils
 				}
 			}
 
+			// > UPDATE FX:
+
+			// Update shake.
+			if (shakeSource != null)
+			{
+				shakeSource.Direction = direction;
+				shakeSource.Frequency = IShakeSource.DEFAULT_FREQUENCY * RigidbodyWrapper.Acceleration.magnitude.InvertClamped();
+				shakeSource.Intensity = RigidbodyWrapper.Speed.InverseLerp(movementHandler.FullSpeed, glideSpeed);
+			}
+
 			// Update glide SFX.
-			glideAudio.Pitch.BaseValue = glideSFX.PitchRange.Lerp(RigidbodyWrapper.Speed / glideSpeed);
-			glideAudio.Volume.BaseValue = (Performer.Charge / DashDuration).Clamp01() * glideSFX.VolumeRange.Lerp(RigidbodyWrapper.Speed / glideSpeed);
+			float intensity = Mathf.Clamp01(RigidbodyWrapper.Speed / glideSpeed);
+			glideAudio.Pitch.BaseValue = glideSFX.PitchRange.Lerp(intensity);
+			glideAudio.Volume.BaseValue = (Performer.Charge / DashDuration).Clamp01() * glideSFX.VolumeRange.Lerp(intensity);
 		}
 
 		protected override IPoserInstructions Evaluate(out float weight)

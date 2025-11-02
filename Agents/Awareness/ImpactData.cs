@@ -33,8 +33,13 @@ namespace SpaxUtils
 		public float Force { get; set; }
 
 		/// <summary>
-		/// The direction of this impact in world space.
+		/// The impact direction in world space.
 		/// </summary>
 		public Vector3 Direction { get; set; }
+
+		/// <summary>
+		/// An optional shakesource to override the default shaking behaviour when applied.
+		/// </summary>
+		public IShakeSource ShakeSource { get; set; }
 	}
 }

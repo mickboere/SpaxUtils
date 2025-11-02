@@ -18,6 +18,7 @@ namespace SpaxUtils
 		[SerializeField] private float maxAcceleration = 20000f;
 		[SerializeField] private float maxDeceleration = 2000f;
 		[SerializeField] private float power = 50f;
+		[SerializeField] private Vector3 shakeMagnitude = Vector3.one;
 
 		protected IMeleeCombatMove move;
 		protected CallbackService callbackService;
@@ -31,7 +32,7 @@ namespace SpaxUtils
 		protected ICommunicationChannel comms;
 		protected IStunHandler stunHandler;
 		protected AgentStatHandler statHandler;
-		protected AgentSenseComponent awarenessComponent;
+		protected AgentSenseComponent agentSenseComponent;
 
 		private EntityStat timescaleStat;
 		private EntityStat limbMassStat;
@@ -56,12 +57,13 @@ namespace SpaxUtils
 		private float stormDuration;
 		private float stormSpeed;
 		private TimerClass stormTimer;
+		private ContinuousShakeSource stormShake;
 
 		public void InjectDependencies(IMeleeCombatMove move, CallbackService callbackService,
 			TransformLookup transformLookup, ITargeter targeter, IAgentMovementHandler movementHandler,
 			AgentNavigationHandler navigationHandler, IEntityCollection entityCollection, CombatSettings combatSettings,
 			RigidbodyWrapper rigidbodyWrapper, ICommunicationChannel comms, IStunHandler stunHandler,
-			AgentStatHandler statHandler, AgentSenseComponent awarenessComponent)
+			AgentStatHandler statHandler, AgentSenseComponent agentSenseComponent)
 		{
 			this.move = move;
 			this.callbackService = callbackService;
@@ -75,7 +77,7 @@ namespace SpaxUtils
 			this.comms = comms;
 			this.stunHandler = stunHandler;
 			this.statHandler = statHandler;
-			this.awarenessComponent = awarenessComponent;
+			this.agentSenseComponent = agentSenseComponent;
 
 			timescaleStat = Agent.Stats.GetStat(EntityStatIdentifiers.TIMESCALE, true, 1f);
 			limbMassStat = Agent.Stats.GetStat(AgentStatIdentifiers.MASS.SubStat(this.move.Limb));
@@ -122,6 +124,7 @@ namespace SpaxUtils
 			balanceMod.Dispose();
 
 			movementHandler.AutoUpdateMovement = true;
+			stormShake?.Dispose();
 		}
 
 		public override void ExternalUpdate(float delta)
@@ -196,6 +199,14 @@ namespace SpaxUtils
 				movementHandler.AutoUpdateMovement = true;
 			}
 
+			// Shaking.
+			if (stormShake != null)
+			{
+				stormShake.Direction = -rigidbodyWrapper.Velocity.normalized;
+				stormShake.Frequency = 10f + 10f * rigidbodyWrapper.Acceleration.magnitude;
+				stormShake.Intensity = rigidbodyWrapper.Speed / stormSpeed;
+			}
+
 			float balance = Performer.State == PerformanceState.Preparing ? move.ChargeBalance : move.PerformBalance;
 			balanceMod.SetValue((1f / balance).Lerp(1f, Weight.Invert()));
 		}
@@ -235,6 +246,19 @@ namespace SpaxUtils
 					// Hold charge pose.
 					performer.Paused = true;
 				}
+
+				if (Agent.Identification.HasAll(EntityLabels.PLAYER))
+				{
+					// Shake screen during storm.
+					stormShake = new ContinuousShakeSource(shakeMagnitude, -rigidbodyWrapper.TargetVelocity);
+					agentSenseComponent.ReportImpact(new ImpactData()
+					{
+						Source = Agent,
+						Direction = -rigidbodyWrapper.TargetVelocity,
+						Location = Agent.Transform.position,
+						ShakeSource = stormShake
+					});
+				}
 			}
 
 			// STAT COST
@@ -269,12 +293,12 @@ namespace SpaxUtils
 						offence
 					);
 
-					ProcessAttack(hittable, hitData);
+					ProcessHit(hittable, hitData);
 				}
 			}
 		}
 
-		protected virtual void ProcessAttack(IHittable hittable, HitData hitData)
+		protected virtual void ProcessHit(IHittable hittable, HitData hitData)
 		{
 			// Send hit and apply return data.
 			if (hittable.Hit(hitData))
@@ -325,13 +349,13 @@ namespace SpaxUtils
 				}
 
 				comms.Send(hitData);
-				awarenessComponent.ReportImpact(new ImpactData()
+				agentSenseComponent.ReportImpact(new ImpactData()
 				{
 					Source = Agent,
 					Victim = hitData.Receiver.Entity,
 					HitObject = hitData.Receiver.Entity.GameObject,
 					Location = hitData.Point,
-					Force = hitData.Data.GetValue(HitDataIdentifiers.FORCE, 1f),
+					Force = hitData.Data.GetValue(HitDataIdentifiers.FORCE, 10f),
 					Direction = hitData.Direction
 				});
 			}

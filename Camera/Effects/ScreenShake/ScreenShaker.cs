@@ -9,18 +9,19 @@ namespace SpaxUtils
 		private const float SPECTRE = 0.57142857142f;
 
 		[SerializeField] private float maxAngle = 10f;
+		[SerializeField] private float rollAmount = 1f;
 		[SerializeField] private ShakeSettings defaultSettings;
 		[SerializeField] private bool test;
 
 		private CameraWrapper cameraHandler;
-		private AgentSenseComponent awarenessComponent;
+		private AgentSenseComponent agentSenseComponent;
 
 		private List<IShakeSource> sources = new List<IShakeSource>();
 
 		public void InjectDependencies(CameraWrapper cameraHandler, AgentSenseComponent awarenessComponent)
 		{
 			this.cameraHandler = cameraHandler;
-			this.awarenessComponent = awarenessComponent;
+			this.agentSenseComponent = awarenessComponent;
 		}
 
 		protected void OnValidate()
@@ -37,12 +38,12 @@ namespace SpaxUtils
 
 		protected void OnEnable()
 		{
-			awarenessComponent.ImpactEvent += OnImpactEvent;
+			agentSenseComponent.ImpactEvent += OnImpactEvent;
 		}
 
 		protected void OnDisable()
 		{
-			awarenessComponent.ImpactEvent -= OnImpactEvent;
+			agentSenseComponent.ImpactEvent -= OnImpactEvent;
 		}
 
 		protected void LateUpdate()
@@ -53,9 +54,9 @@ namespace SpaxUtils
 		/// <summary>
 		/// Apply a new screenshake source using provided parameters.
 		/// </summary>
-		public void Shake(Vector3 magnitude, float frequency, float duration, AnimationCurve falloff = null)
+		public void Shake(Vector3 magnitude, Vector3 direction, float frequency, float duration, AnimationCurve falloff = null)
 		{
-			Shake(new ShakeSource(magnitude, frequency, duration, falloff));
+			Shake(new ShakeSource(magnitude, direction, duration, frequency, falloff));
 		}
 
 		/// <summary>
@@ -63,7 +64,7 @@ namespace SpaxUtils
 		/// </summary>
 		public void Shake(ShakeSettings settings)
 		{
-			Shake(new ShakeSource(settings.Magnitude, settings.Frequency, settings.Duration, settings.Falloff));
+			Shake(new ShakeSource(settings.Magnitude, Vector3.zero, settings.Duration, settings.Frequency, settings.Falloff));
 		}
 
 		/// <summary>
@@ -72,18 +73,19 @@ namespace SpaxUtils
 		public void Shake(IShakeSource source)
 		{
 			sources.Add(source);
-			//SpaxDebug.Log("SHAKE", $"mag={source.Magnitude}, freq={source.Frequency}");
+			//SpaxDebug.Log("SHAKE", $"magnitude={source.Magnitude}, time={source.Time}, completed={source.Completed}, intensity={source.EvaluateIntensity()}");
 		}
 
 		private void ApplyShake()
 		{
-			Vector3 angles = new Vector3();
+			Vector3 angles = new Vector3(), magnitude, bias;
+			float intensity, noiseX, noiseY, x, y, z;
 			for (int i = 0; i < sources.Count; i++)
 			{
 				// Remove and skip source if completed.
-				if (sources[i].Completed)
+				if (sources[i] == null || sources[i].Completed)
 				{
-					sources[i].Dispose();
+					sources[i]?.Dispose();
 					sources.RemoveAt(i);
 					i--;
 					continue;
@@ -91,22 +93,32 @@ namespace SpaxUtils
 
 				// Apply shake source.
 				var source = sources[i];
-				float e = source.Evaluate();
-				float noiseX = GenerateNoise(0f, source);
-				float noiseY = GenerateNoise(OFFSET, source);
-				angles += new Vector3(-source.Magnitude.y + noiseY, source.Magnitude.x + noiseX, 0f) * e;
+				magnitude = source.Magnitude == Vector3.zero ? defaultSettings.Magnitude : source.Magnitude;
+				intensity = source.EvaluateIntensity();
+				noiseX = GenerateNoise(source.Seed, 0f, source.Time);
+				noiseY = GenerateNoise(source.Seed, OFFSET, source.Time);
+				bias = source.Direction == Vector3.zero ?
+					magnitude :
+					cameraHandler.transform.InverseTransformDirection(source.Direction).normalized.Multiply(magnitude);
+				x = bias.x + noiseX * magnitude.z;
+				y = -bias.y + noiseY * magnitude.z;
+				z = x * y * rollAmount;
+				angles += new Vector3(y, x, z) * intensity;
 			}
 
 			cameraHandler.Cam.transform.localEulerAngles = angles.Clamp(-maxAngle, maxAngle);
 		}
 
-		private float GenerateNoise(float offset, IShakeSource source)
+		/// <summary>
+		/// Generates a 3 octave one dimensional noise from <paramref name="source"/>.
+		/// </summary>
+		private float GenerateNoise(int seed, float offset, float time)
 		{
-			Random.InitState(source.Seed);
+			Random.InitState(seed);
 			float off = Random.value * OFFSET + offset;
-			float a = Mathf.PerlinNoise1D(off + source.Time * source.Frequency).Clamp01().Remap(-1f, 1f) * source.Magnitude.z * SPECTRE;
-			float b = Mathf.PerlinNoise1D(off * 2f + source.Time * source.Frequency * 2f).Clamp01().Remap(-1f, 1f) * source.Magnitude.z * SPECTRE * 0.5f;
-			float c = Mathf.PerlinNoise1D(off * 4f + source.Time * source.Frequency * 4f).Clamp01().Remap(-1f, 1f) * source.Magnitude.z * SPECTRE * 0.25f;
+			float a = Mathf.PerlinNoise1D(off + time).Clamp01().Remap(-1f, 1f) * SPECTRE;
+			float b = Mathf.PerlinNoise1D(off * 2f + time * 2f).Clamp01().Remap(-1f, 1f) * SPECTRE * 0.5f;
+			float c = Mathf.PerlinNoise1D(off * 4f + time * 4f).Clamp01().Remap(-1f, 1f) * SPECTRE * 0.25f;
 			return a + b + c;
 		}
 
@@ -115,9 +127,19 @@ namespace SpaxUtils
 		/// </summary>
 		private void OnImpactEvent(ImpactData impact)
 		{
-			Vector3 magnitude = cameraHandler.transform.InverseTransformDirection(impact.Direction).normalized.Multiply(defaultSettings.Magnitude);
-			float multiplier = impact.Force > 1f ? Mathf.Log10(impact.Force) : 1f;
-			Shake(magnitude * multiplier, defaultSettings.Frequency * multiplier, defaultSettings.Duration * multiplier, defaultSettings.Falloff);
+			if (impact.ShakeSource == null)
+			{
+				float multiplier = Mathf.Log10(impact.Force > 1f ? impact.Force : 1f); // 1=0, 10=1, 100=2
+				Shake(defaultSettings.Magnitude * multiplier,
+					impact.Direction,
+					defaultSettings.Frequency * multiplier,
+					defaultSettings.Duration * multiplier,
+					defaultSettings.Falloff);
+			}
+			else
+			{
+				Shake(impact.ShakeSource);
+			}
 		}
 	}
 }

@@ -8,41 +8,38 @@ namespace SpaxUtils
 	/// </summary>
 	public interface IShakeSource : IDisposable
 	{
+		public const float DEFAULT_FREQUENCY = 20f;
+
 		/// <summary>
-		/// The seed to initialize the random offset with.
+		/// The seed to initialize the random noise with.
 		/// </summary>
 		int Seed { get; }
 
 		/// <summary>
-		/// X = left/right bias.
-		/// Y = down/up bias.
-		/// Z = general shake intensity.
+		/// X = horizontal bias for directional impact.
+		/// Y = vertical bias for directional impact.
+		/// Z = shake magnitude.
 		/// </summary>
 		Vector3 Magnitude { get; }
 
 		/// <summary>
-		/// The frequency of the shaking.
+		/// Impact direction in world space, defines horizontal and vertical shake bias relative to the Shaker.
 		/// </summary>
-		float Frequency { get; }
+		Vector3 Direction { get; }
 
 		/// <summary>
-		/// The elapsed time of the shake source.
+		/// The elapsed time of the shake source (defines frequency).
 		/// </summary>
 		float Time { get; }
 
 		/// <summary>
-		/// The progress of the shake source (0 = full intensity, 1 = depleted)
+		/// Whether the shake source has completed shaking.
 		/// </summary>
-		float Progress { get; }
-
-		/// <summary>
-		/// Whether the shake source has completed.
-		/// </summary>
-		bool Completed => Progress >= 1f;
+		bool Completed { get; }
 
 		/// <summary>
 		/// Evaluates the shake intensity for the current frame.
 		/// </summary>
-		float Evaluate();
+		float EvaluateIntensity();
 	}
 }

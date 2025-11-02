@@ -61,12 +61,12 @@ namespace SpaxUtils
 						hitData.Power,
 						0f);
 
-					base.ProcessAttack(parriedHittable, parryHit);
+					base.ProcessHit(parriedHittable, parryHit);
 				}
 			}
 		}
 
-		protected override void ProcessAttack(IHittable hittable, HitData hitData)
+		protected override void ProcessHit(IHittable hittable, HitData hitData)
 		{
 			// Parry attack hit an enemy.
 
@@ -79,7 +79,7 @@ namespace SpaxUtils
 			//SpaxDebug.Log("<color=green>Parry hit!</color>");
 
 			parries.Add(hittable.Entity);
-			base.ProcessAttack(hittable, hitData);
+			base.ProcessHit(hittable, hitData);
 		}
 	}
 }
