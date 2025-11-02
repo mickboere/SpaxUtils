@@ -75,15 +75,14 @@ namespace SpaxUtils
 		}
 
 		/// <inheritdoc/>
-		public bool TryApplyStatCost(string stat, float cost, bool clamp, out float damage, out bool drained)
+		public bool TryApplyStatCost(string stat, float cost, bool clamp, out float damage, out bool drained, out float overdraw)
 		{
 			damage = 0f;
 			drained = false;
-			if (TryGetStat(stat, out EntityStat costStat))
+			overdraw = 0f;
+			if (TryGetStat(stat, out EntityStat entityStat))
 			{
-				// Damage unclamped, because performance's are active and will simply overdraw cost from "recoverable" (reservoir) stat.
-				damage = costStat.Damage(cost, clamp, out bool d);
-				drained = d || drained;
+				damage = entityStat.Damage(cost, clamp, out drained, out overdraw);
 				return true;
 			}
 			return false;
@@ -92,7 +91,7 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public bool TryApplyStatCost(string stat, float cost, bool clamp = false)
 		{
-			return TryApplyStatCost(stat, cost, clamp, out _, out _);
+			return TryApplyStatCost(stat, cost, clamp, out _, out _, out _);
 		}
 
 		/// <inheritdoc/>

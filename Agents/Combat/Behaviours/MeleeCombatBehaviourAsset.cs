@@ -133,14 +133,20 @@ namespace SpaxUtils
 
 			Performer.Prolong = RigidbodyWrapper.Speed > move.ProlongThreshold;
 
-			if (Performer.State == PerformanceState.Preparing && Performer.Charge > Move.MinCharge)
+			if (Performer.State == PerformanceState.Preparing && Performer.Charge >= Move.MinCharge)
 			{
 				// Overcharging: Drain charge stat.
-				if (Agent.Stats.TryApplyStatCost(Move.ChargeCost.Stat, move.ChargeCost.Cost * delta * chargeSpeedStat, true, out float damage, out bool drained))
+				if (Agent.Stats.TryApplyStatCost(Move.ChargeCost.Stat, move.ChargeCost.Cost * delta * chargeSpeedStat, true, out float damage, out bool drained, out float overdraw))
 				{
-					totalCharge += damage * chargePower;
+					totalCharge += (damage - overdraw) * chargePower;
+					if (totalCharge.Approx(1f))
+					{
+						// No charge was available to begin with, clamp Performer.Charge to MinCharge value.
+						Performer.Charge = Move.MinCharge;
+					}
 					if (drained)
 					{
+						// Charge stat was drained, exit charge and enter performance.
 						Performer.TryPerform();
 					}
 				}
@@ -156,12 +162,12 @@ namespace SpaxUtils
 				// Apply inertia.
 				if (inertiaTimer != null && inertiaTimer.Expired)
 				{
-					float strength = 1f;
+					Vector3 inertia = move.Inertia;
 					if (target != null)
 					{
-						strength = (Vector3.Distance(target.Position, RigidbodyWrapper.Position) / (attackRange + target.Radius)).Clamp01().InCubic();
+						inertia *= (Vector3.Distance(target.Position, RigidbodyWrapper.Position) / (attackRange + target.Radius)).Clamp01().InCubic();
 					}
-					RigidbodyWrapper.PushRelative(move.Inertia * strength);
+					RigidbodyWrapper.PushRelative(inertia);
 					inertiaTimer.Dispose();
 					inertiaTimer = null;
 				}
@@ -262,7 +268,7 @@ namespace SpaxUtils
 			}
 
 			// STAT COST
-			Agent.Stats.TryApplyStatCost(Move.PerformCost.Stat, Move.PerformCost.Cost * (limbMassStat / strengthStat) * 100f, false, out _, out _);
+			Agent.Stats.TryApplyStatCost(Move.PerformCost.Stat, Move.PerformCost.Cost * (limbMassStat / strengthStat) * 100f, false);
 
 			// Set timer for initial force application.
 			inertiaTimer = new TimerClass(move.InertiaDelay, () => timescaleStat, callbackService);
@@ -276,7 +282,7 @@ namespace SpaxUtils
 				{
 					// Generate hit data.
 					Vector3 lookDir = (hittable.Entity.Transform.position - Agent.Transform.position).FlattenY().normalized;
-					Vector3 inertia = move.Inertia.Look(lookDir) * totalCharge;
+					Vector3 inertia = move.Inertia.Look(move.Inertia);
 					Vector3 direction = move.CustomDirection ? move.HitDirection.Look(lookDir) : hit.Direction;
 					float power = powerStat * move.Power * totalCharge;
 					float offence = limbOffenceStat * move.Offence;
@@ -305,6 +311,7 @@ namespace SpaxUtils
 			{
 				float force = hitData.Data.GetValue<float>(HitDataIdentifiers.FORCE);
 
+				// Brake to half velocity on hit.
 				rigidbodyWrapper.AddForce(-rigidbodyWrapper.Velocity * 0.5f, ForceMode.VelocityChange);
 
 				if (chargeStat != null)

@@ -29,7 +29,11 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public IPerformanceMove Move => MainPerformer != null ? MainPerformer.Move : null;
 		/// <inheritdoc/>
-		public float Charge => MainPerformer != null ? MainPerformer.Charge : 0f;
+		public float Charge
+		{
+			get { return MainPerformer != null ? MainPerformer.Charge : 0f; }
+			set { if (MainPerformer != null) MainPerformer.Charge = value; }
+		}
 		/// <inheritdoc/>
 		public bool Prolong
 		{

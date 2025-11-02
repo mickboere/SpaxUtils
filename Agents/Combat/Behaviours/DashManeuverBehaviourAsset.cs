@@ -146,7 +146,7 @@ namespace SpaxUtils
 			{
 				// Gliding, drain stat.
 				float cost = massStat * GlideSpeed * Move.ChargeCost.Cost * delta * 0.1f;
-				if (Agent.Stats.TryApplyStatCost(Move.ChargeCost.Stat, cost, false, out _, out bool drained) && drained)
+				if (Agent.Stats.TryApplyStatCost(Move.ChargeCost.Stat, cost, false, out _, out bool drained, out _) && drained)
 				{
 					// Exit dash.
 					Exit();

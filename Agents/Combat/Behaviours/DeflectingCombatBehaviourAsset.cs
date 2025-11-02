@@ -59,7 +59,7 @@ namespace SpaxUtils
 			if (Performer.State == PerformanceState.Preparing)
 			{
 				// Drain charge stat.
-				if (Agent.Stats.TryApplyStatCost(Move.ChargeCost.Stat, Move.ChargeCost.Cost * delta, false, out _, out bool drained) && drained)
+				if (Agent.Stats.TryApplyStatCost(Move.ChargeCost.Stat, Move.ChargeCost.Cost * delta, false, out _, out bool drained, out _) && drained)
 				{
 					Performer.TryPerform();
 				}
