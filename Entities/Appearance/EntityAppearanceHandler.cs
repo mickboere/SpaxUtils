@@ -32,8 +32,12 @@ namespace SpaxUtils
 			}
 		}
 
+		public event Action UpdatedActiveRenderersEvent;
+
 		public IReadOnlyList<BodyPart> BodyParts => bodyParts;
 		public IReadOnlyDictionary<string, SkinnedMeshRenderer> Body => body;
+		public IReadOnlyList<SkinnedMeshRenderer> Apparel => apparel;
+		public List<SkinnedMeshRenderer> ActiveRenderers { get; private set; } = new List<SkinnedMeshRenderer>();
 
 		[SerializeField] private Transform skeletonRoot;
 		[SerializeField] private SkinnedMeshRenderer reference;
@@ -42,9 +46,9 @@ namespace SpaxUtils
 		[SerializeField] private bool autoCollectApparel;
 
 		private Dictionary<string, SkinnedMeshRenderer> body;
+		private Dictionary<SkinnedMeshRenderer, IEntityApparel> coverers = new Dictionary<SkinnedMeshRenderer, IEntityApparel>();
 		private CapsuleCollider[] capsuleColliders;
 		private ClothSphereColliderPair[] sphereColliders;
-		private Dictionary<SkinnedMeshRenderer, IEntityApparel> coverers = new Dictionary<SkinnedMeshRenderer, IEntityApparel>();
 
 		protected void OnValidate()
 		{
@@ -96,6 +100,8 @@ namespace SpaxUtils
 					ApplySkeleton(sharer);
 				}
 			}
+
+			OnActiveRenderersChanged();
 		}
 
 		/// <summary>
@@ -242,6 +248,25 @@ namespace SpaxUtils
 						body[location].gameObject.SetActive(false);
 					}
 				}
+			}
+
+			OnActiveRenderersChanged();
+		}
+
+		private void OnActiveRenderersChanged()
+		{
+			if (!Application.isPlaying)
+			{
+				return;
+			}
+
+			int count = ActiveRenderers.Count;
+			ActiveRenderers.Clear();
+			ActiveRenderers.AddRange(body.Values.Where((b) => b.gameObject.activeInHierarchy).ToList());
+			ActiveRenderers.AddRange(apparel);
+			if (ActiveRenderers.Count != count)
+			{
+				UpdatedActiveRenderersEvent?.Invoke();
 			}
 		}
 

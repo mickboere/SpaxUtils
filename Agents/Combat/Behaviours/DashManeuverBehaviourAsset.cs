@@ -31,6 +31,7 @@ namespace SpaxUtils
 		private IAgentMovementHandler movementHandler;
 		private AgentSenseComponent senseComponent;
 		private Pool<PooledAudioSource> audioPool;
+		private AgentTrailEffect agentTrailEffect;
 
 		private EntityStat massStat;
 		private EntityStat dashSpeedStat;
@@ -46,12 +47,13 @@ namespace SpaxUtils
 		}
 
 		public void InjectDependencies(CallbackService callbackService, IAgentMovementHandler movementHandler,
-			AgentSenseComponent senseComponent, Pool<PooledAudioSource> audioPool)
+			AgentSenseComponent senseComponent, Pool<PooledAudioSource> audioPool, AgentTrailEffect agentTrailEffect)
 		{
 			this.callbackService = callbackService;
 			this.movementHandler = movementHandler;
 			this.senseComponent = senseComponent;
 			this.audioPool = audioPool;
+			this.agentTrailEffect = agentTrailEffect;
 
 			massStat = Agent.Stats.GetStat(AgentStatIdentifiers.MASS);
 			dashSpeedStat = Agent.Stats.GetStat(AgentStatIdentifiers.DASH_SPEED);
@@ -73,6 +75,9 @@ namespace SpaxUtils
 			glideAudio.FadeOut(glideFadeout, EasingMethod.InOutSine);
 			movementHandler.AutoUpdateMovement = true;
 			shakeSource?.Dispose();
+
+			// VFX
+			agentTrailEffect.End();
 		}
 
 		private void InitiateDash()
@@ -106,6 +111,9 @@ namespace SpaxUtils
 			// Start glide SFX.
 			glideAudio = audioPool.Request(Agent.Transform.position, Agent.Transform).AudioSourceWrapper;
 			glideSFX.PlayLoop(glideAudio, true);
+
+			// VFX
+			agentTrailEffect.Begin();
 		}
 
 		// Applies physics.

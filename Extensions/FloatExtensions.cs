@@ -179,6 +179,11 @@ namespace SpaxUtils
 			return Mathf.Ceil(f);
 		}
 
+		public static int CeilToInt(this float f)
+		{
+			return Mathf.CeilToInt(f);
+		}
+
 		public static float Decimal(this float f, DecimalMethod method)
 		{
 			switch (method)
