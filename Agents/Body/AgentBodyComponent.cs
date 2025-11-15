@@ -10,17 +10,12 @@ namespace SpaxUtils
 		public float Scale => scale;
 
 		public RigidbodyWrapper RigidbodyWrapper => RefComponentRelative(ref rigidbodyWrapper);
+		public bool HasRigidbody => RigidbodyWrapper != null;
 		public CapsuleCollider Bumper => bumper;
-		public AnimatorWrapper AnimatorWrapper => RefComponentRelative(ref animatorWrapper);
 		public Transform SkeletonRootBone => skeletonRootBone;
 		public IReadOnlyList<Transform> Skeleton => GetSkeleton();
 		public IReadOnlyList<Renderer> Renderers => renderers;
-
-		public bool HasRigidbody => RigidbodyWrapper != null;
-		public bool HasAnimator => AnimatorWrapper != null && AnimatorWrapper.Animator != null;
-
-		//public Vector3 Center => Skeleton.GetCenter(t => _boneOptions.ContainsKey(t) ? _boneOptions[t].Weight : 1f);
-		public Vector3 Center => SkeletonRootBone.position;
+		public Vector3 Center => SkeletonRootBone == null ? transform.position : SkeletonRootBone.position;
 
 		public Transform Head => head;
 
@@ -32,10 +27,10 @@ namespace SpaxUtils
 		[Header("References")]
 		[SerializeField] private RigidbodyWrapper rigidbodyWrapper;
 		[SerializeField] private CapsuleCollider bumper;
-		[SerializeField] private AnimatorWrapper animatorWrapper;
 		[SerializeField] private Transform skeletonRootBone;
-		[SerializeField] private Transform head;
 		[SerializeField] private List<Renderer> renderers;
+		[SerializeField] private Transform head;
+		[SerializeField] private bool scaleHead;
 
 		private ITargetable targetableComponent;
 		private RuntimeDataCollection runtimeData;
@@ -47,7 +42,6 @@ namespace SpaxUtils
 			[Optional] RuntimeDataCollection runtimeData)
 		{
 			this.rigidbodyWrapper = this.rigidbodyWrapper ?? rigidbodyWrapper;
-			this.animatorWrapper = this.animatorWrapper ?? animatorWrapper;
 			this.targetableComponent = targetableComponent;
 			this.runtimeData = runtimeData;
 		}
@@ -77,8 +71,11 @@ namespace SpaxUtils
 
 			// Apply scale.
 			transform.localScale = Vector3.one * Scale;
-			// Scale head size to compensate for body scale.
-			head.localScale = Vector3.one / Scale.Min(1.1f) * Mathf.Lerp(1f, 0.5f, Scale.InvertClamped());
+			if (scaleHead)
+			{
+				// Scale head size to compensate for body scale.
+				head.localScale = Vector3.one / Scale.Min(1.1f) * Mathf.Lerp(1f, 0.5f, Scale.InvertClamped());
+			}
 		}
 
 		protected void OnValidate()
@@ -94,7 +91,6 @@ namespace SpaxUtils
 		private void EnsureAllComponents()
 		{
 			RefComponentRelative(ref rigidbodyWrapper);
-			RefComponentRelative(ref animatorWrapper);
 			RefComponentRelative(ref targetableComponent);
 		}
 

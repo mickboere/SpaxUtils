@@ -4,6 +4,9 @@ using UnityEngine;
 
 namespace SpaxUtils
 {
+	/// <summary>
+	/// Activates the artificial emotional intelligence system with specified behaviours.
+	/// </summary>
 	[NodeWidth(300)]
 	public class AEMOINode : StateComponentNodeBase
 	{

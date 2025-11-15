@@ -21,15 +21,12 @@ namespace SpaxUtils
 		float Scale { get; }
 
 		RigidbodyWrapper RigidbodyWrapper { get; }
+		bool HasRigidbody { get; }
+
 		CapsuleCollider Bumper { get; }
-		AnimatorWrapper AnimatorWrapper { get; }
 		Transform SkeletonRootBone { get; }
 		IReadOnlyList<Transform> Skeleton { get; }
 		IReadOnlyList<Renderer> Renderers { get; }
-
-		bool HasRigidbody { get; }
-		bool HasAnimator { get; }
-
 		Vector3 Center { get; }
 	}
 }

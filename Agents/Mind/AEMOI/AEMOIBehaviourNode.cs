@@ -4,6 +4,9 @@ using UnityEngine;
 
 namespace SpaxUtils
 {
+	/// <summary>
+	/// Like <see cref="AEMOINode"/> but only adds behaviours, does not activate the mind.
+	/// </summary>
 	[NodeWidth(300)]
 	public class AEMOIBehaviourNode : StateComponentNodeBase
 	{

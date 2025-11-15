@@ -4,7 +4,7 @@ namespace SpaxUtils
 {
 	public static class FloatExtensions
 	{
-		#region Math
+		#region Interpolation
 
 		/// <summary>
 		/// In-line version of <see cref="Mathf.Lerp(float, float, float)"/>.
@@ -29,6 +29,18 @@ namespace SpaxUtils
 		{
 			return v2.x.Lerp(v2.y, t);
 		}
+
+		/// <summary>
+		/// Frame-rate independent implementation of <see cref="Lerp(float, float, float)"/>.
+		/// </summary>
+		public static float Damp(this float a, float b, float speed)
+		{
+			return Mathf.Lerp(a, b, 1 - Mathf.Exp(-speed));
+		}
+
+		#endregion Interpolation
+
+		#region Math
 
 		/// <summary>
 		/// In-line version of <see cref="Mathf.Approximately(float, float)"/>.

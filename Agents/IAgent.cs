@@ -42,7 +42,7 @@ namespace SpaxUtils
 		IActor Actor { get; }
 
 		/// <summary>
-		/// The state machine of this agent.
+		/// The state machine / behavior tree of this agent.
 		/// </summary>
 		IBrain Brain { get; }
 
