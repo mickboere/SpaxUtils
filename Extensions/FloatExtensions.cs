@@ -32,10 +32,11 @@ namespace SpaxUtils
 
 		/// <summary>
 		/// Frame-rate independent implementation of <see cref="Lerp(float, float, float)"/>.
+		/// Only works if <paramref name="t"/> is multiplied by deltaTime.
 		/// </summary>
-		public static float Damp(this float a, float b, float speed)
+		public static float FILerp(this float a, float b, float t)
 		{
-			return Mathf.Lerp(a, b, 1 - Mathf.Exp(-speed));
+			return Mathf.Lerp(a, b, 1 - Mathf.Exp(-t));
 		}
 
 		#endregion Interpolation

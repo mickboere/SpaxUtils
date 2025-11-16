@@ -133,7 +133,7 @@ namespace SpaxUtils
 			// 2. Acceleration Influence
 			float accel = (rigidbodyWrapper.Acceleration.magnitude * accelerationScale).Clamp01() * 
 				(relativeSpeed * (1f / moveSpeedStat) * 0.5f).InvertClamped();
-			smoothAccel = Mathf.Lerp(smoothAccel, accel,
+			smoothAccel = smoothAccel.FILerp(accel,
 				(accel > smoothAccel ? accelerationSmoothing.x : accelerationSmoothing.y) * delta);
 			Influence *= Mathf.Lerp(1f, smoothAccel.Invert(), accelerationStrideInfluence);
 

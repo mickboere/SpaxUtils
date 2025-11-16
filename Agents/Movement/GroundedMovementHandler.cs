@@ -55,14 +55,8 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public Vector3 TargetDirection
 		{
-			get
-			{
-				return _forwardDirection;
-			}
-			set
-			{
-				_forwardDirection = value == Vector3.zero ? Transform.forward : value.FlattenY().normalized;
-			}
+			get { return _forwardDirection; }
+			set { _forwardDirection = value == Vector3.zero ? Transform.forward : value.FlattenY().normalized; }
 		}
 		private Vector3 _forwardDirection;
 
@@ -79,37 +73,50 @@ namespace SpaxUtils
 		[field: SerializeField] public float MinSpeed { get; set; } = 1f;
 		[field: SerializeField] public float HalfSpeed { get; set; } = 1.5f;
 		[field: SerializeField] public float FullSpeed { get; set; } = 4.5f;
+
 		[Header("Physics")]
-		[SerializeField, Tooltip("The max amount of force that can be applied to reach the desired velocity.")] private float maxAcceleration = 2500f;
-		[SerializeField, Tooltip("The falloff curve of maxForce over current relative movement speed."), FormerlySerializedAs("controlFalloff")] private AnimationCurve accelerationFalloff = new AnimationCurve(new Keyframe(0f, 1f), new Keyframe(1.5f, 0.333f));
-		[SerializeField, Tooltip("The max amount of force that can be applied to reach the desired velocity.")] private float maxDeceleration = 1500f;
-		[SerializeField, Tooltip("The falloff curve of maxForce over current relative movement speed.")] private AnimationCurve decelerationFalloff = new AnimationCurve(new Keyframe(0f, 1f), new Keyframe(3f, 3f));
-		[SerializeField, Tooltip("General force responsiveness.")] private float power = 50f;
+		[SerializeField, Tooltip("The max amount of force that can be applied to reach the desired velocity.")]
+		protected float maxAcceleration = 2500f;
+		[SerializeField, Tooltip("The falloff curve of maxForce over current relative movement speed."), FormerlySerializedAs("controlFalloff")]
+		protected AnimationCurve accelerationFalloff = new AnimationCurve(new Keyframe(0f, 1f), new Keyframe(1.5f, 0.333f));
+		[SerializeField, Tooltip("The max amount of force that can be applied to reach the desired velocity.")]
+		protected float maxDeceleration = 1500f;
+		[SerializeField, Tooltip("The falloff curve of maxForce over current relative movement speed.")]
+		protected AnimationCurve decelerationFalloff = new AnimationCurve(new Keyframe(0f, 1f), new Keyframe(3f, 3f));
+		[SerializeField, Tooltip("General force responsiveness.")]
+		protected float power = 50f;
+
 		[Header("Rotation")]
-		[SerializeField] private float rotationSmoothing = 30f;
+		[SerializeField] protected float rotationSmoothing = 30f;
+
 		[Header("Stats")]
-		[SerializeField, Range(0f, 1f)] private float velocityRecoveryMod = 0.5f;
-		[SerializeField] private float sprintCost = 0.25f;
-		[SerializeField] private float tiredInputLimiter = 0.75f;
+		[SerializeField, Range(0f, 1f)] protected float velocityRecoveryMod = 0.5f;
+		[SerializeField] protected float sprintCost = 0.25f;
+		[SerializeField] protected float tiredInputLimiter = 0.75f;
+
 		[Header("Sliding")]
-		[SerializeField] private float slideSteeringSpeed = 4f;
-		[SerializeField, Range(0f, 1f)] private float slideSpeedSteerDamp = 0.2f;
+		[SerializeField] protected float slideSteeringSpeed = 4f;
+		[SerializeField, Range(0f, 1f)] protected float slideSpeedSteerDamp = 0.2f;
+
 		[Header("Debugging")]
-		[SerializeField] private bool debug;
+		[SerializeField] protected bool debug;
 
-		private RigidbodyWrapper rigidbodyWrapper;
-		private GrounderComponent grounder;
-		private MovementInputSettings inputSettings;
-		private AgentStatHandler statHandler;
+		protected RigidbodyWrapper rigidbodyWrapper;
+		protected GrounderComponent grounder;
+		protected MovementInputSettings inputSettings;
+		protected AgentStatHandler statHandler;
 
-		private Vector3 processedInput;
-		private MovementInputHelper inputHelper;
-		private EntityStat moveSpeedStat;
-		private EntityStat recoveryStat;
-		private FloatOperationModifier recoveryMod;
+		protected Vector3 processedInput;
+		protected MovementInputHelper inputHelper;
+		protected EntityStat moveSpeedStat;
+		protected EntityStat recoveryStat;
+		protected FloatOperationModifier recoveryMod;
 
-		public void InjectDependencies(RigidbodyWrapper rigidbodyWrapper, GrounderComponent grounder,
-			MovementInputSettings inputSettings, AgentStatHandler statHandler)
+		public void InjectDependencies(
+			RigidbodyWrapper rigidbodyWrapper,
+			GrounderComponent grounder,
+			MovementInputSettings inputSettings,
+			AgentStatHandler statHandler)
 		{
 			this.rigidbodyWrapper = rigidbodyWrapper;
 			this.grounder = grounder;
@@ -140,14 +147,17 @@ namespace SpaxUtils
 		{
 			// Calculate appropriate input value according to stats.
 			processedInput =
-				statHandler.PointStats.E.IsRecoveringFromZero && InputRaw != Vector3.zero ?
-					InputRaw.ClampMagnitude(tiredInputLimiter) :
-					InputRaw;
+				statHandler.PointStats.E.IsRecoveringFromZero && InputRaw != Vector3.zero
+					? InputRaw.ClampMagnitude(tiredInputLimiter)
+					: InputRaw;
+
 			// Update smooth input value.
 			InputSmooth = inputHelper.Update(processedInput, Time.deltaTime);
 
 			// Slow down recovery while running.
-			recoveryMod.SetValue(1f - Mathf.InverseLerp(HalfSpeed, FullSpeed * moveSpeedStat, rigidbodyWrapper.Speed).InOutSine() * velocityRecoveryMod);
+			recoveryMod.SetValue(
+				1f - Mathf.InverseLerp(HalfSpeed, FullSpeed * moveSpeedStat, rigidbodyWrapper.Speed)
+					.InOutSine() * velocityRecoveryMod);
 		}
 
 		protected void FixedUpdate()
@@ -163,7 +173,7 @@ namespace SpaxUtils
 		}
 
 		/// <inheritdoc/>
-		public void UpdateMovement(float delta, Vector3? targetVelocity = null, bool ignoreControl = false)
+		public virtual void UpdateMovement(float delta, Vector3? targetVelocity = null, bool ignoreControl = false)
 		{
 			// Grounded movement does not utilize Y axis.
 			rigidbodyWrapper.ControlAxis = Vector3.one.FlattenY();
@@ -171,8 +181,11 @@ namespace SpaxUtils
 			if (!targetVelocity.HasValue)
 			{
 				// Calculate target velocity from current input.
-				rigidbodyWrapper.TargetVelocity = InputSmooth == Vector3.zero ? Vector3.zero :
-					Quaternion.LookRotation(InputAxis) * InputSmooth.normalized * CalculateSpeed(InputSmooth.magnitude);
+				rigidbodyWrapper.TargetVelocity = InputSmooth == Vector3.zero
+					? Vector3.zero
+					: Quaternion.LookRotation(InputAxis) *
+					  InputSmooth.normalized *
+					  CalculateSpeed(InputSmooth.magnitude);
 			}
 
 			if (grounder.Grounded)
@@ -182,14 +195,21 @@ namespace SpaxUtils
 					// Default movement control.
 					float acFalloff = accelerationFalloff.Evaluate(rigidbodyWrapper.Speed * rigidbodyWrapper.Control / FullSpeed);
 					float deFalloff = decelerationFalloff.Evaluate(rigidbodyWrapper.Speed * rigidbodyWrapper.Control / FullSpeed);
-					rigidbodyWrapper.ApplyMovement(targetVelocity, maxAcceleration * acFalloff, maxDeceleration * deFalloff,
-						power, ignoreControl, grounder.Mobility);
+					rigidbodyWrapper.ApplyMovement(
+						targetVelocity,
+						maxAcceleration * acFalloff,
+						maxDeceleration * deFalloff,
+						power,
+						ignoreControl,
+						grounder.Mobility);
 
 					if (processedInput.magnitude > 1.01f)
 					{
 						// Apply sprint cost.
-						statHandler.PointStats.E.Current.Damage(sprintCost * rigidbodyWrapper.Mass *
-							(rigidbodyWrapper.Speed / (FullSpeed * 1.5f * moveSpeedStat)) * rigidbodyWrapper.Control * delta);
+						statHandler.PointStats.E.Current.Damage(
+							sprintCost * rigidbodyWrapper.Mass *
+							(rigidbodyWrapper.Speed / (FullSpeed * 1.5f * moveSpeedStat)) *
+							rigidbodyWrapper.Control * delta);
 					}
 				}
 				else if (grounder.SurfaceNormal != Vector3.up)
@@ -216,12 +236,14 @@ namespace SpaxUtils
 		}
 
 		/// <inheritdoc/>
-		public void UpdateRotation(float delta, Vector3? targetDirection = null, bool ignoreControl = false)
+		public virtual void UpdateRotation(float delta, Vector3? targetDirection = null, bool ignoreControl = false)
 		{
 			float time = delta * (ignoreControl ? 1f : rigidbodyWrapper.Control);
+
 			if (!targetDirection.HasValue)
 			{
 				Vector3 flatVelocity = rigidbodyWrapper.Velocity.FlattenY();
+
 				if (grounder.Sliding)
 				{
 					// Turn towards velocity direction.
@@ -232,13 +254,19 @@ namespace SpaxUtils
 					// Lock rotation in set target direction.
 					Turn(TargetDirection);
 				}
-				else if (!(rigidbodyWrapper.TargetVelocity == Vector3.zero || flatVelocity == Vector3.zero))
+				else
 				{
-					// Rotation isn't locked, look in velocity direction when at 100% grip and at target velocity direction when at 0% grip.
-					// Make turning speed depend on angle difference in target and current velocity.
-					Vector3 a = flatVelocity.normalized;
-					Vector3 b = rigidbodyWrapper.TargetVelocity.FlattenY().normalized;
-					Turn(a.Slerp(b, rigidbodyWrapper.Grip.InvertClamped().InOutQuint()), a.NormalizedDot(b).InOutSine());
+					Vector3 flatTargetVel = rigidbodyWrapper.TargetVelocity.FlattenY();
+					if (!(rigidbodyWrapper.TargetVelocity == Vector3.zero || flatVelocity == Vector3.zero))
+					{
+						// Rotation isn't locked, look in velocity direction when at 100% grip
+						// and at target velocity direction when at 0% grip.
+						Vector3 a = flatVelocity.normalized;
+						Vector3 b = flatTargetVel.normalized;
+						Turn(
+							a.Slerp(b, rigidbodyWrapper.Grip.InvertClamped().InOutQuint()),
+							a.NormalizedDot(b).InOutSine());
+					}
 				}
 			}
 			else if (targetDirection.Value != Vector3.zero)
@@ -249,8 +277,12 @@ namespace SpaxUtils
 
 			void Turn(Vector3 dir, float speed = 1f)
 			{
-				rigidbodyWrapper.Rotation = Quaternion.Slerp(
-					rigidbodyWrapper.Rotation,
+				if (dir == Vector3.zero)
+				{
+					return;
+				}
+
+				rigidbodyWrapper.Rotation = rigidbodyWrapper.Rotation.FISlerp(
 					Quaternion.LookRotation(dir),
 					speed * rotationSmoothing * time);
 			}
@@ -259,24 +291,27 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public void ForceRotation(Vector3? direction = null)
 		{
-			if (!direction.HasValue && rigidbodyWrapper.TargetVelocity == Vector3.zero ||
-				direction.HasValue && direction.Value == Vector3.zero)
+			if ((!direction.HasValue && rigidbodyWrapper.TargetVelocity == Vector3.zero) ||
+				(direction.HasValue && direction.Value == Vector3.zero))
 			{
 				return;
 			}
 
-			Entity.GameObject.transform.rotation = direction.HasValue ?
-				Quaternion.LookRotation(direction.Value, Vector3.up) :
-				Quaternion.LookRotation(rigidbodyWrapper.TargetVelocity.FlattenY(), Vector3.up);
+			Entity.GameObject.transform.rotation = direction.HasValue
+				? Quaternion.LookRotation(direction.Value, Vector3.up)
+				: Quaternion.LookRotation(rigidbodyWrapper.TargetVelocity.FlattenY(), Vector3.up);
 		}
 
 		/// <inheritdoc/>
 		public float CalculateSpeed(float input)
 		{
-			return input < inputSettings.MinimumInput ? MinSpeed * (input / inputSettings.MinimumInput) :
-				input < 0.5f ? MinSpeed.Lerp(HalfSpeed, input * 2f) :
-				input < 1f ? HalfSpeed.Lerp(FullSpeed * moveSpeedStat, (input - 0.5f) * 2f) :
-				FullSpeed * moveSpeedStat * input;
+			return input < inputSettings.MinimumInput
+				? MinSpeed * (input / inputSettings.MinimumInput)
+				: input < 0.5f
+					? MinSpeed.Lerp(HalfSpeed, input * 2f)
+					: input < 1f
+						? HalfSpeed.Lerp(FullSpeed * moveSpeedStat, (input - 0.5f) * 2f)
+						: FullSpeed * moveSpeedStat * input;
 		}
 	}
 }

@@ -265,9 +265,27 @@ namespace SpaxUtils
 			return Vector3.Lerp(a, b, t);
 		}
 
+		/// <summary>
+		/// Framerate independent implementation of <see cref="Lerp(Vector3, Vector3, float)"/>.
+		/// Only works if <paramref name="t"/> is multiplied by deltaTime.
+		/// </summary>
+		public static Vector3 FILerp(this Vector3 a, Vector3 b, float t)
+		{
+			return Vector3.Lerp(a, b, 1 - Mathf.Exp(-t));
+		}
+
 		public static Vector3 Slerp(this Vector3 a, Vector3 b, float t)
 		{
 			return Vector3.Slerp(a, b, t);
+		}
+
+		/// <summary>
+		/// frametime independent implementation of Slerp.
+		/// Only works if <paramref name="t"/> is multiplied by deltaTime.
+		/// </summary>
+		public static Vector3 FISlerp(this Vector3 a, Vector3 b, float t)
+		{
+			return Vector3.Slerp(a, b, 1 - Mathf.Exp(-t));
 		}
 
 		/// <summary>
