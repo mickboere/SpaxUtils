@@ -29,7 +29,7 @@ namespace SpaxUtils
 
 		private CallbackService callbackService;
 		private IAgentMovementHandler movementHandler;
-		private AgentSenseComponent senseComponent;
+		private AgentImpactHandler senseComponent;
 		private Pool<PooledAudioSource> audioPool;
 		private AgentTrailEffect agentTrailEffect;
 
@@ -47,7 +47,7 @@ namespace SpaxUtils
 		}
 
 		public void InjectDependencies(CallbackService callbackService, IAgentMovementHandler movementHandler,
-			AgentSenseComponent senseComponent, Pool<PooledAudioSource> audioPool, AgentTrailEffect agentTrailEffect)
+			AgentImpactHandler senseComponent, Pool<PooledAudioSource> audioPool, AgentTrailEffect agentTrailEffect)
 		{
 			this.callbackService = callbackService;
 			this.movementHandler = movementHandler;

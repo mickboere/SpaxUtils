@@ -7,16 +7,16 @@ namespace SpaxUtils
 	/// and globally through the <see cref="GlobalImpactService"/>.
 	/// Will also listen for any impacts it was a victim of and pass them on locally.
 	/// </summary>
-	public class AgentSenseComponent : AgentComponentBase
+	public class AgentImpactHandler : AgentComponentBase
 	{
 		public event Action<ImpactData> ImpactEvent;
 
 		private GlobalImpactService impactService;
 		private ICommunicationChannel comms;
 
-		public void InjectDependencies(GlobalImpactService awarenessService, ICommunicationChannel comms)
+		public void InjectDependencies(GlobalImpactService impactService, ICommunicationChannel comms)
 		{
-			this.impactService = awarenessService;
+			this.impactService = impactService;
 			this.comms = comms;
 		}
 

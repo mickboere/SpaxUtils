@@ -36,7 +36,7 @@ namespace SpaxUtils
 		protected ICommunicationChannel comms;
 		protected IStunHandler stunHandler;
 		protected AgentStatHandler statHandler;
-		protected AgentSenseComponent agentSenseComponent;
+		protected AgentImpactHandler agentSenseComponent;
 
 		private EntityStat timescaleStat;
 		private EntityStat limbMassStat;
@@ -68,7 +68,7 @@ namespace SpaxUtils
 			TransformLookup transformLookup, ITargeter targeter, IAgentMovementHandler movementHandler,
 			AgentNavigationHandler navigationHandler, IEntityCollection entityCollection, CombatSettings combatSettings,
 			RigidbodyWrapper rigidbodyWrapper, ICommunicationChannel comms, IStunHandler stunHandler,
-			AgentStatHandler statHandler, AgentSenseComponent agentSenseComponent)
+			AgentStatHandler statHandler, AgentImpactHandler agentSenseComponent)
 		{
 			this.move = move;
 			this.callbackService = callbackService;
