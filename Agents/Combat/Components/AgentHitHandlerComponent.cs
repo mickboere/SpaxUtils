@@ -9,8 +9,6 @@ namespace SpaxUtils
 	/// </summary>
 	public class AgentHitHandlerComponent : EntityComponentMono
 	{
-		public int Hits { get; set; }
-
 		protected bool Invulnerable => agent.RuntimeData.GetValue(AgentDataIdentifiers.INVULNERABLE, false);
 
 		[SerializeField] private float deathDuration = 0.5f;
@@ -115,7 +113,8 @@ namespace SpaxUtils
 			// Apply damages.
 			if (!Invulnerable)
 			{
-				statHandler.PointStats.SW.Current.Damage(damage, true, out bool dead);
+				float damageDealt = statHandler.PointStats.SW.Current.Damage(damage, true, out bool dead);
+				hitData.Data.SetValue(HitDataIdentifiers.DAMAGE_DEALT, damageDealt);
 				if (dead)
 				{
 					if (stunHandler.Stunned)
@@ -127,11 +126,6 @@ namespace SpaxUtils
 						Die();
 					}
 				}
-			}
-
-			if (hitData.Data.GetValue<float>(HitDataIdentifiers.GUARD) < 0.01f && !neglect)
-			{
-				Hits++;
 			}
 
 			// Build up static for succesful blocking.

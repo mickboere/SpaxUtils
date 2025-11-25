@@ -7,11 +7,18 @@ namespace SpaxUtils
 	[DefaultExecutionOrder(100)]
 	public class PosedAgentStunHandlerComponent : AgentStunHandlerComponent
 	{
+		#region Tooltips
+		private const string TT_RECOVERY_THRESH = "Upper velocity threshold below which Agent begins to recover.";
+		private const string TT_RECOVERED_THRESH = "Lower velocity threshold below which control is fully returned to Agent.";
+		#endregion Tooltips
+
 		protected override bool DefaultExitBehavior => false;
 		protected bool Debug => debug && Entity.RuntimeData.GetValue<bool>(EntityDataIdentifiers.DEBUG, true);
 
 		[Header("Grounded")]
 		[SerializeField] private PoseBlendMap hitBlendTree;
+		[SerializeField, Tooltip(TT_RECOVERY_THRESH)] protected float recoveryThreshold = 3f;
+		[SerializeField, Tooltip(TT_RECOVERED_THRESH)] protected float recoveredThreshold = 2f;
 		[Header("Flying")]
 		[SerializeField] private float horizontalFlyThreshold = 15f;
 		[SerializeField] private float verticalFlyThreshold = 1f;
@@ -90,7 +97,7 @@ namespace SpaxUtils
 
 			if (Stunned)
 			{
-				flying = flying || rigidbodyWrapper.Velocity.FlattenY().magnitude > horizontalFlyThreshold || rigidbodyWrapper.Velocity.y > verticalFlyThreshold;
+				flying = flying || !grounder.Grounded || rigidbodyWrapper.Velocity.FlattenY().magnitude > horizontalFlyThreshold || rigidbodyWrapper.Velocity.y > verticalFlyThreshold;
 				if (flying && airborneTimer == null)
 				{
 					airborneTimer = new TimerClass(minAirborneLength, () => EntityTimeScale, callbackService, UpdateMode.FixedUpdate);
@@ -137,6 +144,8 @@ namespace SpaxUtils
 
 		private void UpdateGroundedStun()
 		{
+			float stunAmount = Mathf.Max(stunTimer.Progress.InvertClamped().InOutExpo(), Mathf.InverseLerp(recoveredThreshold, recoveryThreshold, rigidbodyWrapper.Speed).OutQuad());
+
 			IPoserInstructions instructions = hitBlendTree.GetInstructions(0f, -stunHit.Direction.LocalizeDirection(rigidbodyWrapper.transform));
 			animatorPoser.ProvideInstructions(this, PoserLayerConstants.BODY, instructions, 10, stunAmount);
 			armsMod.SetValue(stunAmount.Invert());

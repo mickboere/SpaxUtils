@@ -49,6 +49,9 @@ namespace SpaxUtils
 		public float CancelTime => MainPerformer != null ? MainPerformer.CancelTime : 0f;
 
 		/// <inheritdoc/>
+		public IReadOnlyDictionary<string, Dictionary<IPerformanceMove, (PerformanceState state, int prio, IPerformanceMove prior)>> Moves => moves;
+
+		/// <inheritdoc/>
 		public IReadOnlyDictionary<string, IPerformanceMove> Moveset => moveset;
 
 		private MovePerformer MainPerformer => helpers.Count > 0 ? helpers[helpers.Count - 1] : null;
@@ -292,6 +295,101 @@ namespace SpaxUtils
 
 			MovesetUpdatedEvent?.Invoke();
 		}
+
+		// Expose all reachable combat moves and their input chains (including combo finishers).
+		public IEnumerable<(ICombatMove move, string[] actChain)> EnumerateCombatChains(int maxDepth = 3)
+		{
+			if (moves == null || moves.Count == 0)
+			{
+				yield break;
+			}
+
+			// Root moves: those with prior == null.
+			var visited = new HashSet<IPerformanceMove>();
+
+			foreach (var actEntry in moves)
+			{
+				string act = actEntry.Key;
+				var moveDict = actEntry.Value;
+
+				foreach (var moveEntry in moveDict)
+				{
+					IPerformanceMove move = moveEntry.Key;
+					var meta = moveEntry.Value;
+
+					if (meta.prior != null)
+					{
+						continue; // not a root
+					}
+
+					var chain = new List<string> { act };
+					foreach (var combo in EnumerateFrom(move, chain, visited, maxDepth, 1))
+					{
+						yield return combo;
+					}
+				}
+			}
+		}
+
+		private IEnumerable<(ICombatMove move, string[] actChain)> EnumerateFrom(
+			IPerformanceMove move,
+			List<string> chain,
+			HashSet<IPerformanceMove> visited,
+			int maxDepth,
+			int depth)
+		{
+			if (move == null)
+			{
+				yield break;
+			}
+
+			if (visited.Contains(move))
+			{
+				yield break; // prevent cycles
+			}
+			visited.Add(move);
+
+			// If this is a combat move, yield it as a candidate.
+			if (move is ICombatMove combatMove)
+			{
+				yield return (combatMove, chain.ToArray());
+			}
+
+			// Stop if we reached depth limit.
+			if (depth >= maxDepth)
+			{
+				visited.Remove(move);
+				yield break;
+			}
+
+			// Find follow-up moves: entries where meta.prior == move.
+			foreach (var actEntry in moves)
+			{
+				string act = actEntry.Key;
+				var moveDict = actEntry.Value;
+
+				foreach (var moveEntry in moveDict)
+				{
+					IPerformanceMove childMove = moveEntry.Key;
+					var meta = moveEntry.Value;
+
+					if (meta.prior != move)
+					{
+						continue;
+					}
+
+					chain.Add(act);
+					foreach (var combo in EnumerateFrom(childMove, chain, visited, maxDepth, depth + 1))
+					{
+						yield return combo;
+					}
+					chain.RemoveAt(chain.Count - 1);
+				}
+			}
+
+			visited.Remove(move);
+		}
+
 
 		#endregion Move Management
 

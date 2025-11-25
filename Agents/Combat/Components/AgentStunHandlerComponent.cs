@@ -6,11 +6,6 @@ namespace SpaxUtils
 	[DefaultExecutionOrder(100)]
 	public class AgentStunHandlerComponent : AgentComponentBase, IStunHandler
 	{
-		#region Tooltips
-		private const string TT_RECOVERY_THRESH = "Upper velocity threshold below which Agent begins to recover.";
-		private const string TT_RECOVERED_THRESH = "Lower velocity threshold below which control is fully returned to Agent.";
-		#endregion Tooltips
-
 		public event Action EnteredStunEvent;
 		public event Action ExitedStunEvent;
 
@@ -19,15 +14,12 @@ namespace SpaxUtils
 		protected virtual bool DefaultExitBehavior { get; } = true;
 
 		[SerializeField] protected float minStunTime = 0.5f;
-		[SerializeField, Tooltip(TT_RECOVERY_THRESH)] protected float recoveryThreshold = 1.5f;
-		[SerializeField, Tooltip(TT_RECOVERED_THRESH)] protected float recoveredThreshold = 0.5f;
 
 		protected CallbackService callbackService;
 		protected RigidbodyWrapper rigidbodyWrapper;
-		protected FloatFuncModifier controlMod;
+		protected FloatOperationModifier controlMod;
 		protected HitData stunHit;
 		protected TimerClass stunTimer;
-		protected float stunAmount;
 
 		public void InjectDependencies(CallbackService callbackService, RigidbodyWrapper rigidbodyWrapper)
 		{
@@ -37,7 +29,7 @@ namespace SpaxUtils
 
 		protected virtual void Awake()
 		{
-			controlMod = new FloatFuncModifier(ModMethod.Absolute, (float f) => f * 1f - stunAmount);
+			controlMod = new FloatOperationModifier(ModMethod.Absolute, Operation.Multiply, 1f);
 		}
 
 		protected virtual void OnEnable()
@@ -52,17 +44,17 @@ namespace SpaxUtils
 
 		protected virtual void FixedUpdate()
 		{
-			if (Stunned)
+			if (Stunned && DefaultExitBehavior && stunTimer.Expired)
 			{
-				UpdateStun();
+				ExitStun();
 			}
 		}
 
 		public virtual void EnterStun(HitData stunHit, float duration = -1f)
 		{
 			Stunned = true;
-			stunAmount = 1f;
 			this.stunHit = stunHit;
+			controlMod.SetValue(0f);
 			stunTimer = new TimerClass(duration > 0f ? duration : minStunTime, () => EntityTimeScale, callbackService, UpdateMode.FixedUpdate);
 			Agent.Actor.AddBlocker(this);
 
@@ -72,19 +64,10 @@ namespace SpaxUtils
 		public virtual void ExitStun()
 		{
 			Stunned = false;
+			controlMod.SetValue(1f);
 			Agent.Actor.RemoveBlocker(this);
-			stunAmount = 0f;
 
 			ExitedStunEvent?.Invoke();
-		}
-
-		protected virtual void UpdateStun()
-		{
-			stunAmount = Mathf.Max(stunTimer.Progress.InvertClamped(), Mathf.InverseLerp(recoveredThreshold, recoveryThreshold, rigidbodyWrapper.Speed));
-			if (DefaultExitBehavior && stunTimer.Expired && rigidbodyWrapper.Speed < recoveredThreshold)
-			{
-				ExitStun();
-			}
 		}
 	}
 }

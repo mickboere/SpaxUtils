@@ -1,4 +1,5 @@
 using System.Collections;
+using UnityEngine;
 
 namespace SpaxUtils
 {
@@ -89,19 +90,77 @@ namespace SpaxUtils
 
 		private void OnReceivedHitEvent(HitData hitData)
 		{
-			// Invoked when the agent was hit by another entity.
-			// Anger is proportionate to relative incoming force.
-			// Fear is proportionate to relative incoming damage and current health.
-			// Hate is the sum of both.
-			float anger = 1f;// hitData.Result_Force / agent.Body.RigidbodyWrapper.Mass;
-			float fear = hitData.Data.GetValue<float>(HitDataIdentifiers.DAMAGE) / statHandler.PointStats.SW.Current * 3f;
-			Vector8 stim = new Vector8()
+			// Actual damage removed from health.
+			float damageDealt = hitData.Data.GetValue<float>(HitDataIdentifiers.DAMAGE, 0f);
+			if (damageDealt <= 0f)
 			{
-				N = anger,
-				S = fear,
-				NW = anger + fear,
-			};
+				return;
+			}
+
+			float curHealth = statHandler.PointStats.SW.Current;
+
+			// Impact in [0..1]:
+			//  - small when it's a tiny chip off a healthy pool
+			//  - large when you're already low or it was a big chunk.
+			float impact01;
+			{
+				float denom = curHealth + damageDealt;
+				impact01 = denom > 0f ? Mathf.Clamp01(damageDealt / denom) : 1f;
+			}
+
+			if (impact01 <= 0f)
+			{
+				return;
+			}
+
+			// Personality influence (poles).
+			Vector8 pers = Agent.Mind.Personality;
+			Vector8 dev = (pers - Vector8.Half) * 2f; // [-1..1]
+
+			// Fire vs Water: anger vs fear.
+			float fierceness = Mathf.Clamp01(0.5f + 0.5f * dev.N);   // FIERCENESS
+			float carefulness = Mathf.Clamp01(0.5f + 0.5f * dev.S);   // CAREFULNESS
+
+			// Earth: how much we respond with guard/poise.
+			float steadfastness = Mathf.Clamp01(0.5f + 0.5f * dev.W);  // STEADFASTNESS
+
+			// Void: how much we turn pain into ruthless hatred.
+			float ruthlessness = Mathf.Clamp01(0.5f + 0.5f * dev.NW); // RUTHLESSNESS
+
+			// Split impact into "fight" vs "fear" tendency based on N-S balance.
+			float fightBias = fierceness / (fierceness + carefulness + 0.001f); // 0..1
+			float anger01 = impact01 * fightBias;
+			float fear01 = impact01 * (1f - fightBias);
+
+			// We don't want one short exchange to shoot to 10;
+			// cap the per-hit impulse to a modest fraction of MAX_STIM.
+			const float MAX_HIT_STIM = AEMOI.MAX_STIM * 0.3f; // e.g. 3 when MAX_STIM=10.
+			float baseStim = impact01 * MAX_HIT_STIM;
+
+			float angerStim = anger01 * MAX_HIT_STIM;
+			float fearStim = fear01 * MAX_HIT_STIM;
+
+			Vector8 stim = Vector8.Zero;
+
+			// N (Fight) – retaliation / rage.
+			stim.N = angerStim * (0.7f + 0.3f * fierceness) - fearStim * 0.2f;
+
+			// S (Retreat) – urge to back off.
+			stim.S = fearStim * (0.7f + 0.3f * carefulness);
+
+			// E (Evade) – reflexive evasiveness.
+			stim.E = fearStim * (0.3f + 0.4f * (1f - fightBias + carefulness));
+
+			// W (Guard) – raising guard / bracing.
+			stim.W = fearStim * (0.2f + 0.6f * steadfastness);
+
+			// NW (Hate / aggro) – long-term hostility from pain.
+			float hateGain = baseStim * (0.5f + 0.5f * ruthlessness); // 0..MAX_HIT_STIM
+			stim.NW = hateGain;
+
+			// Use the same damping as continuous stimuli (handled in AEMOI.Stimulate).
 			Agent.Mind.Stimulate(stim, hitData.Hitter);
 		}
+
 	}
 }

@@ -142,9 +142,13 @@ namespace SpaxUtils
 		/// </summary>
 		public const string IMPACT = "Impact";
 		/// <summary>
-		/// Return data defining total amount of damage dealt to receiver.
+		/// Return data defining total amount of damage that will be dealt to the receiver.
 		/// </summary>
 		public const string DAMAGE = "Damage";
+		/// <summary>
+		/// Return data defining actual amount of damage that has been substracted from the receiver's health.
+		/// </summary>
+		public const string DAMAGE_DEALT = "Damage_Dealt";
 		/// <summary>
 		/// Return data defining total amount of force transfered to receiver.
 		/// </summary>

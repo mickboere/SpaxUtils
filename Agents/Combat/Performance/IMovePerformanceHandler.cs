@@ -14,6 +14,11 @@ namespace SpaxUtils
 		event Action MovesetUpdatedEvent;
 
 		/// <summary>
+		/// All currently registered moves per act.
+		/// </summary>
+		IReadOnlyDictionary<string, Dictionary<IPerformanceMove, (PerformanceState state, int prio, IPerformanceMove prior)>> Moves { get; }
+
+		/// <summary>
 		/// The current set of highest-priority moves per act.
 		/// </summary>
 		IReadOnlyDictionary<string, IPerformanceMove> Moveset { get; }

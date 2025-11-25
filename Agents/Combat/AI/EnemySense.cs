@@ -7,19 +7,33 @@ namespace SpaxUtils
 {
 	public class EnemySense : IDisposable
 	{
-		private Dictionary<ITargetable, EnemyAwarenessData> enemies = new Dictionary<ITargetable, EnemyAwarenessData>();
+		// Threat tuning constants.
+		private const float MIN_APPROACH_SPEED = 0.1f;   // m/s, to avoid division by zero.
+		private const float MAX_TIME_TO_HIT = 5f;        // seconds; beyond this, proximity threat ~ 0.
+		private const float THREAT_SMOOTHING = 5f;       // higher = snappier.
 
-		private IAgent agent;
-		private ISpawnpoint spawnpoint;
-		private IVisionComponent vision;
-		private AgentStatHandler statHandler;
-		private CombatSensesSettings settings;
+		// Contribution weights (should roughly sum to 1).
+		private const float WEIGHT_PROXIMITY = 0.6f;
+		private const float WEIGHT_LETHALITY = 0.25f;
+		private const float WEIGHT_INTENT = 0.15f;
 
-		public EnemySense(IAgent agent,
-			 ISpawnpoint spawnpoint,
-			 IVisionComponent vision,
-			 AgentStatHandler statHandler,
-			 CombatSensesSettings settings)
+		private readonly Dictionary<ITargetable, EnemyInfo> enemies = new Dictionary<ITargetable, EnemyInfo>();
+
+		private readonly IAgent agent;
+		private readonly ISpawnpoint spawnpoint;
+		private readonly IVisionComponent vision;
+		private readonly AgentStatHandler statHandler;
+		private readonly CombatSensesSettings settings;
+
+		private float pointSum;
+		private List<ITargetable> visible;
+
+		public EnemySense(
+			IAgent agent,
+			ISpawnpoint spawnpoint,
+			IVisionComponent vision,
+			AgentStatHandler statHandler,
+			CombatSensesSettings settings)
 		{
 			this.agent = agent;
 			this.spawnpoint = spawnpoint;
@@ -37,14 +51,14 @@ namespace SpaxUtils
 
 		public void Sense(float delta)
 		{
-			GatherEnemyData();
+			GatherEnemyData(delta);
 			SendContinuousStimuli(delta);
 		}
 
 		/// <summary>
-		/// Retrieve the <see cref="EnemyAwarenessData"/> for the currently targeted entity.
+		/// Retrieve the <see cref="EnemyInfo"/> for the currently targeted entity.
 		/// </summary>
-		public EnemyAwarenessData GetEnemyData()
+		public EnemyInfo GetEnemyInfo()
 		{
 			if (agent.Targeter.Target == null || !enemies.ContainsKey(agent.Targeter.Target))
 			{
@@ -54,35 +68,35 @@ namespace SpaxUtils
 			return enemies[agent.Targeter.Target];
 		}
 
-		public EnemyAwarenessData GetEnemyData(ITargetable targetable)
+		public EnemyInfo GetEnemyInfo(ITargetable targetable)
 		{
-			return enemies[targetable];
+			enemies.TryGetValue(targetable, out EnemyInfo info);
+			return info;
 		}
 
 		#region Enemy Tracking
 
-		private void GatherEnemyData()
+		private void GatherEnemyData(float delta)
 		{
-			float pointSum = statHandler.PointStats.Vector8.Sum();
+			pointSum = statHandler.PointStats.Vector8.Sum();
 
-			// Get all enemies currently in view and store their relevant data.
-			List<ITargetable> visible = vision.Spot(agent.Targeter.Enemies.Components);
+			visible = vision.Spot(agent.Targeter.Enemies.Components);
 			foreach (ITargetable enemy in agent.Targeter.Enemies.Components)
 			{
 				IAgent enemyAgent = enemy.Entity as IAgent;
 				if (enemyAgent == null || !enemyAgent.Alive || (!enemies.ContainsKey(enemy) && !visible.Contains(enemy)))
 				{
-					// Enemy isn't an agent, is dead, or invisible and not being tracked; skip.
+					// Enemy is not an agent, is dead, or invisible and not being tracked; skip.
 					continue;
 				}
 
-				EnemyAwarenessData enemyData;
+				EnemyInfo enemyData;
 				if (!enemies.ContainsKey(enemy))
 				{
-					enemyData = new EnemyAwarenessData(enemyAgent);
+					enemyData = new EnemyInfo(enemyAgent);
 					enemies.Add(enemy, enemyData);
 					enemyAgent.DiedEvent += OnEnemyDiedEvent;
-					enemyData.Resentment = agent.Relations.Score(enemyAgent.Identification).Abs();
+					enemyData.Resentment = -agent.Relations.Score(enemyAgent.Identification);
 				}
 				else
 				{
@@ -92,35 +106,13 @@ namespace SpaxUtils
 				if (enemyData.Agent == agent)
 				{
 					SpaxDebug.Error($"[{agent.Identification.TagFull()}] Target is self, this should not be possible.");
+					continue;
 				}
 
-				// - UPDATE ENEMY INTEL -
-				enemyData.LastSeen = Time.time;
-				enemyData.LastLocation = enemyData.Agent.Transform.position;
-				enemyData.Direction = enemyData.Agent.Transform.position - agent.Transform.position;
-				enemyData.Distance = enemyData.Direction.magnitude;
-				enemyData.Direction = enemyData.Direction.normalized;
-				enemyData.Projection = agent.Body.RigidbodyWrapper.Velocity.normalized.Dot(enemyData.Direction) * agent.Body.RigidbodyWrapper.Speed +
-					enemyData.Agent.Body.RigidbodyWrapper.Velocity.normalized.Dot(-enemyData.Direction) * enemyData.Agent.Body.RigidbodyWrapper.Speed;
-				// V TODO: Create general "AgentCombatComponent" which stores stuff like Reach, Openness, etc. since such data is self-relevant.
-				enemyData.Reach = enemyAgent.Stats.GetStat(AgentStatIdentifiers.REACH) +
-					Mathf.Max(
-						enemyData.Agent.Stats.GetStat(AgentStatIdentifiers.REACH.SubStat(AgentStatIdentifiers.SUB_LEFT_HAND)),
-						enemyData.Agent.Stats.GetStat(AgentStatIdentifiers.REACH.SubStat(AgentStatIdentifiers.SUB_RIGHT_HAND)));
-
-				// Threat is defined by distance to enemy.
-				enemyData.Threat = (enemyData.Distance / (vision.Range * settings.ThreatRange)).InvertClamped().Evaluate(settings.ThreatCurve);
-				// Oppurtunity is defined by enemy being open to offence.
-				enemyData.Oppurtunity = enemyData.Direction.NormalizedDot(enemyData.Agent.Transform.forward) * 2f +
-					(enemyData.Agent.Actor.State is PerformanceState.Performing ? 1f : 0.5f) * enemyData.Threat.Invert();
-				// (Dis)Advantage is defined by difference in current stat points.
-				float enemyPointSum = enemyData.Agent.GetEntityComponent<AgentStatHandler>().PointStats.Vector8.Sum();
-				enemyData.Advantage = pointSum / enemyPointSum;
-				enemyData.Disadvantage = enemyPointSum / pointSum;
-
+				UpdateEnemyInfo(enemy, enemyData, delta);
 			}
 
-			// Check for any enemies that have been out of view for too long and forget about them.
+			// Forget enemies out of view for too long.
 			List<ITargetable> outOfView = enemies.Keys.Except(visible).ToList();
 			foreach (ITargetable lostTargetable in outOfView)
 			{
@@ -130,6 +122,118 @@ namespace SpaxUtils
 					enemies.Remove(lostTargetable);
 				}
 			}
+		}
+
+		private void UpdateEnemyInfo(ITargetable enemy, EnemyInfo info, float delta)
+		{
+			// Visibility.
+			if (visible.Contains(enemy))
+			{
+				info.Visible = true;
+				info.LastSeen = Time.time;
+				info.LastLocation = info.Agent.Transform.position;
+
+				// Spatial.
+				Vector3 toEnemy = info.Agent.Transform.position - agent.Transform.position;
+				info.Distance = toEnemy.magnitude;
+				info.Direction = info.Distance > Mathf.Epsilon ? toEnemy / info.Distance : Vector3.zero;
+
+				// Relative velocity (enemy - self). ClosingSpeed > 0 when they are closing in.
+				Vector3 relVel = info.Agent.Body.RigidbodyWrapper.Velocity - agent.Body.RigidbodyWrapper.Velocity;
+				info.ClosingSpeed = -Vector3.Dot(relVel, info.Direction);
+			}
+			else
+			{
+				info.Visible = false;
+				return; // Do not update threat/opportunity when not visible.
+			}
+
+			// Lethality: ratio of enemy vs agent point stats.
+			// TODO: This is currently power difference, not true lethality. Lethality should be derived from damage potential.
+			float enemyPointSum = info.StatHandler.PointStats.Vector8.Sum();
+			float powerRatio;
+			if (pointSum <= Mathf.Epsilon)
+			{
+				powerRatio = 1f;
+			}
+			else
+			{
+				powerRatio = enemyPointSum <= Mathf.Epsilon ? 0.5f : enemyPointSum / pointSum;
+			}
+
+			info.Lethality = Mathf.Clamp01(powerRatio / (powerRatio + 1f));
+
+			// Proximity via time-to-hit.
+			const float SAFETY_PADDING = 0.25f;
+
+			float effectiveReach = 0.5f;
+			if (info.CombatComp != null)
+			{
+				effectiveReach = info.CombatComp.ActiveReach + SAFETY_PADDING;
+			}
+
+			float distanceToCover = Mathf.Max(info.Distance - effectiveReach, 0f);
+
+			if (distanceToCover <= 0f)
+			{
+				info.TimeToHit = 0f;
+			}
+			else if (info.ClosingSpeed <= 0f)
+			{
+				info.TimeToHit = float.PositiveInfinity;
+			}
+			else
+			{
+				float approachSpeed = Mathf.Max(info.ClosingSpeed, MIN_APPROACH_SPEED);
+				info.TimeToHit = distanceToCover / approachSpeed;
+			}
+
+			float proximityThreat;
+			if (info.Distance <= effectiveReach)
+			{
+				proximityThreat = 1f;
+			}
+			else if (float.IsPositiveInfinity(info.TimeToHit))
+			{
+				proximityThreat = 0f;
+			}
+			else
+			{
+				float tNorm = Mathf.Clamp01(info.TimeToHit / MAX_TIME_TO_HIT);
+				proximityThreat = 1f - Mathf.SmoothStep(0f, 1f, tNorm);
+			}
+
+			// Intent (combat state + facing).
+			float facingToSelf = 0f;
+			if (info.Distance > Mathf.Epsilon)
+			{
+				Vector3 toSelf = (agent.Transform.position - info.Agent.Transform.position).normalized;
+				facingToSelf = Mathf.Clamp01(Vector3.Dot(info.Agent.Transform.forward, toSelf));
+			}
+
+			float rawIntent = 0f;
+			if (info.CombatComp != null)
+			{
+				if (info.CombatComp.InCombatMode) rawIntent += 0.5f;
+				if (info.CombatComp.CurrentCombatMove != null) rawIntent += 0.5f;
+			}
+			rawIntent = Mathf.Clamp01(rawIntent);
+			info.Intent = rawIntent * facingToSelf;
+
+			// Final Threat in [0,1].
+			float threat01 =
+				WEIGHT_PROXIMITY * proximityThreat +
+				WEIGHT_LETHALITY * info.Lethality +
+				WEIGHT_INTENT * info.Intent;
+
+			threat01 = Mathf.Clamp01(threat01);
+
+			float lerpFactor = 1f - Mathf.Exp(-THREAT_SMOOTHING * delta);
+			info.Threat = Mathf.Lerp(info.Threat, threat01, lerpFactor);
+
+			// Opportunity (enemy open to offence).
+			float openness = info.CombatComp != null ? info.CombatComp.Openness : 0f;
+			info.Oppurtunity = info.Direction.NormalizedDot(info.Agent.Transform.forward) * openness * 2f;
 		}
 
 		private void OnEnemyTargetRemovedEvent(ITargetable targetable)
@@ -151,60 +255,190 @@ namespace SpaxUtils
 
 		#endregion Enemy Tracking
 
+		#region Stimulation
+
 		private void SendContinuousStimuli(float delta)
 		{
-			foreach (EnemyAwarenessData enemy in enemies.Values)
-			{
-				Vector8 current = agent.Mind.RetrieveStimuli(enemy.Agent);
+			// Personality deviations [-1..1].
+			Vector8 pers = agent.Mind.Personality;
+			Vector8 dev = (pers - Vector8.Half) * 2f;
 
-				// Only incite anger if agent has no region or if enemy is within region.
-				float incitement = 0f;
-				if (spawnpoint == null || spawnpoint.Region == null || spawnpoint.Region.IsInside(enemy.Agent.Transform.position))
+			// N–S axis balance and S-lean (for relaxing fight drive).
+			float nsBalance = 1f - Mathf.Abs(dev.N - dev.S); // 0 = skewed, 1 = balanced.
+			float nsLeanS = Mathf.Max(0f, dev.S - dev.N);  // >0 => more CAREFUL than FIERCE.
+
+			foreach (EnemyInfo info in enemies.Values)
+			{
+				// If we lost sight, do not continue stimulating from stale data.
+				if (!info.Visible)
 				{
-					// Anger incitement is defined by current hate towards enemy.
-					incitement = current.NW.Min(1f) * (enemy.Distance / (vision.Range * settings.InciteRange)).InvertClamped().Evaluate(settings.InciteCurve);
+					continue;
 				}
 
-				// Desire to retreat (fear) is defined by crucial stats that need time to recover.
-				float retreat = statHandler.PointStats.SW.PercentageMax.Invert(); // Health
-				retreat += statHandler.PointStats.W.PercentageRecoverable.Invert().Remap(-1f, 1f); // Endurance
-				retreat *= retreat > 0 ? enemy.Threat : AEMOI.MAX_STIM; // If positive, scale stim by threat. If negative (stats are sufficiently recovered) maximally satisfy fear.
+				Vector8 current = agent.Mind.RetrieveStimuli(info.Agent);
 
-				// Danger is defined by how close to the attacking enemy's range one is.
-				float danger = -AEMOI.MAX_STIM * enemy.Threat.Invert(); // Default is satisfaction if there is no threat.
-				if (enemy.Agent.Actor.State == PerformanceState.Preparing &&
-					enemy.Agent.Actor.MainPerformer is IMovePerformer movePerformer &&
+				float threat01 = info.Threat;
+				float threatStim = threat01 * AEMOI.MAX_STIM;
+				float lethality01 = info.Lethality;
+				float intent01 = info.Intent;
+				float hate01 = Mathf.Clamp01(info.Resentment);
+				float love01 = Mathf.Clamp01(-info.Resentment);
+
+				// Resource deficits.
+				float healthDef = statHandler.PointStats.SW.PercentageMax.Invert();
+				float staminaDef = statHandler.PointStats.E.PercentageMax.Invert().Remap(-1f, 1f);
+				float enduranceDef = statHandler.PointStats.W.PercentageMax.Invert();
+				float resourceDef = Mathf.Clamp01(Mathf.Max(healthDef, Mathf.Max(staminaDef, enduranceDef)));
+				float resourceOk = 1f - resourceDef;
+
+				// Spike when enemy is winding up an attack on us.
+				float windupDanger = 0f;
+				if (info.Agent.Actor.State == PerformanceState.Preparing &&
+					info.Agent.Actor.MainPerformer is IMovePerformer movePerformer &&
 					movePerformer.Move is ICombatMove combatMove)
 				{
 					float range = combatMove.Range;
 					if (combatMove is IMeleeCombatMove meleeCombatMove)
 					{
-						range += enemy.Agent.Stats.GetStat(AgentStatIdentifiers.REACH.SubStat(meleeCombatMove.Limb)) ?? 0f;
+						range += info.Agent.Stats.GetStat(AgentStatIdentifiers.REACH.SubStat(meleeCombatMove.Limb)) ?? 0f;
 					}
 
-					danger = Mathf.InverseLerp(range + range, range, enemy.Distance).InOutSine() * AEMOI.MAX_STIM;
+					float t = Mathf.InverseLerp(range + range, range, info.Distance).InOutSine();
+					windupDanger = t * AEMOI.MAX_STIM;
 				}
 
-				// - SEND STIMULI -
+				// Calm when threat & intent drop.
+				float calm = (1f - threat01) * (1f - intent01);
 
-				Vector8 stim = new Vector8()
+				// Distance-based safety for S/E/W relaxation.
+				float activeReach = info.CombatComp != null ? info.CombatComp.ActiveReach : 1f;
+				float distanceSafe = Mathf.Clamp01(info.Distance / (activeReach * 2f)); // 0 = on top, 1 = far.
+				float verySafe = calm * distanceSafe;
+
+				// ---------------------------
+				// Signed raw stim per axis
+				// ---------------------------
+
+				// N (Fight): danger minus relaxation.
+				float fightDanger;
 				{
-					N = Damp(incitement, current, 0), // Attacking
-					NE = Damp(incitement.Clamp01() * enemy.Oppurtunity, current, 1), // Anticipating
-					E = Damp(danger + retreat.Max(0f) * 0.5f, current, 2), // Evading
-					S = Damp(retreat, current, 4), // Fleeing
-					SW = Damp(Mathf.Max(enemy.Disadvantage - 1f, 0f), current, 5), // Powering
-					W = Damp(danger, current, 6), // Guarding
-					NW = Damp(enemy.Threat * enemy.Resentment, current, 7) // Hating
-				};
+					float courage = 1f - lethality01; // prefer to fight weaker/equal enemies.
+					fightDanger = threatStim * hate01 * Mathf.Clamp01(courage + 0.3f) * (1f - 0.5f * resourceDef);
+				}
 
-				agent.Mind.Stimulate(stim * delta, enemy.Agent);
+				// Only really relax N if WATER (S) leans higher and axis is not extreme.
+				float fightRelax = current.N * verySafe * nsBalance * nsLeanS * 1.25f;
+				float fight = fightDanger - fightRelax;
+
+				// NE (Utilize / anticipate opening).
+				float utilizeDanger = info.Oppurtunity * AEMOI.MAX_STIM * (1f - 0.5f * threat01);
+				float oppClosed = 1f - Mathf.Clamp01(Mathf.Abs(info.Oppurtunity)); // 1 when no clear opening.
+				float neSafe = Mathf.Max(calm, oppClosed * distanceSafe);
+				float utilizeRelax = current.NE * neSafe * 1.0f;
+				float utilize = utilizeDanger - utilizeRelax;
+
+				// E (Evade).
+				// Evade should respond mostly to immediate attack intent and windup.
+				float immediateThreat = threatStim * intent01;
+				float evadeDanger = immediateThreat + windupDanger;
+
+				// When far & calm, strongly relax evasion.
+				float safeFromImmediate = verySafe;
+				float evadeRelax = current.E * safeFromImmediate * 1.5f;
+				float evade = evadeDanger - evadeRelax;
+
+				// SE (Support) – left mostly to global systems.
+				float support = 0f;
+
+				// S (Retreat).
+				float baseRetreat = threatStim * (0.4f + 0.6f * lethality01);
+				float resourceFactor = 0.3f + 0.7f * resourceDef;
+				float retreatDanger = baseRetreat * resourceFactor;
+				float retreatSafe = distanceSafe * calm;
+				float retreatRelax = current.S * retreatSafe * 1.5f; // stronger drop when far & calm.
+				float retreat = retreatDanger - retreatRelax;
+
+				// SW (Enhance / buffing).
+				float enhanceDanger = AEMOI.MAX_STIM * lethality01 * (1f - threat01) * Mathf.Clamp01(resourceDef + 0.2f);
+				float enhanceRelax = current.SW * resourceOk * calm * 1.0f;
+				float enhance = enhanceDanger - enhanceRelax;
+
+				// W (Guard).
+				float guardDanger = threatStim * (0.25f + 0.75f * intent01) + windupDanger;
+				float guardSafe = verySafe;
+				float guardRelax = current.W * guardSafe * 1.5f;
+				float guard = guardDanger - guardRelax;
+
+				// NW (Target / aggro).
+				// Continuous sense may only build NW up to a cap:
+				//   - if Resentment >= 1 => cap = Resentment
+				//   - if Resentment < 1  => cap = 1
+				//
+				// Anything above that must come from discrete events (being hit, etc.).
+				float hateNorm = Mathf.Clamp01(info.Resentment);          // 0..1 hostility
+				float maxContNW = Mathf.Max(info.Resentment, 1f);          // resentment or at least 1
+
+				float nwDanger = threatStim * hateNorm;
+				float nwRelax = love01 * AEMOI.MAX_STIM * calm;
+				float target = nwDanger - nwRelax;                        // signed impulse
+
+				float currentNW = current.NW;
+
+				if (target > 0f)
+				{
+					if (currentNW >= maxContNW)
+					{
+						// Already at/above continuous cap: EnemySense not allowed
+						// to push NW any higher – only negative impulses may reduce it.
+						target = 0f;
+					}
+					else
+					{
+						// As we approach the cap the positive impulse fades out.
+						float factor = Mathf.Clamp01((maxContNW - currentNW) / maxContNW);
+						target *= factor;
+					}
+				}
+
+				Vector8 rawStim = new Vector8(
+					fight,    // N
+					utilize,  // NE
+					evade,    // E
+					support,  // SE
+					retreat,  // S
+					enhance,  // SW
+					guard,    // W
+					target    // NW
+				);
+
+				// Aggro modulation (NW boosts positive combat impulses only).
+				float aggroNorm = Mathf.Clamp01(current.NW / AEMOI.MAX_STIM);
+				if (aggroNorm > 0f)
+				{
+					float strong = 1f + aggroNorm;        // 1..2
+					float medium = 1f + 0.5f * aggroNorm; // 1..1.5
+
+					ScalePositive(ref rawStim.N, strong);
+					ScalePositive(ref rawStim.NE, strong);
+					ScalePositive(ref rawStim.E, medium);
+					ScalePositive(ref rawStim.S, medium);
+					ScalePositive(ref rawStim.W, medium);
+					ScalePositive(ref rawStim.SW, medium);
+				}
+
+				// Send raw impulses; AEMOI handles damping.
+				agent.Mind.Stimulate(rawStim * delta, info.Agent);
 			}
 		}
 
-		private float Damp(float x, Vector8 c, int i, bool dampNegative = false)
+		private void ScalePositive(ref float v, float factor)
 		{
-			return dampNegative || x > 0f ? x / Mathf.Max(c[i] * settings.StimDamping[i], 1f) : x;
+			if (v > 0f)
+			{
+				v *= factor;
+			}
 		}
+
+		#endregion
 	}
 }

@@ -12,6 +12,7 @@ namespace SpaxUtils
 		public float ParriedStunTime => parriedStunTime;
 		public float DeflectedStunTime => deflectedStunTime;
 
+		[Header("Hit Pause Settings")]
 		[SerializeField, MinMaxRange(0f, 1f)] private Vector2 hitPauseReceiver = new Vector2(0.05f, 0.75f);
 		[SerializeField, MinMaxRange(0f, 1f)] private Vector2 hitPauseSender = new Vector2(0.05f, 0.25f);
 		[SerializeField] private AnimationCurve hitPauseCurve;

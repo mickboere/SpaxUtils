@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using UnityEngine;
 
 namespace SpaxUtils
 {
@@ -111,7 +112,7 @@ namespace SpaxUtils
 			List<IEntity> sources = new List<IEntity>(stimuli.Keys);
 			foreach (IEntity source in sources)
 			{
-				stimuli[source] = stimuli[source].Disperse(Vector8.Zero, inclination.Vector8, settings.EmotionDispersion * delta).Lerp(Vector8.Zero, settings.EmotionDamping * delta);
+				stimuli[source] = stimuli[source].Disperse(Vector8.Zero, inclination.Vector8, settings.EmotionDispersion * delta).Lerp(Vector8.Zero, settings.EmotionDecay * delta);
 			}
 
 			// Set the current highest motivation.
@@ -134,6 +135,12 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public void Stimulate(Vector8 stimulation, IEntity source)
 		{
+			// Current emotional charge towards this source (after previous frames).
+			Vector8 current = stimuli.TryGetValue(source, out Vector8 existing) ? existing : Vector8.Zero;
+
+			// Apply per-channel damping so climbing from 0..1 is easy, then slows down towards MAX_STIM.
+			stimulation = DampStimulation(stimulation, current);
+
 			if (!stimuli.ContainsKey(source))
 			{
 				stimuli.Add(source, Filter(stimulation * Inclination).Clamp(0f, MAX_STIM));
@@ -300,6 +307,69 @@ namespace SpaxUtils
 			}
 
 			return (motivation, target);
+		}
+
+		/// <summary>
+		/// Damps impulses channel-wise based on current level and per-channel damping.
+		/// Positive impulses slow down near MAX_STIM.
+		/// Negative impulses (satisfaction) are less damped and get stronger when level is high.
+		/// </summary>
+		private Vector8 DampStimulation(Vector8 impulses, Vector8 current)
+		{
+			Vector8 result = Vector8.Zero;
+
+			for (int i = 0; i < 8; i++)
+			{
+				float impulse = impulses[i];
+				if (Mathf.Approximately(impulse, 0f))
+				{
+					result[i] = 0f;
+					continue;
+				}
+
+				float level = Mathf.Abs(current[i]);
+				float damp = Mathf.Max(settings.StimDamping[i], 0f);
+
+				if (damp <= 0f)
+				{
+					result[i] = impulse;
+					continue;
+				}
+
+				float lowDamp = damp * 0.25f;
+
+				if (impulse > 0f)
+				{
+					// Excitatory: same as before – fast under 1, heavily damped near MAX_STIM.
+					float denom;
+					if (level <= 1f)
+					{
+						denom = 1f + level * lowDamp;
+					}
+					else
+					{
+						float over = Mathf.Clamp(level - 1f, 0f, AEMOI.MAX_STIM - 1f);
+						float overNorm = over / (AEMOI.MAX_STIM - 1f);
+						denom = 1f + lowDamp + damp * overNorm * overNorm;
+					}
+					result[i] = impulse / denom;
+				}
+				else // impulse < 0f  => satisfaction / relaxation
+				{
+					// The higher the level, the stronger we allow negative impulses to pull it down.
+					float levelNorm = Mathf.Clamp01(level / AEMOI.MAX_STIM);
+
+					// Slight damping at low levels so tiny negatives don't jitter.
+					float denomNeg = 1f + level * lowDamp * 0.25f;
+
+					// Boost factor grows with level & damping: big emotions can be drained fast when safe.
+					float boost = 1f + levelNorm * damp * 0.5f;
+
+					result[i] = (impulse / denomNeg) * boost;
+				}
+			}
+
+			return result;
 		}
 	}
 }

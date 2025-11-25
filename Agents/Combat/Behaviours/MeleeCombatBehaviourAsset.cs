@@ -50,7 +50,7 @@ namespace SpaxUtils
 		private EntityStat enduranceCostStat;
 
 		private FloatFuncModifier speedMod;
-		private FloatOperationModifier balanceMod;
+		private FloatOperationModifier enduranceCostMod;
 
 		private CombatHitDetector hitDetector;
 		private TimerClass inertiaTimer;
@@ -111,8 +111,8 @@ namespace SpaxUtils
 			speedMod = new FloatFuncModifier(ModMethod.Absolute, (float f) => f * (strengthStat / limbMassStat).Clamp(strengthSpeedModRange.x, strengthSpeedModRange.y));
 			chargeSpeedStat.AddModifier(this, speedMod);
 			performSpeedStat.AddModifier(this, speedMod);
-			balanceMod = new FloatOperationModifier(ModMethod.Absolute, Operation.Multiply, 1f);
-			enduranceCostStat.AddModifier(this, balanceMod);
+			enduranceCostMod = new FloatOperationModifier(ModMethod.Absolute, Operation.Multiply, 1f);
+			enduranceCostStat.AddModifier(this, enduranceCostMod);
 		}
 
 		public override void Stop()
@@ -126,7 +126,7 @@ namespace SpaxUtils
 			performSpeedStat.RemoveModifier(this);
 			speedMod.Dispose();
 			enduranceCostStat.RemoveModifier(this);
-			balanceMod.Dispose();
+			enduranceCostMod.Dispose();
 
 			movementHandler.AutoUpdateMovement = true;
 			stormShake?.Dispose();
@@ -220,7 +220,7 @@ namespace SpaxUtils
 			}
 
 			float balance = Performer.State == PerformanceState.Preparing ? move.ChargeBalance : move.PerformBalance;
-			balanceMod.SetValue((1f / balance).Lerp(1f, Weight.Invert()));
+			enduranceCostMod.SetValue((1f / balance).Lerp(1f, Weight.Invert()));
 		}
 
 		protected void OnStartedPerformingEvent(IPerformer performer)
