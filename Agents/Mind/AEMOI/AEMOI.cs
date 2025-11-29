@@ -108,11 +108,22 @@ namespace SpaxUtils
 			// Gather senses.
 			UpdatingEvent?.Invoke(delta);
 
-			// Disperse and dampen stimuli to limit buildup.
+			// Redistribute + damp.
 			List<IEntity> sources = new List<IEntity>(stimuli.Keys);
 			foreach (IEntity source in sources)
 			{
-				stimuli[source] = stimuli[source].Disperse(Vector8.Zero, inclination.Vector8, settings.EmotionDispersion * delta).Lerp(Vector8.Zero, settings.EmotionDecay * delta);
+				Vector8 v = stimuli[source];
+
+				// 1) Overflow dispersion based on Inclination + Personality.
+				v = RedistributeOverflow(v, delta);
+
+				// 2) Global damping towards zero.
+				v = v.FILerp(Vector8.Zero, settings.EmotionDecay * delta);
+
+				// Clamp within range.
+				v = v.Clamp(0f, MAX_STIM);
+
+				stimuli[source] = v;
 			}
 
 			// Set the current highest motivation.
@@ -124,9 +135,8 @@ namespace SpaxUtils
 
 			// Mind has been updated.
 			UpdatedEvent?.Invoke();
-
-			//SpaxDebug.Log($"Motivation", Motivation.motivation.ToStringShort());
 		}
+
 
 		#endregion Activity
 
@@ -308,6 +318,62 @@ namespace SpaxUtils
 
 			return (motivation, target);
 		}
+
+		/// <summary>
+		/// Clips emotion above OverflowThreshold and redistributes the overflow
+		/// using Inclination + Personality as weights. Below the threshold, nothing happens.
+		/// </summary>
+		private Vector8 RedistributeOverflow(Vector8 v, float delta)
+		{
+			float threshold = settings.OverflowThreshold;
+			float rate = settings.OverflowRedistributionRate;
+
+			// Disabled or degenerate config.
+			if (threshold <= 0f || rate <= 0f)
+			{
+				return v;
+			}
+
+			// 1) Clip to threshold and collect overflow.
+			Vector8 overflow = Vector8.Zero;
+			for (int i = 0; i < 8; i++)
+			{
+				float level = v[i];
+				if (level > threshold)
+				{
+					float extra = level - threshold;
+					float move = Mathf.Min(extra, extra * rate * delta); // do not move more than exists
+					v[i] -= move;
+					overflow[i] = move;
+				}
+			}
+
+			float totalOverflow = overflow.Sum();
+			if (totalOverflow <= 0f)
+			{
+				return v; // nothing to redistribute
+			}
+
+			// 2) Build dispersion weights from Inclination + Personality.
+			//    High inclination + high personality => stronger sink for overflow.
+			Vector8 weights = inclination.Vector8 + personality.Vector8;
+			float weightSum = weights.Sum();
+			if (weightSum <= Mathf.Epsilon)
+			{
+				return v; // no usable weights, just leave v as-is
+			}
+
+			weights = weights / weightSum; // normalize to sum = 1
+
+			// 3) Redistribute total overflow according to these weights.
+			for (int i = 0; i < 8; i++)
+			{
+				v[i] += weights[i] * totalOverflow;
+			}
+
+			return v;
+		}
+
 
 		/// <summary>
 		/// Damps impulses channel-wise based on current level and per-channel damping.

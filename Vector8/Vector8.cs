@@ -9,6 +9,9 @@ namespace SpaxUtils
 	[Serializable]
 	public struct Vector8
 	{
+		/// <summary>
+		/// X & Y values of a diagonal line with a length of 1.
+		/// </summary>
 		public const float DIAGONAL = 0.70710856237f;
 
 		#region Static Values
@@ -95,6 +98,11 @@ namespace SpaxUtils
 		/// Linearly interpolates to <paramref name="b"/> by <paramref name="t"/>, clamping <paramref name="t"/> bewteen 0 and 1.
 		/// </summary>
 		public Vector8 LerpClamped(Vector8 b, float t) => LerpClamped(this, b, t);
+
+		/// <summary>
+		/// Framerate independent linear interpolation to <paramref name="b"/> by <paramref name="t"/>.
+		/// </summary>
+		public Vector8 FILerp(Vector8 b, float t) => Lerp(this, b, t);
 
 		/// <summary>
 		/// Shifts member values clockwise by <paramref name="amount"/> members.
@@ -266,6 +274,14 @@ namespace SpaxUtils
 		public static Vector8 LerpClamped(Vector8 a, Vector8 b, float t)
 		{
 			return Lerp(a, b, Mathf.Clamp01(t));
+		}
+
+		/// <summary>
+		/// Framerate independent linear interpolation between <paramref name="a"/> and <paramref name="b"/> by <paramref name="t"/>.
+		/// </summary>
+		public static Vector8 FILerp(Vector8 a, Vector8 b, float t)
+		{
+			return Lerp(a, b, 1f - Mathf.Exp(-t));
 		}
 
 		/// <summary>

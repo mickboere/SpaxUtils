@@ -28,6 +28,17 @@ namespace SpaxUtils
 		/// <summary>Total reach including the active combat move.</summary>
 		public float ActiveReach => CurrentCombatMove == null ? BaseReach : BaseReach + CurrentCombatMove.Range;
 
+		/// <summary>The current maximum offensive output of this agent.</summary>
+		public float Offense { get; private set; }
+
+		/// <summary>The current maximum power output of this agent.</summary>
+		public float Power => powerStat.Value;
+
+		/// <summary>The current defense stat value.</summary>
+		public float Defense => defenseStat.Value;
+
+		#region Move Selection
+
 		/// <summary>Preferred opening act to send as input.</summary>
 		public string PreferredAct { get; private set; }
 
@@ -46,6 +57,8 @@ namespace SpaxUtils
 		/// </summary>
 		public string[] PreferredMoveInputChain { get; private set; } = Array.Empty<string>();
 
+		#endregion Move Selection
+
 		[Header("Reach")]
 		[SerializeField] private float fallbackBaseReach = 0.5f;
 
@@ -59,10 +72,16 @@ namespace SpaxUtils
 
 		private IMovePerformanceHandler moveHandler;
 
+		private EntityStat powerStat;
+		private EntityStat defenseStat;
+
 		public void InjectDependencies(AgentStatHandler agentStatHandler, IMovePerformanceHandler moveHandler)
 		{
 			StatHandler = agentStatHandler;
 			this.moveHandler = moveHandler;
+
+			powerStat = Agent.Stats.GetStat(AgentStatIdentifiers.POWER);
+			defenseStat = Agent.Stats.GetStat(AgentStatIdentifiers.DEFENCE);
 		}
 
 		protected void OnEnable()
@@ -98,8 +117,15 @@ namespace SpaxUtils
 				(Agent.Stats.GetStat(AgentStatIdentifiers.REACH) ?? fallbackBaseReach) +
 				Mathf.Max(
 					Agent.Stats.GetStat(AgentStatIdentifiers.REACH.SubStat(AgentStatIdentifiers.SUB_LEFT_HAND)) ?? 0f,
-					Agent.Stats.GetStat(AgentStatIdentifiers.REACH.SubStat(AgentStatIdentifiers.SUB_RIGHT_HAND)) ?? 0f
-				);
+					Agent.Stats.GetStat(AgentStatIdentifiers.REACH.SubStat(AgentStatIdentifiers.SUB_RIGHT_HAND)) ?? 0f);
+
+			// LETHALITY: Damage output.
+			// TODO: Should depend on currently equiped arms and their damage type; magic weapons won't use physical offense & power.
+			// Offense
+			Offense =
+				Mathf.Max(
+					Agent.Stats.GetStat(AgentStatIdentifiers.OFFENCE.SubStat(AgentStatIdentifiers.SUB_LEFT_HAND)) ?? 0f,
+					Agent.Stats.GetStat(AgentStatIdentifiers.OFFENCE.SubStat(AgentStatIdentifiers.SUB_RIGHT_HAND)) ?? 0f);
 
 			UpdatePreferredMove();
 		}
@@ -218,8 +244,48 @@ namespace SpaxUtils
 				float rand = Mathf.Lerp(0.5f, 1.5f, UnityEngine.Random.value);
 				score *= Mathf.Lerp(rand, 1f, aptness);
 
-				// Slightly reward longer chains.
-				score *= 1f + 0.1f * Mathf.Clamp(chain.Length - 1, 0, maxComboDepth);
+				// -----------------------------
+				// Combo depth preference
+				// -----------------------------
+				int extraSteps = Mathf.Clamp(chain.Length - 1, 0, maxComboDepth);
+				if (extraSteps > 0)
+				{
+					// Depth in [0..1]: 0 = single, 1 = maxDepth chain.
+					float depthNorm = (float)extraSteps / maxComboDepth;
+
+					// Personality drives for combos:
+					// - FIERCENESS (N), SHARPNESS (NE), RUTHLESSNESS (NW) favor deeper chains.
+					// - CAREFULNESS (S), STEADFASTNESS (W) resist long commitment.
+					float fierceness = dev.N;
+					float sharpness = dev.NE;
+					float ruthlessness = dev.NW;
+					float carefulness = dev.S;
+					float steadfast = dev.W;
+
+					// Average "combo aggression" and "combo caution".
+					float comboAgg = (fierceness + sharpness + ruthlessness) / 3f;   // [-1..1]
+					float comboCaut = (carefulness + steadfast) * 0.5f;               // [-1..1]
+
+					// Raw taste: high when (aggression + sharp/sharp + ruthless) >> (careful + steadfast).
+					float rawTaste = comboAgg - comboCaut;                             // roughly [-2..2]
+
+					// Map to [0..1]; 0.5 = neutral, >0.5 likes deeper combos, <0.5 dislikes.
+					float comboTaste = Mathf.Clamp01(0.5f + 0.25f * rawTaste);
+
+					// Baseline: combos slightly rarer at neutral personality.
+					const float baselineBias = -0.15f; // mild penalty at full depth.
+
+					// Personality can push this towards more penalty or slight bonus.
+					// comboTaste = 0  -> -0.25, comboTaste = 1 -> +0.25.
+					float tasteBias = Mathf.Lerp(-0.25f, 0.25f, comboTaste);          // [-0.25..0.25]
+					float depthBias = baselineBias + tasteBias;                       // roughly [-0.4..0.1]
+					depthBias = Mathf.Clamp(depthBias, -0.4f, 0.15f);
+
+					// Scale by depth: deeper chains more affected.
+					float depthFactor = 1f + depthBias * depthNorm;
+					score *= depthFactor;
+				}
+
 
 				if (score > bestScore)
 				{
@@ -239,7 +305,6 @@ namespace SpaxUtils
 				PreferredMoveInputChain = bestChain;
 			}
 		}
-
 
 		private float EvaluateCost(StatCost cost)
 		{

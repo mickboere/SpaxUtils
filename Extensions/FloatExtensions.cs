@@ -36,7 +36,7 @@ namespace SpaxUtils
 		/// </summary>
 		public static float FILerp(this float a, float b, float t)
 		{
-			return Mathf.Lerp(a, b, 1 - Mathf.Exp(-t));
+			return Mathf.Lerp(a, b, 1f - Mathf.Exp(-t));
 		}
 
 		#endregion Interpolation

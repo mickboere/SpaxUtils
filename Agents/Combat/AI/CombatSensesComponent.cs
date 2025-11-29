@@ -17,10 +17,11 @@ namespace SpaxUtils
 		private AgentStatHandler statHandler;
 		private CombatSensesSettings settings;
 		private ProjectileService projectileService;
+		private AgentCombatComponent combatComponent;
 
 		public void InjectDependencies(IVisionComponent vision,
 			IHittable hittable, [Optional] ISpawnpoint spawnpoint,
-			AgentStatHandler statHandler, CombatSensesSettings settings, ProjectileService projectileService)
+			AgentStatHandler statHandler, CombatSensesSettings settings, ProjectileService projectileService, AgentCombatComponent combatComponent)
 		{
 			this.vision = vision;
 			this.hittable = hittable;
@@ -28,6 +29,7 @@ namespace SpaxUtils
 			this.statHandler = statHandler;
 			this.settings = settings;
 			this.projectileService = projectileService;
+			this.combatComponent = combatComponent;
 		}
 
 		protected void Awake()
@@ -48,7 +50,7 @@ namespace SpaxUtils
 
 			hittable.Subscribe(this, OnReceivedHitEvent);
 
-			EnemySense = new EnemySense(Agent, spawnpoint, vision, statHandler, settings);
+			EnemySense = new EnemySense(Agent, vision, statHandler, combatComponent, settings);
 			ProjectileSense = new ProjectileSense(Agent, projectileService);
 		}
 

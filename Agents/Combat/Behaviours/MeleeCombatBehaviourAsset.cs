@@ -23,6 +23,7 @@ namespace SpaxUtils
 		[SerializeField] private float maxDeceleration = 2000f;
 		[SerializeField] private float power = 50f;
 		[SerializeField] private Vector3 stormShakeMagnitude = Vector3.one;
+		[SerializeField] private float minStormDistance = 1f;
 
 		protected IMeleeCombatMove move;
 		protected CallbackService callbackService;
@@ -58,8 +59,10 @@ namespace SpaxUtils
 		private float totalCharge;
 		private float attackRange;
 		private ITargetable target;
-		private float stormDuration;
+		private bool hasStorm;
 		private float stormSpeed;
+		private float stormDistance;
+		private float stormDuration;
 		private TimerClass stormTimer;
 		private ContinuousShakeSource swingShake;
 		private ContinuousShakeSource stormShake;
@@ -163,12 +166,7 @@ namespace SpaxUtils
 				// Apply inertia.
 				if (inertiaTimer != null && inertiaTimer.Expired)
 				{
-					Vector3 inertia = move.Inertia;
-					if (target != null)
-					{
-						inertia *= (Vector3.Distance(target.Position, RigidbodyWrapper.Position) / (attackRange + target.Radius)).Clamp01().InCubic();
-					}
-					RigidbodyWrapper.PushRelative(inertia);
+					RigidbodyWrapper.PushRelative(move.Inertia);
 					inertiaTimer.Dispose();
 					inertiaTimer = null;
 				}
@@ -195,8 +193,8 @@ namespace SpaxUtils
 						rigidbodyWrapper.ApplyMovement(null, maxAcceleration, maxDeceleration, power, true);
 					}
 				}
-				// Brake storm.
-				if (totalCharge > 1f && inertiaTimer == null && stormTimer == null)
+				// Brake storm only if we actually used storm movement.
+				if (hasStorm && inertiaTimer == null && stormTimer == null)
 				{
 					rigidbodyWrapper.ApplyMovement(Vector3.zero, maxAcceleration, maxDeceleration, power, true);
 				}
@@ -208,7 +206,7 @@ namespace SpaxUtils
 			}
 
 			// Shaking.
-			if(swingShake != null)
+			if (swingShake != null)
 			{
 				swingShake.Intensity = (Performer.RunTime / Move.MinDuration).InvertClamped();
 			}
@@ -246,13 +244,22 @@ namespace SpaxUtils
 			movementHandler.ForceRotation();
 
 			// CHARGING
-			if (totalCharge > 1f)
+			float extraCharge = Mathf.Max(0f, totalCharge - 1f);
+			float effectiveStormDistance = extraCharge * move.StormDistance;
+
+			// Only use storm if it actually wants to travel a meaningful distance.
+			hasStorm = extraCharge > 0f && effectiveStormDistance >= minStormDistance;
+
+			if (hasStorm)
 			{
 				// Initialize charge > storm.
 				movementHandler.AutoUpdateMovement = false; // Don't auto brake during storm.
+
 				stormSpeed = totalCharge * (stormSpeedStat ?? 1f);
-				stormDuration = ((totalCharge - 1f) * move.StormDistance) / stormSpeed;
+				// We already computed effectiveStormDistance above.
+				stormDuration = effectiveStormDistance / stormSpeed;
 				stormTimer = new TimerClass(stormDuration, () => timescaleStat, callbackService);
+
 				if (move.PrelongCharge)
 				{
 					// Hold charge pose.
@@ -274,8 +281,9 @@ namespace SpaxUtils
 			}
 			else
 			{
+				// Tiny overcharge or no storm distance: behave like a regular attack.
+				// totalCharge still buffs damage/offsense later, but movement uses inertia.
 				OnSwing();
-				// Set timer for initial force application.
 				inertiaTimer = new TimerClass(move.InertiaDelay, () => timescaleStat, callbackService);
 			}
 
@@ -309,7 +317,7 @@ namespace SpaxUtils
 					Vector3 inertia = move.Inertia.Look(move.Inertia);
 					Vector3 direction = move.CustomDirection ? move.HitDirection.Look(lookDir) : hit.Direction;
 					float power = powerStat * move.Power * totalCharge;
-					float offence = limbOffenceStat * move.Offence;
+					float offence = limbOffenceStat * move.Offence * totalCharge;
 
 					HitData hitData = new HitData(
 						hittable,

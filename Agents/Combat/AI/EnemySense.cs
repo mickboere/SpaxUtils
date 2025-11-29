@@ -7,22 +7,32 @@ namespace SpaxUtils
 {
 	public class EnemySense : IDisposable
 	{
+		#region Constants
+		// Proximity via time-to-hit.
+		private const float SAFETY_PADDING = 0.25f;
+
 		// Threat tuning constants.
 		private const float MIN_APPROACH_SPEED = 0.1f;   // m/s, to avoid division by zero.
 		private const float MAX_TIME_TO_HIT = 5f;        // seconds; beyond this, proximity threat ~ 0.
-		private const float THREAT_SMOOTHING = 5f;       // higher = snappier.
+		private const float THREAT_SMOOTHING = 8f;       // higher = snappier.
 
-		// Contribution weights (should roughly sum to 1).
-		private const float WEIGHT_PROXIMITY = 0.6f;
-		private const float WEIGHT_LETHALITY = 0.25f;
-		private const float WEIGHT_INTENT = 0.15f;
+		// Threat composition weights (should sum to 1).
+		private const float THREAT_PROXIMITY_WEIGHT = 0.5f;
+		private const float THREAT_LETHALITY_WEIGHT = 0.3f;
+		private const float THREAT_INTENT_WEIGHT = 0.2f;
+
+		// Lethality composition weights (should sum to 1).
+		private const float LETHALITY_POINTS_WEIGHT = 0.5f;
+		private const float LETHALITY_OFFENCE_WEIGHT = 0.3f;
+		private const float LETHALITY_POWER_WEIGHT = 0.2f;
+		#endregion Constants
 
 		private readonly Dictionary<ITargetable, EnemyInfo> enemies = new Dictionary<ITargetable, EnemyInfo>();
 
 		private readonly IAgent agent;
-		private readonly ISpawnpoint spawnpoint;
 		private readonly IVisionComponent vision;
 		private readonly AgentStatHandler statHandler;
+		private readonly AgentCombatComponent combatComponent;
 		private readonly CombatSensesSettings settings;
 
 		private float pointSum;
@@ -30,15 +40,15 @@ namespace SpaxUtils
 
 		public EnemySense(
 			IAgent agent,
-			ISpawnpoint spawnpoint,
 			IVisionComponent vision,
 			AgentStatHandler statHandler,
+			AgentCombatComponent combatComponent,
 			CombatSensesSettings settings)
 		{
 			this.agent = agent;
-			this.spawnpoint = spawnpoint;
 			this.vision = vision;
 			this.statHandler = statHandler;
+			this.combatComponent = combatComponent;
 			this.settings = settings;
 
 			agent.Targeter.Enemies.RemovedComponentEvent += OnEnemyTargetRemovedEvent;
@@ -148,23 +158,20 @@ namespace SpaxUtils
 				return; // Do not update threat/opportunity when not visible.
 			}
 
-			// Lethality: ratio of enemy vs agent point stats.
-			// TODO: This is currently power difference, not true lethality. Lethality should be derived from damage potential.
+			// Lethality of enemy to agent.
 			float enemyPointSum = info.StatHandler.PointStats.Vector8.Sum();
-			float powerRatio;
-			if (pointSum <= Mathf.Epsilon)
-			{
-				powerRatio = 1f;
-			}
-			else
-			{
-				powerRatio = enemyPointSum <= Mathf.Epsilon ? 0.5f : enemyPointSum / pointSum;
-			}
+			float pointRatio = enemyPointSum <= Mathf.Epsilon ? 0.5f : enemyPointSum / pointSum;
+			float offenseRatio = info.CombatComp.Offense / Mathf.Max(combatComponent.Defense, 0.001f);
+			float powerRatio = info.CombatComp.Power / agent.Body.RigidbodyWrapper.Mass;
 
-			info.Lethality = Mathf.Clamp01(powerRatio / (powerRatio + 1f));
+			float pointLeth = pointRatio / (pointRatio + 1f);
+			float offenseLeth = offenseRatio / (offenseRatio + 1f);
+			float powerLeth = powerRatio / (powerRatio + 1f);
 
-			// Proximity via time-to-hit.
-			const float SAFETY_PADDING = 0.25f;
+			info.Lethality = Mathf.Clamp01(
+				LETHALITY_POINTS_WEIGHT * pointLeth +
+				LETHALITY_OFFENCE_WEIGHT * offenseLeth +
+				LETHALITY_POWER_WEIGHT * powerLeth);
 
 			float effectiveReach = 0.5f;
 			if (info.CombatComp != null)
@@ -221,15 +228,15 @@ namespace SpaxUtils
 			info.Intent = rawIntent * facingToSelf;
 
 			// Final Threat in [0,1].
-			float threat01 =
-				WEIGHT_PROXIMITY * proximityThreat +
-				WEIGHT_LETHALITY * info.Lethality +
-				WEIGHT_INTENT * info.Intent;
+			float threat =
+				THREAT_PROXIMITY_WEIGHT * proximityThreat +
+				THREAT_LETHALITY_WEIGHT * info.Lethality +
+				THREAT_INTENT_WEIGHT * info.Intent;
 
-			threat01 = Mathf.Clamp01(threat01);
+			threat = Mathf.Clamp01(threat);
 
 			float lerpFactor = 1f - Mathf.Exp(-THREAT_SMOOTHING * delta);
-			info.Threat = Mathf.Lerp(info.Threat, threat01, lerpFactor);
+			info.Threat = Mathf.Lerp(info.Threat, threat, lerpFactor);
 
 			// Opportunity (enemy open to offence).
 			float openness = info.CombatComp != null ? info.CombatComp.Openness : 0f;

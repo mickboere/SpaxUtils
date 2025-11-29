@@ -21,7 +21,7 @@ namespace SpaxUtils
 			if (data != null && data.TryGetValue(EntityDataIdentifiers.SEED, out int baseSeed))
 			{
 				// Offset per asset so multiple configs with same seed still differ.
-				seed = baseSeed + GetHashCode();
+				seed = baseSeed + GetInstanceID();
 			}
 			else
 			{
