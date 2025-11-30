@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using System;
+using UnityEngine;
 
 namespace SpaxUtils
 {
@@ -38,21 +39,21 @@ namespace SpaxUtils
 			Hide = hide;
 		}
 
-		public ConditionalAttribute(string toggleProperty, int enumValue, bool inverse = false, bool drawToggle = false, bool hide = true)
+		public ConditionalAttribute(string toggleProperty, int enumValue, bool inverse = false, bool hide = true)
 		{
 			ToggleProperty = toggleProperty;
 			EnumValues = new int[1] { enumValue };
 			Inverse = inverse;
-			DrawToggle = drawToggle;
+			DrawToggle = false;
 			Hide = hide;
 		}
 
-		public ConditionalAttribute(string toggleProperty, bool inverse = false, bool drawToggle = false, bool hide = true, params int[] enumValues)
+		public ConditionalAttribute(string toggleProperty, bool inverse = false, bool hide = true, params int[] enumValues)
 		{
 			ToggleProperty = toggleProperty;
 			EnumValues = enumValues;
 			Inverse = inverse;
-			DrawToggle = drawToggle;
+			DrawToggle = false;
 			Hide = hide;
 		}
 	}

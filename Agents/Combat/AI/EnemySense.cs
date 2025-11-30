@@ -155,7 +155,6 @@ namespace SpaxUtils
 			else
 			{
 				info.Visible = false;
-				return; // Do not update threat/opportunity when not visible.
 			}
 
 			// Lethality of enemy to agent.
@@ -276,12 +275,6 @@ namespace SpaxUtils
 
 			foreach (EnemyInfo info in enemies.Values)
 			{
-				// If we lost sight, do not continue stimulating from stale data.
-				if (!info.Visible)
-				{
-					continue;
-				}
-
 				Vector8 current = agent.Mind.RetrieveStimuli(info.Agent);
 
 				float threat01 = info.Threat;

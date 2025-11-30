@@ -36,6 +36,9 @@ namespace SpaxUtils
 		public float RunTime => MainPerformer != null ? MainPerformer.RunTime : 0f;
 
 		/// <inheritdoc/>
+		public float Weight => MainPerformer != null ? MainPerformer.Weight : 0f;
+
+		/// <inheritdoc/>
 		public bool Paused
 		{
 			get { return MainPerformer != null ? MainPerformer.Paused : false; }
@@ -223,8 +226,6 @@ namespace SpaxUtils
 				{
 					// Unsuccessful input, retry later.
 					lastFailedAttempt = (input, new TimerStruct(act.Buffer));
-					// TODO: BUG: Releasing button after an auto-completed performance counts as failure, while the action itself was successful.
-					// FIX: After a performance has exited prep
 				}
 			}
 		}

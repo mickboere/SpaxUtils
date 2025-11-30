@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
 
 namespace SpaxUtils
@@ -25,11 +24,13 @@ namespace SpaxUtils
 		public PerformanceState State => MainPerformer != null ? MainPerformer.State : PerformanceState.Inactive;
 		/// <inheritdoc/>
 		public float RunTime => MainPerformer != null ? MainPerformer.RunTime : 0f;
+		/// <inheritdoc/>
+		public float Weight => MainPerformer != null ? MainPerformer.Weight : 0f;
 
 		/// <inheritdoc/>
 		public IPerformanceMove Move => MainPerformer != null ? MainPerformer.Move : null;
 		/// <inheritdoc/>
-		public float Charge => MainPerformer != null ? MainPerformer.Charge : 0f;
+		public float PrepTime => MainPerformer != null ? MainPerformer.PrepTime : 0f;
 		/// <inheritdoc/>
 		public bool Prolong
 		{
@@ -69,7 +70,10 @@ namespace SpaxUtils
 			new Dictionary<string, Dictionary<IPerformanceMove, (PerformanceState state, int prio, IPerformanceMove prior)>>();
 		private Dictionary<string, IPerformanceMove> moveset;
 		private bool autoUpdateMoveset = true;
+
 		private PerformanceState lastState = PerformanceState.Inactive;
+		private bool lastCanceled;
+
 		private List<MovePerformer> helpers = new List<MovePerformer>();
 		private List<IPerformanceMove> processing = new List<IPerformanceMove>(); // Used to prevent stack overflows.
 
@@ -87,9 +91,12 @@ namespace SpaxUtils
 		{
 			// Add default unarmed moves.
 			autoUpdateMoveset = false;
-			foreach (ActMovePair pair in unarmedMoves)
+			for (int i = 0; i < unarmedMoves.Count; i++)
 			{
-				AddMove(pair.Act, pair.Move, PerformanceState.Inactive | PerformanceState.Finishing | PerformanceState.Completed, pair.Prio);
+				ActMovePair pair = unarmedMoves[i];
+				AddMove(pair.Act, pair.Move,
+					PerformanceState.Inactive | PerformanceState.Finishing | PerformanceState.Completed,
+					pair.Prio);
 			}
 			autoUpdateMoveset = true;
 			UpdateMoveset();
@@ -97,9 +104,9 @@ namespace SpaxUtils
 
 		protected void OnDestroy()
 		{
-			foreach (MovePerformer helper in helpers)
+			for (int i = 0; i < helpers.Count; i++)
 			{
-				helper.Dispose();
+				helpers[i].Dispose();
 			}
 			helpers.Clear();
 		}
@@ -131,8 +138,9 @@ namespace SpaxUtils
 			IPerformanceMove move = Moveset[act.Title];
 
 			// 3. All behavioral prerequisites must be met.
-			foreach (BehaviourAsset behaviour in move.Behaviour)
+			for (int i = 0; i < move.Behaviour.Count; i++)
 			{
+				BehaviourAsset behaviour = move.Behaviour[i];
 				if (behaviour is IPrerequisite prerequisite && !prerequisite.IsMet(dependencyManager))
 				{
 					return false;
@@ -141,15 +149,16 @@ namespace SpaxUtils
 
 			// 4. Utilized stats must exceed 0.
 			// Note: (most) stats don't have to exceed costs since they will overdraw from the "recoverable" stat.
-			if ((move.HasCharge && !ValidateStat(move.ChargeCost)) || (move.HasPerformance && !ValidateStat(move.PerformCost)))
+			if ((move.HasPrep && !ValidateStat(move.PrepCost)) || (move.HasPerformance && !ValidateStat(move.PerformCost)))
 			{
 				return false;
 			}
 
-			var performer = new MovePerformer(dependencyManager, act, move, agent, EntityTimeScale, callbackService);
+			MovePerformer performer = new MovePerformer(dependencyManager, act, move, agent, EntityTimeScale, callbackService);
 			performer.StartedPerformingEvent += OnPerformanceStartedEvent;
 			performer.PerformanceUpdateEvent += OnPerformanceUpdateEvent;
 			performer.PerformanceCompletedEvent += OnPerformanceCompletedEvent;
+
 			finalPerformer = performer;
 			helpers.Add(performer);
 			StartedPreparingEvent?.Invoke(performer);
@@ -158,8 +167,18 @@ namespace SpaxUtils
 			bool ValidateStat(StatCost cost)
 			{
 				// Will validate whether a cost stat is defined, and if it is, whether it is greater than 0.
-				// If the cost stat is not defined it is also valid, since no cost will need to be substracted.
-				return !cost.Required || string.IsNullOrEmpty(cost.Stat) || (Entity.Stats.TryGetStat(cost.Stat, out EntityStat stat) && stat.Value > 0f);
+				// If the cost stat is not defined it is also valid, since no cost will need to be subtracted.
+				if (!cost.Required || string.IsNullOrEmpty(cost.Stat))
+				{
+					return true;
+				}
+
+				if (!Entity.Stats.TryGetStat(cost.Stat, out EntityStat stat))
+				{
+					return false;
+				}
+
+				return stat.Value > 0f;
 			}
 		}
 
@@ -208,7 +227,6 @@ namespace SpaxUtils
 
 			if (autoUpdateMoveset)
 			{
-				// Update the active moveset.
 				UpdateMoveset();
 			}
 
@@ -252,8 +270,9 @@ namespace SpaxUtils
 		private void AddFollowUpMoves(IPerformanceMove move)
 		{
 			autoUpdateMoveset = false;
-			foreach (MoveFollowUp followUp in move.FollowUps)
+			for (int i = 0; i < move.FollowUps.Count; i++)
 			{
+				MoveFollowUp followUp = move.FollowUps[i];
 				AddMove(followUp.Act, followUp.Move, followUp.State, followUp.Prio, move);
 			}
 			autoUpdateMoveset = true;
@@ -262,8 +281,9 @@ namespace SpaxUtils
 		private void RemoveFollowUpMoves(IPerformanceMove move)
 		{
 			autoUpdateMoveset = false;
-			foreach (MoveFollowUp followUp in move.FollowUps)
+			for (int i = 0; i < move.FollowUps.Count; i++)
 			{
+				MoveFollowUp followUp = move.FollowUps[i];
 				RemoveMove(followUp.Act, followUp.Move);
 			}
 			autoUpdateMoveset = true;
@@ -274,15 +294,30 @@ namespace SpaxUtils
 			// Collect all the currently available highest-priority moves per act.
 			// Must be updated with each change in either performance state or available moves.
 			moveset = new Dictionary<string, IPerformanceMove>();
+
+			PerformanceState state = State;
+			IPerformanceMove currentMove = Move;
+
 			foreach (string act in moves.Keys)
 			{
 				KeyValuePair<IPerformanceMove, (PerformanceState state, int prio, IPerformanceMove prior)>? top = null;
 				foreach (KeyValuePair<IPerformanceMove, (PerformanceState state, int prio, IPerformanceMove prior)> entry in moves[act])
 				{
-					if (entry.Value.state.HasFlag(State) &&
-						(entry.Value.prior == null || entry.Value.prior == Move) &&
-						(top == null || entry.Value.prio > top.Value.Value.prio ||
-							(entry.Value.prio == top.Value.Value.prio && top.Value.Value.prior == null && entry.Value.prior != null)))
+					var meta = entry.Value;
+
+					if (!meta.state.HasFlag(state))
+					{
+						continue;
+					}
+
+					if (meta.prior != null && meta.prior != currentMove)
+					{
+						continue;
+					}
+
+					if (top == null ||
+						meta.prio > top.Value.Value.prio ||
+						(meta.prio == top.Value.Value.prio && top.Value.Value.prior == null && meta.prior != null))
 					{
 						top = entry;
 					}
@@ -304,7 +339,6 @@ namespace SpaxUtils
 				yield break;
 			}
 
-			// Root moves: those with prior == null.
 			var visited = new HashSet<IPerformanceMove>();
 
 			foreach (var actEntry in moves)
@@ -345,24 +379,21 @@ namespace SpaxUtils
 
 			if (visited.Contains(move))
 			{
-				yield break; // prevent cycles
+				yield break;
 			}
 			visited.Add(move);
 
-			// If this is a combat move, yield it as a candidate.
 			if (move is ICombatMove combatMove)
 			{
 				yield return (combatMove, chain.ToArray());
 			}
 
-			// Stop if we reached depth limit.
 			if (depth >= maxDepth)
 			{
 				visited.Remove(move);
 				yield break;
 			}
 
-			// Find follow-up moves: entries where meta.prior == move.
 			foreach (var actEntry in moves)
 			{
 				string act = actEntry.Key;
@@ -390,7 +421,6 @@ namespace SpaxUtils
 			visited.Remove(move);
 		}
 
-
 		#endregion Move Management
 
 		private void OnPerformanceStartedEvent(IPerformer performer)
@@ -400,11 +430,18 @@ namespace SpaxUtils
 
 		private void OnPerformanceUpdateEvent(IPerformer performer)
 		{
-			if (State != lastState)
+			// Recompute moveset whenever the *top* performer's state or cancel-flag effectively changes,
+			// so follow-ups see the correct (Move, State) combo, and cancel transitions also update.
+			PerformanceState state = State;
+			bool canceled = Canceled;
+
+			if (state != lastState || canceled != lastCanceled)
 			{
-				lastState = State;
+				lastState = state;
+				lastCanceled = canceled;
 				UpdateMoveset();
 			}
+
 			PerformanceUpdateEvent?.Invoke(performer);
 		}
 
@@ -420,6 +457,17 @@ namespace SpaxUtils
 			PerformanceCompletedEvent?.Invoke(performer);
 
 			movePerformer.Dispose();
+
+			// After removing the performer, the main performer may have changed,
+			// so update cached state and moveset once.
+			PerformanceState state = State;
+			bool canceled = Canceled;
+			if (state != lastState || canceled != lastCanceled)
+			{
+				lastState = state;
+				lastCanceled = canceled;
+				UpdateMoveset();
+			}
 		}
 	}
 }

@@ -6,7 +6,7 @@ namespace SpaxUtils
 	/// <summary>
 	/// Configurable asset containing all data required to act out a performance move.
 	/// </summary>
-	[CreateAssetMenu(fileName = "CombatMove", menuName = "ScriptableObjects/PerformanceMove")]
+	[CreateAssetMenu(fileName = nameof(PerformanceMove), menuName = "Performance/" + nameof(PerformanceMove))]
 	public class PerformanceMove : ScriptableObject, IPerformanceMove
 	{
 		#region Properties
@@ -14,16 +14,18 @@ namespace SpaxUtils
 		public string Name => string.IsNullOrWhiteSpace(name) ? base.name : name;
 		public string Description => description;
 
+		public PerformanceAnimationType AnimationType => animationType;
+		public int AnimationIndex => animationIndex;
 		public PosingData PosingData => posingData;
 		public IReadOnlyList<BehaviourAsset> Behaviour => behaviour;
 		public IReadOnlyList<MoveFollowUp> FollowUps => followUps;
 
-		public bool HasCharge => hasCharge;
-		public float MinCharge => minCharge;
-		public float MaxCharge => maxCharge;
-		public bool RequireMinCharge => requireMinCharge;
-		public string ChargeSpeedMultiplierStat => chargeSpeedMultiplier;
-		public StatCost ChargeCost => chargeCost;
+		public bool HasPrep => hasCharge;
+		public float MinPrep => minCharge;
+		public float MaxPrep => maxCharge;
+		public bool RequireMinPrep => requireMinCharge;
+		public string PrepSpeedMultiplierStat => chargeSpeedMultiplier;
+		public StatCost PrepCost => chargeCost;
 
 		public bool HasPerformance => hasPerformance;
 		public float MinDuration => HasPerformance ? minDuration : 0f;
@@ -52,7 +54,9 @@ namespace SpaxUtils
 		[SerializeField, TextArea] private string description;
 
 		[Header("DATA")]
-		[SerializeField] private PosingData posingData;
+		[SerializeField] private PerformanceAnimationType animationType;
+		[SerializeField, Conditional(nameof(animationType), 0)] private int animationIndex;
+		[SerializeField, Conditional(nameof(animationType), 1)] private PosingData posingData;
 		[SerializeField, Expandable] private List<BehaviourAsset> behaviour;
 		[SerializeField] private List<MoveFollowUp> followUps;
 		[SerializeField] private float cancelDuration = 0.25f;

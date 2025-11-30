@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 
 namespace SpaxUtils
 {
@@ -7,6 +8,8 @@ namespace SpaxUtils
 	/// </summary>
 	public interface IPerformanceMove
 	{
+		#region Metadata
+
 		/// <summary>
 		/// Player facing name of this combat move.
 		/// </summary>
@@ -17,10 +20,26 @@ namespace SpaxUtils
 		/// </summary>
 		string Description { get; }
 
+		#endregion Metadata
+
+		#region Animation
+
+		/// <summary>
+		/// The type of animation applied to the performer during performance.
+		/// </summary>
+		PerformanceAnimationType AnimationType { get; }
+
+		/// <summary>
+		/// The animation index corresponding to this move, to pass into the animator.
+		/// </summary>
+		int AnimationIndex { get; }
+
 		/// <summary>
 		/// Asset containing evaluatable pose data to be utilized by the lead-behaviour.
 		/// </summary>
 		PosingData PosingData { get; }
+
+		#endregion Animation
 
 		/// <summary>
 		/// <see cref="BehaviourAsset"/>s to instantiate during performance.
@@ -33,41 +52,41 @@ namespace SpaxUtils
 		/// </summary>
 		IReadOnlyList<MoveFollowUp> FollowUps { get; }
 
-		#region Charge
+		#region Preparation
 
 		/// <summary>
 		/// Whether the move can be charged or automatically performs.
 		/// </summary>
-		bool HasCharge { get; }
+		bool HasPrep { get; }
 
 		/// <summary>
 		/// Minimum required charge in seconds before performing this move.
 		/// </summary>
-		float MinCharge { get; }
+		float MinPrep { get; }
 
 		/// <summary>
 		/// Maximum charging extent in seconds.
 		/// </summary>
-		float MaxCharge { get; }
+		float MaxPrep { get; }
 
 		/// <summary>
-		/// What should be done if this move is released before reaching <see cref="MinCharge"/>.
-		/// TRUE: releasing input before reaching <see cref="MinCharge"/> will cancel the move.
-		/// FALSE: releasing input before reaching <see cref="MinCharge"/> will continue until minimum and automatically perform.
+		/// What should be done if this move is released before reaching <see cref="MinPrep"/>.
+		/// TRUE: releasing input before reaching <see cref="MinPrep"/> will cancel the move.
+		/// FALSE: releasing input before reaching <see cref="MinPrep"/> will continue until minimum and automatically perform.
 		/// </summary>
-		bool RequireMinCharge { get; }
+		bool RequireMinPrep { get; }
 
 		/// <summary>
 		/// Stat identifier for the charge speed multiplier.
 		/// </summary>
-		string ChargeSpeedMultiplierStat { get; }
+		string PrepSpeedMultiplierStat { get; }
 
 		/// <summary>
 		/// The stat-cost drained for charging this move.
 		/// </summary>
-		StatCost ChargeCost { get; }
+		StatCost PrepCost { get; }
 
-		#endregion Charge
+		#endregion Preparation
 
 		#region Performance
 

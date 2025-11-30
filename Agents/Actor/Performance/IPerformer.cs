@@ -66,6 +66,11 @@ namespace SpaxUtils
 		/// </summary>
 		float CancelTime { get; }
 
+		/// <summary>
+		/// Active weight of this performance.
+		/// </summary>
+		float Weight { get; }
+
 		#endregion Properties
 
 		#region Methods

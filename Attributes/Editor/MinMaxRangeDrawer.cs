@@ -13,7 +13,7 @@ namespace SpaxUtils
 			var attribute = (MinMaxRangeAttribute)base.attribute;
 			var propertyType = property.propertyType;
 
-			label.tooltip = $"{attribute.Min} to {attribute.Max}";
+			//label.tooltip = $"{attribute.Min} to {attribute.Max}";
 
 			Rect controlRect = EditorGUI.PrefixLabel(position, label);
 			Rect[] splitRects = SplitRect(controlRect, 4);

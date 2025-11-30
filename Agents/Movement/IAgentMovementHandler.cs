@@ -73,7 +73,9 @@ namespace SpaxUtils
 		/// <summary>
 		/// Force update rotation to directly face either <paramref name="direction"/> or else the RigidbodyWrapper's target velocity.
 		/// </summary>
-		void ForceRotation(Vector3? direction = null);
+		/// <param name="direction">Overridable target direction (picks rigidbody target velocity if null).</param>
+		/// <param name="maxTurn">Maximum turn amount (0..1) where 1 is 180 degrees.</param>
+		void ForceRotation(Vector3? direction = null, float maxTurn = 1f);
 
 		/// <summary>
 		/// Calculates the resulting output speed for an input length of <paramref name="inputLength"/>.

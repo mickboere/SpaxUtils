@@ -13,9 +13,9 @@ namespace SpaxUtils
 		IPerformanceMove Move { get; }
 
 		/// <summary>
-		/// The amount of time this combat performance has spent charging.
+		/// The amount of time this combat performance has spent preparing the performance (charging).
 		/// </summary>
-		float Charge { get; }
+		float PrepTime { get; }
 
 		/// <summary>
 		/// Whether the current performance should halt its the runtime once minimum duration has been reached.

@@ -7,12 +7,12 @@ namespace SpaxUtils
 	/// <summary>
 	/// Behaviour that adjust the Agent's stats while guarding.
 	/// </summary>
-	[CreateAssetMenu(fileName = "CombatBehaviour_Guarding", menuName = "ScriptableObjects/Combat/GuardingCombatBehaviourAsset")]
+	[CreateAssetMenu(fileName = nameof(GuardingCombatBehaviourAsset), menuName = "Performance/Behaviour/" + nameof(GuardingCombatBehaviourAsset))]
 	public class GuardingCombatBehaviourAsset : BaseCombatMoveBehaviourAsset
 	{
 		protected bool InWindow =>
-			Performer.Charge > Move.MinCharge * windowShift &&
-			Performer.Charge < Move.MinCharge * windowShift + blockWindow;
+			Performer.PrepTime > Move.MinPrep * windowShift &&
+			Performer.PrepTime < Move.MinPrep * windowShift + blockWindow;
 
 		[SerializeField, Range(0f, 1f), Tooltip("The perfect-block time window which negates all damages.")] private float blockWindow = 0.1f;
 		[SerializeField, Range(0f, 1f), Tooltip("0 is at beginning of charge, 1 is at ending of minimum charge.")] private float windowShift = 1f;
@@ -68,7 +68,7 @@ namespace SpaxUtils
 			if (Performer.State == PerformanceState.Preparing)
 			{
 				// Drain charge stat.
-				if (Agent.Stats.TryApplyStatCost(Move.ChargeCost.Stat, Move.ChargeCost.Cost * delta, false, out _, out bool drained, out _) && Move.ChargeCost.Required && drained)
+				if (Agent.Stats.TryApplyStatCost(Move.PrepCost.Stat, Move.PrepCost.Cost * delta, false, out _, out bool drained, out _) && Move.PrepCost.Required && drained)
 				{
 					Performer.TryPerform();
 				}

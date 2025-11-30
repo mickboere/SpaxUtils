@@ -6,8 +6,8 @@ namespace SpaxUtils
 {
 	/// <summary>
 	/// AEMOI: Artificial Emotional Intelligence.
-	/// <see cref="IMind"/> implementation that stores sensory stimuli as <see cref="Vector8"/> per outside-<see cref="IEntity"/>.
-	/// From these stimuli the agent's strongest motivation can be infered to then be acted upon.
+	/// IMind implementation that stores sensory stimuli as Vector8 per outside-IEntity.
+	/// From these stimuli the agent's strongest motivation can be inferred to then be acted upon.
 	/// </summary>
 	public class AEMOI : IMind
 	{
@@ -76,7 +76,7 @@ namespace SpaxUtils
 		{
 			if (Active)
 			{
-				return; // Already active.
+				return;
 			}
 
 			if (reset)
@@ -93,7 +93,7 @@ namespace SpaxUtils
 		{
 			if (!Active)
 			{
-				return; // Already inactive.
+				return;
 			}
 
 			StopBehaviour();
@@ -110,11 +110,12 @@ namespace SpaxUtils
 
 			// Redistribute + damp.
 			List<IEntity> sources = new List<IEntity>(stimuli.Keys);
-			foreach (IEntity source in sources)
+			for (int s = 0; s < sources.Count; s++)
 			{
+				IEntity source = sources[s];
 				Vector8 v = stimuli[source];
 
-				// 1) Overflow dispersion based on Inclination + Personality.
+				// 1) Overflow dispersion based on Personality and distance.
 				v = RedistributeOverflow(v, delta);
 
 				// 2) Global damping towards zero.
@@ -137,7 +138,6 @@ namespace SpaxUtils
 			UpdatedEvent?.Invoke();
 		}
 
-
 		#endregion Activity
 
 		#region Stimulation
@@ -148,23 +148,25 @@ namespace SpaxUtils
 			// Current emotional charge towards this source (after previous frames).
 			Vector8 current = stimuli.TryGetValue(source, out Vector8 existing) ? existing : Vector8.Zero;
 
-			// Apply per-channel damping so climbing from 0..1 is easy, then slows down towards MAX_STIM.
+			// Apply per-channel damping, plus axis-aware satisfaction shaping.
 			stimulation = DampStimulation(stimulation, current);
+
+			Vector8 filtered(Vector8 stim)
+			{
+				if (filters.ContainsKey(source))
+				{
+					return stim * filters[source];
+				}
+				return stim;
+			}
 
 			if (!stimuli.ContainsKey(source))
 			{
-				stimuli.Add(source, Filter(stimulation * Inclination).Clamp(0f, MAX_STIM));
+				stimuli.Add(source, filtered(stimulation * Inclination).Clamp(0f, MAX_STIM));
 			}
 			else
 			{
-				stimuli[source] = (stimuli[source] + Filter(stimulation * Inclination)).Clamp(0f, MAX_STIM);
-			}
-
-			Vector8 Filter(Vector8 stim)
-			{
-				if (filters.ContainsKey(source))
-					return stim * filters[source];
-				return stim;
+				stimuli[source] = (stimuli[source] + filtered(stimulation * Inclination)).Clamp(0f, MAX_STIM);
 			}
 		}
 
@@ -203,6 +205,7 @@ namespace SpaxUtils
 		#region Behaviour
 
 		#region Behaviour Management
+
 		/// <inheritdoc/>
 		public void AddBehaviour(IMindBehaviour behaviour)
 		{
@@ -229,7 +232,7 @@ namespace SpaxUtils
 			{
 				behaviours.Remove(behaviour);
 			}
-			// No need to reassess the active behaviour here as that will be done next update loop anyways.
+			// No need to reassess the active behaviour here as that will be done next update loop anyway.
 		}
 
 		/// <inheritdoc/>
@@ -240,46 +243,84 @@ namespace SpaxUtils
 				RemoveBehaviour(behaviour);
 			}
 		}
+
 		#endregion Behaviour Management
 
 		private void ReassessBehaviour()
 		{
-			// If the current behaviour isn't interruptable, don't even bother.
+			// If the current behaviour is not interruptable, do not switch.
 			if (ActiveBehaviour != null && !ActiveBehaviour.Interuptable)
 			{
 				return;
 			}
 
-			IMindBehaviour match = null;
-			float strongest = float.MaxValue;
-			foreach (IMindBehaviour behaviour in behaviours)
+			IMindBehaviour best = null;
+			float bestStrength = 0f;
+
+			IMindBehaviour active = ActiveBehaviour;
+			float activeStrength = 0f;
+			bool activeValid = false;
+
+			Vector8 mot = Motivation.motivation;
+			IEntity target = Motivation.target;
+
+			for (int i = 0; i < behaviours.Count; i++)
 			{
-				if (behaviour.Valid(Motivation.motivation, Motivation.target, out float strength) && // Ensure behaviour is valid.
-					(match == null || behaviour.Priority > match.Priority || // If first match or priority exceeds current, set new match.
-					(behaviour.Priority == match.Priority && strength > strongest))) // If priority matches current, set match to strongest.
+				IMindBehaviour behaviour = behaviours[i];
+				if (!behaviour.Valid(mot, target, out float strength))
 				{
-					match = behaviour;
-					strongest = strength;
+					continue;
+				}
+
+				if (behaviour == active)
+				{
+					activeValid = true;
+					activeStrength = strength;
+				}
+
+				if (best == null ||
+					behaviour.Priority > best.Priority ||
+					(behaviour.Priority == best.Priority && strength > bestStrength))
+				{
+					best = behaviour;
+					bestStrength = strength;
 				}
 			}
 
-			if (match == ActiveBehaviour)
+			if (best == null)
+			{
+				StopBehaviour();
+				return;
+			}
+
+			// Same behaviour: keep going.
+			if (best == active)
 			{
 				return;
 			}
 
-			StopBehaviour();
-			if (match != null)
+			// Behaviour inertia: if priorities match, require a strength gap.
+			if (active != null &&
+				activeValid &&
+				best.Priority == active.Priority &&
+				settings.BehaviourSwitchThreshold > 0f)
 			{
-				StartBehaviour(match);
+				float thresholdFactor = 1f + settings.BehaviourSwitchThreshold;
+				if (bestStrength < activeStrength * thresholdFactor)
+				{
+					// New candidate is not strong enough to justify a switch.
+					return;
+				}
 			}
+
+			StopBehaviour();
+			StartBehaviour(best);
 		}
 
 		private void StopBehaviour()
 		{
 			if (ActiveBehaviour == null)
 			{
-				// There's no active behaviour to stop.
 				return;
 			}
 
@@ -307,7 +348,6 @@ namespace SpaxUtils
 			foreach (KeyValuePair<IEntity, Vector8> kvp in stimuli)
 			{
 				float max = kvp.Value.Highest(out _);
-				//float max = kvp.Value.Sum();
 				if (max > highest)
 				{
 					motivation = kvp.Value;
@@ -321,68 +361,103 @@ namespace SpaxUtils
 
 		/// <summary>
 		/// Clips emotion above OverflowThreshold and redistributes the overflow
-		/// using Inclination + Personality as weights. Below the threshold, nothing happens.
+		/// using Personality and octagonal distance as weights. Below the threshold, nothing happens.
 		/// </summary>
 		private Vector8 RedistributeOverflow(Vector8 v, float delta)
 		{
-			float threshold = settings.OverflowThreshold;
-			float rate = settings.OverflowRedistributionRate;
-
-			// Disabled or degenerate config.
-			if (threshold <= 0f || rate <= 0f)
+			if (settings.OverflowThreshold <= 0f || settings.OverflowRedistributionRate <= 0f)
 			{
 				return v;
 			}
 
-			// 1) Clip to threshold and collect overflow.
+			// 1) Clip to threshold and collect per-axis overflow.
 			Vector8 overflow = Vector8.Zero;
 			for (int i = 0; i < 8; i++)
 			{
 				float level = v[i];
-				if (level > threshold)
+				if (level > settings.OverflowThreshold)
 				{
-					float extra = level - threshold;
-					float move = Mathf.Min(extra, extra * rate * delta); // do not move more than exists
+					float extra = level - settings.OverflowThreshold;
+					float move = Mathf.Min(extra, extra * settings.OverflowRedistributionRate * delta);
 					v[i] -= move;
 					overflow[i] = move;
 				}
 			}
 
-			float totalOverflow = overflow.Sum();
-			if (totalOverflow <= 0f)
+			if (overflow.Sum() <= Mathf.Epsilon)
 			{
-				return v; // nothing to redistribute
+				return v;
 			}
 
-			// 2) Build dispersion weights from Inclination + Personality.
-			//    High inclination + high personality => stronger sink for overflow.
-			Vector8 weights = inclination.Vector8 + personality.Vector8;
-			float weightSum = weights.Sum();
-			if (weightSum <= Mathf.Epsilon)
+			// 2) For each source axis, redistribute its overflow to other axes
+			//    using personality and distance falloff.
+			for (int src = 0; src < 8; src++)
 			{
-				return v; // no usable weights, just leave v as-is
-			}
+				float amount = overflow[src];
+				if (amount <= 0f)
+				{
+					continue;
+				}
 
-			weights = weights / weightSum; // normalize to sum = 1
+				Vector8 sinkWeights = Vector8.Zero;
+				float sinkSum = 0f;
 
-			// 3) Redistribute total overflow according to these weights.
-			for (int i = 0; i < 8; i++)
-			{
-				v[i] += weights[i] * totalOverflow;
+				for (int dst = 0; dst < 8; dst++)
+				{
+					if (dst == src)
+					{
+						continue;
+					}
+
+					float baseW = personality.Vector8[dst];
+					if (baseW <= 0f)
+					{
+						continue;
+					}
+
+					// Circular distance on the octagon: 0..4 steps.
+					int step = Mathf.Abs(dst - src);
+					int distSteps = step > 4 ? 8 - step : step; // 1..4
+
+					float distFactor = 1f / (1f + Mathf.Max(0f, settings.OverflowDistanceBias) * distSteps);
+					float w = baseW * distFactor;
+					if (w <= 0f)
+					{
+						continue;
+					}
+
+					sinkWeights[dst] = w;
+					sinkSum += w;
+				}
+
+				if (sinkSum <= Mathf.Epsilon)
+				{
+					continue;
+				}
+
+				float scale = amount / sinkSum;
+				for (int dst = 0; dst < 8; dst++)
+				{
+					float w = sinkWeights[dst];
+					if (w > 0f)
+					{
+						v[dst] += w * scale;
+					}
+				}
 			}
 
 			return v;
 		}
 
-
 		/// <summary>
 		/// Damps impulses channel-wise based on current level and per-channel damping.
 		/// Positive impulses slow down near MAX_STIM.
-		/// Negative impulses (satisfaction) are less damped and get stronger when level is high.
+		/// Negative impulses (satisfaction) are less damped and get shaped by axis balance.
 		/// </summary>
 		private Vector8 DampStimulation(Vector8 impulses, Vector8 current)
 		{
 			Vector8 result = Vector8.Zero;
+			Vector8 incl = inclination.Vector8;
 
 			for (int i = 0; i < 8; i++)
 			{
@@ -406,7 +481,7 @@ namespace SpaxUtils
 
 				if (impulse > 0f)
 				{
-					// Excitatory: same as before – fast under 1, heavily damped near MAX_STIM.
+					// Excitatory: fast under 1, heavily damped near MAX_STIM.
 					float denom;
 					if (level <= 1f)
 					{
@@ -414,24 +489,53 @@ namespace SpaxUtils
 					}
 					else
 					{
-						float over = Mathf.Clamp(level - 1f, 0f, AEMOI.MAX_STIM - 1f);
-						float overNorm = over / (AEMOI.MAX_STIM - 1f);
+						float over = Mathf.Clamp(level - 1f, 0f, MAX_STIM - 1f);
+						float overNorm = over / (MAX_STIM - 1f);
 						denom = 1f + lowDamp + damp * overNorm * overNorm;
 					}
 					result[i] = impulse / denom;
 				}
-				else // impulse < 0f  => satisfaction / relaxation
+				else
 				{
-					// The higher the level, the stronger we allow negative impulses to pull it down.
-					float levelNorm = Mathf.Clamp01(level / AEMOI.MAX_STIM);
+					// impulse < 0f: satisfaction / relaxation.
 
-					// Slight damping at low levels so tiny negatives don't jitter.
+					// The higher the level, the stronger we allow negative impulses to pull it down.
+					float levelNorm = Mathf.Clamp01(level / MAX_STIM);
+
+					// Slight damping at low levels so tiny negatives do not jitter.
 					float denomNeg = 1f + level * lowDamp * 0.25f;
 
-					// Boost factor grows with level & damping: big emotions can be drained fast when safe.
+					// Boost factor grows with level and damping: big emotions can be drained fast.
 					float boost = 1f + levelNorm * damp * 0.5f;
 
-					result[i] = (impulse / denomNeg) * boost;
+					float value = (impulse / denomNeg) * boost;
+
+					// Axis balance scaling: dominant directions drain slower, opposed directions drain faster.
+					if (settings.AxisBalanceSatisfactionStrength > 0f)
+					{
+						int opposite = (i + 4) % 8;
+						float a = Mathf.Max(incl[i], 0f);
+						float b = Mathf.Max(incl[opposite], 0f);
+						float sum = a + b;
+
+						if (sum > Mathf.Epsilon)
+						{
+							// -1 = opposite favored, +1 = this axis favored.
+							float axisBalance = (a - b) / sum;
+
+							// Map axisBalance [-1, 1] to [max, min] range (opposite favored = max, dominant = min).
+							float baseMult = Mathf.Lerp(
+								settings.AxisBalanceSatisfactionRange.y,
+								settings.AxisBalanceSatisfactionRange.x,
+								(axisBalance + 1f) * 0.5f);
+
+							// Lerp from 1 to baseMult by strength, so 0 disables effect.
+							float axisMult = Mathf.Lerp(1f, baseMult, settings.AxisBalanceSatisfactionStrength);
+							value *= axisMult;
+						}
+					}
+
+					result[i] = value;
 				}
 			}
 

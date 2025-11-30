@@ -283,7 +283,7 @@ namespace SpaxUtils
 			out float chargeTime,
 			out float chargeFactor)
 		{
-			if (move == null || !move.HasCharge)
+			if (move == null || !move.HasPrep)
 			{
 				chargeTime = 0f;
 				chargeFactor = 1f; // no extra damage / storm
@@ -291,8 +291,8 @@ namespace SpaxUtils
 			}
 
 			float invSpeed = 1f / Mathf.Max(chargeSpeed, 0.01f);
-			float minT = move.MinCharge * invSpeed;
-			float maxT = move.MaxCharge > 0f ? move.MaxCharge * invSpeed : minT;
+			float minT = move.MinPrep * invSpeed;
+			float maxT = move.MaxPrep > 0f ? move.MaxPrep * invSpeed : minT;
 
 			intent = Mathf.Clamp01(intent);
 			float t = Mathf.Lerp(minT, maxT, intent);

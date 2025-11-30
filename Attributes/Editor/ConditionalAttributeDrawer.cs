@@ -27,13 +27,16 @@ namespace SpaxUtils
 		private void PropertyIsEnum(Rect position, SerializedProperty property, GUIContent label,
 			ConditionalAttribute conditionalAttribute, SerializedProperty toggleProperty)
 		{
-			if (conditionalAttribute.EnumValues.Contains(toggleProperty.enumValueIndex) == conditionalAttribute.Inverse)
+			bool valid = conditionalAttribute.EnumValues.Contains(toggleProperty.enumValueIndex) != conditionalAttribute.Inverse;
+			if (conditionalAttribute.Hide && !valid)
 			{
 				return;
 			}
 
 			EditorGUI.BeginProperty(position, label, property);
+			EditorGUI.BeginDisabledGroup(!valid);
 			EditorGUI.PropertyField(position, property, label, true);
+			EditorGUI.EndDisabledGroup();
 			EditorGUI.EndProperty();
 		}
 
@@ -75,7 +78,7 @@ namespace SpaxUtils
 
 			if (conditionalAttribute.Hide &&
 				((conditionalAttribute.EnumValues.Length > 0 && conditionalAttribute.EnumValues.Contains(toggleProperty.enumValueIndex) == conditionalAttribute.Inverse) ||
-				toggleProperty.boolValue == conditionalAttribute.Inverse))
+				(conditionalAttribute.EnumValues.Length == 0 && toggleProperty.boolValue == conditionalAttribute.Inverse)))
 			{
 				return 0f;
 			}

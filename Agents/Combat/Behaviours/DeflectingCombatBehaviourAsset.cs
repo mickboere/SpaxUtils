@@ -11,8 +11,8 @@ namespace SpaxUtils
 	public class DeflectingCombatBehaviourAsset : CorePerformanceMoveBehaviourAsset
 	{
 		protected bool InWindow =>
-			Performer.Charge > Move.MinCharge * windowShift &&
-			Performer.Charge < Move.MinCharge * windowShift + deflectWindow;
+			Performer.PrepTime > Move.MinPrep * windowShift &&
+			Performer.PrepTime < Move.MinPrep * windowShift + deflectWindow;
 
 		[SerializeField, Range(0f, 1f)] private float deflectWindow = 0.1f;
 		[SerializeField, Range(0f, 1f), Tooltip("0 is at beginning of charge, 1 is at end of minimum charge.")] private float windowShift = 1f;
@@ -59,7 +59,7 @@ namespace SpaxUtils
 			if (Performer.State == PerformanceState.Preparing)
 			{
 				// Drain charge stat.
-				if (Agent.Stats.TryApplyStatCost(Move.ChargeCost.Stat, Move.ChargeCost.Cost * delta, false, out _, out bool drained, out _) && drained)
+				if (Agent.Stats.TryApplyStatCost(Move.PrepCost.Stat, Move.PrepCost.Cost * delta, false, out _, out bool drained, out _) && drained)
 				{
 					Performer.TryPerform();
 				}
@@ -72,11 +72,11 @@ namespace SpaxUtils
 			{
 				// Charging.
 				IPose chargePose = sequence.Get(0);
-				float chargeWeight = chargePose.EvaluateTransition(Mathf.Clamp01(Performer.Charge / Move.MaxCharge));
+				float chargeWeight = chargePose.EvaluateTransition(Mathf.Clamp01(Performer.PrepTime / Move.MaxPrep));
 
-				weight = chargeWeight.Lerp(0f, Performer.CancelTime / Move.CancelDuration);
+				weight = chargeWeight * Performer.Weight;
 
-				return new PoserInstructions(sequence.Evaluate(deflected ? Performer.Charge - deflectTime : 0f));
+				return new PoserInstructions(sequence.Evaluate(deflected ? Performer.PrepTime - deflectTime : 0f));
 			}
 			else
 			{
@@ -92,7 +92,7 @@ namespace SpaxUtils
 			{
 				hitData.Data.SetValue(HitDataIdentifiers.DEFLECTED, true);
 				deflected = true;
-				deflectTime = Performer.Charge;
+				deflectTime = Performer.PrepTime;
 			}
 		}
 	}

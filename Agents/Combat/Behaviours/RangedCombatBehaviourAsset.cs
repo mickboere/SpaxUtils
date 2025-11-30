@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace SpaxUtils
 {
-	[CreateAssetMenu(fileName = "CombatBehaviour_Ranged", menuName = "ScriptableObjects/Combat/RangedCombatBehaviourAsset")]
+	[CreateAssetMenu(fileName = nameof(RangedCombatBehaviourAsset), menuName = "ScriptableObjects/Combat/" + nameof(RangedCombatBehaviourAsset))]
 	public class RangedCombatBehaviourAsset : BaseCombatMoveBehaviourAsset
 	{
 		private IRangedCombatMove move;

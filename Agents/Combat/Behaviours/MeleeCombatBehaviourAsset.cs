@@ -7,7 +7,7 @@ namespace SpaxUtils
 	/// <summary>
 	/// Behaviour for melee <see cref="IMeleeCombatMove"/>s that manages hit-detection during performance.
 	/// </summary>
-	[CreateAssetMenu(fileName = "CombatBehaviour_MeleeAttack", menuName = "ScriptableObjects/Combat/MeleeCombatBehaviourAsset")]
+	[CreateAssetMenu(fileName = nameof(MeleeCombatBehaviourAsset), menuName = "Performance/Behaviour/" + nameof(MeleeCombatBehaviourAsset))]
 	public class MeleeCombatBehaviourAsset : BaseCombatMoveBehaviourAsset
 	{
 		[Header("Hit Detection")]
@@ -92,8 +92,8 @@ namespace SpaxUtils
 			strengthStat = Agent.Stats.GetStat(AgentStatIdentifiers.STRENGTH);
 			powerStat = Agent.Stats.GetStat(AgentStatIdentifiers.POWER);
 			limbOffenceStat = Agent.Stats.GetStat(AgentStatIdentifiers.OFFENCE.SubStat(this.move.Limb));
-			chargeStat = Agent.Stats.GetStat(move.ChargeCost.Stat);
-			chargeSpeedStat = Agent.Stats.GetStat(move.ChargeSpeedMultiplierStat, false, 1f);
+			chargeStat = Agent.Stats.GetStat(move.PrepCost.Stat);
+			chargeSpeedStat = Agent.Stats.GetStat(move.PrepSpeedMultiplierStat, false, 1f);
 			performSpeedStat = Agent.Stats.GetStat(move.PerformSpeedMultiplierStat, false, 1f);
 			stormSpeedStat = Agent.Stats.GetStat(AgentStatIdentifiers.ATTACK_STORM_SPEED, false, 1f);
 			enduranceCostStat = Agent.Stats.GetStat(AgentStatIdentifiers.ENDURANCE.SubStat(AgentStatIdentifiers.SUB_COST));
@@ -142,10 +142,10 @@ namespace SpaxUtils
 
 			Performer.Prolong = RigidbodyWrapper.Speed > move.ProlongThreshold;
 
-			if (Performer.State == PerformanceState.Preparing && Performer.Charge >= Move.MinCharge)
+			if (Performer.State == PerformanceState.Preparing && Performer.PrepTime >= Move.MinPrep)
 			{
 				// Overcharging: Drain charge stat.
-				if (Agent.Stats.TryApplyStatCost(Move.ChargeCost.Stat, move.ChargeCost.Cost * delta * chargeSpeedStat, true, out float damage, out bool drained, out float overdraw))
+				if (Agent.Stats.TryApplyStatCost(Move.PrepCost.Stat, move.PrepCost.Cost * delta * chargeSpeedStat, true, out float damage, out bool drained, out float overdraw))
 				{
 					totalCharge += (damage - overdraw) * chargePower;
 					if (drained)
@@ -241,7 +241,7 @@ namespace SpaxUtils
 			{
 				rigidbodyWrapper.TargetVelocity = (target.Position - RigidbodyWrapper.Position).normalized;
 			}
-			movementHandler.ForceRotation();
+			movementHandler.ForceRotation(null, Agent.Mind.Personality.E.OutQuad());
 
 			// CHARGING
 			float extraCharge = Mathf.Max(0f, totalCharge - 1f);

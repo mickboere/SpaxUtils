@@ -7,7 +7,7 @@ namespace SpaxUtils
 	/// <summary>
 	/// Configurable <see cref="IMeleeCombatMove"/> asset that contains data required for performing a melee combat move.
 	/// </summary>
-	[CreateAssetMenu(fileName = "MeleeCombatMove", menuName = "ScriptableObjects/Combat/MeleeCombatMove")]
+	[CreateAssetMenu(fileName = nameof(MeleeCombatMove), menuName = "Performance/Combat/" + nameof(MeleeCombatMove))]
 	public class MeleeCombatMove : BaseCombatMove, IMeleeCombatMove
 	{
 		public MeleeAttackDirection AttackDirection => attackDirection;

@@ -16,6 +16,9 @@ namespace SpaxUtils
 		/// <summary>True when the agent actively targets or performs combat actions.</summary>
 		public bool InCombatMode { get; private set; }
 
+		/// <summary>Whether the agent's stun handler is currently in the stunned state.</summary>
+		public bool Stunned => stunHandler.Stunned;
+
 		/// <summary>The combat move that is currently being prepared/performed (if any).</summary>
 		public ICombatMove CurrentCombatMove { get; private set; }
 
@@ -71,14 +74,19 @@ namespace SpaxUtils
 		private int maxComboDepth = 3;
 
 		private IMovePerformanceHandler moveHandler;
+		private IStunHandler stunHandler;
 
 		private EntityStat powerStat;
 		private EntityStat defenseStat;
 
-		public void InjectDependencies(AgentStatHandler agentStatHandler, IMovePerformanceHandler moveHandler)
+		public void InjectDependencies(
+			AgentStatHandler agentStatHandler,
+			IMovePerformanceHandler moveHandler,
+			IStunHandler stunHandler)
 		{
 			StatHandler = agentStatHandler;
 			this.moveHandler = moveHandler;
+			this.stunHandler = stunHandler;
 
 			powerStat = Agent.Stats.GetStat(AgentStatIdentifiers.POWER);
 			defenseStat = Agent.Stats.GetStat(AgentStatIdentifiers.DEFENCE);
@@ -108,8 +116,7 @@ namespace SpaxUtils
 					: null;
 
 			// Openness: the easier you can be staggered (low Endurance), the more "open" you are.
-			Openness = !InCombatMode
-				? 1f
+			Openness = !InCombatMode || Stunned ? 1f
 				: (1f / StatHandler.PointStats.W.Cost).InvertClamped();
 
 			// Base reach: global REACH + best hand reach, as before.
@@ -206,18 +213,18 @@ namespace SpaxUtils
 				float rangeScore = Mathf.InverseLerp(maxRangeError, 0f, distError);
 
 				// Timing.
-				float chargeSpeed = Agent.Stats.GetStat(evalMove.ChargeSpeedMultiplierStat) ?? 1f;
+				float chargeSpeed = Agent.Stats.GetStat(evalMove.PrepSpeedMultiplierStat) ?? 1f;
 				float performSpeed = Agent.Stats.GetStat(evalMove.PerformSpeedMultiplierStat) ?? 1f;
 				float invChargeSpeed = 1f / Mathf.Max(chargeSpeed, 0.01f);
 				float invPerformSpeed = 1f / Mathf.Max(performSpeed, 0.01f);
 
-				float chargeTime = evalMove.HasCharge ? evalMove.MinCharge * invChargeSpeed : 0f;
+				float chargeTime = evalMove.HasPrep ? evalMove.MinPrep * invChargeSpeed : 0f;
 				float performTime = evalMove.HasPerformance ? evalMove.MinDuration * invPerformSpeed : 0f;
 				float totalTime = chargeTime + performTime;
 				float speedFactor = 1f / (1f + totalTime);
 
 				// Cost preference.
-				float costScore = Mathf.Clamp01(EvaluateCost(evalMove.ChargeCost) * EvaluateCost(evalMove.PerformCost));
+				float costScore = Mathf.Clamp01(EvaluateCost(evalMove.PrepCost) * EvaluateCost(evalMove.PerformCost));
 
 				// Static / storm potential (later for damage/crit tendencies, not reach).
 				float staticAvail = StatHandler != null ? StatHandler.PointStats.NE.PercentageRecoverable : 0f;

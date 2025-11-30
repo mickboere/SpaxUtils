@@ -289,7 +289,7 @@ namespace SpaxUtils
 		}
 
 		/// <inheritdoc/>
-		public void ForceRotation(Vector3? direction = null)
+		public void ForceRotation(Vector3? direction = null, float maxTurn = 1f)
 		{
 			if ((!direction.HasValue && rigidbodyWrapper.TargetVelocity == Vector3.zero) ||
 				(direction.HasValue && direction.Value == Vector3.zero))
@@ -297,9 +297,12 @@ namespace SpaxUtils
 				return;
 			}
 
-			Entity.GameObject.transform.rotation = direction.HasValue
+			Quaternion target = direction.HasValue
 				? Quaternion.LookRotation(direction.Value, Vector3.up)
 				: Quaternion.LookRotation(rigidbodyWrapper.TargetVelocity.FlattenY(), Vector3.up);
+
+			float maxDegrees = Mathf.Clamp01(maxTurn) * 180f;
+			Entity.GameObject.transform.rotation = Quaternion.RotateTowards(Entity.GameObject.transform.rotation, target, maxDegrees);
 		}
 
 		/// <inheritdoc/>

@@ -36,8 +36,8 @@ namespace SpaxUtils
 			if (!holding)
 			{
 				this.callback = callback;
-				actor.Send(NewAct(true, callback));
 				holding = true;
+				actor.Send(NewAct(true, callback));
 			}
 		}
 
@@ -46,8 +46,8 @@ namespace SpaxUtils
 			if (holding)
 			{
 				this.callback = callback;
-				actor.Send(NewAct(false, callback));
 				holding = false;
+				actor.Send(NewAct(false, callback));
 			}
 		}
 
