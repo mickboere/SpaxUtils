@@ -15,6 +15,10 @@ namespace SpaxUtils
 
 		protected IAgent Agent { get; private set; }
 		protected IMind Mind => Agent.Mind;
+		protected Vector8 Personality => Mind.Personality;
+		protected Vector8 Emotion => Mind.Motivation.emotion;
+		protected IEntity Target => Mind.Motivation.target;
+
 		protected EntityStat EntityTimescale;
 		protected CallbackService CallbackService { get; private set; }
 		protected AgentStatHandler StatHandler { get; private set; }

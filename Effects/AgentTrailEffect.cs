@@ -31,7 +31,6 @@ namespace SpaxUtils
 
 		private float timeSinceLastSnapshot;
 		private bool capturing;
-		private bool renderersDirty;
 
 		public void InjectDependencies(EntityAppearanceHandler entityAppearanceHandler)
 		{
@@ -47,17 +46,10 @@ namespace SpaxUtils
 			{
 				meshPool.Add(new Mesh());
 			}
-
-			entityAppearanceHandler.UpdatedActiveRenderersEvent += OnUpdatedActiveRenderers;
 		}
 
 		protected void OnDestroy()
 		{
-			if (entityAppearanceHandler != null)
-			{
-				entityAppearanceHandler.UpdatedActiveRenderersEvent -= OnUpdatedActiveRenderers;
-			}
-
 			for (int i = 0; i < meshPool.Count; i++)
 			{
 				Object.Destroy(meshPool[i]);
@@ -98,11 +90,6 @@ namespace SpaxUtils
 		public void End()
 		{
 			capturing = false;
-		}
-
-		private void OnUpdatedActiveRenderers()
-		{
-			renderersDirty = true;
 		}
 
 		private void EnsureMeshPoolSize(int required)

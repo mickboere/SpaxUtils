@@ -62,6 +62,12 @@ namespace SpaxUtils
 
 		private void Initialize()
 		{
+			if (bodyParts == null)
+			{
+				// Nothing to initialize yet, component was probably just added.
+				return;
+			}
+
 			// Collect bodyparts to map out base body skin locations.
 			body = bodyParts.ToDictionary((k) => k.Location, (v) => v.Skin);
 

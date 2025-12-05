@@ -41,7 +41,7 @@ namespace SpaxUtils
 		public IReadOnlyDictionary<IEntity, Vector8> Stimuli => stimuli;
 
 		/// <inheritdoc/>
-		public (Vector8 motivation, IEntity target) Motivation { get; private set; }
+		public (Vector8 emotion, IEntity target) Motivation { get; private set; }
 
 		/// <inheritdoc/>
 		public IMindBehaviour ActiveBehaviour { get; private set; }
@@ -261,13 +261,13 @@ namespace SpaxUtils
 			float activeStrength = 0f;
 			bool activeValid = false;
 
-			Vector8 mot = Motivation.motivation;
+			Vector8 emo = Motivation.emotion;
 			IEntity target = Motivation.target;
 
 			for (int i = 0; i < behaviours.Count; i++)
 			{
 				IMindBehaviour behaviour = behaviours[i];
-				if (!behaviour.Valid(mot, target, out float strength))
+				if (!behaviour.Valid(emo, target, out float strength))
 				{
 					continue;
 				}
@@ -452,7 +452,9 @@ namespace SpaxUtils
 		/// <summary>
 		/// Damps impulses channel-wise based on current level and per-channel damping.
 		/// Positive impulses slow down near MAX_STIM.
-		/// Negative impulses (satisfaction) are less damped and get shaped by axis balance.
+		/// Negative impulses (satisfaction) are shaped so that:
+		/// - high levels are more inert (harder to drain in one go)
+		/// - axis balance (this dir vs its opposite) can strongly slow or accelerate draining.
 		/// </summary>
 		private Vector8 DampStimulation(Vector8 impulses, Vector8 current)
 		{
@@ -473,6 +475,7 @@ namespace SpaxUtils
 
 				if (damp <= 0f)
 				{
+					// No damping configured for this channel.
 					result[i] = impulse;
 					continue;
 				}
@@ -481,7 +484,10 @@ namespace SpaxUtils
 
 				if (impulse > 0f)
 				{
-					// Excitatory: fast under 1, heavily damped near MAX_STIM.
+					// ---------------------------
+					// POSITIVE: same idea as before.
+					// Fast under 1, heavily damped near MAX_STIM.
+					// ---------------------------
 					float denom;
 					if (level <= 1f)
 					{
@@ -493,26 +499,28 @@ namespace SpaxUtils
 						float overNorm = over / (MAX_STIM - 1f);
 						denom = 1f + lowDamp + damp * overNorm * overNorm;
 					}
+
 					result[i] = impulse / denom;
 				}
 				else
 				{
-					// impulse < 0f: satisfaction / relaxation.
+					// ---------------------------
+					// NEGATIVE: satisfaction / relaxation.
+					// Goal: dominant directions drain slowly, opposed drain quickly.
+					// Also: high levels are more "inert" (can't be erased instantly).
+					// ---------------------------
 
-					// The higher the level, the stronger we allow negative impulses to pull it down.
 					float levelNorm = Mathf.Clamp01(level / MAX_STIM);
 
-					// Slight damping at low levels so tiny negatives do not jitter.
-					float denomNeg = 1f + level * lowDamp * 0.25f;
+					// Base damping from magnitude: bigger level => smaller change per tick.
+					// You can tweak the factor (here: 1f) to tune global "stickiness" of large emotions.
+					float denomNeg = 1f + levelNorm * damp;
 
-					// Boost factor grows with level and damping: big emotions can be drained fast.
-					float boost = 1f + levelNorm * damp * 0.5f;
+					float axisMult = 1f;
 
-					float value = (impulse / denomNeg) * boost;
-
-					// Axis balance scaling: dominant directions drain slower, opposed directions drain faster.
 					if (settings.AxisBalanceSatisfactionStrength > 0f)
 					{
+						// Compare inclination on this axis vs its opposite.
 						int opposite = (i + 4) % 8;
 						float a = Mathf.Max(incl[i], 0f);
 						float b = Mathf.Max(incl[opposite], 0f);
@@ -520,22 +528,25 @@ namespace SpaxUtils
 
 						if (sum > Mathf.Epsilon)
 						{
-							// -1 = opposite favored, +1 = this axis favored.
+							// axisBalance: -1..1   (-1 = opposite dominates, +1 = this axis dominates)
 							float axisBalance = (a - b) / sum;
+							float t = (axisBalance + 1f) * 0.5f; // 0..1
 
-							// Map axisBalance [-1, 1] to [max, min] range (opposite favored = max, dominant = min).
+							// Map balance to [max, min] so:
+							// - when opposite dominates, we use the *max* multiplier (drain fast)
+							// - when this axis dominates, we use the *min* multiplier (drain slowly)
 							float baseMult = Mathf.Lerp(
 								settings.AxisBalanceSatisfactionRange.y,
 								settings.AxisBalanceSatisfactionRange.x,
-								(axisBalance + 1f) * 0.5f);
+								t);
 
-							// Lerp from 1 to baseMult by strength, so 0 disables effect.
-							float axisMult = Mathf.Lerp(1f, baseMult, settings.AxisBalanceSatisfactionStrength);
-							value *= axisMult;
+							// Blend toward 1 by strength. Strength=0 => no effect. Strength=1 => full baseMult.
+							axisMult = Mathf.Lerp(1f, baseMult, settings.AxisBalanceSatisfactionStrength);
 						}
 					}
 
-					result[i] = value;
+					// Negative impulse scaled by magnitude inertia and axis balance.
+					result[i] = (impulse / denomNeg) * axisMult;
 				}
 			}
 

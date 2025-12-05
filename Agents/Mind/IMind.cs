@@ -60,7 +60,7 @@ namespace SpaxUtils
 		/// <summary>
 		/// The stimulation profile that is currently the strongest and the entity responsible for it.
 		/// </summary>
-		(Vector8 motivation, IEntity target) Motivation { get; }
+		(Vector8 emotion, IEntity target) Motivation { get; }
 
 		/// <summary>
 		/// The <see cref="IMindBehaviour"/> currently in control of the Agent.
