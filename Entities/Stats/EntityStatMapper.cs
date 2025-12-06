@@ -52,7 +52,7 @@ namespace SpiritAxis
 					EntityStat fromStat = Entity.Stats.GetStat(mapping.FromStat, true);
 
 					// Create the mapping modifier.
-					StatModifier mod = new StatModifier(mapping, fromStat);
+					StatModifier mod = new StatModifier(mapping, fromStat, mapping.SourceBase);
 
 					// Add the mapping modifier.
 					toStat.AddModifier(mapping.FromStat, mod);

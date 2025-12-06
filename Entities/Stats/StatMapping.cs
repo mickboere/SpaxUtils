@@ -11,14 +11,16 @@ namespace SpaxUtils
 	public class StatMapping : IStatModConfig
 	{
 		public string FromStat => fromStat;
+		public bool SourceBase => sourceBase;
 		public string ToStat => toSubStat ? toStat.SubStat(subStat) : toStat;
 		public ModMethod Method => modMethod;
 		public Operation Operation => operation;
 
 		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifiers))] private string fromStat;
+		[SerializeField, Tooltip("Whether to source the FromStat's base value, or to source its modded value.")] private bool sourceBase;
 		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifiers))] private string toStat;
 		[SerializeField, HideInInspector] private bool toSubStat;
-		[SerializeField, Conditional(nameof(toSubStat), drawToggle: true), ConstDropdown(typeof(ILabeledDataIdentifiers))] private string subStat;
+		[SerializeField, Conditional(nameof(toSubStat), hide: false, drawToggle: true), ConstDropdown(typeof(ILabeledDataIdentifiers), true)] private string subStat;
 
 		[SerializeField] private FormulaType formula;
 

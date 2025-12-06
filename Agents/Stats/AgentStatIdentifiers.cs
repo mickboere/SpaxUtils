@@ -1,125 +1,158 @@
 ﻿namespace SpaxUtils
 {
 	/// <summary>
-	/// All the base attributes and stats used in Spirit Axis.
+	/// All the base attributes and stats used in Spirit Axis agents.
 	/// </summary>
 	public class AgentStatIdentifiers : IStatIdentifiers
 	{
 		// < Attributes >
 		// Attributes are measured in EXP and converted to LEVELS.
-		// Each Attribute maps to one or more STATS.
+		// Each Attribute LEVEL maps to one or more STATS.
 
 		private const string ATTRIBUTES = "ATTRIBUTES/";
 
-		// Body Attributes
-		#region Body Attributes
-		private const string BODY_ATTRIBUTE = ATTRIBUTES + "BODY/";
-		public const string BODY_EXPERIENCE = BODY_ATTRIBUTE + "Experience"; // All atributes combined.
-		public const string BODY_LEVEL = BODY_ATTRIBUTE + "Level"; // All attribute levels combined.
-		public const string BODY_DISTRIBUTION = BODY_ATTRIBUTE + "Distribution"; // Normalized attribute distribution.
+		// BODILY ATTRIBUTES
+		#region Bodily Attributes
+		private const string BODY_ATTRIBUTE = ATTRIBUTES + "BODY/"; // Bodily attributes category.
 
-		// Earth
-		public const string TENACITY = BODY_ATTRIBUTE + "Tenacity";
-		public const string TENACITY_LEVEL = BODY_ATTRIBUTE + "Tenacity_Level";
-		// Daeth
-		public const string HOSTILITY = BODY_ATTRIBUTE + "Hostility";
-		public const string HOSTILITY_LEVEL = BODY_ATTRIBUTE + "Hostility_Level";
+		public const string BODY_EXPERIENCE = BODY_ATTRIBUTE + "Experience"; // Sum of all atribute experiences.
+		private const string BODY_EXP = BODY_ATTRIBUTE + "EXP/"; // Body experiences category.
+
+		public const string BODY_LEVEL = BODY_ATTRIBUTE + "Level"; // Sum of all attribute levels.
+		private const string BODY_LVL = BODY_ATTRIBUTE + "LVL/"; // Body levels category.
+
+		public const string BODY_DISTRIBUTION = BODY_ATTRIBUTE + "Distribution"; // Normalized body attribute distribution key.
+
 		// Fire
-		public const string ACTIVITY = BODY_ATTRIBUTE + "Activity";
-		public const string ACTIVITY_LEVEL = BODY_ATTRIBUTE + "Activity_Level";
+		public const string FEROCITY_EXP = BODY_EXP + "Ferocity";
+		public const string FEROCITY_LVL = BODY_LVL + "Ferocity";
 		// Light
-		public const string DEXTERITY = BODY_ATTRIBUTE + "Dexterity";
-		public const string DEXTERITY_LEVEL = BODY_ATTRIBUTE + "Dexterity_Level";
+		public const string ACUITY_EXP = BODY_EXP + "Acuity";
+		public const string ACUITY_LVL = BODY_LVL + "Acuity";
 		// Air
-		public const string AGILITY = BODY_ATTRIBUTE + "Agility";
-		public const string AGILITY_LEVEL = BODY_ATTRIBUTE + "Agility_Level";
-		// Faeth
-		public const string IMMUNITY = BODY_ATTRIBUTE + "Immunity";
-		public const string IMMUNITY_LEVEL = BODY_ATTRIBUTE + "Immunity_Level";
+		public const string AGILITY_EXP = BODY_EXP + "Agility";
+		public const string AGILITY_LVL = BODY_LVL + "Agility";
+		// Spirit
+		public const string IMMUNITY_EXP = BODY_EXP + "Immunity";
+		public const string IMMUNITY_LVL = BODY_LVL + "Immunity";
 		// Water
-		public const string CAPACITY = BODY_ATTRIBUTE + "Capacity";
-		public const string CAPACITY_LEVEL = BODY_ATTRIBUTE + "Capacity_Level";
+		public const string CAPACITY_EXP = BODY_EXP + "Capacity";
+		public const string CAPACITY_LVL = BODY_LVL + "Capacity";
 		// Nature
-		public const string VITALITY = BODY_ATTRIBUTE + "Vitality";
-		public const string VITALITY_LEVEL = BODY_ATTRIBUTE + "Vitality_Level";
-		#endregion Body Attributes
+		public const string VITALITY_EXP = BODY_EXP + "Vitality";
+		public const string VITALITY_LVL = BODY_LVL + "Vitality";
+		// Earth
+		public const string DENSITY_EXP = BODY_EXP + "Density";
+		public const string DENSITY_LVL = BODY_LVL + "Density";
+		// Void
+		public const string LETHALITY_EXP = BODY_EXP + "Lethality";
+		public const string LETHALITY_LVL = BODY_LVL + "Lethality";
+		#endregion Bodily Attributes
 
-		// Soul Attributes
+		// SOUL ATTRIBUTES
 		#region Soul Attributes
 		private const string SOUL_ATTRIBUTE = ATTRIBUTES + "SOUL/";
+
 		public const string SOUL_EXPERIENCE = SOUL_ATTRIBUTE + "Experience"; // All soul attributes combined.
+		private const string SOUL_EXP = SOUL_ATTRIBUTE + "EXP/"; // 
+
 		public const string SOUL_LEVEL = SOUL_ATTRIBUTE + "Level"; // All soul attribute levels combined.
-		public const string SOUL_DISTRIBUTION = SOUL_ATTRIBUTE + "Distribution"; // Normalized attribute distribution.
+		private const string SOUL_LVL = SOUL_ATTRIBUTE + "LVL/"; // 
+
+		public const string SOUL_DISTRIBUTION = SOUL_ATTRIBUTE + "Distribution"; // Normalized soul attribute distribution key.
 
 		// Attributes
-		public const string GRAVITY = SOUL_ATTRIBUTE + "Gravity"; // Make heavy
-		public const string GRAVITY_LEVEL = SOUL_ATTRIBUTE + "Gravity_Level";
-		public const string ACUITY = SOUL_ATTRIBUTE + "Acuity"; // Experience gain
-		public const string ACUITY_LEVEL = SOUL_ATTRIBUTE + "Acuity_Level";
-		public const string INTENSITY = SOUL_ATTRIBUTE + "Intensity"; // Magic Power
-		public const string INTENSITY_LEVEL = SOUL_ATTRIBUTE + "Intensity_Level";
-		public const string FACILITY = SOUL_ATTRIBUTE + "Facility"; // Magic Casting Speed
-		public const string FACILITY_LEVEL = SOUL_ATTRIBUTE + "Facility_Level";
-		public const string LEVITY = SOUL_ATTRIBUTE + "Levity"; // Make light
-		public const string LEVITY_LEVEL = SOUL_ATTRIBUTE + "Levity_Level";
-		public const string PURITY = SOUL_ATTRIBUTE + "Purity"; // Luck
-		public const string PURITY_LEVEL = SOUL_ATTRIBUTE + "Purity_Level";
-		public const string SENSITIVITY = SOUL_ATTRIBUTE + "Sensitivity"; // Magic Efficiency
-		public const string SENSITIVITY_LEVEL = SOUL_ATTRIBUTE + "Sensitivity_Level";
-		public const string CREATIVITY = SOUL_ATTRIBUTE + "Creativity"; // Recovery Speed
-		public const string CREATIVITY_LEVEL = SOUL_ATTRIBUTE + "Creativity_Level";
+		// Fire
+		public const string INTENSITY_EXP = SOUL_EXP + "Intensity"; // Magic Power
+		public const string INTENSITY_LVL = SOUL_LVL + "Intensity";
+		// Light
+		public const string FACILITY_EXP = SOUL_EXP + "Facility"; // Magic Casting Speed
+		public const string FACILITY_LVL = SOUL_LVL + "Facility";
+		// Air
+		public const string LEVITY_EXP = SOUL_EXP + "Levity"; // Make light
+		public const string LEVITY_LVL = SOUL_LVL + "Levity";
+		// Spirit
+		public const string PURITY_EXP = SOUL_EXP + "Purity"; // Luck
+		public const string PURITY_LVL = SOUL_LVL + "Purity";
+		// Water
+		public const string SENSITIVITY_EXP = SOUL_EXP + "Sensitivity"; // Magic Efficiency
+		public const string SENSITIVITY_LVL = SOUL_LVL + "Sensitivity";
+		// Nature
+		public const string FECUNDITY_EXP = SOUL_EXP + "Fecundity"; // Recovery Speed
+		public const string FECUNDITY_LVL = SOUL_LVL + "Fecundity";
+		// Earth
+		public const string GRAVITY_EXP = SOUL_EXP + "Gravity"; // Make heavy
+		public const string GRAVITY_LVL = SOUL_LVL + "Gravity";
+		// Void
+		public const string HOSTILITY_EXP = SOUL_EXP + "Hostility"; // Experience gain
+		public const string HOSTILITY_LVL = SOUL_LVL + "Hostility";
 		#endregion Soul Attributes
 
 		// < Stats >
-		// Stats are measured in Points.
+		// Stats are either measured in Points (PointStats), percentages (0..1) or in real values (kg, m/s, etc).
 
-		// Body stats
-		#region Body Stats
+		// BODILY STATS
+		#region Bodily Stats
 
 		private const string BODY_STAT = IStatIdentifiers.STATS + "BODY/";
 
-		// Earth
-		public const string MASS = BODY_STAT + "Mass"; // Total body mass.
-		public const string LOAD = BODY_STAT + "Load"; // Total equip load.
-		public const string ENDURANCE = BODY_STAT + "Endurance"; // Total amount of force one can absorb before being stunned.
-		public const string DEFENCE = BODY_STAT + "Defence"; // Total amount of passive defence.
-		public const string GUARD = BODY_STAT + "Guard"; // Total amount of active (guarding) defence.
-
-		// Daeth
-		public const string OFFENCE = BODY_STAT + "Offence"; // Total damage output.
-		public const string REACH = BODY_STAT + "Reach"; // The agent's base melee reach (should be as large as the idle collision radius, limbs define actual reach.).
-
 		// Fire
-		public const string ENERGY = BODY_STAT + "Energy"; // Amount of spendable force-points.
-		public const string STRENGTH = BODY_STAT + "Strength"; // The body's lifting strength.
-		public const string POWER = BODY_STAT + "Power"; // The body's output force.
+		private const string BODY_FIRE = BODY_STAT + "FIRE/";
+		public const string ENERGY = BODY_FIRE + "Energy"; // Amount of spendable force-points.
+		public const string STRENGTH = BODY_FIRE + "Strength"; // The body's lifting strength.
+		public const string POWER = BODY_FIRE + "Power"; // The body's physical output force.
 
 		// Light
-		public const string STATIC = BODY_STAT + "Static"; // Amount of available charging power.
-		public const string ATTACK_CHARGE_SPEED = BODY_STAT + "Attack_Charge_Speed";
-		public const string ATTACK_PERFORM_SPEED = BODY_STAT + "Attack_Perform_Speed";
-		public const string ATTACK_STORM_SPEED = BODY_STAT + "Attack_Storm_Speed";
+		private const string BODY_LIGHT = BODY_STAT + "LIGHT/";
+		public const string STATIC = BODY_LIGHT + "Static"; // Amount of spendable charging points.
+		public const string CRIT_CHANCE = BODY_LIGHT + "Crit_Chance"; // % chance to land a critical hit.
+		public const string CRIT_MULT = BODY_LIGHT + "Crit_Mult"; // Critical hit damage multiplier.
+		public const string STORM_SPEED = BODY_LIGHT + "Storm_Speed"; // Speed while storming during a charged attack.
 
 		// Air
-		public const string STAMINA = BODY_STAT + "Stamina";
-		public const string MOVEMENT_SPEED = BODY_STAT + "Movement_Speed";
-		public const string DASH_SPEED = BODY_STAT + "Dash_Speed";
-		public const string GLIDE_SPEED = BODY_STAT + "Glide_Speed";
+		private const string BODY_AIR = BODY_STAT + "AIR/";
+		public const string STAMINA = BODY_AIR + "Stamina"; // Amount of spendable movement points.
+		public const string MOVEMENT_SPEED = BODY_AIR + "Movement_Speed";
+		public const string DASH_SPEED = BODY_AIR + "Dash_Speed";
+		public const string GLIDE_SPEED = BODY_AIR + "Glide_Speed";
 
-		// Faeth
-		public const string FRAILTY = BODY_STAT + "Frailty";
+		// Spirit
+		private const string BODY_SPIRIT = BODY_STAT + "SPIRIT/";
+		public const string GRACE = BODY_SPIRIT + "Grace"; // Amount of damage negation points.
+		public const string DEFENCE = BODY_SPIRIT + "Defence"; // Total amount of passive defence.
+		public const string FRAILTY = BODY_SPIRIT + "Frailty"; // Vulnerability of a pointstat's reserve.
 
 		// Water
-		public const string MANA = BODY_STAT + "Mana";
+		private const string BODY_WATER = BODY_STAT + "WATER/";
+		public const string MANA = BODY_WATER + "Mana"; // Amount of spendable magic points.
+		public const string MAGIC = BODY_WATER + "Magic"; // The body's magical output power.
 
-		// Growth
-		public const string HEALTH = BODY_STAT + "Health";
-		public const string RECOVERY = BODY_STAT + "Recovery";
-		public const string RECOVERY_DELAY = BODY_STAT + "Recovery_Delay";
+		// Nature
+		private const string BODY_NATURE = BODY_STAT + "NATURE/";
+		public const string HEALTH = BODY_NATURE + "Health";
+		public const string RECOVERY = BODY_NATURE + "Recovery";
+		public const string RECOVERY_DELAY = BODY_NATURE + "Recovery_Delay";
 
-		#endregion Body Stats
+		// Earth
+		private const string BODY_EARTH = BODY_STAT + "EARTH/";
+		public const string ENDURANCE = BODY_EARTH + "Endurance"; // Amount absorbable force points before being stunned.
+		public const string MASS = BODY_EARTH + "Mass"; // Total body mass in KG.
+		public const string LOAD = BODY_EARTH + "Load"; // Total equip load in KG.
+		public const string GUARD = BODY_EARTH + "Guard"; // Total amount of active guarding defence.
 
-		// Soul Stats
+		// Void
+		private const string BODY_VOID = BODY_STAT + "VOID/";
+		public const string MALICE = BODY_VOID + "Malice"; // Amount of damage bonus points.
+		public const string OFFENCE = BODY_VOID + "Offence"; // Total damage output.
+
+		// GENERAL
+		public const string REACH = BODY_STAT + "Reach"; // The agent's base melee reach (should be as large as the idle collision radius, limbs define actual reach.).
+		public const string ATTACK_CHARGE_SPEED = BODY_STAT + "Attack_Charge_Speed";
+		public const string ATTACK_PERFORM_SPEED = BODY_STAT + "Attack_Perform_Speed";
+
+		#endregion Bodily Stats
+
+		// SOUL STATS
 		#region Soul Stats
 		private const string SOUL_STAT = IStatIdentifiers.STATS + "SOUL/";
 
@@ -137,12 +170,12 @@
 		public const string SUB_STAT = IStatIdentifiers.STATS + "SUB/";
 
 		// Point-stats
-		public const string SUB_MAX = SUB_STAT + "Max";
-		public const string SUB_RECOVERABLE = SUB_STAT + "Recoverable";
-		public const string SUB_FRAILTY = SUB_STAT + "Frailty";
-		public const string SUB_RECOVERY = SUB_STAT + "Recovery";
-		public const string SUB_RECOVERY_DELAY = SUB_STAT + "Recovery_Delay";
-		public const string SUB_COST = SUB_STAT + "Cost";
+		public const string SUB_MAX = SUB_STAT + "Max"; // Maximum amount of points.
+		public const string SUB_RESERVE = SUB_STAT + "Reserve"; // Recoverable amount of points.
+		public const string SUB_FRAILTY = SUB_STAT + "Frailty"; // Vulnerability of the reserve.
+		public const string SUB_RECOVERY = SUB_STAT + "Recovery"; // Amount recovered per second.
+		public const string SUB_RECOVERY_DELAY = SUB_STAT + "Recovery_Delay"; // Time until recovery starts.
+		public const string SUB_COST = SUB_STAT + "Cost"; // Point cost multiplier.
 
 		// Limbs
 		public const string SUB_RIGHT_HAND = SUB_STAT + "Right Hand";

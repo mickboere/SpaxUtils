@@ -93,7 +93,7 @@ namespace SpaxUtils
 
 			if (IsRecoverable)
 			{
-				Recoverable = entity.Stats.GetStat(stat.SubStat(AgentStatIdentifiers.SUB_RECOVERABLE), true);
+				Recoverable = entity.Stats.GetStat(stat.SubStat(AgentStatIdentifiers.SUB_RESERVE), true);
 				Recoverable.ValueChangedEvent += OnRecoverableChangedEvent;
 				Frailty = entity.Stats.GetStat(stat.SubStat(AgentStatIdentifiers.SUB_FRAILTY));
 			}

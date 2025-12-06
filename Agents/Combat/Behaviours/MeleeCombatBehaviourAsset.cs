@@ -95,7 +95,7 @@ namespace SpaxUtils
 			chargeStat = Agent.Stats.GetStat(move.PrepCost.Stat);
 			chargeSpeedStat = Agent.Stats.GetStat(move.PrepSpeedMultiplierStat, false, 1f);
 			performSpeedStat = Agent.Stats.GetStat(move.PerformSpeedMultiplierStat, false, 1f);
-			stormSpeedStat = Agent.Stats.GetStat(AgentStatIdentifiers.ATTACK_STORM_SPEED, false, 1f);
+			stormSpeedStat = Agent.Stats.GetStat(AgentStatIdentifiers.STORM_SPEED, false, 1f);
 			enduranceCostStat = Agent.Stats.GetStat(AgentStatIdentifiers.ENDURANCE.SubStat(AgentStatIdentifiers.SUB_COST));
 
 			attackRange = this.move.Range +
