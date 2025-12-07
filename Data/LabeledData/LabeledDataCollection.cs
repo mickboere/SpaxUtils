@@ -4,24 +4,34 @@ using UnityEngine;
 
 namespace SpaxUtils
 {
+	/// <summary>
+	/// Represents a collection of labeled data, including booleans, floats, integers, strings, and octad data.
+	/// </summary>
+	/// <remarks>This class provides functionality to manage and manipulate labeled data, including converting it to
+	/// a RuntimeDataCollection, applying its data to an existing runtime collection, and comparing  its contents with
+	/// another collection. The collection supports multiple data types, each stored in separate lists, and provides
+	/// properties to access the counts and data for each type.</remarks>
 	[Serializable]
 	public class LabeledDataCollection
 	{
-		public int Count => BoolCount + FloatCount + IntCount + StringCount;
+		public int Count => BoolCount + FloatCount + IntCount + StringCount + Vector8Count;
 		public int BoolCount => BoolData == null ? 0 : BoolData.Count;
 		public int FloatCount => FloatData == null ? 0 : FloatData.Count;
 		public int IntCount => IntData == null ? 0 : IntData.Count;
 		public int StringCount => StringData == null ? 0 : StringData.Count;
+		public int Vector8Count => Vector8Data == null ? 0 : Vector8Data.Count;
 
 		public List<LabeledBoolData> BoolData => boolData;
 		public List<LabeledFloatData> FloatData => floatData;
 		public List<LabeledIntData> IntData => intData;
 		public List<LabeledStringData> StringData => stringData;
+		public List<LabeledOctadData> Vector8Data => octadData;
 
 		[SerializeField] private List<LabeledBoolData> boolData;
 		[SerializeField] private List<LabeledFloatData> floatData;
 		[SerializeField] private List<LabeledIntData> intData;
 		[SerializeField] private List<LabeledStringData> stringData;
+		[SerializeField] private List<LabeledOctadData> octadData;
 
 		/// <summary>
 		/// Convert this labeled data collection to a <see cref="RuntimeDataCollection"/>.
@@ -42,82 +52,34 @@ namespace SpaxUtils
 			// Bools
 			foreach (LabeledBoolData b in boolData)
 			{
-				if (overwrite || runtimeDataCollection.GetEntry(b.ID) == null)
-				{
-					runtimeDataCollection.SetValue(b.ID, b.BoolValue, true, dirty);
-				}
+				b.Apply(runtimeDataCollection, overwrite, dirty);
 			}
 
 			// Floats
 			foreach (LabeledFloatData f in floatData)
 			{
-				if (overwrite || runtimeDataCollection.GetEntry(f.ID) == null)
-				{
-					runtimeDataCollection.SetValue(f.ID, f.FloatValue, true, dirty);
-				}
+				f.Apply(runtimeDataCollection, overwrite, dirty);
 			}
 
 			// Ints
 			foreach (LabeledIntData i in intData)
 			{
-				if (overwrite || runtimeDataCollection.GetEntry(i.ID) == null)
-				{
-					runtimeDataCollection.SetValue(i.ID, i.IntValue, true, dirty);
-				}
+				i.Apply(runtimeDataCollection, overwrite, dirty);
 			}
 
 			// Strings
 			foreach (LabeledStringData s in stringData)
 			{
-				if (overwrite || runtimeDataCollection.GetEntry(s.ID) == null)
-				{
-					runtimeDataCollection.SetValue(s.ID, s.StringValue, true, dirty);
-				}
+				s.Apply(runtimeDataCollection, overwrite, dirty);
+			}
+
+			// Vector8s
+			foreach (LabeledOctadData v in octadData)
+			{
+				v.Apply(runtimeDataCollection, overwrite, dirty);
 			}
 
 			return runtimeDataCollection;
-		}
-
-		/// <summary>
-		/// Applies all stored labeled data to <paramref name="entity"/>.
-		/// </summary>
-		public void ApplyToEntity(IEntity entity, bool overwrite, bool dirty)
-		{
-			// Bools
-			foreach (LabeledBoolData b in boolData)
-			{
-				if (overwrite || entity.RuntimeData.GetValue(b.ID) == null)
-				{
-					entity.RuntimeData.SetValue(b.ID, b.BoolValue, true, dirty);
-				}
-			}
-
-			// Floats
-			foreach (LabeledFloatData f in floatData)
-			{
-				if (overwrite || entity.RuntimeData.GetValue(f.ID) == null)
-				{
-					entity.RuntimeData.SetValue(f.ID, f.FloatValue, true, dirty);
-				}
-			}
-
-			// Ints
-			foreach (LabeledIntData i in intData)
-			{
-				if (overwrite || entity.RuntimeData.GetValue(i.ID) == null)
-				{
-					entity.RuntimeData.SetValue(i.ID, i.IntValue, true, dirty);
-				}
-			}
-
-			// Strings
-			foreach (LabeledStringData s in stringData)
-			{
-				if (overwrite || entity.RuntimeData.GetValue(s.ID) == null)
-				{
-					entity.RuntimeData.SetValue(s.ID, s.StringValue, true, dirty);
-				}
-			}
 		}
 
 		/// <summary>
@@ -158,6 +120,19 @@ namespace SpaxUtils
 				if (!collection.TryGetValue(s.ID, out string v) || v != s.StringValue)
 				{
 					return false;
+				}
+			}
+
+			// Vector8s
+			foreach (LabeledOctadData v in octadData)
+			{
+				for (int i = 0; i < 8; i++)
+				{
+					string id = v.StatOctad.GetIdentifier(i);
+					if (!collection.TryGetValue(id, out float value) || !value.Approx(v.Vector8[i]))
+					{
+						return false;
+					}
 				}
 			}
 

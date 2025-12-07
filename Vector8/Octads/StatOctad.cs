@@ -15,21 +15,21 @@ namespace SpaxUtils
 		public Vector8 Vector8 => this;
 
 		public EntityStat N => stats[0];
-		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifiers), includeEmpty: true)] private string north;
+		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifiers), includeEmpty: true)] public string north;
 		public EntityStat NE => stats[1];
-		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifiers), includeEmpty: true)] private string northEast;
+		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifiers), includeEmpty: true)] public string northEast;
 		public EntityStat E => stats[2];
-		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifiers), includeEmpty: true)] private string east;
+		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifiers), includeEmpty: true)] public string east;
 		public EntityStat SE => stats[3];
-		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifiers), includeEmpty: true)] private string southEast;
+		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifiers), includeEmpty: true)] public string southEast;
 		public EntityStat S => stats[4];
-		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifiers), includeEmpty: true)] private string south;
+		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifiers), includeEmpty: true)] public string south;
 		public EntityStat SW => stats[5];
-		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifiers), includeEmpty: true)] private string southWest;
+		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifiers), includeEmpty: true)] public string southWest;
 		public EntityStat W => stats[6];
-		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifiers), includeEmpty: true)] private string west;
+		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifiers), includeEmpty: true)] public string west;
 		public EntityStat NW => stats[7];
-		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifiers), includeEmpty: true)] private string northWest;
+		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifiers), includeEmpty: true)] public string northWest;
 
 		private EntityStat[] stats;
 
@@ -75,26 +75,6 @@ namespace SpaxUtils
 		public StatOctad(IEntity entity, StatOctad copy, Vector8 defaultValues)
 			: this(entity, copy.north, copy.northEast, copy.east, copy.southEast, copy.south, copy.southWest, copy.west, copy.northWest, defaultValues)
 		{
-		}
-
-		public EntityStat this[int index]
-		{
-			get
-			{
-				switch (index)
-				{
-					case 0: return N;
-					case 1: return NE;
-					case 2: return E;
-					case 3: return SE;
-					case 4: return S;
-					case 5: return SW;
-					case 6: return W;
-					case 7: return NW;
-					default:
-						throw new ArgumentOutOfRangeException("index", $"Vector8 index needs to be between 0 and 7, but ({index}) was given!");
-				}
-			}
 		}
 
 		/// <summary>
@@ -152,6 +132,43 @@ namespace SpaxUtils
 		private void OnStatChange(CompositeFloatBase stat)
 		{
 			StatChangedEvent?.Invoke((EntityStat)stat);
+		}
+
+		public EntityStat this[int index]
+		{
+			get
+			{
+				switch (index)
+				{
+					case 0: return N;
+					case 1: return NE;
+					case 2: return E;
+					case 3: return SE;
+					case 4: return S;
+					case 5: return SW;
+					case 6: return W;
+					case 7: return NW;
+					default:
+						throw new ArgumentOutOfRangeException("index", $"Vector8 index needs to be between 0 and 7, but ({index}) was given!");
+				}
+			}
+		}
+
+		public string GetIdentifier(int index)
+		{
+			switch (index)
+			{
+				case 0: return north;
+				case 1: return northEast;
+				case 2: return east;
+				case 3: return southEast;
+				case 4: return south;
+				case 5: return southWest;
+				case 6: return west;
+				case 7: return northWest;
+				default:
+					throw new ArgumentOutOfRangeException("index", $"Vector8 index needs to be between 0 and 7, but ({index}) was given!");
+			}
 		}
 
 		/// <summary>

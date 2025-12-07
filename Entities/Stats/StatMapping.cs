@@ -17,7 +17,7 @@ namespace SpaxUtils
 		public Operation Operation => operation;
 
 		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifiers))] private string fromStat;
-		[SerializeField, Tooltip("Whether to source the FromStat's base value, or to source its modded value.")] private bool sourceBase;
+		[SerializeField, Tooltip("Whether to source the FromStat's base value [TRUE], or to source its modded value [FALSE].")] private bool sourceBase;
 		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifiers))] private string toStat;
 		[SerializeField, HideInInspector] private bool toSubStat;
 		[SerializeField, Conditional(nameof(toSubStat), hide: false, drawToggle: true), ConstDropdown(typeof(ILabeledDataIdentifiers), true)] private string subStat;
@@ -47,6 +47,38 @@ namespace SpaxUtils
 		[SerializeField] private Operation operation = Operation.Set;
 
 		private bool Round => scale > 1f;
+
+		public StatMapping(string fromStat, bool sourceBase, string toStat, bool toSubStat = false, string subStat = "",
+			FormulaType formula = FormulaType.Linear,
+			float expConstant = 0.1f, float expPower = 2f,
+			float invExpConstant = 0.1f, float invExpPower = 2f,
+			float logConstant = 0.1f, float logPower = 2f, float logShift = 0f,
+			AnimationCurve curve = null,
+			Vector2 pointA = default, Vector2 pointB = default,
+			float scale = 1f, float shift = 0f,
+			ModMethod modMethod = ModMethod.Base, Operation operation = Operation.Set)
+		{
+			this.fromStat = fromStat;
+			this.sourceBase = sourceBase;
+			this.toStat = toStat;
+			this.toSubStat = toSubStat;
+			this.subStat = subStat;
+			this.formula = formula;
+			this.expConstant = expConstant;
+			this.expPower = expPower;
+			this.invExpConstant = invExpConstant;
+			this.invExpPower = invExpPower;
+			this.logConstant = logConstant;
+			this.logPower = logPower;
+			this.logShift = logShift;
+			this.curve = curve;
+			this.pointA = pointA;
+			this.pointB = pointB;
+			this.scale = scale;
+			this.shift = shift;
+			this.modMethod = modMethod;
+			this.operation = operation;
+		}
 
 		/// <inheritdoc/>
 		public float GetModifierValue(float input)

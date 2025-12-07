@@ -88,8 +88,8 @@ namespace SpaxUtils
 			movementHandler.AutoUpdateMovement = false;
 
 			// Drain stat.
-			float cost = massStat * DashSpeed * Move.PrepCost.Cost * 0.1f;
-			Agent.Stats.TryApplyStatCost(Move.PrepCost.Stat, cost, false);
+			float cost = massStat * DashSpeed * Move.ChargeCost.Cost * 0.1f;
+			Agent.Stats.TryApplyStatCost(Move.ChargeCost.Stat, cost, false);
 
 			// Report impact for senses / shaking.
 			if (Agent.Identification.HasAll(EntityLabels.PLAYER))
@@ -119,7 +119,7 @@ namespace SpaxUtils
 		// Applies physics.
 		private void OnFixedUpdate(float delta)
 		{
-			if (Performer.PrepTime < DashDuration)
+			if (Performer.ChargeTime < DashDuration)
 			{
 				// Apply dash control.
 				RigidbodyWrapper.ApplyMovement(direction * DashSpeed, maxAcceleration, maxDeceleration, power, true);
@@ -145,16 +145,16 @@ namespace SpaxUtils
 		{
 			base.ExternalUpdate(delta);
 
-			if (Performer.PrepTime < DashDuration)
+			if (Performer.ChargeTime < DashDuration)
 			{
 				SetDirection(movementHandler.InputSmooth);
 			}
 
-			if (State == PerformanceState.Preparing && Performer.PrepTime > DashDuration)
+			if (State == PerformanceState.Preparing && Performer.ChargeTime > DashDuration)
 			{
 				// Gliding, drain stat.
-				float cost = massStat * GlideSpeed * Move.PrepCost.Cost * delta * 0.1f;
-				if (Agent.Stats.TryApplyStatCost(Move.PrepCost.Stat, cost, false, out _, out bool drained, out _) && drained)
+				float cost = massStat * GlideSpeed * Move.ChargeCost.Cost * delta * 0.1f;
+				if (Agent.Stats.TryApplyStatCost(Move.ChargeCost.Stat, cost, false, out _, out bool drained, out _) && drained)
 				{
 					// Exit dash.
 					Exit();
@@ -174,13 +174,13 @@ namespace SpaxUtils
 			// Update glide SFX.
 			float intensity = Mathf.Clamp01(RigidbodyWrapper.Speed / glideSpeed);
 			glideAudio.Pitch.BaseValue = glideSFX.PitchRange.Lerp(intensity);
-			glideAudio.Volume.BaseValue = (Performer.PrepTime / DashDuration).Clamp01() * glideSFX.VolumeRange.Lerp(intensity);
+			glideAudio.Volume.BaseValue = (Performer.ChargeTime / DashDuration).Clamp01() * glideSFX.VolumeRange.Lerp(intensity);
 		}
 
 		protected override IPoserInstructions Evaluate(out float weight)
 		{
 			Vector3 input = RigidbodyWrapper.RelativeVelocity;
-			IPoserInstructions instructions = Move.PosingData.GetInstructions(Performer.PrepTime, input);
+			IPoserInstructions instructions = Move.PosingData.GetInstructions(Performer.ChargeTime, input);
 
 			weight = ((Performer.RunTime - Move.MinDuration) / Move.Release).InvertClamped().InOutSine();
 			weight *= (Performer.CancelTime / Move.CancelDuration).InvertClamped();

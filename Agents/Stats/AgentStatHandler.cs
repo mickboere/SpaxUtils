@@ -48,10 +48,10 @@ namespace SpaxUtils
 
 		private void InitializeStats()
 		{
-			BodyLevels = bodyLevels.Get(agent);
-			BodyExperience = bodyExperience.Get(agent);
-			SoulLevels = soulLevels.Get(agent);
-			SoulExperience = soulExperience.Get(agent);
+			BodyLevels = bodyLevels.Initialize(agent);
+			BodyExperience = bodyExperience.Initialize(agent);
+			SoulLevels = soulLevels.Initialize(agent);
+			SoulExperience = soulExperience.Initialize(agent);
 
 			// Apply distributions where able.
 			if (bodyDistribution != Vector8.Zero && agent.Stats.TryGetStat(AgentStatIdentifiers.BODY_LEVEL, out EntityStat bodyLevel) && bodyLevel.BaseValue > 0f)

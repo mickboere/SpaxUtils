@@ -13,5 +13,13 @@ namespace SpaxUtils
 
 		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifiers), inputField: true)] private string identifier;
 		[SerializeField] private int value;
+
+		public void Apply(RuntimeDataCollection runtimeDataCollection, bool overwrite, bool dirty)
+		{
+			if (overwrite || runtimeDataCollection.GetEntry(ID) == null)
+			{
+				runtimeDataCollection.SetValue(ID, IntValue, true, dirty);
+			}
+		}
 	}
 }

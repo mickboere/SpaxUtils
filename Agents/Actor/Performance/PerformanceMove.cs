@@ -20,12 +20,12 @@ namespace SpaxUtils
 		public IReadOnlyList<BehaviourAsset> Behaviour => behaviour;
 		public IReadOnlyList<MoveFollowUp> FollowUps => followUps;
 
-		public bool HasPrep => hasCharge;
-		public float MinPrep => minCharge;
-		public float MaxPrep => maxCharge;
-		public bool RequireMinPrep => requireMinCharge;
-		public string PrepSpeedMultiplierStat => chargeSpeedMultiplier;
-		public StatCost PrepCost => chargeCost;
+		public bool HasCharge => hasCharge;
+		public float MinCharge => minCharge;
+		public float MaxCharge => maxCharge;
+		public bool RequireMinCharge => requireMinCharge;
+		public string ChargeSpeedMultiplierStat => chargeSpeedMultiplier;
+		public StatCost ChargeCost => chargeCost;
 
 		public bool HasPerformance => hasPerformance;
 		public float MinDuration => HasPerformance ? minDuration : 0f;

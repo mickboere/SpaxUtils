@@ -11,8 +11,8 @@ namespace SpaxUtils
 	public class GuardingCombatBehaviourAsset : BaseCombatMoveBehaviourAsset
 	{
 		protected bool InWindow =>
-			Performer.PrepTime > Move.MinPrep * windowShift &&
-			Performer.PrepTime < Move.MinPrep * windowShift + blockWindow;
+			Performer.ChargeTime > Move.MinCharge * windowShift &&
+			Performer.ChargeTime < Move.MinCharge * windowShift + blockWindow;
 
 		[SerializeField, Range(0f, 1f), Tooltip("The perfect-block time window which negates all damages.")] private float blockWindow = 0.1f;
 		[SerializeField, Range(0f, 1f), Tooltip("0 is at beginning of charge, 1 is at ending of minimum charge.")] private float windowShift = 1f;
@@ -68,7 +68,7 @@ namespace SpaxUtils
 			if (Performer.State == PerformanceState.Preparing)
 			{
 				// Drain charge stat.
-				if (Agent.Stats.TryApplyStatCost(Move.PrepCost.Stat, Move.PrepCost.Cost * delta, false, out _, out bool drained, out _) && Move.PrepCost.Required && drained)
+				if (Agent.Stats.TryApplyStatCost(Move.ChargeCost.Stat, Move.ChargeCost.Cost * delta, false, out _, out bool drained, out _) && Move.ChargeCost.Required && drained)
 				{
 					Performer.TryPerform();
 				}

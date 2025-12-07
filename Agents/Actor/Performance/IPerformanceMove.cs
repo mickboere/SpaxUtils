@@ -52,41 +52,41 @@ namespace SpaxUtils
 		/// </summary>
 		IReadOnlyList<MoveFollowUp> FollowUps { get; }
 
-		#region Preparation
+		#region Charging
 
 		/// <summary>
 		/// Whether the move can be charged or automatically performs.
 		/// </summary>
-		bool HasPrep { get; }
+		bool HasCharge { get; }
 
 		/// <summary>
 		/// Minimum required charge in seconds before performing this move.
 		/// </summary>
-		float MinPrep { get; }
+		float MinCharge { get; }
 
 		/// <summary>
 		/// Maximum charging extent in seconds.
 		/// </summary>
-		float MaxPrep { get; }
+		float MaxCharge { get; }
 
 		/// <summary>
-		/// What should be done if this move is released before reaching <see cref="MinPrep"/>.
-		/// TRUE: releasing input before reaching <see cref="MinPrep"/> will cancel the move.
-		/// FALSE: releasing input before reaching <see cref="MinPrep"/> will continue until minimum and automatically perform.
+		/// What should be done if this move is released before reaching <see cref="MinCharge"/>.
+		/// TRUE: releasing input before reaching <see cref="MinCharge"/> will cancel the move.
+		/// FALSE: releasing input before reaching <see cref="MinCharge"/> will continue until minimum and automatically perform.
 		/// </summary>
-		bool RequireMinPrep { get; }
+		bool RequireMinCharge { get; }
 
 		/// <summary>
 		/// Stat identifier for the charge speed multiplier.
 		/// </summary>
-		string PrepSpeedMultiplierStat { get; }
+		string ChargeSpeedMultiplierStat { get; }
 
 		/// <summary>
 		/// The stat-cost drained for charging this move.
 		/// </summary>
-		StatCost PrepCost { get; }
+		StatCost ChargeCost { get; }
 
-		#endregion Preparation
+		#endregion Charging
 
 		#region Performance
 

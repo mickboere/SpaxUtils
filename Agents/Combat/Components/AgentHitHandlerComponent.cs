@@ -24,6 +24,7 @@ namespace SpaxUtils
 		private EntityStat timescaleStat;
 		private EntityStat defence;
 		private EntityStat guard;
+		private EntityStat luck;
 
 		private TimedCurveModifier hitPauseMod;
 
@@ -46,6 +47,7 @@ namespace SpaxUtils
 			timescaleStat = agent.Stats.GetStat(EntityStatIdentifiers.TIMESCALE, true);
 			defence = agent.Stats.GetStat(AgentStatIdentifiers.DEFENCE, true);
 			guard = agent.Stats.GetStat(AgentStatIdentifiers.GUARD, true);
+			luck = agent.Stats.GetStat(AgentStatIdentifiers.LUCK, true);
 
 			hittable.Subscribe(this, OnHitEvent, 100);
 		}
@@ -66,36 +68,79 @@ namespace SpaxUtils
 			bool deflected = hitData.Data.GetValue<bool>(HitDataIdentifiers.DEFLECTED);
 			bool neglect = blocked || parried || deflected;
 
-			// Calculate damage and impact.
-			float damage = 0f, impact = 0f, force = 0f, endured = 0f;
-			damage = neglect ? 0f : SpaxFormulas.CalculateDamage(hitData.Offence, defence);
-			hitData.Data.SetValue(HitDataIdentifiers.DAMAGE, damage);
-			hitData.Data.SetValue(HitDataIdentifiers.PENETRATION, neglect ? 0f : damage / hitData.Offence);
+			// --- CRIT ROLL (uses hitData.CritChance, reduced by Luck) ---
+			float effectiveCritChance = Mathf.Clamp01(hitData.CritChance * (1f - luck));
+			bool isCrit = !neglect && UnityEngine.Random.value < effectiveCritChance;
+			hitData.Data.SetValue(HitDataIdentifiers.CRIT, isCrit);
 
-			impact = hitData.Power / rigidbodyWrapper.Mass;
+			// --- SHARP DAMAGE (Offence vs Defence) ---
+			float sharpDamage = 0f;
+			if (!neglect && hitData.Offence > 0f)
+			{
+				// DEFENCE is effectively hardness here.
+				sharpDamage = SpaxFormulas.CalculateDamage(hitData.Offence, defence);
+			}
+
+			// Penetration: how much of Offence actually turned into sharp HP damage (0..1).
+			float penetration = 0f;
+			if (hitData.Offence > 0f)
+			{
+				penetration = Mathf.Clamp01(sharpDamage / hitData.Offence);
+			}
+			hitData.Data.SetValue(HitDataIdentifiers.PENETRATION, penetration);
+
+			// --- BLUNT DAMAGE (Power weighted by inverse penetration) ---
+			// Power acts as blunt "offence"; (1 - penetration) is the blunt factor.
+			float bluntOffence = hitData.Power * (1f - penetration);
+
+			float bluntDamage = 0f;
+			if (!neglect && bluntOffence > 0f)
+			{
+				bluntDamage = SpaxFormulas.CalculateDamage(bluntOffence, defence);
+			}
+
+			// --- TOTAL HP DAMAGE ---
+			float totalDamage = sharpDamage + bluntDamage;
+			if (isCrit)
+			{
+				totalDamage *= Mathf.Max(1f, hitData.CritMult);
+			}
+			hitData.Data.SetValue(HitDataIdentifiers.DAMAGE, totalDamage);
+
+			// --- IMPACT & FORCE ---
+			// Impact is the bluntness factor: 0 = fully sharp, 1 = fully blunt.
+			float impact = 1f - penetration;
 			hitData.Data.SetValue(HitDataIdentifiers.IMPACT, impact);
-			force = impact * hitData.Mass * hitData.Power;
+
+			// Physical force magnitude still comes from mass * power.
+			float force = hitData.Force;
 			hitData.Data.SetValue(HitDataIdentifiers.FORCE, force);
 
-			// Damage endurance.
-			float endure = damage + force;
-			float enduranceDamage = statHandler.PointStats.W.Current.Damage(endure, true, out bool stunned, out float enduranceOverdraw);
+			// --- ENDURANCE DAMAGE ---
+			// Crit should influence Endurance drain as well.
+			float endureInput = totalDamage + force;
+			float enduranceDamage = statHandler.PointStats.W.Current.Damage(
+				endureInput,
+				true,
+				out bool stunned,
+				out float enduranceOverdraw);
+
 			hitData.Data.SetValue(HitDataIdentifiers.STUNNED, stunned);
-			enduranceOverdraw *= endure / enduranceDamage.Max(1f); // Compensate for cost-multiplier since overdraw is used in force calculations.
-			endured = endure > 0f ? (endure - enduranceOverdraw) / endure : 1f;
+
+			enduranceOverdraw *= endureInput / enduranceDamage.Max(1f); // compensate for cost multiplier
+			float endured = endureInput > 0f ? (endureInput - enduranceOverdraw) / endureInput : 1f;
 			hitData.Data.SetValue(HitDataIdentifiers.ENDURED, endured);
 
-			// Apply stun.
+			// --- STUN / IMPACT APPLICATION ---
 			if (stunned)
 			{
 				// Cancel all performances.
 				agent.Actor.TryCancel(true);
 
-				// Prevent same-frame dodge sliding during stun?
+				// Prevent same-frame dodge sliding during stun.
 				rigidbodyWrapper.ResetVelocity();
 
-				// Transfer Impact.
-				//SpaxDebug.Log($"Impact={hitData.Direction * force * endured.Invert()}", hitData.ToString());
+				// Transfer Impact (reduced by what was endured).
 				rigidbodyWrapper.Push(hitData.Direction * force * endured.Invert(), 1f);
 
 				// Apply stun.
@@ -103,17 +148,17 @@ namespace SpaxUtils
 			}
 			else if (neglect)
 			{
-				// Share Impact.
+				// Share Impact for block/parry/deflect.
 				rigidbodyWrapper.Push(hitData.Direction * force, 1f);
 			}
 
-			// Transfer half intertia.
+			// Transfer half inertia.
 			rigidbodyWrapper.Push(hitData.Inertia * (endured.Invert() * 0.5f), hitData.HitterMass);
 
-			// Apply damages.
+			// --- HP DAMAGE APPLICATION ---
 			if (!Invulnerable)
 			{
-				float damageDealt = statHandler.PointStats.SW.Current.Damage(damage, true, out bool dead);
+				float damageDealt = statHandler.PointStats.SW.Current.Damage(totalDamage, true, out bool dead);
 				hitData.Data.SetValue(HitDataIdentifiers.DAMAGE_DEALT, damageDealt);
 				if (dead)
 				{
@@ -131,7 +176,7 @@ namespace SpaxUtils
 			// Build up static for succesful blocking.
 			statHandler.PointStats.NE.Current.BaseValue += endured * force * 0.001f;
 
-			// Apply hit-pause.
+			// --- HIT PAUSE ---
 			hitPauseMod?.Dispose();
 			hitPauseMod = new TimedCurveModifier(
 				ModMethod.Absolute,
@@ -140,8 +185,6 @@ namespace SpaxUtils
 				callbackService);
 			timescaleStat.RemoveModifier(this);
 			timescaleStat.AddModifier(this, hitPauseMod);
-
-			//SpaxDebug.Log($"Hit {agent.Identification.Name}", hitData.ToString(), context: agent.GameObject);
 		}
 
 		private void Die()

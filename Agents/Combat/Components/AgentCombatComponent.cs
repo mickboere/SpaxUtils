@@ -213,18 +213,18 @@ namespace SpaxUtils
 				float rangeScore = Mathf.InverseLerp(maxRangeError, 0f, distError);
 
 				// Timing.
-				float chargeSpeed = Agent.Stats.GetStat(evalMove.PrepSpeedMultiplierStat) ?? 1f;
+				float chargeSpeed = Agent.Stats.GetStat(evalMove.ChargeSpeedMultiplierStat) ?? 1f;
 				float performSpeed = Agent.Stats.GetStat(evalMove.PerformSpeedMultiplierStat) ?? 1f;
 				float invChargeSpeed = 1f / Mathf.Max(chargeSpeed, 0.01f);
 				float invPerformSpeed = 1f / Mathf.Max(performSpeed, 0.01f);
 
-				float chargeTime = evalMove.HasPrep ? evalMove.MinPrep * invChargeSpeed : 0f;
+				float chargeTime = evalMove.HasCharge ? evalMove.MinCharge * invChargeSpeed : 0f;
 				float performTime = evalMove.HasPerformance ? evalMove.MinDuration * invPerformSpeed : 0f;
 				float totalTime = chargeTime + performTime;
 				float speedFactor = 1f / (1f + totalTime);
 
 				// Cost preference.
-				float costScore = Mathf.Clamp01(EvaluateCost(evalMove.PrepCost) * EvaluateCost(evalMove.PerformCost));
+				float costScore = Mathf.Clamp01(EvaluateCost(evalMove.ChargeCost) * EvaluateCost(evalMove.PerformCost));
 
 				// Static / storm potential (later for damage/crit tendencies, not reach).
 				float staticAvail = StatHandler != null ? StatHandler.PointStats.NE.PercentageRecoverable : 0f;

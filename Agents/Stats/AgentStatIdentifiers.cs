@@ -42,8 +42,8 @@
 		public const string VITALITY_EXP = BODY_EXP + "Vitality";
 		public const string VITALITY_LVL = BODY_LVL + "Vitality";
 		// Earth
-		public const string DENSITY_EXP = BODY_EXP + "Density";
-		public const string DENSITY_LVL = BODY_LVL + "Density";
+		public const string STABILITY_EXP = BODY_EXP + "Stability";
+		public const string STABILITY_LVL = BODY_LVL + "Stability";
 		// Void
 		public const string LETHALITY_EXP = BODY_EXP + "Lethality";
 		public const string LETHALITY_LVL = BODY_LVL + "Lethality";
@@ -96,6 +96,14 @@
 
 		private const string BODY_STAT = IStatIdentifiers.STATS + "BODY/";
 
+		// GENERAL
+		private const string BODY_GENERAL = BODY_STAT + "GENERAL/";
+		public const string MASS = BODY_GENERAL + "Mass"; // Total body mass in KG.
+		public const string LOAD = BODY_GENERAL + "Load"; // Total equip load in KG.
+		public const string REACH = BODY_GENERAL + "Reach"; // The agent's base melee reach (should be as large as the idle collision radius, limbs define actual reach.).
+		public const string ATTACK_CHARGE_SPEED = BODY_GENERAL + "Attack_Charge_Speed";
+		public const string ATTACK_PERFORM_SPEED = BODY_GENERAL + "Attack_Perform_Speed";
+
 		// Fire
 		private const string BODY_FIRE = BODY_STAT + "FIRE/";
 		public const string ENERGY = BODY_FIRE + "Energy"; // Amount of spendable force-points.
@@ -136,8 +144,7 @@
 		// Earth
 		private const string BODY_EARTH = BODY_STAT + "EARTH/";
 		public const string ENDURANCE = BODY_EARTH + "Endurance"; // Amount absorbable force points before being stunned.
-		public const string MASS = BODY_EARTH + "Mass"; // Total body mass in KG.
-		public const string LOAD = BODY_EARTH + "Load"; // Total equip load in KG.
+		public const string BALANCE = BODY_EARTH + "Balance"; // Endurance cost divider.
 		public const string GUARD = BODY_EARTH + "Guard"; // Total amount of active guarding defence.
 
 		// Void
@@ -145,20 +152,42 @@
 		public const string MALICE = BODY_VOID + "Malice"; // Amount of damage bonus points.
 		public const string OFFENCE = BODY_VOID + "Offence"; // Total damage output.
 
-		// GENERAL
-		public const string REACH = BODY_STAT + "Reach"; // The agent's base melee reach (should be as large as the idle collision radius, limbs define actual reach.).
-		public const string ATTACK_CHARGE_SPEED = BODY_STAT + "Attack_Charge_Speed";
-		public const string ATTACK_PERFORM_SPEED = BODY_STAT + "Attack_Perform_Speed";
-
 		#endregion Bodily Stats
 
 		// SOUL STATS
 		#region Soul Stats
 		private const string SOUL_STAT = IStatIdentifiers.STATS + "SOUL/";
 
-		public const string SPIRIT = SOUL_STAT + "Spirit"; // Spendable soul experience points.
-		public const string VIRTUE = SOUL_STAT + "Virtue"; // Total amount of virtuous spirit gained.
-		public const string SIN = SOUL_STAT + "Sin"; // Total amount of sinful spirit gained.
+		// GENERAL
+		private const string SOUL_GENERAL = SOUL_STAT + "GENERAL/";
+		public const string SPIRIT = SOUL_GENERAL + "Spirit"; // Spendable soul experience points.
+		public const string VIRTUE = SOUL_GENERAL + "Virtue"; // Total amount of virtuous spirit gained.
+		public const string SIN = SOUL_GENERAL + "Sin"; // Total amount of sinful spirit gained.
+
+		// Fire
+		private const string SOUL_FIRE = SOUL_STAT + "FIRE/";
+
+		// Light
+		private const string SOUL_LIGHT = SOUL_STAT + "LIGHT/";
+
+		// Air
+		private const string SOUL_AIR = SOUL_STAT + "AIR/";
+
+		// Spirit
+		private const string SOUL_SPIRIT = SOUL_STAT + "SPIRIT/";
+		public const string LUCK = SOUL_SPIRIT + "Luck"; // Chance to avoid negative effects.
+
+		// Water
+		private const string SOUL_WATER = SOUL_STAT + "WATER/";
+
+		// Nature
+		private const string SOUL_NATURE = SOUL_STAT + "NATURE/";
+
+		// Earth
+		private const string SOUL_EARTH = SOUL_STAT + "EARTH/";
+
+		// Void
+		private const string SOUL_VOID = SOUL_STAT + "VOID/";
 
 		#endregion Soul Stats
 

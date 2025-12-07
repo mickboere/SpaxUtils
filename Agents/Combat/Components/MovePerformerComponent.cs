@@ -30,7 +30,7 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public IPerformanceMove Move => MainPerformer != null ? MainPerformer.Move : null;
 		/// <inheritdoc/>
-		public float PrepTime => MainPerformer != null ? MainPerformer.PrepTime : 0f;
+		public float ChargeTime => MainPerformer != null ? MainPerformer.ChargeTime : 0f;
 		/// <inheritdoc/>
 		public bool Prolong
 		{
@@ -149,7 +149,7 @@ namespace SpaxUtils
 
 			// 4. Utilized stats must exceed 0.
 			// Note: (most) stats don't have to exceed costs since they will overdraw from the "recoverable" stat.
-			if ((move.HasPrep && !ValidateStat(move.PrepCost)) || (move.HasPerformance && !ValidateStat(move.PerformCost)))
+			if ((move.HasCharge && !ValidateStat(move.ChargeCost)) || (move.HasPerformance && !ValidateStat(move.PerformCost)))
 			{
 				return false;
 			}

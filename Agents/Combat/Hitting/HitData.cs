@@ -1,5 +1,4 @@
-﻿using System.Collections.Generic;
-using UnityEngine;
+﻿using UnityEngine;
 
 namespace SpaxUtils
 {
@@ -40,19 +39,34 @@ namespace SpaxUtils
 		public Vector3 Direction { get; }
 
 		/// <summary>
-		/// The total mass behind the hit itself.
+		/// Total mass behind the striking limb+weapon.
 		/// </summary>
 		public float Mass { get; }
 
 		/// <summary>
-		/// The total power behind the hit.
+		/// Total power behind the hit (before mass).
 		/// </summary>
 		public float Power { get; }
+
+		/// <summary>
+		/// Convenience: physical force = mass * power.
+		/// </summary>
+		public float Force => Mass * Power;
 
 		/// <summary>
 		/// The total offensive power of the hit, defines penetration damage.
 		/// </summary>
 		public float Offence { get; }
+
+		/// <summary>
+		/// Final crit chance for this hit (0–1).
+		/// </summary>
+		public float CritChance { get; }
+
+		/// <summary>
+		/// Crit damage multiplier (>= 1).
+		/// </summary>
+		public float CritMult { get; }
 
 		/// <summary>
 		/// Runtime data container used to store additional hit data.
@@ -69,6 +83,8 @@ namespace SpaxUtils
 			float mass,
 			float power,
 			float offence,
+			float critChance,
+			float critMult,
 			RuntimeDataCollection data = null)
 		{
 			Receiver = receiver;
@@ -80,6 +96,8 @@ namespace SpaxUtils
 			Mass = mass;
 			Power = power;
 			Offence = offence;
+			CritChance = critChance;
+			CritMult = critMult;
 			Data = data ?? new RuntimeDataCollection(null);
 		}
 
@@ -94,7 +112,10 @@ namespace SpaxUtils
 				$"\nDirection={Direction}," +
 				$"\nMass={Mass}," +
 				$"\nPower={Power}," +
+				$"\nForce={Force}," +
 				$"\nOffence={Offence}," +
+				$"\nCritChance={CritChance}," +
+				$"\nCritMult={CritMult}," +
 				$"\n\nData:\n{Data},";
 		}
 	}
@@ -102,6 +123,7 @@ namespace SpaxUtils
 	public class HitDataIdentifiers
 	{
 		#region Return
+
 		// BOOLS
 		/// <summary>
 		/// Return data defining whether this hit was perfectly blocked.
@@ -119,6 +141,10 @@ namespace SpaxUtils
 		/// Return data defining whether this hit caused the receiver to be stunned.
 		/// </summary>
 		public const string STUNNED = "Stunned";
+		/// <summary>
+		/// Return data defining whether this hit landed as a critical hit.
+		/// </summary>
+		public const string CRIT = "Crit";
 
 		// FLOATS
 		/// <summary>
@@ -128,9 +154,9 @@ namespace SpaxUtils
 		/// <summary>
 		/// The percentage of endurance-damage that was endured.
 		/// Examples:
-		///		0 =	The endurance was already empty and thus nothing was endured, receiver is stunned.
-		///		0.5 = Only half of the force was endured, receiver is stunned.
-		///		1 = The full force of the hit was endured by the receiver, receiver is NOT stunned.
+		///     0 = The endurance was already empty and thus nothing was endured, receiver is stunned.
+		///     0.5 = Only half of the force was endured, receiver is stunned.
+		///     1 = The full force of the hit was endured by the receiver, receiver is NOT stunned.
 		/// </summary>
 		public const string ENDURED = "Endured";
 		/// <summary>

@@ -97,7 +97,7 @@ namespace SpaxUtils
 			AnimatorWrapper.SetBool(PARAM_PREPARE, State == PerformanceState.Preparing);
 			AnimatorWrapper.SetBool(PARAM_PERFORM, State == PerformanceState.Performing);
 
-			float prepareTime = Move.MinPrep > 0f ? Performer.PrepTime / Move.MinPrep : 0f;
+			float prepareTime = Move.MinCharge > 0f ? Performer.ChargeTime / Move.MinCharge : 0f;
 			AnimatorWrapper.SetFloat(PARAM_PREPARE_TIME, prepareTime);
 			float performTime = Move.MinDuration > 0f ? Performer.RunTime / Move.MinDuration : 0f;
 			AnimatorWrapper.SetFloat(PARAM_PERFORM_TIME, performTime);

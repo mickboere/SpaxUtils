@@ -28,7 +28,7 @@ namespace SpaxUtils
 		#region IMovePerformer Properties
 
 		public IPerformanceMove Move { get; private set; }
-		public float PrepTime { get; private set; }
+		public float ChargeTime { get; private set; }
 		public bool Prolong { get; set; }
 		public bool Paused { get; set; }
 		public bool Canceled { get; private set; }
@@ -60,10 +60,10 @@ namespace SpaxUtils
 			this.callbackService = callbackService;
 			Act = act;
 			Move = move;
-			State = Move.HasPrep ? PerformanceState.Preparing : PerformanceState.Performing;
+			State = Move.HasCharge ? PerformanceState.Preparing : PerformanceState.Performing;
 			RunTime = 0f;
 			Weight = 0f;
-			PrepTime = 0f;
+			ChargeTime = 0f;
 			Prolong = false;
 			Paused = false;
 
@@ -99,7 +99,7 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public bool TryPerform()
 		{
-			if (!Move.HasPrep || released)
+			if (!Move.HasCharge || released)
 			{
 				// Already performing.
 				return true;
@@ -107,7 +107,7 @@ namespace SpaxUtils
 
 			released = true;
 
-			if (Move.RequireMinPrep && PrepTime < Move.MinPrep)
+			if (Move.RequireMinCharge && ChargeTime < Move.MinCharge)
 			{
 				// Min charge not reached but required, cancel attack.
 				TryCancel(false);
@@ -137,28 +137,28 @@ namespace SpaxUtils
 		{
 			if (!Canceled)
 			{
-				EntityStat speedMult = State == PerformanceState.Preparing ? agent.Stats.GetStat(Move.PrepSpeedMultiplierStat) : agent.Stats.GetStat(Move.PerformSpeedMultiplierStat);
+				EntityStat speedMult = State == PerformanceState.Preparing ? agent.Stats.GetStat(Move.ChargeSpeedMultiplierStat) : agent.Stats.GetStat(Move.PerformSpeedMultiplierStat);
 				float delta = Time.deltaTime * (speedMult ?? 1f) * entityTimeScale;
 
 				if (State == PerformanceState.Preparing)
 				{
 					// Preparing (charging).
-					if (PrepTime < Move.MinPrep && released && PrepTime + delta >= Move.MinPrep)
+					if (ChargeTime < Move.MinCharge && released && ChargeTime + delta >= Move.MinCharge)
 					{
 						// Released before we finished charging, make sure we don't overcharge.
-						PrepTime = Move.MinPrep;
+						ChargeTime = Move.MinCharge;
 						State = PerformanceState.Performing;
 					}
 					else
 					{
-						PrepTime += delta;
-						if (PrepTime >= Move.MinPrep && released)
+						ChargeTime += delta;
+						if (ChargeTime >= Move.MinCharge && released)
 						{
 							// Finished charging.
 							State = PerformanceState.Performing;
 						}
 					}
-					Weight = Mathf.Clamp01(PrepTime / Move.MinPrep);
+					Weight = Mathf.Clamp01(ChargeTime / Move.MinCharge);
 				}
 				// No else statement here to remove frame delay.
 				if (State != PerformanceState.Preparing)

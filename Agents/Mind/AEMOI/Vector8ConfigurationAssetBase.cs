@@ -38,7 +38,7 @@ namespace SpaxUtils
 
 			if (ranged)
 			{
-				float t = 0.5f;
+				float t = 0.5f; // Default interp is midpoint.
 
 				if (data != null && data.TryGetValue(Interpolator, out float interp))
 				{
@@ -64,9 +64,6 @@ namespace SpaxUtils
 							$"A value 0.5 will be used instead."
 						);
 					}
-
-					// Default mid-point if no interpolator present.
-					t = 0.5f;
 				}
 
 				baseValue = rangedValues.Interpolate(t);

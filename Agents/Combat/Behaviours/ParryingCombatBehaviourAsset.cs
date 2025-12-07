@@ -59,7 +59,7 @@ namespace SpaxUtils
 						-hitData.Inertia.normalized,
 						hitData.Mass,
 						hitData.Power,
-						0f);
+						0f, 0f, 1f);
 
 					base.ProcessHit(parriedHittable, parryHit);
 				}

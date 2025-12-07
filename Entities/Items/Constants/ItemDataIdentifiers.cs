@@ -18,8 +18,11 @@
 
 		// Floats
 		public const string VALUE = FLOAT + "Value";
-		public const string CAPACITY = FLOAT + "Capacity";
-		public const string CONTAINS = FLOAT + "Contains";
+		public const string MASS = FLOAT + "Mass"; // Maps to agent Load and Mass/limb.
+		public const string REACH = FLOAT + "Reach"; // Maps to agent's Reach/limb.
+		public const string SHIELD = FLOAT + "Shield"; // Maps explicitly to agent's Guard.
+		public const string CAPACITY = FLOAT + "Capacity"; // Defines container capacity.
+		public const string CONTAINS = FLOAT + "Contains"; // Defines current contained amount.
 
 		// Bools
 		public const string AETHERIAL = BOOL + "Aetherial";
