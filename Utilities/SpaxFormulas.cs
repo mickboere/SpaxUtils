@@ -24,22 +24,32 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
-		/// Standard damage formula taking an <paramref name="offence"/> value and <paramref name="defence"/> value.
+		/// Standard damage formula taking an offence value and separate protection and defence values.
+		/// Protection is a linear subtractor, defence (poise) defines the curved part.
 		/// </summary>
 		/// <param name="offence">The attacker's offensive power.</param>
-		/// <param name="defence">The defender's defensive power.</param>
-		/// <param name="exponence">Amount of exponence applied to the formula. 0 will simply substract defence from offence. Default = 0.5.</param>
-		/// <returns>The resulting damage.</returns>
-		public static float CalculateDamage(float offence, float defence, float exponence = 0.5f, bool round = false)
+		/// <param name="protection">The defender's linear protection.</param>
+		/// <param name="defence">The defender's curved defence (poise/hardness).</param>
+		/// <param name="exponence">
+		/// Amount of exponence applied to the formula.
+		/// 0 will simply subtract protection+defence linearly (afterProtection),
+		/// 1 will fully use the curved term.
+		/// </param>
+		public static float CalculateDamage(float offence, float protection, float defence, float exponence = 0.5f, bool round = false)
 		{
-			float Formula()
-			{
-				return Mathf.Lerp(
-				Mathf.Max(0f, offence - defence),
-				offence * offence / defence,
-				exponence);
-			}
-			return round ? Mathf.Round(Formula()) : Formula();
+			float safeDefence = Mathf.Max(1f, defence);
+			float safeProtection = Mathf.Max(0f, protection);
+
+			// First layer: Protection subtracts directly from offence.
+			float afterProtection = Mathf.Max(0f, offence - safeProtection);
+
+			// Linear and exponential components based on what is left.
+			float linear = afterProtection;
+			float expo = afterProtection > 0f ? (afterProtection * afterProtection / safeDefence) : 0f;
+
+			float value = Mathf.Lerp(linear, expo, exponence);
+
+			return round ? Mathf.Round(value) : value;
 		}
 
 		#region Curves

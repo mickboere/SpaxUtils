@@ -31,7 +31,7 @@ namespace SpaxUtils
 			this.agentStatHandler = agentStatHandler;
 			this.hittable = hittable;
 
-			defenceStat = Agent.Stats.GetStat(AgentStatIdentifiers.DEFENCE);
+			defenceStat = Agent.Stats.GetStat(AgentStatIdentifiers.POISE);
 			guardStat = Agent.Stats.GetStat(AgentStatIdentifiers.GUARD);
 		}
 

@@ -16,11 +16,31 @@ namespace SpaxUtils
 		/// Only contains generic stat mappings from <see cref="statMappings"/>,
 		/// does not include mappings from <see cref="octadMappings"/>.
 		/// </summary>
-		public IReadOnlyList<StatMapping> StatMappings => statMappings;
+		public IReadOnlyList<StatMapping> StatMappings
+		{
+			get
+			{
+				if (_statMappings == null)
+				{
+					_statMappings = statMappings.ToList();
+					foreach (StatOctadMapping octadMapping in octadMappings)
+					{
+						StatMapping[] mappings = octadMapping.GetMappings();
+						foreach (StatMapping mapping in mappings)
+						{
+							_statMappings.Add(mapping);
+						}
+					}
+				}
+				return _statMappings;
+			}
+		}
+		private List<StatMapping> _statMappings;
 
 		/// <summary>
 		/// A dictionary of all stat mappings keyed by their source stat identifier.
 		/// Contains both generic mappings from <see cref="statMappings"/> and mappings generated from <see cref="octadMappings"/>.
+		/// WARNING: If multiple mappings exist from the same source stat, only one will be present in this dictionary. To access all mappings, use <see cref="StatMappings"/>.
 		/// </summary>
 		public IReadOnlyDictionary<string, StatMapping> FromStatMappings
 		{
@@ -28,20 +48,7 @@ namespace SpaxUtils
 			{
 				if (_fromStatMappings == null)
 				{
-					_fromStatMappings = statMappings.ToDictionary((s) => s.FromStat, (s) => s);
-					foreach (StatOctadMapping octadMapping in octadMappings)
-					{
-						StatMapping[] mappings = octadMapping.GetMappings();
-						foreach (StatMapping mapping in mappings)
-						{
-							if (_fromStatMappings.ContainsKey(mapping.FromStat))
-							{
-								Debug.LogError($"StatMap '{name}' already contains a mapping from stat '{mapping.FromStat}'.", this);
-								continue;
-							}
-							_fromStatMappings[mapping.FromStat] = mapping;
-						}
-					}
+					_fromStatMappings = StatMappings.ToDictionary((s) => s.FromStat, (s) => s);
 				}
 				return _fromStatMappings;
 			}

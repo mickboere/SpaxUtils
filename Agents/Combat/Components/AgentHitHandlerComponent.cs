@@ -5,7 +5,7 @@ using UnityEngine;
 namespace SpaxUtils
 {
 	/// <summary>
-	/// Entity component responsible for handling hits coming through in the <see cref="IHittable"/> component.
+	/// Entity component responsible for handling hits coming through in the IHittable component.
 	/// </summary>
 	public class AgentHitHandlerComponent : EntityComponentMono
 	{
@@ -22,16 +22,20 @@ namespace SpaxUtils
 		private AgentStatHandler statHandler;
 
 		private EntityStat timescaleStat;
-		private EntityStat defence;
-		private EntityStat guard;
-		private EntityStat luck;
+		private EntityStat poiseStat;
+		private EntityStat protectionStat;
+		private EntityStat luckStat;
 
 		private TimedCurveModifier hitPauseMod;
 
-		public void InjectDependencies(IAgent agent, IHittable hittable,
+		public void InjectDependencies(
+			IAgent agent,
+			IHittable hittable,
 			RigidbodyWrapper rigidbodyWrapper,
-			CombatSettings combatSettings, CallbackService callbackService,
-			IStunHandler stunHandler, AgentStatHandler statHandler)
+			CombatSettings combatSettings,
+			CallbackService callbackService,
+			IStunHandler stunHandler,
+			AgentStatHandler statHandler)
 		{
 			this.agent = agent;
 			this.hittable = hittable;
@@ -45,9 +49,9 @@ namespace SpaxUtils
 		protected void OnEnable()
 		{
 			timescaleStat = agent.Stats.GetStat(EntityStatIdentifiers.TIMESCALE, true);
-			defence = agent.Stats.GetStat(AgentStatIdentifiers.DEFENCE, true);
-			guard = agent.Stats.GetStat(AgentStatIdentifiers.GUARD, true);
-			luck = agent.Stats.GetStat(AgentStatIdentifiers.LUCK, true);
+			poiseStat = agent.Stats.GetStat(AgentStatIdentifiers.POISE, true);          // curved defence
+			protectionStat = agent.Stats.GetStat(AgentStatIdentifiers.PROTECTION, true); // linear protection
+			luckStat = agent.Stats.GetStat(AgentStatIdentifiers.LUCK, true);
 
 			hittable.Subscribe(this, OnHitEvent, 100);
 		}
@@ -60,7 +64,6 @@ namespace SpaxUtils
 		/// <summary>
 		/// Invoked when this agent has been hit by an attack.
 		/// </summary>
-		/// <param name="hitData">The incoming <see cref="HitData"/> to process.</param>
 		private void OnHitEvent(HitData hitData)
 		{
 			bool blocked = hitData.Data.GetValue<bool>(HitDataIdentifiers.BLOCKED);
@@ -68,67 +71,59 @@ namespace SpaxUtils
 			bool deflected = hitData.Data.GetValue<bool>(HitDataIdentifiers.DEFLECTED);
 			bool neglect = blocked || parried || deflected;
 
-			// --- CRIT ROLL (uses hitData.CritChance, reduced by Luck) ---
-			float effectiveCritChance = Mathf.Clamp01(hitData.CritChance * (1f - luck));
-			bool isCrit = !neglect && UnityEngine.Random.value < effectiveCritChance;
+			// --- CRIT DAMAGE ---
+			float ratingSum = hitData.CritChance + luckStat;
+			float effectiveCritChance = ratingSum > 0f ? hitData.CritChance / ratingSum : 0f;
+			bool isCrit = !neglect && Random.value < effectiveCritChance;
+			float critDamage =
+				!neglect && isCrit ?
+					SpaxFormulas.CalculateDamage(hitData.CritBonus, protectionStat, poiseStat) :
+					0f;
 			hitData.Data.SetValue(HitDataIdentifiers.CRIT, isCrit);
+			hitData.Data.SetValue(HitDataIdentifiers.CRIT_DAMAGE, critDamage);
 
-			// --- SHARP DAMAGE (Offence vs Defence) ---
+			// --- PIERCE DAMAGE ---
 			float sharpDamage = 0f;
-			if (!neglect && hitData.Offence > 0f)
-			{
-				// DEFENCE is effectively hardness here.
-				sharpDamage = SpaxFormulas.CalculateDamage(hitData.Offence, defence);
-			}
-
-			// Penetration: how much of Offence actually turned into sharp HP damage (0..1).
 			float penetration = 0f;
-			if (hitData.Offence > 0f)
+			if (!neglect && hitData.Pierce > 0f)
 			{
-				penetration = Mathf.Clamp01(sharpDamage / hitData.Offence);
+				sharpDamage = SpaxFormulas.CalculateDamage(hitData.Pierce, protectionStat, poiseStat);
+				penetration = Mathf.Clamp01(sharpDamage / hitData.Pierce);
 			}
 			hitData.Data.SetValue(HitDataIdentifiers.PENETRATION, penetration);
 
-			// --- BLUNT DAMAGE (Power weighted by inverse penetration) ---
-			// Power acts as blunt "offence"; (1 - penetration) is the blunt factor.
-			float bluntOffence = hitData.Power * (1f - penetration);
+			// --- BLUNT DAMAGE ---
+			float powerRatio = (hitData.Power / (hitData.Power + hitData.Pierce + 0.001f)).Clamp01();
+			float impact = (1f - penetration * (1f - powerRatio)).Clamp01();
+			hitData.Data.SetValue(HitDataIdentifiers.IMPACT, impact);
+			float bluntDamage =
+				!neglect && hitData.Power > 0f && impact > 0f ?
+					SpaxFormulas.CalculateDamage(hitData.Power * impact, protectionStat, poiseStat) :
+					0f;
 
-			float bluntDamage = 0f;
-			if (!neglect && bluntOffence > 0f)
-			{
-				bluntDamage = SpaxFormulas.CalculateDamage(bluntOffence, defence);
-			}
-
-			// --- TOTAL HP DAMAGE ---
-			float totalDamage = sharpDamage + bluntDamage;
-			if (isCrit)
-			{
-				totalDamage *= Mathf.Max(1f, hitData.CritMult);
-			}
+			// --- TOTAL DAMAGE ---
+			float totalDamage = critDamage + sharpDamage + bluntDamage;
 			hitData.Data.SetValue(HitDataIdentifiers.DAMAGE, totalDamage);
 
 			// --- IMPACT & FORCE ---
-			// Impact is the bluntness factor: 0 = fully sharp, 1 = fully blunt.
-			float impact = 1f - penetration;
-			hitData.Data.SetValue(HitDataIdentifiers.IMPACT, impact);
 
-			// Physical force magnitude still comes from mass * power.
-			float force = hitData.Force;
+			// Physical force magnitude from the hitter.
+			float force = hitData.Force * impact;
 			hitData.Data.SetValue(HitDataIdentifiers.FORCE, force);
 
 			// --- ENDURANCE DAMAGE ---
-			// Crit should influence Endurance drain as well.
-			float endureInput = totalDamage + force;
+			// Endurance sees both sharp damage and force.
+			float endure = neglect ? 0f : totalDamage + force;
 			float enduranceDamage = statHandler.PointStats.W.Current.Damage(
-				endureInput,
+				endure,
 				true,
 				out bool stunned,
 				out float enduranceOverdraw);
-
 			hitData.Data.SetValue(HitDataIdentifiers.STUNNED, stunned);
 
-			enduranceOverdraw *= endureInput / enduranceDamage.Max(1f); // compensate for cost multiplier
-			float endured = endureInput > 0f ? (endureInput - enduranceOverdraw) / endureInput : 1f;
+			// Account for cost multipliers: how much of the intended input was actually endured.
+			enduranceOverdraw *= endure / enduranceDamage.Max(1f);
+			float endured = endure > 0f ? (endure - enduranceOverdraw) / endure : 1f;
 			hitData.Data.SetValue(HitDataIdentifiers.ENDURED, endured);
 
 			// --- STUN / IMPACT APPLICATION ---
@@ -140,7 +135,7 @@ namespace SpaxUtils
 				// Prevent same-frame dodge sliding during stun.
 				rigidbodyWrapper.ResetVelocity();
 
-				// Transfer Impact (reduced by what was endured).
+				// Transfer force, reduced by what was endured.
 				rigidbodyWrapper.Push(hitData.Direction * force * endured.Invert(), 1f);
 
 				// Apply stun.
@@ -148,18 +143,21 @@ namespace SpaxUtils
 			}
 			else if (neglect)
 			{
-				// Share Impact for block/parry/deflect.
+				// Share impact for block/parry/deflect.
 				rigidbodyWrapper.Push(hitData.Direction * force, 1f);
 			}
 
-			// Transfer half inertia.
-			rigidbodyWrapper.Push(hitData.Inertia * (endured.Invert() * 0.5f), hitData.HitterMass);
+			// Transfer half inertia, scaled by what was not endured.
+			rigidbodyWrapper.Push(
+				hitData.Inertia * (endured.Invert() * 0.5f),
+				hitData.HitterMass);
 
 			// --- HP DAMAGE APPLICATION ---
 			if (!Invulnerable)
 			{
 				float damageDealt = statHandler.PointStats.SW.Current.Damage(totalDamage, true, out bool dead);
 				hitData.Data.SetValue(HitDataIdentifiers.DAMAGE_DEALT, damageDealt);
+
 				if (dead)
 				{
 					if (stunHandler.Stunned)
@@ -173,7 +171,7 @@ namespace SpaxUtils
 				}
 			}
 
-			// Build up static for succesful blocking.
+			// Build up Static for successful blocking / enduring.
 			statHandler.PointStats.NE.Current.BaseValue += endured * force * 0.001f;
 
 			// --- HIT PAUSE ---
@@ -183,6 +181,7 @@ namespace SpaxUtils
 				combatSettings.HitPauseCurve,
 				new TimerStruct(combatSettings.HitPauseReceiver.Lerp(impact) * endured.InvertClamped()),
 				callbackService);
+
 			timescaleStat.RemoveModifier(this);
 			timescaleStat.AddModifier(this, hitPauseMod);
 		}

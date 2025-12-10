@@ -54,9 +54,9 @@ namespace SpaxUtils
 		public float Force => Mass * Power;
 
 		/// <summary>
-		/// The total offensive power of the hit, defines penetration damage.
+		/// The total piercing power of the hit, defines penetration damage.
 		/// </summary>
-		public float Offence { get; }
+		public float Pierce { get; }
 
 		/// <summary>
 		/// Final crit chance for this hit (0–1).
@@ -64,9 +64,9 @@ namespace SpaxUtils
 		public float CritChance { get; }
 
 		/// <summary>
-		/// Crit damage multiplier (>= 1).
+		/// Crit damage bonus.
 		/// </summary>
-		public float CritMult { get; }
+		public float CritBonus { get; }
 
 		/// <summary>
 		/// Runtime data container used to store additional hit data.
@@ -82,9 +82,9 @@ namespace SpaxUtils
 			Vector3 direction,
 			float mass,
 			float power,
-			float offence,
+			float pierce,
 			float critChance,
-			float critMult,
+			float critBonus,
 			RuntimeDataCollection data = null)
 		{
 			Receiver = receiver;
@@ -95,9 +95,9 @@ namespace SpaxUtils
 			Direction = direction;
 			Mass = mass;
 			Power = power;
-			Offence = offence;
+			Pierce = pierce;
 			CritChance = critChance;
-			CritMult = critMult;
+			CritBonus = critBonus;
 			Data = data ?? new RuntimeDataCollection(null);
 		}
 
@@ -113,9 +113,9 @@ namespace SpaxUtils
 				$"\nMass={Mass}," +
 				$"\nPower={Power}," +
 				$"\nForce={Force}," +
-				$"\nOffence={Offence}," +
+				$"\nPierce={Pierce}," +
 				$"\nCritChance={CritChance}," +
-				$"\nCritMult={CritMult}," +
+				$"\nCritMult={CritBonus}," +
 				$"\n\nData:\n{Data},";
 		}
 	}
@@ -152,13 +152,9 @@ namespace SpaxUtils
 		/// </summary>
 		public const string GUARD = "Guard";
 		/// <summary>
-		/// The percentage of endurance-damage that was endured.
-		/// Examples:
-		///     0 = The endurance was already empty and thus nothing was endured, receiver is stunned.
-		///     0.5 = Only half of the force was endured, receiver is stunned.
-		///     1 = The full force of the hit was endured by the receiver, receiver is NOT stunned.
+		/// The amount of added critical damage.
 		/// </summary>
-		public const string ENDURED = "Endured";
+		public const string CRIT_DAMAGE = "Crit_Damage";
 		/// <summary>
 		/// Return data defining the percentage of penetration dealt to receiver (0-1~).
 		/// </summary>
@@ -179,6 +175,14 @@ namespace SpaxUtils
 		/// Return data defining total amount of force transfered to receiver.
 		/// </summary>
 		public const string FORCE = "Force";
+		/// <summary>
+		/// The percentage of endurance-damage that was endured.
+		/// Examples:
+		///     0 = The endurance was already empty and thus nothing was endured, receiver is stunned.
+		///     0.5 = Only half of the force was endured, receiver is stunned.
+		///     1 = The full force of the hit was endured by the receiver, receiver is NOT stunned.
+		/// </summary>
+		public const string ENDURED = "Endured";
 		#endregion Return
 	}
 }

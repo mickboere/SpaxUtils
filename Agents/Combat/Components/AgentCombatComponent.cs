@@ -89,7 +89,7 @@ namespace SpaxUtils
 			this.stunHandler = stunHandler;
 
 			powerStat = Agent.Stats.GetStat(AgentStatIdentifiers.POWER);
-			defenseStat = Agent.Stats.GetStat(AgentStatIdentifiers.DEFENCE);
+			defenseStat = Agent.Stats.GetStat(AgentStatIdentifiers.POISE);
 		}
 
 		protected void OnEnable()
@@ -131,8 +131,8 @@ namespace SpaxUtils
 			// Offense
 			Offense =
 				Mathf.Max(
-					Agent.Stats.GetStat(AgentStatIdentifiers.OFFENCE.SubStat(AgentStatIdentifiers.SUB_LEFT_HAND)) ?? 0f,
-					Agent.Stats.GetStat(AgentStatIdentifiers.OFFENCE.SubStat(AgentStatIdentifiers.SUB_RIGHT_HAND)) ?? 0f);
+					Agent.Stats.GetStat(AgentStatIdentifiers.PIERCE.SubStat(AgentStatIdentifiers.SUB_LEFT_HAND)) ?? 0f,
+					Agent.Stats.GetStat(AgentStatIdentifiers.PIERCE.SubStat(AgentStatIdentifiers.SUB_RIGHT_HAND)) ?? 0f);
 
 			UpdatePreferredMove();
 		}

@@ -24,7 +24,7 @@ namespace SpaxUtils
 
 		[Header("Charging")]
 		[SerializeField] private float chargePower = 1f;
-		[SerializeField, Tooltip("How much extra crit chance per unit of extraCharge")]
+		[SerializeField, Tooltip("How much extra crit chance rating per unit of extraCharge")]
 		private float chargeCritBonusFactor = 1f;
 
 		[Header("Storming")]
@@ -54,7 +54,7 @@ namespace SpaxUtils
 		private EntityStat powerStat;
 		private EntityStat offenceStat;
 		private EntityStat critChanceStat;
-		private EntityStat critMultStat;
+		private EntityStat critPrecisionStat;
 		private EntityStat chargeStat;
 		private EntityStat chargeSpeedStat;
 		private EntityStat performSpeedStat;
@@ -116,9 +116,10 @@ namespace SpaxUtils
 			limbMassStat = Agent.Stats.GetStat(AgentStatIdentifiers.MASS.SubStat(this.move.Limb));
 			strengthStat = Agent.Stats.GetStat(AgentStatIdentifiers.STRENGTH);
 			powerStat = Agent.Stats.GetStat(AgentStatIdentifiers.POWER);
-			offenceStat = Agent.Stats.GetStat(AgentStatIdentifiers.OFFENCE);
+			offenceStat = Agent.Stats.GetStat(AgentStatIdentifiers.PIERCE);
 			critChanceStat = Agent.Stats.GetStat(AgentStatIdentifiers.CRIT_CHANCE);
-			critMultStat = Agent.Stats.GetStat(AgentStatIdentifiers.CRIT_MULT);
+			// Precision is stored in hitData.CritMult and used as flat bonus on crit.
+			critPrecisionStat = Agent.Stats.GetStat(AgentStatIdentifiers.PRECISION);
 			chargeStat = Agent.Stats.GetStat(move.ChargeCost.Stat);
 			chargeSpeedStat = Agent.Stats.GetStat(move.ChargeSpeedMultiplierStat, false);
 			performSpeedStat = Agent.Stats.GetStat(move.PerformSpeedMultiplierStat, false);
@@ -466,8 +467,10 @@ namespace SpaxUtils
 
 					float offence = offenceStat * move.Offence;
 
+					// CritChance is a rating; Luck vs Crit handled in AgentHitHandler.
 					float critChance = critChanceStat + Mathf.Max(0f, totalCharge - 1f) * chargeCritBonusFactor;
-					float critMult = critMultStat;
+					// Precision used as flat bonus on crit; passed via CritMult field.
+					float precisionBonus = critPrecisionStat;
 
 					HitData hitData = new HitData(
 						hittable,
@@ -480,7 +483,7 @@ namespace SpaxUtils
 						powerValue,
 						offence,
 						critChance,
-						critMult
+						precisionBonus
 					);
 
 					ProcessHit(hittable, hitData);
