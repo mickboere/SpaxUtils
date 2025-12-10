@@ -42,8 +42,8 @@
 		public const string VITALITY_EXP = BODY_EXP + "Vitality";
 		public const string VITALITY_LVL = BODY_LVL + "Vitality";
 		// Earth
-		public const string STABILITY_EXP = BODY_EXP + "Stability";
-		public const string STABILITY_LVL = BODY_LVL + "Stability";
+		public const string INTEGRITY_EXP = BODY_EXP + "Integrity";
+		public const string INTEGRITY_LVL = BODY_LVL + "Integrity";
 		// Void
 		public const string LETHALITY_EXP = BODY_EXP + "Lethality";
 		public const string LETHALITY_LVL = BODY_LVL + "Lethality";
