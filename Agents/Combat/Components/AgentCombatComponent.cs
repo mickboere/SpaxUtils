@@ -37,8 +37,8 @@ namespace SpaxUtils
 		/// <summary>The current maximum power output of this agent.</summary>
 		public float Power => powerStat.Value;
 
-		/// <summary>The current defense stat value.</summary>
-		public float Defense => defenseStat.Value;
+		/// <summary>The current poise stat value.</summary>
+		public float Poise => poiseStat.Value;
 
 		#region Move Selection
 
@@ -77,7 +77,7 @@ namespace SpaxUtils
 		private IStunHandler stunHandler;
 
 		private EntityStat powerStat;
-		private EntityStat defenseStat;
+		private EntityStat poiseStat;
 
 		public void InjectDependencies(
 			AgentStatHandler agentStatHandler,
@@ -89,7 +89,7 @@ namespace SpaxUtils
 			this.stunHandler = stunHandler;
 
 			powerStat = Agent.Stats.GetStat(AgentStatIdentifiers.POWER);
-			defenseStat = Agent.Stats.GetStat(AgentStatIdentifiers.POISE);
+			poiseStat = Agent.Stats.GetStat(AgentStatIdentifiers.POISE);
 		}
 
 		protected void OnEnable()

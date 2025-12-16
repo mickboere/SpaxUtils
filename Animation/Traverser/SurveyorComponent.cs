@@ -65,7 +65,7 @@ namespace SpaxUtils
 			this.body = body;
 			this.movementHandler = movementHandler;
 
-			moveSpeedStat = Entity.Stats.GetStat(AgentStatIdentifiers.MOVEMENT_SPEED, false, 1f);
+			moveSpeedStat = Entity.Stats.GetStat(AgentStatIdentifiers.MOVEMENT_SPEED, true, 1f);
 		}
 
 		public void ResetSurveyor(float progress = 0f)

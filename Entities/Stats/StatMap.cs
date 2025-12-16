@@ -48,7 +48,19 @@ namespace SpaxUtils
 			{
 				if (_fromStatMappings == null)
 				{
-					_fromStatMappings = StatMappings.ToDictionary((s) => s.FromStat, (s) => s);
+					_fromStatMappings = new Dictionary<string, StatMapping>();
+					foreach (StatMapping mapping in StatMappings)
+					{
+						if (!_fromStatMappings.ContainsKey(mapping.FromStat))
+						{
+							_fromStatMappings[mapping.FromStat] = mapping;
+						}
+						else
+						{
+							SpaxDebug.Warning($"Multiple mappings from stat; {mapping.FromStat}",
+								$"Only first mapping to \"{_fromStatMappings[mapping.FromStat].ToStat}\" will be accessible.");
+						}
+					}
 				}
 				return _fromStatMappings;
 			}

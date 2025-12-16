@@ -15,14 +15,18 @@ namespace SpaxUtils
 		public StatOctad SoulLevels { get; private set; }
 		public StatOctad SoulExperience { get; private set; }
 		public PointStatOctad PointStats => pointStatOctad;
+		public StatOctad Physics { get; private set; }
 
+		[Header("BODY")]
 		[SerializeField] private StatOctadAsset bodyLevels;
 		[SerializeField] private StatOctadAsset bodyExperience;
 		[SerializeField] private StatMap bodyAttributeMap;
+		[SerializeField] private PointStatOctad pointStatOctad; // Locally defined.
+		[SerializeField] private StatOctadAsset physicsOctad;
+		[Header("SOUL")]
 		[SerializeField] private StatOctadAsset soulLevels;
 		[SerializeField] private StatOctadAsset soulExperience;
 		[SerializeField] private StatMap soulAttributeMap;
-		[SerializeField] private PointStatOctad pointStatOctad;
 
 		private IAgent agent;
 		private Vector8 bodyDistribution;
@@ -68,6 +72,7 @@ namespace SpaxUtils
 			}
 
 			pointStatOctad.Initialize(agent);
+			Physics = physicsOctad.Initialize(agent);
 
 			// Modify recovery stat with control (so that recovery only occurs when agent is in control).
 			if (agent.Body.HasRigidbody && agent.Stats.TryGetStat(AgentStatIdentifiers.RECOVERY, out recoveryStat))
