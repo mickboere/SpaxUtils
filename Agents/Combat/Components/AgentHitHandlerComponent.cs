@@ -72,9 +72,11 @@ namespace SpaxUtils
 			bool neglect = blocked || parried || deflected;
 
 			// --- CRIT DAMAGE ---
-			float ratingSum = hitData.CritChance + luckStat;
-			float effectiveCritChance = ratingSum > 0f ? hitData.CritChance / ratingSum : 0f;
-			bool isCrit = !neglect && Random.value < effectiveCritChance;
+			float effectiveCritChance = Mathf.Clamp01(hitData.CritChance / Mathf.Max(0.001f, 1f + luckStat));
+			bool isCrit = !neglect &&
+				hitData.CritBonus > 0f &&
+				hitData.CritChance > 0f &&
+				Random.value < effectiveCritChance;
 			float critDamage =
 				!neglect && isCrit ?
 					SpaxFormulas.CalculateDamage(hitData.CritBonus, protectionStat, poiseStat) :
@@ -184,6 +186,8 @@ namespace SpaxUtils
 
 			timescaleStat.RemoveModifier(this);
 			timescaleStat.AddModifier(this, hitPauseMod);
+
+			SpaxDebug.Log($"{agent.ID} - HIT:", hitData.ToString());
 		}
 
 		private void Die()

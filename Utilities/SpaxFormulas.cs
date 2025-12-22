@@ -40,15 +40,13 @@ namespace SpaxUtils
 			float safeDefence = Mathf.Max(1f, defence);
 			float safeProtection = Mathf.Max(0f, protection);
 
-			// First layer: Protection subtracts directly from offence.
-			float afterProtection = Mathf.Max(0f, offence - safeProtection);
+			// Linear half: Protection reduces offence directly.
+			float linear = Mathf.Max(0f, offence - safeProtection);
 
-			// Linear and exponential components based on what is left.
-			float linear = afterProtection;
-			float expo = afterProtection > 0f ? (afterProtection * afterProtection / safeDefence) : 0f;
+			// Curved half: Poise resists offence nonlinearly (Protection does not apply here).
+			float expo = offence > 0f ? (offence * offence / safeDefence) : 0f;
 
 			float value = Mathf.Lerp(linear, expo, exponence);
-
 			return round ? Mathf.Round(value) : value;
 		}
 
