@@ -6,7 +6,7 @@ namespace SpaxUtils
 	[Serializable]
 	public class TransitionSettings
 	{
-		private const string TT_RD = "0 = no delay / crossfade, 1 = full delay / no crossfade";
+		private const string TT_RD = "0 = no delay / 100% crossfade. 1 = full delay / zero crossfade";
 
 		public bool Realtime => realtime;
 		public float RelativeDelay => relativeDelay;

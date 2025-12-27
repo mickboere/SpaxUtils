@@ -37,6 +37,11 @@ namespace SpaxUtils
 			return c / c.Sum();
 		}
 
+		public static float Luminance(this Color c)
+		{
+			return 0.2126f * c.r + 0.7152f * c.g + 0.0722f * c.b;
+		}
+
 		public static string RichWrap(this Color color, string wrap)
 		{
 			return $"<color=#{ColorUtility.ToHtmlStringRGB(color)}>{wrap}</color>";
