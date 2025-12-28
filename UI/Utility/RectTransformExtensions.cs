@@ -51,5 +51,32 @@ namespace SpaxUtils.UI
 
 			return new Rect(minX, minY, width, height);
 		}
+
+		/// <summary>
+		/// Copies all RectTransform properties (anchors, pivot, position, size, rotation, scale) 
+		/// from the source to the target.
+		/// </summary>
+		public static void CopyFrom(this RectTransform target, RectTransform source)
+		{
+			if (target == null || source == null)
+			{
+				return;
+			}
+
+			// 1. Anchors & Pivot must be set first, as they define the coordinate space
+			target.anchorMin = source.anchorMin;
+			target.anchorMax = source.anchorMax;
+			target.pivot = source.pivot;
+
+			// 2. Size
+			target.sizeDelta = source.sizeDelta;
+
+			// 3. Position
+			target.anchoredPosition3D = source.anchoredPosition3D;
+
+			// 4. Rotation & Scale
+			target.localRotation = source.localRotation;
+			target.localScale = source.localScale;
+		}
 	}
 }

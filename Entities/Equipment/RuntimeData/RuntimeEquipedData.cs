@@ -108,15 +108,15 @@ namespace SpaxUtils
 			{
 				foreach (StatMap statMappingSheet in EquipmentData.EquipedStatMappings)
 				{
-					if (statMappingSheet.FromStatMappings.ContainsKey(item.ID))
+					// This allows one item stat (e.g. "Strength") to modify multiple entity stats (e.g. "Power" AND "CarryWeight")
+					foreach (StatMapping mapping in statMappingSheet.GetMappingsFrom(item.ID))
 					{
 						// STAT MOD MAPPING:
-						StatMapping mapping = statMappingSheet.FromStatMappings[item.ID];
-
 						// Retrieve target stat to add mapping modifier to.
 						EntityStat toStat = entity.Stats.GetStat(mapping.ToStat, true);
 
-						// Generate unique mod identifier for this equipment in case multiple items utilize the same mapping.
+						// Generate unique mod identifier. 
+						// (Note: Since this identifier is scoped to the 'toStat', using FromStat name is safe even for 1-to-Many mappings)
 						string identifier = GetModID(mapping.FromStat);
 
 						// If mod isn't present yet, add it to stat.
@@ -130,11 +130,11 @@ namespace SpaxUtils
 						{
 							SpaxDebug.Error($"Stat '{mapping.ToStat}' already contains a mapping from '{identifier}'.", "Mapping was not added.");
 						}
-						break;
 					}
-					else if (statMappingSheet.DataMappings.Contains(item.ID))
+
+					// DIRECT DATA MAPPING (Keep existing logic, usually 1-to-1)
+					if (statMappingSheet.DataMappings.Contains(item.ID))
 					{
-						// DIRECT DATA MAPPING:
 						dataBackup[item.ID] = entity.RuntimeData.GetValue(item.ID, item.ValueType.GetDefault());
 						entity.RuntimeData.SetValue(item.ID, item.Value, true, false);
 					}

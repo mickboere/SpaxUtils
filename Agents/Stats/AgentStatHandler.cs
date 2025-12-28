@@ -57,18 +57,36 @@ namespace SpaxUtils
 			SoulLevels = soulLevels.Initialize(agent);
 			SoulExperience = soulExperience.Initialize(agent);
 
-			// Apply distributions where able.
-			if (bodyDistribution != Vector8.Zero && agent.Stats.TryGetStat(AgentStatIdentifiers.BODY_LEVEL, out EntityStat bodyLevel) && bodyLevel.BaseValue > 0f)
+			// --- BODY INITIALIZATION ---
+			if (bodyDistribution != Vector8.Zero &&
+				agent.Stats.TryGetStat(AgentStatIdentifiers.BODY_RANK, out EntityStat bodyRank) &&
+				bodyRank.BaseValue > 0f)
 			{
-				ApplyDistribution(bodyLevel.BaseValue * 8f, bodyDistribution, BodyExperience, bodyAttributeMap);
-				bodyLevel.BaseValue = 0f;
-				bodyLevel.Data.Dirty = false;
+				// 1. Capture Input (e.g. 10)
+				float rankInput = bodyRank.BaseValue;
+
+				// 2. Distribute (10 * 8 = 80 levels)
+				ApplyDistribution(rankInput * 8f, bodyDistribution, BodyExperience, BodyLevels, bodyAttributeMap);
+
+				// 3. HANDOVER: Reset Base to 0.
+				// Now the stat is purely driven by modifiers (attributes).
+				// If we didn't do this, Rank would be 10 (Base) + 10 (derived) = 20.
+				bodyRank.BaseValue = 0f;
+
+				// Optional: If you want to force an immediate update to ensure UI sees the new derived value this frame:
+				// bodyRank.GetValue(); 
 			}
-			if (soulDistribution != Vector8.Zero && agent.Stats.TryGetStat(AgentStatIdentifiers.SOUL_LEVEL, out EntityStat soulLevel) && soulLevel.BaseValue > 0f)
+
+			// --- SOUL INITIALIZATION ---
+			if (soulDistribution != Vector8.Zero &&
+				agent.Stats.TryGetStat(AgentStatIdentifiers.SOUL_RANK, out EntityStat soulRank) &&
+				soulRank.BaseValue > 0f)
 			{
-				ApplyDistribution(soulLevel.BaseValue * 8f, soulDistribution, SoulExperience, soulAttributeMap);
-				soulLevel.BaseValue = 0f;
-				soulLevel.Data.Dirty = false;
+				float rankInput = soulRank.BaseValue;
+				ApplyDistribution(rankInput * 8f, soulDistribution, SoulExperience, SoulLevels, soulAttributeMap);
+
+				// Handover
+				soulRank.BaseValue = 0f;
 			}
 
 			pointStatOctad.Initialize(agent);
@@ -82,12 +100,29 @@ namespace SpaxUtils
 			}
 		}
 
-		private void ApplyDistribution(float level, Vector8 distribution, StatOctad experience, StatMap map)
+		private void ApplyDistribution(float level, Vector8 distribution, StatOctad experience, StatOctad levels, StatMap map)
 		{
 			Vector8 targetLevels = distribution.Normalize() * level;
+
 			for (int i = 0; i < 8; i++)
 			{
-				experience[i].BaseValue = experience[i].BaseValue.Max(map.FromStatMappings[experience[i].Identifier].GetInverseModifierValue((targetLevels[i] - 1f).Round().Max(0f)));
+				string expID = experience[i].Identifier;
+				string lvlID = levels[i].Identifier;
+
+				// 1. LOOKUP
+				if (map.TryGetMapping(expID, lvlID, out StatMapping mapping))
+				{
+					// 2. CALCULATE INVERSE
+					float targetLvl = (targetLevels[i] - 1f).Round().Max(0f);
+					float requiredExp = mapping.GetInverseModifierValue(targetLvl);
+
+					// 3. APPLY
+					experience[i].BaseValue = experience[i].BaseValue.Max(requiredExp);
+				}
+				else
+				{
+					SpaxDebug.Warning($"MISSING MAPPING", $"Could not find Leveling mapping for {expID} -> {lvlID}", context: this);
+				}
 			}
 		}
 

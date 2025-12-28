@@ -136,22 +136,35 @@ namespace SpaxUtils
 		/// <summary>
 		/// (Safely) Instantiates an object deactivated, preventing its Awake function from being called until it is enabled in the future.
 		/// </summary>
-		public static GameObject InstantiateDeactivated(GameObject gameObject, Transform parent, Vector3 position, Quaternion rotation)
+		/// <param name="worldPosition">If true, 'position' is treated as World Space. If false, 'position' is treated as Local Space.</param>
+		public static GameObject InstantiateDeactivated(GameObject gameObject, Transform parent, Vector3 position, Quaternion rotation, bool worldPosition = false)
 		{
 			bool prefabWasActive = gameObject.activeSelf;
 			GameObject instance;
 
 			try
 			{
-				// Spawn the object deactivated so that we can inject dependencies before Awake is called.
 				gameObject.SetActive(false);
-				instance = parent == null ? GameObject.Instantiate(gameObject) : GameObject.Instantiate(gameObject, parent);
-				instance.transform.localPosition = position;
-				instance.transform.localRotation = rotation;
+
+				// 1. Instantiate (Unity defaults to keeping World Position if parent is null)
+				instance = parent == null ? GameObject.Instantiate(gameObject) : GameObject.Instantiate(gameObject, parent, false);
+
+				// 2. Apply Coordinates based on context
+				if (worldPosition && parent != null)
+				{
+					// If we want World Position but have a parent, we must set position (World)
+					instance.transform.position = position;
+					instance.transform.rotation = rotation;
+				}
+				else
+				{
+					// Default/Legacy behavior: Set Local
+					instance.transform.localPosition = position;
+					instance.transform.localRotation = rotation;
+				}
 			}
 			finally
 			{
-				// Returning prefab to original state.
 				gameObject.SetActive(prefabWasActive);
 			}
 
@@ -200,7 +213,7 @@ namespace SpaxUtils
 
 		public static GameObject InstantiateAndInject(GameObject gameObject, Transform parent, IDependencyManager dependencies, bool includeChildren = true, bool bindComponents = true)
 		{
-			return InstantiateAndInject(gameObject, parent, gameObject.transform.position, gameObject.transform.rotation, dependencies, includeChildren, bindComponents);
+			return InstantiateAndInject(gameObject, parent, gameObject.transform.localPosition, gameObject.transform.localRotation, dependencies, includeChildren, bindComponents);
 		}
 
 		public static GameObject InstantiateAndInject(GameObject gameObject, Vector3 position, Quaternion rotation, IDependencyManager dependencies, bool includeChildren = true, bool bindComponents = true)

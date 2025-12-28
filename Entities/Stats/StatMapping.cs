@@ -13,6 +13,7 @@ namespace SpaxUtils
 		public string FromStat => fromStat;
 		public bool SourceBase => sourceBase;
 		public string ToStat => toSubStat ? toStat.SubStat(subStat) : toStat;
+		public FormulaType Formula => formula;
 		public ModMethod Method => modMethod;
 		public Operation Operation => operation;
 
@@ -86,20 +87,6 @@ namespace SpaxUtils
 			return GetModifierValue(input, formula);
 		}
 
-		public float GetInverseModifierValue(float output)
-		{
-			switch (formula)
-			{
-				case FormulaType.Exp:
-					return GetModifierValue(output, FormulaType.InvExp);
-				case FormulaType.InvExp:
-					return GetModifierValue(output, FormulaType.Exp);
-				default:
-					SpaxDebug.Error($"Inverse modifier not supported for: {formula}");
-					return 0f;
-			}
-		}
-
 		private float GetModifierValue(float input, FormulaType formula)
 		{
 			switch (formula)
@@ -121,6 +108,31 @@ namespace SpaxUtils
 					return SpaxFormulas.DefaultLevelToPoints(input, 100f, scale, Round);
 				default:
 					return shift + input * scale;
+			}
+		}
+
+		public float GetInverseModifierValue(float output)
+		{
+			// 1. Handle Shift First
+			// The inverse of "Value + Shift" is "Value - Shift"
+			float input = output - shift;
+
+			switch (formula)
+			{
+				case FormulaType.Exp:
+					// We are inverting an Exponential formula.
+					// We use the InvExp math, but we MUST use the 'exp' constants that defined the curve.
+					return SpaxFormulas.InvExp(input, expConstant, expPower, Round);
+
+				case FormulaType.InvExp:
+					// We are inverting an Inverse-Exponential formula (turning it back into Exp).
+					// We use the Exp math, but we MUST use the 'invExp' constants that defined the curve.
+					return SpaxFormulas.Exp(input, invExpConstant, invExpPower, Round);
+
+				default:
+					// Strict error for all other types (Linear, Log, Curve, etc.)
+					SpaxDebug.Error($"Inverse modifier not supported for formula type: {formula}");
+					return 0f;
 			}
 		}
 	}

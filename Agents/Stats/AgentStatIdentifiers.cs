@@ -18,7 +18,8 @@
 		public const string BODY_EXPERIENCE = BODY_ATTRIBUTE + "Experience"; // Sum of all atribute experiences.
 		private const string BODY_EXP = BODY_ATTRIBUTE + "EXP/"; // Body experiences category.
 
-		public const string BODY_LEVEL = BODY_ATTRIBUTE + "Level"; // Sum of all attribute levels.
+		public const string BODY_LEVEL = BODY_ATTRIBUTE + "Level"; // Sum of all bodily attribute levels.
+		public const string BODY_RANK = BODY_ATTRIBUTE + "Rank"; // Average of all body attribute levels.
 		private const string BODY_LVL = BODY_ATTRIBUTE + "LVL/"; // Body levels category.
 
 		public const string BODY_DISTRIBUTION = BODY_ATTRIBUTE + "Distribution"; // Normalized body attribute distribution key.
@@ -56,7 +57,8 @@
 		public const string SOUL_EXPERIENCE = SOUL_ATTRIBUTE + "Experience"; // All soul attributes combined.
 		private const string SOUL_EXP = SOUL_ATTRIBUTE + "EXP/"; // 
 
-		public const string SOUL_LEVEL = SOUL_ATTRIBUTE + "Level"; // All soul attribute levels combined.
+		public const string SOUL_LEVEL = SOUL_ATTRIBUTE + "Level"; // Sum of all soul attribute levels.
+		public const string SOUL_RANK = SOUL_ATTRIBUTE + "Rank"; // Average of all soul attribute levels.
 		private const string SOUL_LVL = SOUL_ATTRIBUTE + "LVL/"; // 
 
 		public const string SOUL_DISTRIBUTION = SOUL_ATTRIBUTE + "Distribution"; // Normalized soul attribute distribution key.
@@ -164,9 +166,9 @@
 
 		// GENERAL
 		private const string SOUL_GENERAL = SOUL_STAT + "GENERAL/";
-		public const string SPIRIT = SOUL_GENERAL + "Spirit"; // Spendable soul experience points.
-		public const string VIRTUE = SOUL_GENERAL + "Virtue"; // Total amount of virtuous spirit gained.
-		public const string SIN = SOUL_GENERAL + "Sin"; // Total amount of sinful spirit gained.
+		public const string AETHER = SOUL_GENERAL + "Aether"; // Currency of the soul.
+		public const string VIRTUE = SOUL_GENERAL + "Virtue"; // Total amount of virtuous aether gained.
+		public const string SIN = SOUL_GENERAL + "Sin"; // Total amount of sinful aether gained.
 
 		// Fire
 		private const string SOUL_FIRE = SOUL_STAT + "FIRE/";
