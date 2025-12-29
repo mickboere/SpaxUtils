@@ -23,7 +23,8 @@ namespace SpaxUtils
 		[SerializeField] private float swingShakeMagnitude = 1f;
 
 		[Header("Charging")]
-		[SerializeField] private float chargePower = 1f;
+		[SerializeField] float chargeConversionRatio = 0.005f; // 100 Points drained = +0.5x Multiplier (50% boost)
+		[SerializeField] float maxChargeMultiplier = 3.0f;     // Hard cap at 3x charge (prevent absurd forces)
 		[SerializeField, Tooltip("How much extra crit chance rating per unit of extraCharge")]
 		private float chargeCritBonusFactor = 1f;
 
@@ -54,7 +55,7 @@ namespace SpaxUtils
 		private EntityStat powerStat;
 		private EntityStat offenceStat;
 		private EntityStat critChanceStat;
-		private EntityStat critPrecisionStat;
+		private EntityStat precisionStat;
 		private EntityStat chargeStat;
 		private EntityStat chargeSpeedStat;
 		private EntityStat performSpeedStat;
@@ -69,6 +70,7 @@ namespace SpaxUtils
 		private TimerClass inertiaTimer;
 		private TimedCurveModifier hitPauseMod;
 		private float totalCharge;
+		private float accumulatedChargePoints; // New: Tracks raw drain for precision
 		private float attackRange;
 		private ITargetable target;
 		private bool hasStorm;
@@ -118,8 +120,7 @@ namespace SpaxUtils
 			powerStat = Agent.Stats.GetStat(AgentStatIdentifiers.POWER);
 			offenceStat = Agent.Stats.GetStat(AgentStatIdentifiers.PIERCE);
 			critChanceStat = Agent.Stats.GetStat(AgentStatIdentifiers.CRIT_CHANCE);
-			// Precision is stored in hitData.CritMult and used as flat bonus on crit.
-			critPrecisionStat = Agent.Stats.GetStat(AgentStatIdentifiers.PRECISION);
+			precisionStat = Agent.Stats.GetStat(AgentStatIdentifiers.PRECISION);
 			chargeStat = Agent.Stats.GetStat(move.ChargeCost.Stat);
 			chargeSpeedStat = Agent.Stats.GetStat(move.ChargeSpeedMultiplierStat, false);
 			performSpeedStat = Agent.Stats.GetStat(move.PerformSpeedMultiplierStat, false);
@@ -137,7 +138,9 @@ namespace SpaxUtils
 
 			hitDetector = new CombatHitDetector(Agent, transformLookup, move, hitDetectionMask);
 			Performer.StartedPerformingEvent += OnStartedPerformingEvent;
+
 			totalCharge = 1f;
+			accumulatedChargePoints = 0f;
 
 			// Compute wield ratio and base factors once per behaviour instance.
 			float mass = limbMassStat;
@@ -192,19 +195,30 @@ namespace SpaxUtils
 
 			if (Performer.State == PerformanceState.Preparing && Performer.ChargeTime >= Move.MinCharge)
 			{
-				// Overcharging: Drain charge stat.
+				// 1. Calculate Drain Rate based on PRECISION (PhysicStat)
+				// Apply modifiers (Charge Speed Stat still relevant as a multiplier to precision if desired)
+				float actualDrain = precisionStat * delta * (chargeSpeedStat != null ? chargeSpeedStat.Value : 1f);
+
+				// 2. Try to drain the Static (PointStat)
+				// We use the 'chargeStat' reference (usually mapped to Static)
 				if (Agent.Stats.TryApplyStatCost(
-					Move.ChargeCost.Stat,
-					move.ChargeCost.Cost * delta * chargeSpeedStat,
-					true,
-					out float damage,
+					Move.ChargeCost.Stat, // Ensure this points to STATIC
+					actualDrain,          // Amount to drain this frame
+					true,                 // Continuous drain
+					out float damage,     // How much was actually taken (if pool is near empty)
 					out bool drained,
 					out float overdraw))
 				{
-					totalCharge += (damage - overdraw) * chargePower;
+					// 3. Store raw drain for Precision calc (Uncapped)
+					accumulatedChargePoints += (damage - overdraw);
+
+					// 4. Calculate Power Multiplier (Clamped)
+					float rawMultiplier = 1f + (accumulatedChargePoints * chargeConversionRatio);
+					totalCharge = Mathf.Min(rawMultiplier, maxChargeMultiplier);
+
 					if (drained)
 					{
-						// Charge stat was drained, exit charge and enter performance.
+						// Pool empty, force release
 						Performer.TryPerform();
 					}
 				}
@@ -378,6 +392,7 @@ namespace SpaxUtils
 			movementHandler.ForceRotation(null, Agent.Mind.Personality.E.OutQuad());
 
 			// CHARGING
+			// Use Clamped TotalCharge for Storm calculations to prevent infinite dashes
 			float extraCharge = Mathf.Max(0f, totalCharge - 1f);
 			float effectiveStormDistance = extraCharge * move.StormDistance;
 
@@ -463,14 +478,17 @@ namespace SpaxUtils
 					float phaseMult = GetPhaseInertiaMultiplier(phase);
 
 					float basePower = powerStat * move.Power * baseStrengthPowerFactor;
+
+					// Uses Clamped Total Charge (Limited Power)
 					float powerValue = basePower * totalCharge * phaseMult;
 
 					float offence = offenceStat * move.Offence;
 
-					// CritChance is a rating; Luck vs Crit handled in AgentHitHandler.
+					// CritChance uses Clamped Charge (diminishing returns)
 					float critChance = critChanceStat + Mathf.Max(0f, totalCharge - 1f) * chargeCritBonusFactor;
-					// Precision used as flat bonus on crit; passed via CritMult field.
-					float precisionBonus = critPrecisionStat;
+
+					// Precision uses UNCLAMPED accumulated charge (Massive Crit Damage potential)
+					float critBonus = precisionStat + accumulatedChargePoints;
 
 					HitData hitData = new HitData(
 						hittable,
@@ -483,7 +501,7 @@ namespace SpaxUtils
 						powerValue,
 						offence,
 						critChance,
-						precisionBonus
+						critBonus
 					);
 
 					ProcessHit(hittable, hitData);

@@ -85,12 +85,12 @@ namespace SpaxUtils
 			hitData.Data.SetValue(HitDataIdentifiers.CRIT_DAMAGE, critDamage);
 
 			// --- PIERCE DAMAGE ---
-			float sharpDamage = 0f;
+			float pierceDamage = 0f;
 			float penetration = 0f;
 			if (!neglect && hitData.Pierce > 0f)
 			{
-				sharpDamage = SpaxFormulas.CalculateDamage(hitData.Pierce, protectionStat, poiseStat);
-				penetration = Mathf.Clamp01(sharpDamage / hitData.Pierce);
+				pierceDamage = SpaxFormulas.CalculateDamage(hitData.Pierce, protectionStat, poiseStat);
+				penetration = Mathf.Clamp01(pierceDamage / hitData.Pierce);
 			}
 			hitData.Data.SetValue(HitDataIdentifiers.PENETRATION, penetration);
 
@@ -104,7 +104,7 @@ namespace SpaxUtils
 					0f;
 
 			// --- TOTAL DAMAGE ---
-			float totalDamage = critDamage + sharpDamage + bluntDamage;
+			float totalDamage = critDamage + pierceDamage + bluntDamage;
 			hitData.Data.SetValue(HitDataIdentifiers.DAMAGE, totalDamage);
 
 			// --- IMPACT & FORCE ---

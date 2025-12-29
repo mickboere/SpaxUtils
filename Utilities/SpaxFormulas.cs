@@ -18,10 +18,10 @@ namespace SpaxUtils
 		/// <param name="xScale">The x scale modifier.</param>
 		/// <param name="yScale">The value of y at <paramref name="xScale"/>.</param>
 		/// <param name="round">Whether to round the points to whole numbers.</param>
-		public static float DefaultLevelToPoints(float level, float xScale = 100f, float yScale = 1000f, bool round = false)
-		{
-			return Log(level, xScale / 9f, 10f, yScale, 0f, round);
-		}
+		//public static float DefaultLevelToPoints(float level, float xScale = 100f, float yScale = 1000f, bool round = false)
+		//{
+		//	return Log(level, xScale / 9f, 10f, yScale, 0f, round);
+		//}
 
 		/// <summary>
 		/// Standard damage formula taking an offence value and separate protection and defence values.
@@ -37,15 +37,22 @@ namespace SpaxUtils
 		/// </param>
 		public static float CalculateDamage(float offence, float protection, float defence, float exponence = 0.5f, bool round = false)
 		{
-			float safeDefence = Mathf.Max(1f, defence);
+			// Safety clamps to prevent negative math
+			float safeDefence = Mathf.Max(0f, defence);
 			float safeProtection = Mathf.Max(0f, protection);
+			float safeOffence = Mathf.Max(0f, offence);
 
-			// Linear half: Protection reduces offence directly.
-			float linear = Mathf.Max(0f, offence - safeProtection);
+			// 1. Linear Term: "The Armor Check"
+			// If Protection >= Offence, this is 0.
+			float linear = Mathf.Max(0f, safeOffence - safeProtection);
 
-			// Curved half: Poise resists offence nonlinearly (Protection does not apply here).
-			float expo = offence > 0f ? (offence * offence / safeDefence) : 0f;
+			// 2. Curved Term: "The Mitigation Check"
+			// Uses the system constant SCALE (100) as the pivot.
+			// Example: 100 Offence vs 100 Defence = 100 * (100/200) = 50 Damage.
+			float mitigationFactor = SCALE / (SCALE + safeDefence);
+			float expo = safeOffence * mitigationFactor;
 
+			// Blend based on slider
 			float value = Mathf.Lerp(linear, expo, exponence);
 			return round ? Mathf.Round(value) : value;
 		}

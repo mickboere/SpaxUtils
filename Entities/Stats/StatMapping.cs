@@ -105,7 +105,6 @@ namespace SpaxUtils
 					float y = (pointB.y - pointA.y) / (pointB.x - pointA.x);
 					return shift + pointA.y + (input - pointA.x) * y;
 				case FormulaType.Default_LevelToPoints:
-					return SpaxFormulas.DefaultLevelToPoints(input, 100f, scale, Round);
 				default:
 					return shift + input * scale;
 			}
