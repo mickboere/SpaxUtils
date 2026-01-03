@@ -75,26 +75,6 @@ namespace SpaxUtils
 		}
 
 		/// <inheritdoc/>
-		public bool TryApplyStatCost(string stat, float cost, bool clamp, out float damage, out bool drained, out float overdraw)
-		{
-			damage = 0f;
-			drained = false;
-			overdraw = 0f;
-			if (TryGetStat(stat, out EntityStat entityStat))
-			{
-				damage = entityStat.Damage(cost, clamp, out drained, out overdraw);
-				return true;
-			}
-			return false;
-		}
-
-		/// <inheritdoc/>
-		public bool TryApplyStatCost(string stat, float cost, bool clamp = false)
-		{
-			return TryApplyStatCost(stat, cost, clamp, out _, out _, out _);
-		}
-
-		/// <inheritdoc/>
 		public virtual bool TryGetStat(string identifier, out EntityStat stat)
 		{
 			stat = GetStat(identifier);

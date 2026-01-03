@@ -27,12 +27,14 @@ namespace SpaxUtils
 		[SerializeField] private SFXData glideSFX;
 		[SerializeField] private float glideFadeout = 0.2f;
 
+		private AgentStatHandler statHandler;
 		private CallbackService callbackService;
 		private IAgentMovementHandler movementHandler;
 		private AgentImpactHandler senseComponent;
 		private Pool<PooledAudioSource> audioPool;
 		private AgentTrailEffect agentTrailEffect;
 
+		private PointsStat pointStat;
 		private EntityStat massStat;
 		private EntityStat dashSpeedStat;
 		private EntityStat glideSpeedStat;
@@ -46,15 +48,17 @@ namespace SpaxUtils
 				!statHandler.PointStats.E.IsRecoveringFromZero;
 		}
 
-		public void InjectDependencies(CallbackService callbackService, IAgentMovementHandler movementHandler,
+		public void InjectDependencies(AgentStatHandler statHandler, CallbackService callbackService, IAgentMovementHandler movementHandler,
 			AgentImpactHandler senseComponent, Pool<PooledAudioSource> audioPool, AgentTrailEffect agentTrailEffect)
 		{
+			this.statHandler = statHandler;
 			this.callbackService = callbackService;
 			this.movementHandler = movementHandler;
 			this.senseComponent = senseComponent;
 			this.audioPool = audioPool;
 			this.agentTrailEffect = agentTrailEffect;
 
+			statHandler.TryGetPointStat(Move.ChargeCost.Stat, out pointStat);
 			massStat = Agent.Stats.GetStat(AgentStatIdentifiers.MASS);
 			dashSpeedStat = Agent.Stats.GetStat(AgentStatIdentifiers.DASH_SPEED);
 			glideSpeedStat = Agent.Stats.GetStat(AgentStatIdentifiers.GLIDE_SPEED);
@@ -88,8 +92,11 @@ namespace SpaxUtils
 			movementHandler.AutoUpdateMovement = false;
 
 			// Drain stat.
-			float cost = massStat * DashSpeed * Move.ChargeCost.Cost * 0.1f;
-			Agent.Stats.TryApplyStatCost(Move.ChargeCost.Stat, cost, false);
+			if (pointStat != null)
+			{
+				float cost = massStat * DashSpeed * Move.ChargeCost.Cost * 0.1f;
+				pointStat.Drain(cost);
+			}
 
 			// Report impact for senses / shaking.
 			if (Agent.Identification.HasAll(EntityLabels.PLAYER))
@@ -150,11 +157,12 @@ namespace SpaxUtils
 				SetDirection(movementHandler.InputSmooth);
 			}
 
-			if (State == PerformanceState.Preparing && Performer.ChargeTime > DashDuration)
+			if (State == PerformanceState.Preparing && Performer.ChargeTime > DashDuration && pointStat != null)
 			{
 				// Gliding, drain stat.
 				float cost = massStat * GlideSpeed * Move.ChargeCost.Cost * delta * 0.1f;
-				if (Agent.Stats.TryApplyStatCost(Move.ChargeCost.Stat, cost, false, out _, out bool drained, out _) && drained)
+				pointStat.Drain(cost, out bool drained);
+				if (drained)
 				{
 					// Exit dash.
 					Exit();

@@ -62,7 +62,6 @@ namespace SpaxUtils
 		private EntityStat performSpeedStat;
 		private EntityStat stormSpeedStat;
 		private EntityStat enduranceCostStat;
-		private EntityStat maliceStat; // New: Retaliatory Void Resource
 
 		private FloatFuncModifier speedMod;
 		private FloatOperationModifier swingPhaseSpeedMod;
@@ -127,10 +126,7 @@ namespace SpaxUtils
 			chargeSpeedStat = Agent.Stats.GetStat(move.ChargeSpeedMultiplierStat, false);
 			performSpeedStat = Agent.Stats.GetStat(move.PerformSpeedMultiplierStat, false);
 			stormSpeedStat = Agent.Stats.GetStat(AgentStatIdentifiers.STORM_SPEED, false);
-			enduranceCostStat = Agent.Stats.GetStat(AgentStatIdentifiers.ENDURANCE.SubStat(AgentStatIdentifiers.SUB_COST));
-
-			// Optional Stat: Only exists if the entity has the capability (PointStat)
-			maliceStat = Agent.Stats.GetStat(AgentStatIdentifiers.MALICE, true);
+			enduranceCostStat = Agent.Stats.GetStat(AgentStatIdentifiers.ENDURANCE.SubStat(AgentStatIdentifiers.SUB_DRAIN));
 
 			attackRange = this.move.Range +
 				Agent.Stats.GetStat(AgentStatIdentifiers.REACH) +
@@ -203,27 +199,20 @@ namespace SpaxUtils
 				// 1. Calculate Drain Rate based on PRECISION (PhysicStat)
 				float actualDrain = precisionStat * delta * (chargeSpeedStat != null ? chargeSpeedStat.Value : 1f);
 
-				// 2. Try to drain the Static (PointStat)
-				if (Agent.Stats.TryApplyStatCost(
-					Move.ChargeCost.Stat,
-					actualDrain,
-					true,
-					out float damage,
-					out bool drained,
-					out float overdraw))
+				// 2. Drain the Static (PointStat)
+				float damage = statHandler.PointStats.NE.Drain(actualDrain, out bool drained);
+
+				// 3. Store raw drain for Precision calc (Uncapped)
+				accumulatedChargePoints += damage;
+
+				// 4. Calculate Power Multiplier (Clamped)
+				float rawMultiplier = 1f + (accumulatedChargePoints * chargeConversionRatio);
+				totalCharge = Mathf.Min(rawMultiplier, maxChargeMultiplier);
+
+				if (drained)
 				{
-					// 3. Store raw drain for Precision calc (Uncapped)
-					accumulatedChargePoints += (damage - overdraw);
-
-					// 4. Calculate Power Multiplier (Clamped)
-					float rawMultiplier = 1f + (accumulatedChargePoints * chargeConversionRatio);
-					totalCharge = Mathf.Min(rawMultiplier, maxChargeMultiplier);
-
-					if (drained)
-					{
-						// Pool empty, force release
-						Performer.TryPerform();
-					}
+					// Pool empty, force release
+					Performer.TryPerform();
 				}
 			}
 
@@ -415,10 +404,7 @@ namespace SpaxUtils
 				inertiaTimer = new TimerClass(move.InertiaDelay, () => timescaleStat, callbackService);
 			}
 
-			Agent.Stats.TryApplyStatCost(
-				Move.PerformCost.Stat,
-				Move.PerformCost.Cost * (limbMassStat / strengthStat) * 100f,
-				true);
+			statHandler.PointStats.N.Drain(Move.PerformCost.Cost * (limbMassStat / strengthStat) * 100f);
 		}
 
 		private void OnSwing()
@@ -458,29 +444,18 @@ namespace SpaxUtils
 					float basePower = powerStat * move.Power * baseStrengthPowerFactor;
 					float powerValue = basePower * totalCharge * phaseMult;
 
-					// --- DEBUG INJECTION START ---
-					Agent.Stats.PrintSnapshot();
-					UnityEngine.Debug.Log($"[MELEE DEBUG] {Agent.ID} HIT CALCULATION:\n" +
-						$"Final Power Value: {powerValue}\n" +
-						$"1. Agent Power Stat (Actual value read): {powerStat.Value}\n" +
-						$"2. Move Power (Multiplier): {move.Power}\n" +
-						$"3. Strength Factor: {baseStrengthPowerFactor}\n" +
-						$"4. Charge: {totalCharge}\n" +
-						$"5. Phase: {phaseMult}");
-					// --- DEBUG INJECTION END ---
-
 					// --- MALICE LOGIC ---
 					float basePierce = pierceStat * move.Offence;
 					float maliceBonus = 0f;
 
-					if (maliceStat != null && basePierce > 0f)
+					if (basePierce > 0f)
 					{
 						// Attempt to drain Malice equal to the Pierce of the attack (The conduit capacity).
 						// Damage() returns the Cost (base * multiplier), handling overdraw if pool is low.
-						float cost = maliceStat.Damage(basePierce, true, out bool drained, out float overdraw);
+						float drained = statHandler.PointStats.NW.Drain(basePierce, true);
 
 						// Calculate coverage ratio. If we paid 100% of the cost, we get 100% bonus.
-						float coverage = cost > 0.0001f ? (cost - overdraw) / cost : 1f;
+						float coverage = drained / basePierce;
 
 						// The Malice added is equal to the BASE PIERCE * Coverage. 
 						// (Symmetrical to Grace: You get out what you put in, scaled by resource availability).

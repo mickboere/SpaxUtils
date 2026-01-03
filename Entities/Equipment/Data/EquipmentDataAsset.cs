@@ -20,6 +20,7 @@ namespace SpaxUtils
 
 		[Header("Equipment Data")]
 		[SerializeField] private GameObject equipedPrefab;
+		// ADD: Material overrides, mapping 1 material to another.
 		[SerializeField, Tooltip(TT_SLOT_TYPE), ConstDropdown(typeof(IEquipmentSlotTypeConstants))] private string slotType;
 		[SerializeField, Expandable] private List<BehaviourAsset> equipedBehaviour;
 		[SerializeField, Expandable] private List<StatMap> equipedStatMappings;

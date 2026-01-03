@@ -210,7 +210,8 @@
 		public const string SUB_FRAILTY = SUB_STAT + "Frailty"; // Vulnerability of the reserve.
 		public const string SUB_RECOVERY = SUB_STAT + "Recovery"; // Amount recovered per second.
 		public const string SUB_RECOVERY_DELAY = SUB_STAT + "Recovery_Delay"; // Time until recovery starts.
-		public const string SUB_COST = SUB_STAT + "Cost"; // Point cost multiplier.
+		public const string SUB_DRAIN = SUB_STAT + "Drain"; // Point cost multiplier.
+		public const string SUB_GAIN = SUB_STAT + "Gain"; // Point gain multiplier.
 
 		// Limbs
 		public const string SUB_RIGHT_HAND = SUB_STAT + "Right Hand";

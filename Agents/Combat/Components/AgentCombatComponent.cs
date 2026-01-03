@@ -117,7 +117,7 @@ namespace SpaxUtils
 
 			// Openness: the easier you can be staggered (low Endurance), the more "open" you are.
 			Openness = !InCombatMode || Stunned ? 1f
-				: (1f / StatHandler.PointStats.W.Cost).InvertClamped();
+				: (1f / StatHandler.PointStats.W.DrainMult).InvertClamped();
 
 			// Base reach: global REACH + best hand reach, as before.
 			BaseReach =
@@ -321,7 +321,7 @@ namespace SpaxUtils
 			}
 
 			float pool = Agent.Stats.GetStat(cost.Stat) ?? 0f;
-			float unitCost = cost.Cost * (Agent.Stats.GetStat(cost.Stat.SubStat(AgentStatIdentifiers.SUB_COST)) ?? 1f);
+			float unitCost = cost.Cost * (Agent.Stats.GetStat(cost.Stat.SubStat(AgentStatIdentifiers.SUB_DRAIN)) ?? 1f);
 
 			if (unitCost <= 0f) return 1f;
 			if (pool <= 0f) return 0f;

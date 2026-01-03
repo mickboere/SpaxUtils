@@ -20,6 +20,7 @@ namespace SpaxUtils
 		private AgentStatHandler agentStatHandler;
 		private IHittable hittable;
 
+		private PointsStat chargeStat;
 		private EntityStat defenceStat;
 		private EntityStat guardStat;
 
@@ -31,6 +32,7 @@ namespace SpaxUtils
 			this.agentStatHandler = agentStatHandler;
 			this.hittable = hittable;
 
+			agentStatHandler.TryGetPointStat(Move.ChargeCost.Stat, out chargeStat);
 			defenceStat = Agent.Stats.GetStat(AgentStatIdentifiers.POISE);
 			guardStat = Agent.Stats.GetStat(AgentStatIdentifiers.GUARD);
 		}
@@ -43,7 +45,7 @@ namespace SpaxUtils
 			defenceStat.AddModifier(this, defenceMod);
 
 			enduranceDamageMod = new FloatFuncModifier(ModMethod.Absolute, (damage) => damage * (InWindow ? 0f : (1f / (guardStat * Weight).Max(1f))));
-			agentStatHandler.PointStats.W.Cost.AddModifier(this, enduranceDamageMod);
+			agentStatHandler.PointStats.W.DrainMult.AddModifier(this, enduranceDamageMod);
 
 			hittable.Subscribe(this, OnHitEvent, 1000);
 		}
@@ -53,7 +55,7 @@ namespace SpaxUtils
 			base.Stop();
 
 			defenceStat.RemoveModifier(this);
-			agentStatHandler.PointStats.W.Cost.RemoveModifier(this);
+			agentStatHandler.PointStats.W.DrainMult.RemoveModifier(this);
 
 			defenceMod.Dispose();
 			enduranceDamageMod.Dispose();
@@ -65,10 +67,11 @@ namespace SpaxUtils
 		{
 			base.ExternalUpdate(delta);
 
-			if (Performer.State == PerformanceState.Preparing)
+			if (Performer.State == PerformanceState.Preparing && chargeStat != null)
 			{
 				// Drain charge stat.
-				if (Agent.Stats.TryApplyStatCost(Move.ChargeCost.Stat, Move.ChargeCost.Cost * delta, false, out _, out bool drained, out _) && Move.ChargeCost.Required && drained)
+				chargeStat.Drain(Move.ChargeCost.Cost * delta, out bool drained);
+				if (Move.ChargeCost.Required && drained)
 				{
 					Performer.TryPerform();
 				}

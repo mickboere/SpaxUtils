@@ -18,6 +18,7 @@ namespace SpaxUtils
 		[SerializeField, Range(0f, 1f), Tooltip("0 is at beginning of charge, 1 is at end of minimum charge.")] private float windowShift = 1f;
 
 		private AgentStatHandler agentStatHandler;
+		private PointsStat chargeStat;
 		private IHittable hittable;
 
 		private FloatFuncModifier enduranceDamageMod;
@@ -28,6 +29,8 @@ namespace SpaxUtils
 		{
 			this.agentStatHandler = agentStatHandler;
 			this.hittable = hittable;
+
+			agentStatHandler.TryGetPointStat(Move.ChargeCost.Stat, out chargeStat);
 		}
 
 		public override void Start()
@@ -35,7 +38,7 @@ namespace SpaxUtils
 			base.Start();
 
 			enduranceDamageMod = new FloatFuncModifier(ModMethod.Absolute, (damage) => damage * (InWindow ? 0f : 1f));
-			agentStatHandler.PointStats.W.Cost.AddModifier(this, enduranceDamageMod);
+			agentStatHandler.PointStats.W.DrainMult.AddModifier(this, enduranceDamageMod);
 
 			deflected = false;
 			deflectTime = 0f;
@@ -47,7 +50,7 @@ namespace SpaxUtils
 		{
 			base.Stop();
 
-			agentStatHandler.PointStats.W.Cost.RemoveModifier(this);
+			agentStatHandler.PointStats.W.DrainMult.RemoveModifier(this);
 			enduranceDamageMod.Dispose();
 			hittable.Unsubscribe(this);
 		}
@@ -59,9 +62,10 @@ namespace SpaxUtils
 			if (Performer.State == PerformanceState.Preparing)
 			{
 				// Drain charge stat.
-				if (Agent.Stats.TryApplyStatCost(Move.ChargeCost.Stat, Move.ChargeCost.Cost * delta, false, out _, out bool drained, out _) && drained)
+				if (chargeStat != null)
 				{
-					Performer.TryPerform();
+					chargeStat.Drain(Move.ChargeCost.Cost * delta, out bool drained);
+					if (drained) Performer.TryPerform();
 				}
 			}
 		}

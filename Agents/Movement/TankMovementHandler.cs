@@ -64,7 +64,7 @@ namespace SpaxUtils
 					if (processedInput.magnitude > 1.01f)
 					{
 						// Apply sprint cost (same as base).
-						statHandler.PointStats.E.Current.Damage(
+						statHandler.PointStats.E.Drain(
 							sprintCost * rigidbodyWrapper.Mass *
 							(rigidbodyWrapper.Speed / (FullSpeed * 1.5f * moveSpeedStat)) *
 							rigidbodyWrapper.Control * delta);

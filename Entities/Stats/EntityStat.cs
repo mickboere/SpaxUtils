@@ -40,7 +40,8 @@ namespace SpaxUtils
 		private float? maxValue;
 		private DecimalMethod decimals;
 
-		private EntityStat damageMultiplier;
+		private EntityStat drainMultiplier;
+		private EntityStat gainMultiplier;
 
 		public EntityStat(IEntity entity, RuntimeDataEntry data,
 			Dictionary<object, IModifier<float>> modifiers = null,
@@ -67,41 +68,6 @@ namespace SpaxUtils
 			Data.ValueChangedEvent -= OnDataValueChanged;
 			base.Dispose();
 		}
-
-		#region Damage
-
-		public float Damage(float damage, bool clamp = true, bool applyMultiplier = true)
-		{
-			CalculateDamage(ref damage, applyMultiplier);
-			BaseValue = clamp ? Mathf.Max(0f, BaseValue - damage) : BaseValue - damage;
-			return damage;
-		}
-
-		public float Damage(float damage, bool clamp, out bool drained, bool applyMultiplier = true)
-		{
-			CalculateDamage(ref damage, applyMultiplier);
-			drained = damage > BaseValue;
-			return Damage(damage, clamp, false);
-		}
-
-		public float Damage(float damage, bool clamp, out bool drained, out float overdraw, bool applyMultiplier = true)
-		{
-			CalculateDamage(ref damage, applyMultiplier);
-			overdraw = Mathf.Abs(Mathf.Min(0, BaseValue - damage));
-			drained = overdraw > 0;
-			return Damage(damage, clamp, false);
-		}
-
-		private void CalculateDamage(ref float damage, bool applyMultiplier)
-		{
-			if (applyMultiplier)
-			{
-				damageMultiplier = damageMultiplier ?? entity?.Stats.GetStat(Identifier.SubStat(AgentStatIdentifiers.SUB_COST));
-				damage *= damageMultiplier ?? 1f;
-			}
-		}
-
-		#endregion Damage
 
 		private float ClampValue(float value)
 		{

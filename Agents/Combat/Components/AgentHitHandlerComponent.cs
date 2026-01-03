@@ -26,10 +26,6 @@ namespace SpaxUtils
 		private EntityStat protectionStat;  // Maps to 'protection' in the formula
 		private EntityStat luckStat;
 
-		// New Stats
-		private EntityStat graceStat;       // Ablative Holy Shield (PointStat)
-		private EntityStat maliceStat;      // Retaliatory Void (PointStat)
-
 		private TimedCurveModifier hitPauseMod;
 
 		public void InjectDependencies(
@@ -56,9 +52,6 @@ namespace SpaxUtils
 			poiseStat = agent.Stats.GetStat(AgentStatIdentifiers.POISE, true);
 			protectionStat = agent.Stats.GetStat(AgentStatIdentifiers.PROTECTION, true);
 			luckStat = agent.Stats.GetStat(AgentStatIdentifiers.LUCK, true);
-
-			graceStat = agent.Stats.GetStat(AgentStatIdentifiers.GRACE, true);
-			maliceStat = agent.Stats.GetStat(AgentStatIdentifiers.MALICE, true);
 
 			hittable.Subscribe(this, OnHitEvent, 100);
 		}
@@ -123,13 +116,13 @@ namespace SpaxUtils
 
 			// --- 5. GRACE INTERVENTION ---
 			// Applied AFTER physics calculation. It absorbs damage, it does not act as armor.
-			if (graceStat != null && damageToTake > 0f)
+			if (damageToTake > 0f)
 			{
 				// Drain Grace
-				float cost = graceStat.Damage(damageToTake, true, out bool drained, out float overdraw);
+				float drained = statHandler.PointStats.SE.Drain(damageToTake);
 
-				// Reduce final HP damage by amount successfully drained from Grace
-				damageToTake -= (cost - overdraw);
+				// Reduce final damage by amount successfully drained from Grace
+				damageToTake -= drained;
 			}
 
 			hitData.Data.SetValue(HitDataIdentifiers.DAMAGE, damageToTake);
@@ -140,14 +133,13 @@ namespace SpaxUtils
 
 			// --- ENDURANCE DAMAGE ---
 			float endure = neglect ? 0f : damageToTake + force;
-			float enduranceDamage = statHandler.PointStats.W.Current.Damage(
+			float enduranceDamage = statHandler.PointStats.W.Drain(
 				endure,
-				true,
 				out bool stunned,
 				out float enduranceOverdraw);
 			hitData.Data.SetValue(HitDataIdentifiers.STUNNED, stunned);
 
-			enduranceOverdraw *= endure / enduranceDamage.Max(1f);
+			enduranceOverdraw *= endure / (enduranceDamage + enduranceOverdraw).Max(1f);
 			float endured = endure > 0f ? (endure - enduranceOverdraw) / endure : 1f;
 			hitData.Data.SetValue(HitDataIdentifiers.ENDURED, endured);
 
@@ -171,17 +163,16 @@ namespace SpaxUtils
 			// --- HP DAMAGE & MALICE ---
 			if (!Invulnerable)
 			{
-				float damageDealt = statHandler.PointStats.SW.Current.Damage(damageToTake, true, out bool dead);
+				float damageDealt = statHandler.PointStats.SW.Drain(damageToTake, out bool dead, out _);
 				hitData.Data.SetValue(HitDataIdentifiers.DAMAGE_DEALT, damageDealt);
 
 				// --- MALICE BUILDUP ---
-				if (maliceStat != null &&
-					damageDealt > 0f &&
+				if (damageDealt > 0f &&
 					hitData.Hitter != null &&
 					hitData.Hitter is IAgent)
 				{
 					// Only builds if HP was actually lost (Grace prevents Malice gain)
-					maliceStat.BaseValue += damageDealt;
+					statHandler.PointStats.NW.Gain(damageDealt);
 				}
 
 				if (dead)
