@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Serialization;
+using System.Linq; // Added for Sum() operations
 
 namespace SpaxUtils
 {
@@ -62,19 +63,8 @@ namespace SpaxUtils
 				agent.Stats.TryGetStat(AgentStatIdentifiers.BODY_RANK, out EntityStat bodyRank) &&
 				bodyRank.BaseValue > 0f)
 			{
-				// 1. Capture Input (e.g. 10)
-				float rankInput = bodyRank.BaseValue;
-
-				// 2. Distribute (10 * 8 = 80 levels)
-				ApplyDistribution(rankInput * 8f, bodyDistribution, BodyExperience, BodyLevels, bodyAttributeMap);
-
-				// 3. HANDOVER: Reset Base to 0.
-				// Now the stat is purely driven by modifiers (attributes).
-				// If we didn't do this, Rank would be 10 (Base) + 10 (derived) = 20.
+				ApplyBudgetDistribution(bodyRank.BaseValue, bodyDistribution, BodyExperience, BodyLevels, bodyAttributeMap);
 				bodyRank.BaseValue = 0f;
-
-				// Optional: If you want to force an immediate update to ensure UI sees the new derived value this frame:
-				// bodyRank.GetValue(); 
 			}
 
 			// --- SOUL INITIALIZATION ---
@@ -82,10 +72,7 @@ namespace SpaxUtils
 				agent.Stats.TryGetStat(AgentStatIdentifiers.SOUL_RANK, out EntityStat soulRank) &&
 				soulRank.BaseValue > 0f)
 			{
-				float rankInput = soulRank.BaseValue;
-				ApplyDistribution(rankInput * 8f, soulDistribution, SoulExperience, SoulLevels, soulAttributeMap);
-
-				// Handover
+				ApplyBudgetDistribution(soulRank.BaseValue, soulDistribution, SoulExperience, SoulLevels, soulAttributeMap);
 				soulRank.BaseValue = 0f;
 			}
 
@@ -100,29 +87,47 @@ namespace SpaxUtils
 			}
 		}
 
-		private void ApplyDistribution(float level, Vector8 distribution, StatOctad experience, StatOctad levels, StatMap map)
+		/// <summary>
+		/// Calculates the total EXP budget for the given Rank, then distributes it according to weights.
+		/// This prevents min-maxing from creating astronomically high-level attributes compared to balanced builds.
+		/// </summary>
+		private void ApplyBudgetDistribution(float rank, Vector8 distribution, StatOctad experience, StatOctad levels, StatMap map)
 		{
-			Vector8 targetLevels = distribution.Normalize() * level;
+			// 1. Calculate Total Budget
+			// We sum the XP required for EACH stat to reach 'Rank'.
+			// This accounts for different curves per attribute if they exist, or if the "Average Rank" implies an average EXP cost.
+			float totalExpBudget = 0f;
 
 			for (int i = 0; i < 8; i++)
 			{
 				string expID = experience[i].Identifier;
 				string lvlID = levels[i].Identifier;
 
-				// 1. LOOKUP
 				if (map.TryGetMapping(expID, lvlID, out StatMapping mapping))
 				{
-					// 2. CALCULATE INVERSE
-					float targetLvl = (targetLevels[i] - 1f).Round().Max(0f);
-					float requiredExp = mapping.GetInverseModifierValue(targetLvl);
-
-					// 3. APPLY
-					experience[i].BaseValue = experience[i].BaseValue.Max(requiredExp);
+					// Convert Rank (Level) -> Required EXP for this specific slot
+					totalExpBudget += mapping.GetInverseModifierValue(rank);
 				}
 				else
 				{
 					SpaxDebug.Warning($"MISSING MAPPING", $"Could not find Leveling mapping for {expID} -> {lvlID}", context: this);
 				}
+			}
+
+			// 2. Distribute Budget
+			// Normalize distribution weights so they sum to 1.
+			// NOTE: This now uses ratio-correct allocation so that the resulting Levels preserve the same ratios as the input distribution,
+			// while keeping the total budget the same and only normalizing if sum > 1 (sum <= 1 acts as "coverage").
+			Vector8 allocated = SpaxFormulas.AllocatePointsForLevelRatios(distribution, totalExpBudget);
+
+			for (int i = 0; i < 8; i++)
+			{
+				float allocatedExp = allocated[i];
+
+				// Set the Base EXP. The Stat System will automatically recalculate the Level
+				// based on the mapping when the stat is next accessed/updated.
+				// We use .Max() to ensure we don't accidentally lower EXP if it was already set elsewhere (unlikely during Init, but safe).
+				experience[i].BaseValue = experience[i].BaseValue.Max(allocatedExp);
 			}
 		}
 

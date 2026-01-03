@@ -21,9 +21,11 @@ namespace SpaxUtils
 
 		[SerializeField] private FormulaType formula;
 
+		[SerializeField, Conditional(nameof(formula), 1)] private float expPreScale = 1f;
 		[SerializeField, Conditional(nameof(formula), 1)] private float expConstant = 0.1f;
 		[SerializeField, Conditional(nameof(formula), 1)] private float expPower = 2f;
 
+		[SerializeField, Conditional(nameof(formula), 2)] private float invExpPreScale = 1f;
 		[SerializeField, Conditional(nameof(formula), 2)] private float invExpConstant = 0.1f;
 		[SerializeField, Conditional(nameof(formula), 2)] private float invExpPower = 2f;
 
@@ -56,8 +58,8 @@ namespace SpaxUtils
 				mappings[i] = new StatMapping(
 					fromStat, sourceBase, toStat, toSubStats, subStat,
 					formula,
-					expConstant, expPower,
-					invExpConstant, invExpPower,
+					expPreScale, expConstant, expPower, // Updated
+					invExpPreScale, invExpConstant, invExpPower, // Updated
 					logConstant, logPower, logShift,
 					curve,
 					pointA, pointB,

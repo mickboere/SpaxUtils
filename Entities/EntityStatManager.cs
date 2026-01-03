@@ -100,5 +100,15 @@ namespace SpaxUtils
 			stat = GetStat(identifier);
 			return stat != null;
 		}
+
+		public virtual void PrintSnapshot()
+		{
+			string snapshot = $"\n";
+			foreach (EntityStat stat in Collection.Stats)
+			{
+				snapshot += $"\t- Stat '{stat.Identifier}': Value = {stat.GetValue()} (BaseValue = {stat.BaseValue})\n";
+			}
+			SpaxDebug.Log($"StatSnapshot for Entity '{entity.Identification.TagFull()}':", snapshot);
+		}
 	}
 }

@@ -25,6 +25,23 @@ namespace SpaxUtils
 		bool Unique { get; }
 
 		/// <summary>
+		/// The rarity of this item.
+		/// -1 = Undefined, 0 = Common, 1 = Uncommon, 2 = Rare, 3 = Legendary, 4 = Mythic.
+		/// If undefined, will be interpreted from Quality.
+		/// </summary>
+		ItemRarity Rarity { get; }
+
+		/// <summary>
+		/// The rank (meaning stat budget) of this item.
+		/// </summary>
+		float Rank { get; }
+
+		/// <summary>
+		/// The quality (meaning condition) of this item.
+		/// </summary>
+		float Quality { get; }
+
+		/// <summary>
 		/// The base value of this item.
 		/// </summary>
 		int Value { get; }

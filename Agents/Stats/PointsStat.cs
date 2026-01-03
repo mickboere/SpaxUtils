@@ -1,5 +1,6 @@
 ﻿using System;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace SpaxUtils
 {
@@ -10,7 +11,7 @@ namespace SpaxUtils
 	public class PointsStat
 	{
 		#region Tooltips
-		private const string TT_hasMax = "Whether this stat has an associated maximum value stat. If false, the max will be the same as the current value.";
+		private const string TT_defaultIsFull = "When true, a full recovery of the agent will ensure the stat is also fully recovered.";
 		private const string TT_hasRecovery = "Whether this stat automatically recovers points over time.";
 		private const string TT_isRecoverable = "Whether this stat has a diminishable recoverable amount separate from its max amount.";
 		private const string TT_overdraw = "The amount taxed from the recoverable amount when the stat is overdrawn (below 0). Default: 1.";
@@ -20,14 +21,14 @@ namespace SpaxUtils
 		public EntityStat Current { get; private set; }
 		public EntityStat Max { get; private set; }
 		public EntityStat Cost { get; private set; }
-		public EntityStat Recoverable { get; private set; }
+		public EntityStat Reserve { get; private set; }
 		public EntityStat Recovery { get; private set; }
 		public EntityStat RecoveryDelay { get; private set; }
 		public EntityStat Frailty { get; private set; }
 
-		public bool HasMax => hasMax;
-		public bool HasRecovery => hasMax && hasRecovery;
-		public bool IsRecoverable => hasMax && isRecoverable;
+		public bool DefaultIsFull => defaultIsFull;
+		public bool HasRecovery => hasRecovery;
+		public bool HasReserve => hasReserve;
 
 		/// <summary>
 		/// How much the curent points make up of the max points.
@@ -35,14 +36,14 @@ namespace SpaxUtils
 		public float PercentageMax => Current / Max;
 
 		/// <summary>
-		/// How much the current points make up of the recoverable points.
+		/// How much the current points make up of the recoverable points (if no reserve, max).
 		/// </summary>
-		public float PercentageRecoverable => IsRecoverable ? Current / Recoverable : PercentageMax;
+		public float PercentageRecoverable => HasReserve ? Current / Reserve : PercentageMax;
 
 		/// <summary>
 		/// How much the recoverable points make up of the max points.
 		/// </summary>
-		public float RecoverablePercentage => IsRecoverable ? Recoverable / Max : 1f;
+		public float ReservePercentage => HasReserve ? Reserve / Max : 1f;
 
 		/// <summary>
 		/// Whether the stat points are currently recovering.
@@ -55,10 +56,10 @@ namespace SpaxUtils
 		public bool IsRecoveringFromZero => wasDrained && (Current.BaseValue.Approx(0f) || IsRecovering);
 
 		[SerializeField, ConstDropdown(typeof(IStatIdentifiers), includeEmpty: true)] private string stat;
-		[SerializeField, Tooltip(TT_hasMax)] private bool hasMax = true;
-		[SerializeField, Conditional(nameof(hasMax), hide: true), Tooltip(TT_hasRecovery)] private bool hasRecovery;
-		[SerializeField, Conditional(nameof(hasMax), hide: true), Tooltip(TT_isRecoverable)] private bool isRecoverable;
-		[SerializeField, Conditional(nameof(isRecoverable), hide: true), Tooltip(TT_overdraw)] private float overdraw = 1f;
+		[SerializeField, Tooltip(TT_defaultIsFull)] private bool defaultIsFull = true;
+		[SerializeField, Tooltip(TT_hasRecovery)] private bool hasRecovery;
+		[SerializeField, Tooltip(TT_isRecoverable), FormerlySerializedAs("isRecoverable")] private bool hasReserve;
+		[SerializeField, Conditional(nameof(hasReserve), hide: true), Tooltip(TT_overdraw)] private float overdraw = 1f;
 
 		private bool initialized = false;
 		private EntityStat timescale;
@@ -80,21 +81,18 @@ namespace SpaxUtils
 
 			Current = entity.Stats.GetStat(stat, true);
 
-			if (HasMax)
-			{
-				lastCurrent = Current;
-				Current.ValueChangedEvent += OnCurrentChangedEvent;
+			lastCurrent = Current;
+			Current.ValueChangedEvent += OnCurrentChangedEvent;
 
-				Max = entity.Stats.GetStat(stat.SubStat(AgentStatIdentifiers.SUB_MAX), true);
-				Max.ValueChangedEvent += OnMaxChangedEvent;
-			}
+			Max = entity.Stats.GetStat(stat.SubStat(AgentStatIdentifiers.SUB_MAX), true);
+			Max.ValueChangedEvent += OnMaxChangedEvent;
 
 			Cost = entity.Stats.GetStat(stat.SubStat(AgentStatIdentifiers.SUB_COST), true, 1f);
 
-			if (IsRecoverable)
+			if (HasReserve)
 			{
-				Recoverable = entity.Stats.GetStat(stat.SubStat(AgentStatIdentifiers.SUB_RESERVE), true);
-				Recoverable.ValueChangedEvent += OnRecoverableChangedEvent;
+				Reserve = entity.Stats.GetStat(stat.SubStat(AgentStatIdentifiers.SUB_RESERVE), true);
+				Reserve.ValueChangedEvent += OnRecoverableChangedEvent;
 				Frailty = entity.Stats.GetStat(stat.SubStat(AgentStatIdentifiers.SUB_FRAILTY));
 			}
 			if (HasRecovery)
@@ -103,13 +101,13 @@ namespace SpaxUtils
 				RecoveryDelay = entity.Stats.GetStat(stat.SubStat(AgentStatIdentifiers.SUB_RECOVERY_DELAY), true);
 			}
 
-			if (HasMax && Current.BaseValue > Max)
+			if (Current.BaseValue > Max)
 			{
 				// Health points have been manually supplied through data, accomodate for it.
 				Max.BaseValue = Current.BaseValue - Max; // Account for Max modifiers.
-				if (isRecoverable)
+				if (hasReserve)
 				{
-					Recoverable.BaseValue = Max;
+					Reserve.BaseValue = Max;
 				}
 			}
 
@@ -125,10 +123,10 @@ namespace SpaxUtils
 
 			if (HasRecovery && (recoveryTimer == null || recoveryTimer.Expired))
 			{
-				if (IsRecoverable)
+				if (HasReserve)
 				{
 					// Recover Current towards Recoverable.
-					Current.BaseValue = Mathf.Min(Recoverable, Current.BaseValue + Recovery * delta * timescale);
+					Current.BaseValue = Mathf.Min(Reserve, Current.BaseValue + Recovery * delta * timescale);
 				}
 				else
 				{
@@ -143,7 +141,7 @@ namespace SpaxUtils
 		/// </summary>
 		public void Recover()
 		{
-			if (!initialized || !HasMax)
+			if (!initialized)
 			{
 				return;
 			}
@@ -177,12 +175,12 @@ namespace SpaxUtils
 					wasDrained = true;
 				}
 
-				if (IsRecoverable)
+				if (HasReserve)
 				{
 					if (Frailty != null)
 					{
 						// Subtract frailty damage from recoverable.
-						Recoverable.BaseValue -= lastDamage * Frailty;
+						Reserve.BaseValue -= lastDamage * Frailty;
 					}
 
 					if (current <= 0)
@@ -190,11 +188,11 @@ namespace SpaxUtils
 						// Substract overdraw damage from recoverable.
 						if (lastCurrent < 0)
 						{
-							Recoverable.BaseValue -= lastDamage * overdraw;
+							Reserve.BaseValue -= lastDamage * overdraw;
 						}
 						else
 						{
-							Recoverable.BaseValue -= Mathf.Abs(current) * overdraw;
+							Reserve.BaseValue -= Mathf.Abs(current) * overdraw;
 						}
 					}
 				}
@@ -205,10 +203,10 @@ namespace SpaxUtils
 					recoveryTimer = recoveryTimer?.Reset(duration) ?? new TimerClass(duration, () => timescale, true);
 				}
 			}
-			else if (IsRecoverable)
+			else if (HasReserve)
 			{
 				// Current has healed, Recoverable cannot be smaller than Current.
-				Recoverable.BaseValue = Mathf.Max(Recoverable, current);
+				Reserve.BaseValue = Mathf.Max(Reserve, current);
 			}
 
 			lastCurrent = current;
@@ -219,17 +217,17 @@ namespace SpaxUtils
 			// Current cannot exceed Max.
 			Current.BaseValue = Mathf.Min(Current, Max);
 
-			if (IsRecoverable)
+			if (HasReserve)
 			{
 				// Recoverable cannot exceed Max.
-				Recoverable.BaseValue = Mathf.Min(Recoverable, Max);
+				Reserve.BaseValue = Mathf.Min(Reserve, Max);
 			}
 		}
 
 		private void OnRecoverableChangedEvent()
 		{
 			// Recoverable cannot exceed Max.
-			Recoverable.BaseValue = Mathf.Min(Recoverable, Max);
+			Reserve.BaseValue = Mathf.Min(Reserve, Max);
 		}
 
 		public static implicit operator float(PointsStat pointsStat)

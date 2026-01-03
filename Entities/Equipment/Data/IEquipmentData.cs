@@ -32,5 +32,10 @@ namespace SpaxUtils
 		/// <see cref="StatMap"/>s which map <see cref="IItemData.FloatStats"/> to the entity upon equiping.
 		/// </summary>
 		IReadOnlyList<StatMap> EquipedStatMappings { get; }
+
+		/// <summary>
+		/// The normal distribution of this equipment's physics effects.
+		/// </summary>
+		Vector8 PhysicsDistribution { get; }
 	}
 }

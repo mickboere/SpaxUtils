@@ -12,17 +12,18 @@ namespace SpaxUtils
 		public IReadOnlyList<BehaviourAsset> EquipedBehaviour => equipedBehaviour;
 		public IReadOnlyList<StatMap> EquipedStatMappings => equipedStatMappings;
 
+		public Vector8 PhysicsDistribution => physicsDistribution.Vector8;
+
 		private const string TT_SLOT_TYPE =
 			"The type of slot this equipment must be equiped in." +
 			"\nThe slot type decides the location and parenting for the \"equipedPrefab\".";
-		private const string TT_COVER =
-			"Defines which physical locations this equipment covers when equiped." +
-			"\nUsed to avoid visual overlap by unequiping conflicting items.";
 
 		[Header("Equipment Data")]
 		[SerializeField] private GameObject equipedPrefab;
 		[SerializeField, Tooltip(TT_SLOT_TYPE), ConstDropdown(typeof(IEquipmentSlotTypeConstants))] private string slotType;
 		[SerializeField, Expandable] private List<BehaviourAsset> equipedBehaviour;
 		[SerializeField, Expandable] private List<StatMap> equipedStatMappings;
+		[Header("Physics")]
+		[SerializeField] private RangedOctad physicsDistribution;
 	}
 }

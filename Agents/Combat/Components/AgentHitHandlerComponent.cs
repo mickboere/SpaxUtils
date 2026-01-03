@@ -22,9 +22,13 @@ namespace SpaxUtils
 		private AgentStatHandler statHandler;
 
 		private EntityStat timescaleStat;
-		private EntityStat poiseStat;
-		private EntityStat protectionStat;
+		private EntityStat poiseStat;       // Maps to 'defence' in the formula
+		private EntityStat protectionStat;  // Maps to 'protection' in the formula
 		private EntityStat luckStat;
+
+		// New Stats
+		private EntityStat graceStat;       // Ablative Holy Shield (PointStat)
+		private EntityStat maliceStat;      // Retaliatory Void (PointStat)
 
 		private TimedCurveModifier hitPauseMod;
 
@@ -49,9 +53,12 @@ namespace SpaxUtils
 		protected void OnEnable()
 		{
 			timescaleStat = agent.Stats.GetStat(EntityStatIdentifiers.TIMESCALE, true);
-			poiseStat = agent.Stats.GetStat(AgentStatIdentifiers.POISE, true);          // curved defence
-			protectionStat = agent.Stats.GetStat(AgentStatIdentifiers.PROTECTION, true); // linear protection
+			poiseStat = agent.Stats.GetStat(AgentStatIdentifiers.POISE, true);
+			protectionStat = agent.Stats.GetStat(AgentStatIdentifiers.PROTECTION, true);
 			luckStat = agent.Stats.GetStat(AgentStatIdentifiers.LUCK, true);
+
+			graceStat = agent.Stats.GetStat(AgentStatIdentifiers.GRACE, true);
+			maliceStat = agent.Stats.GetStat(AgentStatIdentifiers.MALICE, true);
 
 			hittable.Subscribe(this, OnHitEvent, 100);
 		}
@@ -61,9 +68,6 @@ namespace SpaxUtils
 			hittable.Unsubscribe(this);
 		}
 
-		/// <summary>
-		/// Invoked when this agent has been hit by an attack.
-		/// </summary>
 		private void OnHitEvent(HitData hitData)
 		{
 			bool blocked = hitData.Data.GetValue<bool>(HitDataIdentifiers.BLOCKED);
@@ -71,51 +75,71 @@ namespace SpaxUtils
 			bool deflected = hitData.Data.GetValue<bool>(HitDataIdentifiers.DEFLECTED);
 			bool neglect = blocked || parried || deflected;
 
-			// --- CRIT DAMAGE ---
+			float currentProtection = protectionStat;
+			float currentDefence = poiseStat;
+
+			// --- 1. CRIT LAYER ---
 			float effectiveCritChance = Mathf.Clamp01(hitData.CritChance / Mathf.Max(0.001f, 1f + luckStat));
 			bool isCrit = !neglect &&
 				hitData.CritBonus > 0f &&
 				hitData.CritChance > 0f &&
 				Random.value < effectiveCritChance;
-			float critDamage =
-				!neglect && isCrit ?
-					SpaxFormulas.CalculateDamage(hitData.CritBonus, protectionStat, poiseStat) :
-					0f;
+
+			float critDamage = isCrit
+				? SpaxFormulas.CalculateDamage(hitData.CritBonus, currentProtection, currentDefence)
+				: 0f;
+
 			hitData.Data.SetValue(HitDataIdentifiers.CRIT, isCrit);
 			hitData.Data.SetValue(HitDataIdentifiers.CRIT_DAMAGE, critDamage);
 
-			// --- PIERCE DAMAGE ---
+			// --- 2. PIERCE LAYER ---
 			float pierceDamage = 0f;
 			float penetration = 0f;
+
 			if (!neglect && hitData.Pierce > 0f)
 			{
-				pierceDamage = SpaxFormulas.CalculateDamage(hitData.Pierce, protectionStat, poiseStat);
-				penetration = Mathf.Clamp01(pierceDamage / hitData.Pierce);
+				pierceDamage = SpaxFormulas.CalculateDamage(hitData.Pierce, currentProtection, currentDefence);
+				// Calculate penetration purely based on physics results
+				penetration = Mathf.Clamp01(Mathf.Max(0f, pierceDamage) / hitData.Pierce);
 			}
 			hitData.Data.SetValue(HitDataIdentifiers.PENETRATION, penetration);
 
-			// --- BLUNT DAMAGE ---
+			// --- 3. BLUNT LAYER ---
 			float powerRatio = (hitData.Power / (hitData.Power + hitData.Pierce + 0.001f)).Clamp01();
 			float impact = (1f - penetration * (1f - powerRatio)).Clamp01();
 			hitData.Data.SetValue(HitDataIdentifiers.IMPACT, impact);
-			float bluntDamage =
-				!neglect && hitData.Power > 0f && impact > 0f ?
-					SpaxFormulas.CalculateDamage(hitData.Power * impact, protectionStat, poiseStat) :
-					0f;
 
-			// --- TOTAL DAMAGE ---
-			float totalDamage = critDamage + pierceDamage + bluntDamage;
-			hitData.Data.SetValue(HitDataIdentifiers.DAMAGE, totalDamage);
+			float bluntDamage = 0f;
+			float effectiveBluntInput = hitData.Power * impact;
+
+			if (!neglect && effectiveBluntInput > 0f)
+			{
+				bluntDamage = SpaxFormulas.CalculateDamage(effectiveBluntInput, currentProtection, currentDefence);
+			}
+
+			// --- 4. TOTAL PHYSICS DAMAGE ---
+			float rawTotalDamage = critDamage + pierceDamage + bluntDamage;
+			float damageToTake = Mathf.Max(0f, rawTotalDamage); // Floor at 0 before Grace
+
+			// --- 5. GRACE INTERVENTION ---
+			// Applied AFTER physics calculation. It absorbs damage, it does not act as armor.
+			if (graceStat != null && damageToTake > 0f)
+			{
+				// Drain Grace
+				float cost = graceStat.Damage(damageToTake, true, out bool drained, out float overdraw);
+
+				// Reduce final HP damage by amount successfully drained from Grace
+				damageToTake -= (cost - overdraw);
+			}
+
+			hitData.Data.SetValue(HitDataIdentifiers.DAMAGE, damageToTake);
 
 			// --- IMPACT & FORCE ---
-
-			// Physical force magnitude from the hitter.
 			float force = hitData.Force * impact;
 			hitData.Data.SetValue(HitDataIdentifiers.FORCE, force);
 
 			// --- ENDURANCE DAMAGE ---
-			// Endurance sees both sharp damage and force.
-			float endure = neglect ? 0f : totalDamage + force;
+			float endure = neglect ? 0f : damageToTake + force;
 			float enduranceDamage = statHandler.PointStats.W.Current.Damage(
 				endure,
 				true,
@@ -123,7 +147,6 @@ namespace SpaxUtils
 				out float enduranceOverdraw);
 			hitData.Data.SetValue(HitDataIdentifiers.STUNNED, stunned);
 
-			// Account for cost multipliers: how much of the intended input was actually endured.
 			enduranceOverdraw *= endure / enduranceDamage.Max(1f);
 			float endured = endure > 0f ? (endure - enduranceOverdraw) / endure : 1f;
 			hitData.Data.SetValue(HitDataIdentifiers.ENDURED, endured);
@@ -131,50 +154,45 @@ namespace SpaxUtils
 			// --- STUN / IMPACT APPLICATION ---
 			if (stunned)
 			{
-				// Cancel all performances.
 				agent.Actor.TryCancel(true);
-
-				// Prevent same-frame dodge sliding during stun.
 				rigidbodyWrapper.ResetVelocity();
-
-				// Transfer force, reduced by what was endured.
 				rigidbodyWrapper.Push(hitData.Direction * force * endured.Invert(), 1f);
-
-				// Apply stun.
 				stunHandler.EnterStun(hitData);
 			}
 			else if (neglect)
 			{
-				// Share impact for block/parry/deflect.
 				rigidbodyWrapper.Push(hitData.Direction * force, 1f);
 			}
 
-			// Transfer half inertia, scaled by what was not endured.
 			rigidbodyWrapper.Push(
 				hitData.Inertia * (endured.Invert() * 0.5f),
 				hitData.HitterMass);
 
-			// --- HP DAMAGE APPLICATION ---
+			// --- HP DAMAGE & MALICE ---
 			if (!Invulnerable)
 			{
-				float damageDealt = statHandler.PointStats.SW.Current.Damage(totalDamage, true, out bool dead);
+				float damageDealt = statHandler.PointStats.SW.Current.Damage(damageToTake, true, out bool dead);
 				hitData.Data.SetValue(HitDataIdentifiers.DAMAGE_DEALT, damageDealt);
+
+				// --- MALICE BUILDUP ---
+				if (maliceStat != null &&
+					damageDealt > 0f &&
+					hitData.Hitter != null &&
+					hitData.Hitter is IAgent)
+				{
+					// Only builds if HP was actually lost (Grace prevents Malice gain)
+					maliceStat.BaseValue += damageDealt;
+				}
 
 				if (dead)
 				{
-					if (stunHandler.Stunned)
-					{
-						stunHandler.ExitedStunEvent += Die;
-					}
-					else
-					{
-						Die();
-					}
+					if (stunHandler.Stunned) stunHandler.ExitedStunEvent += Die;
+					else Die();
 				}
 			}
 
-			// Build up Static for successful blocking / enduring.
-			statHandler.PointStats.NE.Current.BaseValue += endured * force * 0.001f;
+			// Build Static
+			statHandler.PointStats.NE.Current.BaseValue += endured * force * 0.1f;
 
 			// --- HIT PAUSE ---
 			hitPauseMod?.Dispose();

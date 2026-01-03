@@ -33,7 +33,7 @@ namespace SpaxUtils
 		/// <summary>
 		/// Returns the <see cref="BaseValue"/> but with all "Base" modifiers applied.
 		/// </summary>
-		public float ModdedBaseValue => ModUtil.Modify(BaseValue, modifiers.Values.Where(m => m.Method == ModMethod.Base).ToList());
+		public virtual float ModdedBaseValue => ModUtil.Modify(BaseValue, modifiers.Values.Where(m => m.Method == ModMethod.Base).ToList());
 
 		/// <summary>
 		/// Returns true if there are any modifiers.

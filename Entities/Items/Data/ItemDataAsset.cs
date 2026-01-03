@@ -26,6 +26,15 @@ namespace SpaxUtils
 		public bool Unique => unique;
 
 		/// <inheritdoc/>
+		public ItemRarity Rarity => rarity;
+
+		/// <inheritdoc/>
+		public float Rank => rank;
+
+		/// <inheritdoc/>
+		public float Quality => quality;
+
+		/// <inheritdoc/>
 		public int Value => value;
 
 		/// <inheritdoc/>
@@ -52,9 +61,12 @@ namespace SpaxUtils
 		[SerializeField] private Identification id;
 		[SerializeField, TextArea(3, 6)] private string itemDescription;
 		[SerializeField, Tooltip(TT_UNIQUE)] private bool unique;
-		[SerializeField] private int value = 1;
+		[SerializeField] private float rank = 1;
+		[SerializeField, Range(0f, 2f)] private float quality = 1f;
+		[SerializeField] private int value = -1;
+		[SerializeField] private ItemRarity rarity = ItemRarity.Undefined;
 		[SerializeField] private Sprite icon;
-		[SerializeField, Expandable] private List<BehaviourAsset> inventoryBehaviour;
+		[SerializeField, Expandable] protected List<BehaviourAsset> inventoryBehaviour;
 		[SerializeField] private LabeledDataCollection data;
 
 		public override string ToString()

@@ -11,7 +11,6 @@
 		Log = 3,
 		Curve = 4,
 		Interpolate = 5,
-		Extrapolate = 6,
-		Default_LevelToPoints = 7
+		Extrapolate = 6
 	}
 }

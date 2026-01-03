@@ -155,7 +155,7 @@
 
 		// Void
 		private const string BODY_VOID = BODY_STAT + "VOID/";
-		public const string MALICE = BODY_VOID + "Malice"; // POINTSTAT: Amount of damage bonus points (???).
+		public const string MALICE = BODY_VOID + "Malice"; // POINTSTAT: Amount of available damage bonus points.
 		public const string PIERCE = BODY_VOID + "Pierce"; // PHYSIC: The body's sharp damage output.
 
 		#endregion Bodily Stats
@@ -166,7 +166,7 @@
 
 		// GENERAL
 		private const string SOUL_GENERAL = SOUL_STAT + "GENERAL/";
-		public const string AETHER = SOUL_GENERAL + "Aether"; // Currency of the soul.
+		public const string AETHER = SOUL_GENERAL + "Aether"; // Currency of the soul, equal to GOLD and EXP.
 		public const string VIRTUE = SOUL_GENERAL + "Virtue"; // Total amount of virtuous aether gained.
 		public const string SIN = SOUL_GENERAL + "Sin"; // Total amount of sinful aether gained.
 

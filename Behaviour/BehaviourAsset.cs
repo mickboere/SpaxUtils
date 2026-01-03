@@ -22,6 +22,12 @@ namespace SpaxUtils
 			Running = false;
 		}
 
+		/// <inheritdoc/>
+		public void Dispose()
+		{
+			Destroy();
+		}
+
 		/// <summary>
 		/// Returns a new instance of this behaviour.
 		/// </summary>

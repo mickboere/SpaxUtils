@@ -12,7 +12,7 @@ namespace SpaxUtils
 		public Vector8 Vector8 => Current;
 		public Vector8 Current => new Vector8(N, NE, E, SE, S, SW, W, NW);
 		public Vector8 Max => new Vector8(N.Max ?? 0f, NE.Max ?? 0f, E.Max ?? 0f, SE.Max ?? 0f, S.Max ?? 0f, SW.Max ?? 0f, W.Max ?? 0f, NW.Max ?? 0f);
-		public Vector8 Recoverable => new Vector8(N.Recoverable ?? 0f, NE.Recoverable ?? 0f, E.Recoverable ?? 0f, SE.Recoverable ?? 0f, S.Recoverable ?? 0f, SW.Recoverable ?? 0f, W.Recoverable ?? 0f, NW.Recoverable ?? 0f);
+		public Vector8 Recoverable => new Vector8(N.Reserve ?? 0f, NE.Reserve ?? 0f, E.Reserve ?? 0f, SE.Reserve ?? 0f, S.Reserve ?? 0f, SW.Reserve ?? 0f, W.Reserve ?? 0f, NW.Reserve ?? 0f);
 
 		public PointsStat N => north;
 		[SerializeField] private PointsStat north;
@@ -47,11 +47,17 @@ namespace SpaxUtils
 			}
 		}
 
+		/// <summary>
+		/// Recovers all octad members that have <see cref="PointsStat.DefaultIsFull"/> set to true.
+		/// </summary>
 		public void Recover()
 		{
 			for (int i = 0; i < 8; i++)
 			{
-				this[i].Recover();
+				if (this[i].DefaultIsFull)
+				{
+					this[i].Recover();
+				}
 			}
 		}
 

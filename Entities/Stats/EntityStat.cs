@@ -33,6 +33,8 @@ namespace SpaxUtils
 			}
 		}
 
+		public override float ModdedBaseValue => ClampValue(base.ModdedBaseValue);
+
 		private IEntity entity;
 		private float? minValue;
 		private float? maxValue;

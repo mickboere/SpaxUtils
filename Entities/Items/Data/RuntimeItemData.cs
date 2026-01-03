@@ -46,7 +46,7 @@ namespace SpaxUtils
 		/// <summary>
 		/// All inventory behaviours running for this item.
 		/// </summary>
-		public List<BehaviourAsset> Behaviours { get; private set; } = new List<BehaviourAsset>();
+		public List<IBehaviour> Behaviours { get; private set; } = new List<IBehaviour>();
 
 		#endregion Properties
 
@@ -68,9 +68,24 @@ namespace SpaxUtils
 		public int Quantity => Unique ? 1 : RuntimeData.TryGetValue(ItemDataIdentifiers.QUANTITY, out int quantity) ? quantity : 1;
 
 		/// <summary>
+		/// The rarity of this item.
+		/// </summary>
+		public int Rarity => GetRarity();
+
+		/// <summary>
+		/// The rank of this item.
+		/// </summary>
+		public float Rank => RuntimeData.TryGetValue(ItemDataIdentifiers.RANK, out float rank) ? rank : ItemData.Rank;
+
+		/// <summary>
+		/// The quality of this item.
+		/// </summary>
+		public float Quality => RuntimeData.TryGetValue(ItemDataIdentifiers.QUALITY, out float quality) ? quality : ItemData.Quality;
+
+		/// <summary>
 		/// The total value of this item multiplied by its quantity.
 		/// </summary>
-		public float Value => (RuntimeData.TryGetValue(ItemDataIdentifiers.VALUE, out float value) ? value : ItemData.Value) * Quantity;
+		public int Value => GetValue() * Quantity;
 
 		#endregion Standard Data Wrappers
 
@@ -84,7 +99,7 @@ namespace SpaxUtils
 			DependencyManager = dependencyManager;
 
 			// Mandatory data used when loading item data.
-			RuntimeData.SetValue(ItemDataIdentifiers.ITEM_ID, ItemID);
+			RuntimeData.SetValue(ItemDataIdentifiers.ITEM_ID, ItemID, true, true);
 
 			// Append base data without overriding.
 			RuntimeData.Append(itemData.Data, false);
@@ -98,18 +113,28 @@ namespace SpaxUtils
 				return;
 			}
 
+			if (ItemData is IEquipmentData eq)
+			{
+				Add(new EquipmentInventoryBehaviour());
+			}
+
 			foreach (BehaviourAsset behaviour in ItemData.InventoryBehaviour)
 			{
 				BehaviourAsset behaviourInstance = behaviour.CreateInstance();
-				Behaviours.Add(behaviourInstance);
-				DependencyManager.Inject(behaviourInstance);
-				behaviourInstance.Start();
+				Add(behaviourInstance);
+			}
+
+			void Add(IBehaviour behaviour)
+			{
+				Behaviours.Add(behaviour);
+				DependencyManager.Inject(behaviour);
+				behaviour.Start();
 			}
 		}
 
 		public bool TryGetBehaviour<T>(out T behaviour) where T : class
 		{
-			foreach (BehaviourAsset b in Behaviours)
+			foreach (IBehaviour b in Behaviours)
 			{
 				if (b is T cast)
 				{
@@ -130,9 +155,9 @@ namespace SpaxUtils
 			}
 
 			disposing = true;
-			foreach (BehaviourAsset behaviour in Behaviours)
+			foreach (IBehaviour behaviour in Behaviours)
 			{
-				behaviour.Destroy();
+				behaviour.Dispose();
 			}
 			DisposeEvent?.Invoke(this);
 		}
@@ -141,5 +166,51 @@ namespace SpaxUtils
 		{
 			return $"RuntimeItemData\n{{\n{ItemData}\n{RuntimeData}\n}}";
 		}
+
+		#region Getters
+
+		public int GetRarity()
+		{
+			if (RuntimeData.TryGetValue(ItemDataIdentifiers.RARITY, out int rarity))
+			{
+				return rarity;
+			}
+			else if (ItemData.Rarity == ItemRarity.Undefined)
+			{
+				return (int)SpaxFormulas.GetRarityFromQuality(Quality);
+			}
+			else
+			{
+				return (int)ItemData.Rarity;
+			}
+		}
+
+		public int GetValue()
+		{
+			if (RuntimeData.TryGetValue(ItemDataIdentifiers.VALUE, out int value))
+			{
+				return value;
+			}
+			else if (ItemData.Value < 0)
+			{
+				// Calculate value as budget.
+				return CalculateBudget().RoundToInt();
+			}
+			else
+			{
+				return ItemData.Value;
+			}
+		}
+
+		/// <summary>
+		/// Calculates the total Point budget for this item based on its Rank and Quality.
+		/// </summary>
+		/// <returns></returns>
+		public float CalculateBudget()
+		{
+			return SpaxFormulas.PointsFromRank(Rank) * Quality;
+		}
+
+		#endregion Getters
 	}
 }

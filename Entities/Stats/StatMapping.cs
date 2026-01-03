@@ -25,9 +25,11 @@ namespace SpaxUtils
 
 		[SerializeField] private FormulaType formula;
 
+		[SerializeField, Conditional(nameof(formula), 1)] private float expPreScale = 1f;
 		[SerializeField, Conditional(nameof(formula), 1)] private float expConstant = 0.1f;
 		[SerializeField, Conditional(nameof(formula), 1)] private float expPower = 2f;
 
+		[SerializeField, Conditional(nameof(formula), 2)] private float invExpPreScale = 1f;
 		[SerializeField, Conditional(nameof(formula), 2)] private float invExpConstant = 0.1f;
 		[SerializeField, Conditional(nameof(formula), 2)] private float invExpPower = 2f;
 
@@ -51,8 +53,8 @@ namespace SpaxUtils
 
 		public StatMapping(string fromStat, bool sourceBase, string toStat, bool toSubStat = false, string subStat = "",
 			FormulaType formula = FormulaType.Linear,
-			float expConstant = 0.1f, float expPower = 2f,
-			float invExpConstant = 0.1f, float invExpPower = 2f,
+			float expPreScale = 1f, float expConstant = 0.1f, float expPower = 2f,
+			float invExpPreScale = 1f, float invExpConstant = 0.1f, float invExpPower = 2f,
 			float logConstant = 0.1f, float logPower = 2f, float logShift = 0f,
 			AnimationCurve curve = null,
 			Vector2 pointA = default, Vector2 pointB = default,
@@ -65,8 +67,10 @@ namespace SpaxUtils
 			this.toSubStat = toSubStat;
 			this.subStat = subStat;
 			this.formula = formula;
+			this.expPreScale = expPreScale;
 			this.expConstant = expConstant;
 			this.expPower = expPower;
+			this.invExpPreScale = invExpPreScale;
 			this.invExpConstant = invExpConstant;
 			this.invExpPower = invExpPower;
 			this.logConstant = logConstant;
@@ -92,9 +96,9 @@ namespace SpaxUtils
 			switch (formula)
 			{
 				case FormulaType.Exp:
-					return shift + SpaxFormulas.Exp(input, expConstant, expPower, Round);
+					return shift + SpaxFormulas.Exp(input * expPreScale, expConstant, expPower, Round) * scale;
 				case FormulaType.InvExp:
-					return shift + SpaxFormulas.InvExp(input, invExpConstant, invExpPower, Round);
+					return shift + SpaxFormulas.InvExp(input * invExpPreScale, invExpConstant, invExpPower, Round) * scale;
 				case FormulaType.Log:
 					return shift + SpaxFormulas.Log(input, logConstant, logPower, scale, logShift, Round);
 				case FormulaType.Curve:
@@ -104,7 +108,6 @@ namespace SpaxUtils
 				case FormulaType.Extrapolate:
 					float y = (pointB.y - pointA.y) / (pointB.x - pointA.x);
 					return shift + pointA.y + (input - pointA.x) * y;
-				case FormulaType.Default_LevelToPoints:
 				default:
 					return shift + input * scale;
 			}
@@ -119,17 +122,41 @@ namespace SpaxUtils
 			switch (formula)
 			{
 				case FormulaType.Exp:
-					// We are inverting an Exponential formula.
-					// We use the InvExp math, but we MUST use the 'exp' constants that defined the curve.
-					return SpaxFormulas.InvExp(input, expConstant, expPower, Round);
+					// Reverse: Divide by Scale -> Invert Function -> Divide by PreScale
+					return SpaxFormulas.InvExp(input / scale, expConstant, expPower, Round) / expPreScale;
 
 				case FormulaType.InvExp:
-					// We are inverting an Inverse-Exponential formula (turning it back into Exp).
-					// We use the Exp math, but we MUST use the 'invExp' constants that defined the curve.
-					return SpaxFormulas.Exp(input, invExpConstant, invExpPower, Round);
+					// Reverse: Divide by Scale -> Invert Function -> Divide by PreScale
+					return SpaxFormulas.Exp(input / scale, invExpConstant, invExpPower, Round) / invExpPreScale;
+
+				case FormulaType.Log:
+					// Reverse: Use InvLog. 
+					// Note: We pass 'input' (which is output - this.shift).
+					// We pass 'logShift' as the shift, because SpaxFormulas.Log adds it internally.
+					return SpaxFormulas.InvLog(input, logConstant, logPower, scale, logShift, Round);
+
+				case FormulaType.Interpolate:
+					float scaledInput = scale != 0f ? input / scale : 0f;
+					float t = scaledInput.InverseLerp(pointA.y, pointB.y);
+					return pointA.x.Lerp(pointB.x, t);
+
+				case FormulaType.Extrapolate:
+					float slopeNumerator = pointB.y - pointA.y;
+					float slopeDenominator = pointB.x - pointA.x;
+
+					if (Mathf.Abs(slopeNumerator) < 0.0001f) return 0f;
+
+					float m = slopeNumerator / slopeDenominator;
+					return pointA.x + (input - pointA.y) / m;
+
+				case FormulaType.Linear:
+					return scale != 0f ? input / scale : 0f;
+
+				case FormulaType.Curve:
+					SpaxDebug.Error($"Inverse modifier not supported for 'Curve' type (requires iterative solver). Calculation failed.");
+					return 0f;
 
 				default:
-					// Strict error for all other types (Linear, Log, Curve, etc.)
 					SpaxDebug.Error($"Inverse modifier not supported for formula type: {formula}");
 					return 0f;
 			}

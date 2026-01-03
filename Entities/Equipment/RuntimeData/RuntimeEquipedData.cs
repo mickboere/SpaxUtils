@@ -26,6 +26,11 @@ namespace SpaxUtils
 		public IItemData ItemData => RuntimeItemData.ItemData;
 
 		/// <summary>
+		/// Shortcut to <see cref="RuntimeItemData.ItemData"/>, but as <see cref="IEquipmentData"/>.
+		/// </summary>
+		public IEquipmentData EquipmentItemData => (IEquipmentData)ItemData;
+
+		/// <summary>
 		/// The <see cref="IEquipmentSlot"/> this equipment is equiped in.
 		/// </summary>
 		public IEquipmentSlot Slot { get; private set; }

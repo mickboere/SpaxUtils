@@ -27,6 +27,7 @@ namespace SpaxUtils
 		[SerializeField] float maxChargeMultiplier = 3.0f;     // Hard cap at 3x charge (prevent absurd forces)
 		[SerializeField, Tooltip("How much extra crit chance rating per unit of extraCharge")]
 		private float chargeCritBonusFactor = 1f;
+		[SerializeField, Range(0f, 1f)] float chargeDamageEfficiency = 0.25f;
 
 		[Header("Storming")]
 		[SerializeField] private float maxAcceleration = 20000f;
@@ -53,7 +54,7 @@ namespace SpaxUtils
 		private EntityStat limbMassStat;
 		private EntityStat strengthStat;
 		private EntityStat powerStat;
-		private EntityStat offenceStat;
+		private EntityStat pierceStat;
 		private EntityStat critChanceStat;
 		private EntityStat precisionStat;
 		private EntityStat chargeStat;
@@ -61,6 +62,7 @@ namespace SpaxUtils
 		private EntityStat performSpeedStat;
 		private EntityStat stormSpeedStat;
 		private EntityStat enduranceCostStat;
+		private EntityStat maliceStat; // New: Retaliatory Void Resource
 
 		private FloatFuncModifier speedMod;
 		private FloatOperationModifier swingPhaseSpeedMod;
@@ -118,7 +120,7 @@ namespace SpaxUtils
 			limbMassStat = Agent.Stats.GetStat(AgentStatIdentifiers.MASS.SubStat(this.move.Limb));
 			strengthStat = Agent.Stats.GetStat(AgentStatIdentifiers.STRENGTH);
 			powerStat = Agent.Stats.GetStat(AgentStatIdentifiers.POWER);
-			offenceStat = Agent.Stats.GetStat(AgentStatIdentifiers.PIERCE);
+			pierceStat = Agent.Stats.GetStat(AgentStatIdentifiers.PIERCE);
 			critChanceStat = Agent.Stats.GetStat(AgentStatIdentifiers.CRIT_CHANCE);
 			precisionStat = Agent.Stats.GetStat(AgentStatIdentifiers.PRECISION);
 			chargeStat = Agent.Stats.GetStat(move.ChargeCost.Stat);
@@ -126,6 +128,9 @@ namespace SpaxUtils
 			performSpeedStat = Agent.Stats.GetStat(move.PerformSpeedMultiplierStat, false);
 			stormSpeedStat = Agent.Stats.GetStat(AgentStatIdentifiers.STORM_SPEED, false);
 			enduranceCostStat = Agent.Stats.GetStat(AgentStatIdentifiers.ENDURANCE.SubStat(AgentStatIdentifiers.SUB_COST));
+
+			// Optional Stat: Only exists if the entity has the capability (PointStat)
+			maliceStat = Agent.Stats.GetStat(AgentStatIdentifiers.MALICE, true);
 
 			attackRange = this.move.Range +
 				Agent.Stats.GetStat(AgentStatIdentifiers.REACH) +
@@ -196,16 +201,14 @@ namespace SpaxUtils
 			if (Performer.State == PerformanceState.Preparing && Performer.ChargeTime >= Move.MinCharge)
 			{
 				// 1. Calculate Drain Rate based on PRECISION (PhysicStat)
-				// Apply modifiers (Charge Speed Stat still relevant as a multiplier to precision if desired)
 				float actualDrain = precisionStat * delta * (chargeSpeedStat != null ? chargeSpeedStat.Value : 1f);
 
 				// 2. Try to drain the Static (PointStat)
-				// We use the 'chargeStat' reference (usually mapped to Static)
 				if (Agent.Stats.TryApplyStatCost(
-					Move.ChargeCost.Stat, // Ensure this points to STATIC
-					actualDrain,          // Amount to drain this frame
-					true,                 // Continuous drain
-					out float damage,     // How much was actually taken (if pool is near empty)
+					Move.ChargeCost.Stat,
+					actualDrain,
+					true,
+					out float damage,
 					out bool drained,
 					out float overdraw))
 				{
@@ -253,7 +256,7 @@ namespace SpaxUtils
 				{
 					Vector3 dir = target != null
 						? target.Position - RigidbodyWrapper.Position
-						: rigidbodyWrapper.Forward; // TODO: steering control?
+						: rigidbodyWrapper.Forward;
 
 					if (stormTimer.Expired ||
 						(target != null && dir.magnitude < attackRange + target.Radius))
@@ -281,7 +284,6 @@ namespace SpaxUtils
 			}
 			else
 			{
-				// Not performing: no phase-based slowdown.
 				if (swingPhaseSpeedMod != null)
 				{
 					swingPhaseSpeedMod.SetValue(1f);
@@ -314,63 +316,49 @@ namespace SpaxUtils
 
 		/// <summary>
 		/// Computes base speed factor from strength/mass ratio.
-		/// Strength = 1 means "can effectively wield mass 1".
 		/// </summary>
 		private float ComputeBaseStrengthSpeedFactor(float ratio)
 		{
 			if (ratio <= 1f)
 			{
-				// Under-strengthed: ratio 0 -> min speed, 1 -> normal speed.
 				return Mathf.Lerp(strengthSpeedModRange.x, 1f, Mathf.Clamp01(ratio));
 			}
 			else
 			{
-				// Over-strengthed: small bonus up to max.
-				float extra = Mathf.Clamp01(ratio - 1f); // 1..2+ -> 0..1
+				float extra = Mathf.Clamp01(ratio - 1f);
 				return Mathf.Lerp(1f, strengthSpeedModRange.y, extra);
 			}
 		}
 
 		/// <summary>
 		/// Computes base power factor from strength/mass ratio.
-		/// Lighter weapons do not increase power, only speed.
 		/// </summary>
 		private float ComputeBaseStrengthPowerFactor(float ratio)
 		{
 			if (ratio >= 1f)
 			{
-				// Fully effective or over-strengthed: full power.
 				return 1f;
 			}
-
-			// Under-strengthed: ratio 0 -> minPowerFactor, 1 -> 1.
 			return Mathf.Lerp(minPowerFactor, 1f, Mathf.Clamp01(ratio));
 		}
 
 		/// <summary>
 		/// Returns a phase-based multiplier for swing speed/power:
-		/// - For strong builds / light weapons: stays near 1.
-		/// - For heavy under-strengthed: starts low, ramps up to 1 by end of swing.
 		/// </summary>
 		private float GetPhaseInertiaMultiplier(float phase)
 		{
-			// 0..1: how badly you lack strength for this mass.
 			float clampedRatio = Mathf.Clamp01(wieldRatio);
-			float heaviness = 1f - clampedRatio; // ratio >= 1 becomes 0 heaviness after clamping
+			float heaviness = 1f - clampedRatio;
+			float earlySlow = Mathf.Lerp(1f, minInertiaSpeedFactor, heaviness);
 
-			// At swing start (phase 0), speed/power is slowed toward minInertiaSpeedFactor depending on heaviness.
-			float earlySlow = Mathf.Lerp(1f, minInertiaSpeedFactor, heaviness); // strong -> 1, weak -> min
-
-			// Then we lerp from earlySlow at phase=0 to 1 at phase=1.
 			return Mathf.Lerp(earlySlow, 1f, Mathf.Clamp01(phase));
 		}
 
 		protected void OnStartedPerformingEvent(IPerformer performer)
 		{
-			// TARGETING
+			// TARGETING logic ...
 			if (targeter.Target != null)
 			{
-				// Aim to selected target.
 				target = targeter.Target;
 			}
 			else if (RigidbodyWrapper.TargetVelocity.magnitude <= 1f &&
@@ -381,7 +369,6 @@ namespace SpaxUtils
 						 out float distance) &&
 					 distance < attackRange + closest.Radius)
 			{
-				// Auto aim to closest targetable in range.
 				target = closest;
 			}
 
@@ -392,17 +379,14 @@ namespace SpaxUtils
 			movementHandler.ForceRotation(null, Agent.Mind.Personality.E.OutQuad());
 
 			// CHARGING
-			// Use Clamped TotalCharge for Storm calculations to prevent infinite dashes
 			float extraCharge = Mathf.Max(0f, totalCharge - 1f);
 			float effectiveStormDistance = extraCharge * move.StormDistance;
 
-			// Only use storm if it actually wants to travel a meaningful distance.
 			hasStorm = extraCharge > 0f && effectiveStormDistance >= minStormDistance;
 
 			if (hasStorm)
 			{
-				// Initialize charge -> storm.
-				movementHandler.AutoUpdateMovement = false; // Do not auto brake during storm.
+				movementHandler.AutoUpdateMovement = false;
 
 				stormSpeed = totalCharge * (stormSpeedStat ?? 1f);
 				stormDuration = effectiveStormDistance / stormSpeed;
@@ -410,13 +394,11 @@ namespace SpaxUtils
 
 				if (move.PrelongCharge)
 				{
-					// Hold charge pose.
 					performer.Paused = true;
 				}
 
 				if (Agent.Identification.HasAll(EntityLabels.PLAYER))
 				{
-					// Shake screen during storm.
 					stormShake = new ContinuousShakeSource(stormShakeMagnitude, -rigidbodyWrapper.TargetVelocity);
 					agentSenseComponent.ReportImpact(new ImpactData
 					{
@@ -429,12 +411,10 @@ namespace SpaxUtils
 			}
 			else
 			{
-				// Tiny overcharge or no storm distance: behave like a regular attack.
 				OnSwing();
 				inertiaTimer = new TimerClass(move.InertiaDelay, () => timescaleStat, callbackService);
 			}
 
-			// STAT COST
 			Agent.Stats.TryApplyStatCost(
 				Move.PerformCost.Stat,
 				Move.PerformCost.Cost * (limbMassStat / strengthStat) * 100f,
@@ -472,23 +452,46 @@ namespace SpaxUtils
 					Vector3 direction = move.CustomDirection ? move.HitDirection.Look(lookDir) : hit.Direction;
 
 					float mass = limbMassStat;
-
-					// Phase-based power restoration: heavy swings start weaker and build up.
 					float phase = Mathf.Clamp01(Performer.RunTime / Move.MinDuration);
 					float phaseMult = GetPhaseInertiaMultiplier(phase);
 
 					float basePower = powerStat * move.Power * baseStrengthPowerFactor;
-
-					// Uses Clamped Total Charge (Limited Power)
 					float powerValue = basePower * totalCharge * phaseMult;
 
-					float offence = offenceStat * move.Offence;
+					// --- DEBUG INJECTION START ---
+					Agent.Stats.PrintSnapshot();
+					UnityEngine.Debug.Log($"[MELEE DEBUG] {Agent.ID} HIT CALCULATION:\n" +
+						$"Final Power Value: {powerValue}\n" +
+						$"1. Agent Power Stat (Actual value read): {powerStat.Value}\n" +
+						$"2. Move Power (Multiplier): {move.Power}\n" +
+						$"3. Strength Factor: {baseStrengthPowerFactor}\n" +
+						$"4. Charge: {totalCharge}\n" +
+						$"5. Phase: {phaseMult}");
+					// --- DEBUG INJECTION END ---
 
-					// CritChance uses Clamped Charge (diminishing returns)
+					// --- MALICE LOGIC ---
+					float basePierce = pierceStat * move.Offence;
+					float maliceBonus = 0f;
+
+					if (maliceStat != null && basePierce > 0f)
+					{
+						// Attempt to drain Malice equal to the Pierce of the attack (The conduit capacity).
+						// Damage() returns the Cost (base * multiplier), handling overdraw if pool is low.
+						float cost = maliceStat.Damage(basePierce, true, out bool drained, out float overdraw);
+
+						// Calculate coverage ratio. If we paid 100% of the cost, we get 100% bonus.
+						float coverage = cost > 0.0001f ? (cost - overdraw) / cost : 1f;
+
+						// The Malice added is equal to the BASE PIERCE * Coverage. 
+						// (Symmetrical to Grace: You get out what you put in, scaled by resource availability).
+						maliceBonus = basePierce * coverage;
+					}
+
+					// Final Pierce = Base + Malice
+					float finalPierce = basePierce + maliceBonus;
+
 					float critChance = critChanceStat + Mathf.Max(0f, totalCharge - 1f) * chargeCritBonusFactor;
-
-					// Precision uses UNCLAMPED accumulated charge (Massive Crit Damage potential)
-					float critBonus = precisionStat + accumulatedChargePoints;
+					float critBonus = precisionStat + (accumulatedChargePoints * chargeDamageEfficiency);
 
 					HitData hitData = new HitData(
 						hittable,
@@ -499,7 +502,7 @@ namespace SpaxUtils
 						direction,
 						mass,
 						powerValue,
-						offence,
+						finalPierce,
 						critChance,
 						critBonus
 					);
@@ -511,12 +514,10 @@ namespace SpaxUtils
 
 		protected virtual void ProcessHit(IHittable hittable, HitData hitData)
 		{
-			// Send hit and apply return data.
 			if (hittable.Hit(hitData))
 			{
 				float force = hitData.Data.GetValue<float>(HitDataIdentifiers.FORCE);
 
-				// Brake to half velocity on hit.
 				rigidbodyWrapper.AddForce(
 					-rigidbodyWrapper.Velocity * 0.5f,
 					ForceMode.VelocityChange);
@@ -536,15 +537,15 @@ namespace SpaxUtils
 				{
 					Performer.TryCancel(true);
 					rigidbodyWrapper.ResetVelocity();
-					statHandler.PointStats.W.Current.BaseValue = 0f; // Drain endurance.
+					statHandler.PointStats.W.Current.BaseValue = 0f;
 					stunHandler.EnterStun(hitData, combatSettings.ParriedStunTime);
 				}
 				else if (hitData.Data.GetValue<bool>(HitDataIdentifiers.DEFLECTED))
 				{
 					Performer.TryCancel(true);
 					rigidbodyWrapper.ResetVelocity();
-					statHandler.PointStats.W.Current.BaseValue = 0f; // Drain endurance.
-					rigidbodyWrapper.Push(-hitData.Direction * force, 1f); // Share force.
+					statHandler.PointStats.W.Current.BaseValue = 0f;
+					rigidbodyWrapper.Push(-hitData.Direction * force, 1f);
 					stunHandler.EnterStun(hitData, combatSettings.DeflectedStunTime);
 				}
 
@@ -554,7 +555,6 @@ namespace SpaxUtils
 
 				if (hitPauseMod == null || hitPause > hitPauseMod.Timer.Remaining)
 				{
-					// Apply hit-pause.
 					hitPauseMod?.Dispose();
 					hitPauseMod = new TimedCurveModifier(
 						ModMethod.Absolute,
