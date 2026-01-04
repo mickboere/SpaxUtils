@@ -14,6 +14,12 @@ namespace SpaxUtils
 		GameObject EquipedPrefab { get; }
 
 		/// <summary>
+		/// Material override mappings applied to the equiped prefab instance.
+		/// If an entry has Source == null, it acts as a wildcard for all non-matching materials.
+		/// </summary>
+		IReadOnlyList<MaterialOverride> MaterialOverrides { get; }
+
+		/// <summary>
 		/// The type of slot this equipment is able to be equiped in.
 		/// </summary>
 		string SlotType { get; }

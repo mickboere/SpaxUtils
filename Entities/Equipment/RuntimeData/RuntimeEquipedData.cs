@@ -64,6 +64,13 @@ namespace SpaxUtils
 			EquipedInstance = equipedInstance;
 
 			AddStatMappings();
+
+			// Apply material overrides (if any) to the equiped instance.
+			// Rules are enforced inside MaterialOverride.ApplyOverrides().
+			if (EquipedInstance != null)
+			{
+				MaterialOverride.ApplyOverrides(EquipedInstance, EquipmentData.MaterialOverrides);
+			}
 		}
 
 		public void Dispose()
@@ -120,7 +127,7 @@ namespace SpaxUtils
 						// Retrieve target stat to add mapping modifier to.
 						EntityStat toStat = entity.Stats.GetStat(mapping.ToStat, true);
 
-						// Generate unique mod identifier. 
+						// Generate unique mod identifier.
 						// (Note: Since this identifier is scoped to the 'toStat', using FromStat name is safe even for 1-to-Many mappings)
 						string identifier = GetModID(mapping.FromStat);
 

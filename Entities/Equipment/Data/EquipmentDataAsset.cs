@@ -7,6 +7,7 @@ namespace SpaxUtils
 	public class EquipmentDataAsset : ItemDataAsset, IEquipmentData
 	{
 		public GameObject EquipedPrefab => equipedPrefab;
+		public IReadOnlyList<MaterialOverride> MaterialOverrides => materialOverrides;
 		public string SlotType => slotType;
 		public IReadOnlyList<string> CoversLocations => equipedPrefab != null && equipedPrefab.TryGetComponent(out IEntityApparel a) ? a.Locations : new List<string>();
 		public IReadOnlyList<BehaviourAsset> EquipedBehaviour => equipedBehaviour;
@@ -20,7 +21,7 @@ namespace SpaxUtils
 
 		[Header("Equipment Data")]
 		[SerializeField] private GameObject equipedPrefab;
-		// ADD: Material overrides, mapping 1 material to another.
+		[SerializeField] private List<MaterialOverride> materialOverrides = new List<MaterialOverride>();
 		[SerializeField, Tooltip(TT_SLOT_TYPE), ConstDropdown(typeof(IEquipmentSlotTypeConstants))] private string slotType;
 		[SerializeField, Expandable] private List<BehaviourAsset> equipedBehaviour;
 		[SerializeField, Expandable] private List<StatMap> equipedStatMappings;
