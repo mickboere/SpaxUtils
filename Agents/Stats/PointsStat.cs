@@ -28,7 +28,7 @@ namespace SpaxUtils
 		public EntityStat RecoveryDelay { get; private set; }
 		public EntityStat Frailty { get; private set; }
 		public EntityStat Exp { get; private set; }
-		public EntityStat ExpGain { get; private set; }
+		public EntityStat ExpGainMult { get; private set; }
 
 		public bool DefaultIsFull => defaultIsFull;
 		public bool HasRecovery => hasRecovery;
@@ -132,7 +132,7 @@ namespace SpaxUtils
 			if (!string.IsNullOrEmpty(expStat))
 			{
 				Exp = entity.Stats.GetStat(expStat, true);
-				ExpGain = entity.Stats.GetStat(expStat.SubStat(AgentStatIdentifiers.SUB_GAIN), true, 1f);
+				ExpGainMult = entity.Stats.GetStat(expStat.SubStat(AgentStatIdentifiers.SUB_GAIN), true, 1f);
 			}
 
 			initialized = true;
@@ -302,7 +302,7 @@ namespace SpaxUtils
 			}
 
 			float mult = damage >= 0f ? expDrainMultiplier : expGainMultiplier;
-			Exp.BaseValue += damage.Abs() * mult * ExpGain;
+			Exp.BaseValue += damage.Abs() * mult * ExpGainMult;
 		}
 
 		private void OnMaxChangedEvent()
