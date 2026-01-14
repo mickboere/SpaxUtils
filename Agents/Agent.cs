@@ -163,9 +163,9 @@ namespace SpaxUtils
 		}
 
 		/// <inheritdoc/>
-		public void Die(ITransition transition = null)
+		public void Die()
 		{
-			if (Alive && Brain.TryTransition(AgentStateIdentifiers.DEAD, transition))
+			if (Alive && Brain.TryTransition(AgentStateIdentifiers.DEAD))
 			{
 				Alive = false;
 				Actor.TryCancel(true);

@@ -11,8 +11,6 @@ namespace SpaxUtils
 	{
 		protected bool Invulnerable => agent.RuntimeData.GetValue(AgentDataIdentifiers.INVULNERABLE, false);
 
-		[SerializeField] private float deathDuration = 0.5f;
-
 		private IAgent agent;
 		private IHittable hittable;
 		private RigidbodyWrapper rigidbodyWrapper;
@@ -177,8 +175,8 @@ namespace SpaxUtils
 
 				if (dead)
 				{
-					if (stunHandler.Stunned) stunHandler.ExitedStunEvent += Die;
-					else Die();
+					stunHandler.EnterStun(hitData, 5f);
+					agent.Die();
 				}
 			}
 
@@ -197,12 +195,6 @@ namespace SpaxUtils
 			timescaleStat.AddModifier(this, hitPauseMod);
 
 			SpaxDebug.Log($"{agent.ID} - HIT:", hitData.ToString());
-		}
-
-		private void Die()
-		{
-			stunHandler.ExitedStunEvent -= Die;
-			agent.Die(new TimedStateTransition(deathDuration));
 		}
 	}
 }

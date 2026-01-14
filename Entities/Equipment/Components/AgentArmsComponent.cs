@@ -18,6 +18,7 @@ namespace SpaxUtils
 
 		/// <summary>
 		/// Composite weight float for both arms that can be influenced by external modifiers.
+		/// Is read by IK system controlling arms, this class does not use it itself!
 		/// </summary>
 		public CompositeFloat Weight { get; set; } = new CompositeFloat(1f);
 

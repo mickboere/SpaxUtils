@@ -5,6 +5,9 @@ using UnityEngine.SceneManagement;
 
 namespace SpaxUtils
 {
+	/// <summary>
+	/// Service that manages scene loading.
+	/// </summary>
 	public class SceneService : IService
 	{
 		public string CurrentScene => SceneManager.GetActiveScene().name;

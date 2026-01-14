@@ -8,6 +8,7 @@ namespace SpaxUtils
 	public class TimerClass : IDisposable
 	{
 		public Action TimerExpiredEvent;
+		public Action<float> UpdateEvent;
 
 		public float Time { get; set; }
 		public float? Duration { get; set; }
@@ -87,6 +88,7 @@ namespace SpaxUtils
 			{
 				TimerExpiredEvent?.Invoke();
 			}
+			UpdateEvent?.Invoke(delta);
 			return Expired;
 		}
 

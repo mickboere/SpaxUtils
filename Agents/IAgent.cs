@@ -76,7 +76,7 @@ namespace SpaxUtils
 		/// <summary>
 		/// Kills the agent, having it enter the "dead" state.
 		/// </summary>
-		void Die(ITransition transition = null);
+		void Die();
 
 		/// <summary>
 		/// Revives the agent, having it exit the "dead" state.

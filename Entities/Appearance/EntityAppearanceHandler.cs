@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -37,7 +36,12 @@ namespace SpaxUtils
 		public IReadOnlyList<BodyPart> BodyParts => bodyParts;
 		public IReadOnlyDictionary<string, SkinnedMeshRenderer> Body => body;
 		public IReadOnlyList<SkinnedMeshRenderer> Apparel => apparel;
+
+		// Skinned-only renderers (body + skinned apparel), used for rig/skeleton related logic.
 		public List<SkinnedMeshRenderer> ActiveRenderers { get; private set; } = new List<SkinnedMeshRenderer>();
+
+		// All visuals that should receive appearance effects (MPBs): skinned + non-skinned equipment visuals.
+		public IReadOnlyList<Renderer> ActiveVisualRenderers => activeVisualRenderers;
 
 		[SerializeField] private Transform skeletonRoot;
 		[SerializeField] private SkinnedMeshRenderer reference;
@@ -45,10 +49,22 @@ namespace SpaxUtils
 		[SerializeField] private List<SkinnedMeshRenderer> apparel = new List<SkinnedMeshRenderer>();
 		[SerializeField] private bool autoCollectApparel;
 
+		// Non-skinned visuals (weapons, shields, etc.) that should receive appearance effects (MPBs).
+		[SerializeField] private List<Renderer> extraVisuals = new List<Renderer>();
+
 		private Dictionary<string, SkinnedMeshRenderer> body;
 		private Dictionary<SkinnedMeshRenderer, IEntityApparel> coverers = new Dictionary<SkinnedMeshRenderer, IEntityApparel>();
 		private CapsuleCollider[] capsuleColliders;
 		private ClothSphereColliderPair[] sphereColliders;
+
+		private List<Renderer> activeVisualRenderers = new List<Renderer>();
+
+		private HashSet<SkinnedMeshRenderer> tempSkinnedSet = new HashSet<SkinnedMeshRenderer>();
+		private HashSet<Renderer> tempVisualSet = new HashSet<Renderer>();
+		private HashSet<Renderer> activeVisualSet = new HashSet<Renderer>();
+
+		private int refreshLock;
+		private bool refreshQueued;
 
 		protected void OnValidate()
 		{
@@ -73,7 +89,7 @@ namespace SpaxUtils
 
 			// Gather skeleton colliders for cloth renderers.
 			capsuleColliders = skeletonRoot.GetComponentsInChildren<CapsuleCollider>();
-			sphereColliders = skeletonRoot.GetComponentsInChildren<SphereCollider>().Select(c => new ClothSphereColliderPair(c)).ToArray();
+			sphereColliders = skeletonRoot.GetComponentsInChildren<SphereCollider>().Select((c) => new ClothSphereColliderPair(c)).ToArray();
 
 			// If auto collect, collect all skin-sharers.
 			if (autoCollectApparel)
@@ -98,6 +114,7 @@ namespace SpaxUtils
 					ApplySkeleton(bodyPart.Skin);
 				}
 			}
+
 			foreach (SkinnedMeshRenderer sharer in apparel)
 			{
 				if (sharer != null)
@@ -107,31 +124,84 @@ namespace SpaxUtils
 				}
 			}
 
-			OnActiveRenderersChanged();
+			RequestRefresh();
+			FlushRefresh();
 		}
 
 		/// <summary>
 		/// Adds all <see cref="SkinnedMeshRenderer"/>s found in <paramref name="gameObject"/> and its children to the shared rig.
+		/// Also tracks non-skinned <see cref="Renderer"/>s as visuals (weapons/shields) for appearance effects.
 		/// </summary>
 		public void Add(GameObject gameObject)
 		{
-			SkinnedMeshRenderer[] skinnedMeshRenderers = gameObject.GetComponentsInChildren<SkinnedMeshRenderer>();
+			if (gameObject == null)
+			{
+				return;
+			}
+
+			BeginBatch();
+
+			SkinnedMeshRenderer[] skinnedMeshRenderers = gameObject.GetComponentsInChildren<SkinnedMeshRenderer>(true);
 			foreach (SkinnedMeshRenderer renderer in skinnedMeshRenderers)
 			{
 				AddApparel(renderer);
 			}
+
+			Renderer[] visuals = gameObject.GetComponentsInChildren<Renderer>(true);
+			foreach (Renderer renderer in visuals)
+			{
+				if (renderer == null)
+				{
+					continue;
+				}
+
+				if (renderer is SkinnedMeshRenderer)
+				{
+					continue;
+				}
+
+				AddExtraVisual(renderer);
+			}
+
+			EndBatch();
 		}
 
 		/// <summary>
 		/// Unlists all <see cref="SkinnedMeshRenderer"/>s found in <paramref name="gameObject"/> and its children.
+		/// Also removes tracked non-skinned <see cref="Renderer"/> visuals.
 		/// </summary>
 		public void Remove(GameObject gameObject)
 		{
-			SkinnedMeshRenderer[] skinnedMeshRenderers = gameObject.GetComponentsInChildren<SkinnedMeshRenderer>();
+			if (gameObject == null)
+			{
+				return;
+			}
+
+			BeginBatch();
+
+			SkinnedMeshRenderer[] skinnedMeshRenderers = gameObject.GetComponentsInChildren<SkinnedMeshRenderer>(true);
 			foreach (SkinnedMeshRenderer renderer in skinnedMeshRenderers)
 			{
 				RemoveApparel(renderer);
 			}
+
+			Renderer[] visuals = gameObject.GetComponentsInChildren<Renderer>(true);
+			foreach (Renderer renderer in visuals)
+			{
+				if (renderer == null)
+				{
+					continue;
+				}
+
+				if (renderer is SkinnedMeshRenderer)
+				{
+					continue;
+				}
+
+				RemoveExtraVisual(renderer);
+			}
+
+			EndBatch();
 		}
 
 		/// <summary>
@@ -144,6 +214,7 @@ namespace SpaxUtils
 				SpaxDebug.Warning("Missing skinned mesh reference.", "", gameObject);
 				return;
 			}
+
 			if (renderer == reference || body.ContainsValue(renderer))
 			{
 				SpaxDebug.Warning("Cannot add reference skin or body part as apparel.", "", gameObject);
@@ -157,6 +228,7 @@ namespace SpaxUtils
 			}
 
 			ApplySkeleton(renderer);
+			RequestRefresh();
 		}
 
 		/// <summary>
@@ -164,19 +236,57 @@ namespace SpaxUtils
 		/// </summary>
 		public void RemoveApparel(SkinnedMeshRenderer renderer)
 		{
-			if (apparel.Contains(renderer))
+			if (!apparel.Contains(renderer))
 			{
-				apparel.Remove(renderer);
+				return;
+			}
 
-				// Check if a body part has now been left exposed.
-				if (coverers.ContainsKey(renderer))
+			apparel.Remove(renderer);
+
+			// Check if a body part has now been left exposed.
+			if (coverers.ContainsKey(renderer))
+			{
+				coverers.Remove(renderer);
+				foreach (BodyPart bodyPart in bodyParts)
 				{
-					coverers.Remove(renderer);
-					foreach (BodyPart bodyPart in bodyParts)
-					{
-						bodyPart.Skin.gameObject.SetActive(!coverers.Any(c => c.Value.Locations.Contains(bodyPart.Location)));
-					}
+					bodyPart.Skin.gameObject.SetActive(!coverers.Any((c) => c.Value.Locations.Contains(bodyPart.Location)));
 				}
+			}
+
+			RequestRefresh();
+		}
+
+		/// <summary>
+		/// Adds a non-skinned visual renderer (weapon/shield/etc.) so it receives appearance effects (MPBs).
+		/// </summary>
+		public void AddExtraVisual(Renderer renderer)
+		{
+			if (renderer == null)
+			{
+				return;
+			}
+
+			if (!extraVisuals.Contains(renderer))
+			{
+				extraVisuals.Add(renderer);
+				RequestRefresh();
+			}
+		}
+
+		/// <summary>
+		/// Removes a non-skinned visual renderer (weapon/shield/etc.) from appearance effects (MPBs).
+		/// </summary>
+		public void RemoveExtraVisual(Renderer renderer)
+		{
+			if (renderer == null)
+			{
+				return;
+			}
+
+			if (extraVisuals.Contains(renderer))
+			{
+				extraVisuals.Remove(renderer);
+				RequestRefresh();
 			}
 		}
 
@@ -190,6 +300,117 @@ namespace SpaxUtils
 		}
 
 		#region Private Methods
+
+		private void BeginBatch()
+		{
+			refreshLock++;
+		}
+
+		private void EndBatch()
+		{
+			refreshLock--;
+			if (refreshLock < 0)
+			{
+				refreshLock = 0;
+			}
+
+			FlushRefresh();
+		}
+
+		private void RequestRefresh()
+		{
+			refreshQueued = true;
+			FlushRefresh();
+		}
+
+		private void FlushRefresh()
+		{
+			if (!Application.isPlaying)
+			{
+				return;
+			}
+
+			if (!refreshQueued)
+			{
+				return;
+			}
+
+			if (refreshLock > 0)
+			{
+				return;
+			}
+
+			refreshQueued = false;
+			RebuildActiveLists();
+		}
+
+		private void RebuildActiveLists()
+		{
+			tempSkinnedSet.Clear();
+			tempVisualSet.Clear();
+
+			foreach (SkinnedMeshRenderer renderer in body.Values)
+			{
+				if (renderer != null)
+				{
+					tempSkinnedSet.Add(renderer);
+					tempVisualSet.Add(renderer);
+				}
+			}
+
+			for (int i = 0; i < apparel.Count; i++)
+			{
+				SkinnedMeshRenderer renderer = apparel[i];
+				if (renderer == null)
+				{
+					apparel.RemoveAt(i);
+					i--;
+					continue;
+				}
+
+				tempSkinnedSet.Add(renderer);
+				tempVisualSet.Add(renderer);
+			}
+
+			for (int i = 0; i < extraVisuals.Count; i++)
+			{
+				Renderer renderer = extraVisuals[i];
+				if (renderer == null)
+				{
+					extraVisuals.RemoveAt(i);
+					i--;
+					continue;
+				}
+
+				tempVisualSet.Add(renderer);
+			}
+
+			bool changed = !tempVisualSet.SetEquals(activeVisualSet);
+			if (!changed)
+			{
+				return;
+			}
+
+			activeVisualSet.Clear();
+			foreach (Renderer renderer in tempVisualSet)
+			{
+				activeVisualSet.Add(renderer);
+			}
+
+			ActiveRenderers.Clear();
+			foreach (SkinnedMeshRenderer renderer in tempSkinnedSet)
+			{
+				ActiveRenderers.Add(renderer);
+			}
+
+			activeVisualRenderers.Clear();
+			foreach (Renderer renderer in activeVisualSet)
+			{
+				activeVisualRenderers.Add(renderer);
+			}
+
+			UpdatedActiveRenderersEvent?.Invoke();
+		}
 
 		/// <summary>
 		/// Get all SkinnedMeshRenderers from this gameobject's children and add them to apparel.
@@ -247,6 +468,7 @@ namespace SpaxUtils
 				{
 					coverers.Add(renderer, entityApparel);
 				}
+
 				foreach (string location in entityApparel.Locations)
 				{
 					if (body.ContainsKey(location))
@@ -256,24 +478,7 @@ namespace SpaxUtils
 				}
 			}
 
-			OnActiveRenderersChanged();
-		}
-
-		private void OnActiveRenderersChanged()
-		{
-			if (!Application.isPlaying)
-			{
-				return;
-			}
-
-			int count = ActiveRenderers.Count;
-			ActiveRenderers.Clear();
-			ActiveRenderers.AddRange(body.Values.Where((b) => b.gameObject.activeInHierarchy).ToList());
-			ActiveRenderers.AddRange(apparel);
-			if (ActiveRenderers.Count != count)
-			{
-				UpdatedActiveRenderersEvent?.Invoke();
-			}
+			RequestRefresh();
 		}
 
 		#endregion Private Methods

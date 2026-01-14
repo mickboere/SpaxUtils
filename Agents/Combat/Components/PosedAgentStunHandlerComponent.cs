@@ -19,6 +19,7 @@ namespace SpaxUtils
 		[SerializeField] private PoseBlendMap hitBlendTree;
 		[SerializeField, Tooltip(TT_RECOVERY_THRESH)] protected float recoveryThreshold = 3f;
 		[SerializeField, Tooltip(TT_RECOVERED_THRESH)] protected float recoveredThreshold = 2f;
+
 		[Header("Flying")]
 		[SerializeField] private float horizontalFlyThreshold = 15f;
 		[SerializeField] private float verticalFlyThreshold = 1f;
@@ -33,6 +34,10 @@ namespace SpaxUtils
 		[SerializeField] private float crashStickTime = 3f;
 		[SerializeField] private float crashDetectionRadius = 0.3f;
 		[SerializeField] private LayerMask crashDetectionMask;
+
+		[Header("Pose Smoothing")]
+		[SerializeField, Range(0f, 100f)] private float groundedAmountSmoothing = 30f;
+
 		[Header("Debugging")]
 		[SerializeField] private bool debug;
 
@@ -50,6 +55,8 @@ namespace SpaxUtils
 		private FloatOperationModifier gravityMod;
 
 		private bool flying;
+		private float smoothedGroundedAmount;
+
 		private TimerClass airborneTimer;
 		private TimerClass getUpTimer;
 		private TimerClass crashTimer;
@@ -95,22 +102,52 @@ namespace SpaxUtils
 		{
 			base.FixedUpdate();
 
-			if (Stunned)
+			if (!Stunned)
 			{
-				flying = flying || !grounder.Grounded || rigidbodyWrapper.Velocity.FlattenY().magnitude > horizontalFlyThreshold || rigidbodyWrapper.Velocity.y > verticalFlyThreshold;
-				if (flying && airborneTimer == null)
-				{
-					airborneTimer = new TimerClass(minAirborneLength, () => EntityTimeScale, callbackService, UpdateMode.FixedUpdate);
-				}
+				return;
+			}
 
-				if (flying)
-				{
-					UpdateFlyingStun();
-				}
-				else
-				{
-					UpdateGroundedStun();
-				}
+			// Smooth grounded amount so pose logic does not snap when rotation changes affect the ground checks.
+			float targetGroundedAmount = grounder != null ? grounder.GroundedAmount : 0f;
+			if (groundedAmountSmoothing <= 0f)
+			{
+				smoothedGroundedAmount = targetGroundedAmount;
+			}
+			else
+			{
+				smoothedGroundedAmount = Mathf.MoveTowards(
+					smoothedGroundedAmount,
+					targetGroundedAmount,
+					groundedAmountSmoothing * Time.fixedDeltaTime);
+			}
+
+			// Decide if we should enter/keep flying mode.
+			bool shouldFly =
+				(grounder != null && !grounder.Grounded) ||
+				rigidbodyWrapper.Velocity.FlattenY().magnitude > horizontalFlyThreshold ||
+				rigidbodyWrapper.Velocity.y > verticalFlyThreshold;
+
+			flying = flying || shouldFly;
+
+			// Ensure airborne timer exists before any flying logic uses it.
+			if (flying && airborneTimer == null)
+			{
+				airborneTimer = new TimerClass(minAirborneLength, () => EntityTimeScale, callbackService, UpdateMode.FixedUpdate);
+			}
+
+			UpdateGroundedStun();
+
+			// IMPORTANT:
+			// UpdateGroundedStun can call ExitStun(), which disposes timers.
+			// Do not run flying logic after that in the same frame.
+			if (!Stunned)
+			{
+				return;
+			}
+
+			if (flying)
+			{
+				UpdateFlyingStun();
 			}
 		}
 
@@ -121,9 +158,11 @@ namespace SpaxUtils
 			flying = false;
 			CleanTimers();
 
+			smoothedGroundedAmount = grounder != null ? grounder.GroundedAmount : 0f;
+
 			if (Debug)
 			{
-				SpaxDebug.Log($"EnterStun ({(flying ? "flying" : "grounded")}) [{duration}s]", $"V={rigidbodyWrapper.Velocity}\n{stunHit}");
+				SpaxDebug.Log($"EnterStun [{duration}s]", $"V={rigidbodyWrapper.Velocity}\n{stunHit}");
 			}
 		}
 
@@ -131,32 +170,40 @@ namespace SpaxUtils
 		{
 			base.ExitStun();
 
-			animatorPoser.RevokeInstructions(this);
+			animatorPoser.RevokeInstructions(hitBlendTree);
+			animatorPoser.RevokeInstructions(airbornePose);
+
 			armsMod.SetValue(1f);
 			gravityMod.SetValue(1f);
+
 			CleanTimers();
 
 			if (Debug)
 			{
-				SpaxDebug.Log($"ExitStun", stunHit.ToString());
+				SpaxDebug.Log("ExitStun", stunHit != null ? stunHit.ToString() : "NULL");
 			}
 		}
 
 		private void UpdateGroundedStun()
 		{
-			float stunAmount = Mathf.Max(stunTimer.Progress.InvertClamped().InOutExpo(), Mathf.InverseLerp(recoveredThreshold, recoveryThreshold, rigidbodyWrapper.Speed).OutQuad());
+			float stunAmount =
+				Mathf.Max(
+					stunTimer.Progress.InvertClamped().InOutExpo(),
+					Mathf.InverseLerp(recoveredThreshold, recoveryThreshold, rigidbodyWrapper.Speed).OutQuad());
 
-			IPoserInstructions instructions = hitBlendTree.GetInstructions(0f, -stunHit.Direction.LocalizeDirection(rigidbodyWrapper.transform));
-			animatorPoser.ProvideInstructions(this, PoserLayerConstants.BODY, instructions, 10, stunAmount);
+			IPoserInstructions instructions =
+				hitBlendTree.GetInstructions(0f, -stunHit.Direction.LocalizeDirection(rigidbodyWrapper.transform));
+
+			animatorPoser.ProvideInstructions(hitBlendTree, PoserLayerConstants.BODY, instructions, 10, stunAmount);
 			armsMod.SetValue(stunAmount.Invert());
 
 			if (Debug)
 			{
 				SpaxDebug.Log("Stun: Grounded",
-					$"velocity={rigidbodyWrapper.Velocity}" +
-					$"crashTimer={(crashTimer != null ? crashTimer.Time : "NULL")}," +
-					$"getUpTimer={(getUpTimer != null ? getUpTimer.Time : "NULL")},\n" +
-					$"stunAmount={stunAmount}");
+					"velocity=" + rigidbodyWrapper.Velocity +
+					" crashTimer=" + (crashTimer != null ? crashTimer.Time.ToString("0.###") : "NULL") +
+					" getUpTimer=" + (getUpTimer != null ? getUpTimer.Time.ToString("0.###") : "NULL") +
+					"\nstunAmount=" + stunAmount.ToString("0.###"));
 			}
 
 			if (stunTimer.Expired && rigidbodyWrapper.Speed < recoveredThreshold)
@@ -167,16 +214,33 @@ namespace SpaxUtils
 
 		private void UpdateFlyingStun()
 		{
-			float groundedAmount = grounder.GroundedAmount * airborneTimer.Progress.Clamp01().InOutQuad();
-			Vector3 direction = -rigidbodyWrapper.Velocity.MultY(groundedAmount.Invert()); // Apply terrain normal.
+			// Airborne timer is used to prevent "horizontal launches" from staying fully grounded visually.
+			// Guard against it being null (it can be nulled by ExitStun in the same FixedUpdate if not careful).
+			float airProg = airborneTimer != null ? airborneTimer.Progress.Clamp01() : 1f;
+
+			// Use smoothed grounded amount to avoid pose snaps when rotation affects grounding checks.
+			float groundedAmount = smoothedGroundedAmount * airProg.InOutQuad();
+
+			// Apply terrain normal / grounding influence to the direction.
+			Vector3 direction = -rigidbodyWrapper.Velocity.MultY(groundedAmount.Invert());
 
 			if (Debug)
 			{
-				UnityEngine.Debug.DrawLine(Agent.Targetable.Center, Agent.Targetable.Center + -direction.normalized * (crashDetectionRadius + direction.magnitude * Time.fixedDeltaTime), Color.red);
+				UnityEngine.Debug.DrawLine(
+					Agent.Targetable.Center,
+					Agent.Targetable.Center + -direction.normalized * (crashDetectionRadius + direction.magnitude * Time.fixedDeltaTime),
+					Color.red);
 			}
 
+			// Crash detection.
 			if (crashTimer == null &&
-				Physics.SphereCast(Agent.Targetable.Center, crashDetectionRadius, -direction, out crashHit, crashDetectionRadius + direction.magnitude * Time.fixedDeltaTime, crashDetectionMask) &&
+				Physics.SphereCast(
+					Agent.Targetable.Center,
+					crashDetectionRadius,
+					-direction,
+					out crashHit,
+					crashDetectionRadius + direction.magnitude * Time.fixedDeltaTime,
+					crashDetectionMask) &&
 				Vector3.Angle(crashHit.normal, direction.normalized) < crashAngle)
 			{
 				if (Debug)
@@ -190,42 +254,57 @@ namespace SpaxUtils
 
 			if (crashTimer != null)
 			{
-				gravityMod.SetValue(crashTimer.Progress.Clamp01().InOutCubic());
-				direction = Vector3.Lerp(crashHit.normal, direction, crashTimer.Progress.Clamp01().InOutCubic());
+				float crashProg = crashTimer.Progress.Clamp01().InOutCubic();
+				gravityMod.SetValue(crashProg);
+				direction = Vector3.Lerp(crashHit.normal, direction, crashProg);
 			}
 
+			// Force rotation towards movement direction.
 			movementHandler.ForceRotation(direction);
 
+			// Pose construction.
 			PoseTransition blastedPose = new PoseTransition(airbornePose, flooredPose, groundedAmount);
 			PoseTransition fallingPose = new PoseTransition(crashPose, fallPose, crashTimer != null ? crashTimer.Progress.Clamp01() : 1f);
-			float fallAmount = Mathf.Max(crashTimer != null ? crashTimer.Progress.InvertClamped() : 0f, Mathf.InverseLerp(horizontalFlyThreshold, fallThreshold, rigidbodyWrapper.Speed));
-			float blend = grounder.Grounded && crashTimer == null ? 0f : fallAmount;
+
+			float fallAmount =
+				Mathf.Max(
+					crashTimer != null ? crashTimer.Progress.InvertClamped() : 0f,
+					Mathf.InverseLerp(horizontalFlyThreshold, fallThreshold, rigidbodyWrapper.Speed));
+
+			float blend = (grounder != null && grounder.Grounded && crashTimer == null) ? 0f : fallAmount;
 			PoserInstructions pose = new PoserInstructions(blastedPose, fallingPose, blend);
 
+			// Get-up timer.
 			float stunWeight = 1f;
 			if (getUpTimer != null)
 			{
 				stunWeight *= getUpTimer.Progress.InvertClamped();
 			}
-			else if (grounder.Grounded && rigidbodyWrapper.Speed < recoveryThreshold)
+			else if (grounder != null && grounder.Grounded && rigidbodyWrapper.Speed < recoveryThreshold)
 			{
 				getUpTimer = new TimerClass(getUpTime, () => EntityTimeScale, callbackService, UpdateMode.FixedUpdate);
 			}
 
 			if (Debug)
 			{
-				SpaxDebug.Log("Stun: Flying!",
-					$"velocity={rigidbodyWrapper.Velocity}" +
-					$"crashTimer={(crashTimer != null ? crashTimer.Time : "NULL")}," +
-					$"getUpTimer={(getUpTimer != null ? getUpTimer.Time : "NULL")},\n" +
-					$"ground={groundedAmount}," +
-					$"fall={fallAmount}," +
-					$"blend={blend}," +
-					$"gravityMod={gravityMod.Value}," +
-					$"weight={stunWeight}");
+				SpaxDebug.Log("Stun: Flying",
+					"velocity=" + rigidbodyWrapper.Velocity +
+					" crashTimer=" + (crashTimer != null ? crashTimer.Time.ToString("0.###") : "NULL") +
+					" getUpTimer=" + (getUpTimer != null ? getUpTimer.Time.ToString("0.###") : "NULL") +
+					"\nrawGround=" + (grounder != null ? grounder.GroundedAmount.ToString("0.###") : "NULL") +
+					" smGround=" + smoothedGroundedAmount.ToString("0.###") +
+					" grounded=" + groundedAmount.ToString("0.###") +
+					" fall=" + fallAmount.ToString("0.###") +
+					" blend=" + blend.ToString("0.###") +
+					" gravMod=" + gravityMod.Value.ToString("0.###") +
+					" weight=" + stunWeight.ToString("0.###"));
 			}
 
-			animatorPoser.ProvideInstructions(this, PoserLayerConstants.BODY, pose, 100, stunWeight);
+			// Apply pose.
+			float groundedInvert = (grounder != null ? grounder.GroundedAmount.Invert() : 1f);
+			stunWeight *= groundedInvert;
+
+			animatorPoser.ProvideInstructions(airbornePose, PoserLayerConstants.BODY, pose, 11, stunWeight);
 			armsMod.SetValue(stunWeight.Invert());
 
 			if (getUpTimer != null && getUpTimer.Expired)
@@ -238,8 +317,10 @@ namespace SpaxUtils
 		{
 			getUpTimer?.Dispose();
 			getUpTimer = null;
+
 			crashTimer?.Dispose();
 			crashTimer = null;
+
 			airborneTimer?.Dispose();
 			airborneTimer = null;
 		}

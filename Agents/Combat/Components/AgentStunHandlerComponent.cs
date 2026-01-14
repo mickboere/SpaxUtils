@@ -55,6 +55,7 @@ namespace SpaxUtils
 			Stunned = true;
 			this.stunHit = stunHit;
 			controlMod.SetValue(0f);
+			stunTimer?.Dispose();
 			stunTimer = new TimerClass(duration > 0f ? duration : minStunTime, () => EntityTimeScale, callbackService, UpdateMode.FixedUpdate);
 			Agent.Actor.AddBlocker(this);
 
@@ -65,6 +66,8 @@ namespace SpaxUtils
 		{
 			Stunned = false;
 			controlMod.SetValue(1f);
+			stunTimer?.Dispose();
+			stunTimer = null;
 			Agent.Actor.RemoveBlocker(this);
 
 			ExitedStunEvent?.Invoke();
