@@ -26,13 +26,38 @@ namespace SpaxUtils
 		/// </summary>
 		public void Add(IEntity entity)
 		{
-			if (entities.ContainsKey(entity.ID) && entities[entity.ID] != null)
+			if (entity == null)
 			{
-				SpaxDebug.Error($"An entity with ID \"{entity.ID}\" has already been registered!", context: entity.GameObject);
+				SpaxDebug.Error("Tried to add a null entity.");
 				return;
 			}
 
-			entities[entity.ID] = entity;
+			string id = entity.ID;
+			if (string.IsNullOrEmpty(id))
+			{
+				SpaxDebug.Error("Tried to add an entity with an empty ID.", context: entity is UnityEngine.Object uo ? uo : null);
+				return;
+			}
+
+			if (entities.TryGetValue(id, out IEntity existing))
+			{
+				if (IsDestroyedUnityObject(existing))
+				{
+					SpaxDebug.Error($"EntityService contained a destroyed entity for ID \"{id}\". This violates the entity lifecycle contract. Overwriting entry.", context: entity is UnityEngine.Object ctx ? ctx : null);
+					entities[id] = entity;
+					SpaxDebug.Log("Added entity:", id, color: Color.darkGreen);
+					AddedEntityEvent?.Invoke(entity);
+					return;
+				}
+
+				if (existing != null)
+				{
+					SpaxDebug.Error($"An entity with ID \"{id}\" has already been registered!", context: entity is UnityEngine.Object go ? go : null);
+					return;
+				}
+			}
+
+			entities[id] = entity;
 			AddedEntityEvent?.Invoke(entity);
 		}
 
@@ -41,36 +66,70 @@ namespace SpaxUtils
 		/// </summary>
 		public void Remove(IEntity entity)
 		{
-			if (entities.ContainsKey(entity.ID))
+			if (entity == null)
 			{
-				entities.Remove(entity.ID);
-				RemovedEntityEvent?.Invoke(entity);
+				return;
 			}
+
+			Remove(entity.ID);
+		}
+
+		/// <summary>
+		/// Deregisters an entity by ID. This is the canonical removal path.
+		/// </summary>
+		public void Remove(string id)
+		{
+			if (string.IsNullOrEmpty(id))
+			{
+				return;
+			}
+
+			if (entities.TryGetValue(id, out IEntity removed))
+			{
+				entities.Remove(id);
+				if (removed != null)
+				{
+					RemovedEntityEvent?.Invoke(removed);
+				}
+			}
+		}
+
+		public T Get<T>(string id) where T : class, IEntity
+		{
+			if (entities.TryGetValue(id, out IEntity e))
+			{
+				if (IsDestroyedUnityObject(e))
+				{
+					SpaxDebug.Error($"EntityService.Get found destroyed entity for ID \"{id}\". Removing stale entry.");
+					Remove(id);
+					return null;
+				}
+
+				return (T)e;
+			}
+
+			return null;
 		}
 
 		public bool TryGet<T>(string id, out T entity) where T : class, IEntity
 		{
-			if (entities.ContainsKey(id))
-			{
-				entity = (T)entities[id];
-				return true;
-			}
-			entity = null;
-			return false;
+			entity = Get<T>(id);
+			return entity != null;
 		}
 
 		/// <summary>
 		/// Returns entities implementing <typeparamref name="T"/>.
 		/// </summary>
-		/// <typeparam name="T">The type of <see cref="IEntity"/> implementation to look for.</typeparam>
-		/// <param name="evaluation">Per-result <see cref="Func{T, bool}"/> evaluation.</param>
-		/// <param name="exclude">The <see cref="IEntity"/>s to exclude from the results.</param>
-		/// <returns>The resulting list of found entities.</returns>
 		public List<T> Get<T>(Func<T, bool> evaluation, params IEntity[] exclude) where T : class
 		{
 			List<T> filter = new List<T>();
 			foreach (IEntity entity in entities.Values)
 			{
+				if (IsDestroyedUnityObject(entity))
+				{
+					continue;
+				}
+
 				if (!exclude.Contains(entity) && entity is T castedEntity && evaluation(castedEntity))
 				{
 					filter.Add(castedEntity);
@@ -83,9 +142,6 @@ namespace SpaxUtils
 		/// <summary>
 		/// Returns all entities implementing type <typeparamref name="T"/> except those that are <paramref name="exclude"/>d.
 		/// </summary>
-		/// <typeparam name="T">The type of <see cref="IEntity"/> implementation to look for.</typeparam>
-		/// <param name="exclude"></param>
-		/// <returns>The <see cref="IEntity"/>s to exclude from the results.</returns>
 		public List<T> Get<T>(params IEntity[] exclude) where T : class
 		{
 			return Get<T>((e) => true, exclude);
@@ -94,17 +150,18 @@ namespace SpaxUtils
 		/// <summary>
 		/// Returns all <see cref="IEntityComponent"/>s implementing <typeparamref name="T"/> of all tracked <see cref="IEntity"/>s.
 		/// </summary>
-		/// <typeparam name="T">The type of <see cref="IEntityComponent"/> implementations to look for.</typeparam>
-		/// <param name="entityEvaluation">Per-result evaluation of the current <see cref="IEntity"/>.</param>
-		/// <param name="componentEvaluation">Per-result evaluation of the current <see cref="IEntityComponent"/>.</param>
-		/// <param name="exclude">The <see cref="IEntity"/>s to exclude from the results.</param>
-		/// <returns></returns>
 		public List<T> GetComponents<T>(Func<IEntity, bool> entityEvaluation, Func<T, bool> componentEvaluation, params IEntity[] exclude) where T : class, IEntityComponent
 		{
 			List<T> components = new List<T>();
 			List<IEntity> ex = exclude.ToList();
+
 			foreach (IEntity entity in entities.Values)
 			{
+				if (IsDestroyedUnityObject(entity))
+				{
+					continue;
+				}
+
 				if (!ex.Contains(entity) &&
 					entityEvaluation(entity) &&
 					entity.TryGetEntityComponent(out T component) &&
@@ -113,6 +170,7 @@ namespace SpaxUtils
 					components.Add(component);
 				}
 			}
+
 			return components;
 		}
 
@@ -122,6 +180,16 @@ namespace SpaxUtils
 		public List<T> GetComponents<T>(params IEntity[] exclude) where T : class, IEntityComponent
 		{
 			return GetComponents<T>((entity) => true, (component) => true, exclude);
+		}
+
+		private bool IsDestroyedUnityObject(object obj)
+		{
+			if (obj is UnityEngine.Object uo && !uo)
+			{
+				return true;
+			}
+
+			return false;
 		}
 	}
 }

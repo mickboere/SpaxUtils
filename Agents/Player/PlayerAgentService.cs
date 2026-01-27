@@ -253,7 +253,8 @@ namespace SpaxUtils
 		{
 			return
 				(_agents.Count > playerIndex &&
-				_agents[playerIndex].RuntimeData.GetValue(EntityDataIdentifiers.ALIVE, false))
+				//_agents[playerIndex].RuntimeData.GetValue(EntityDataIdentifiers.ALIVE, false))
+				_agents[playerIndex].Alive)
 				||
 				(TryRetrievePlayerEntityData(playerIndex, out RuntimeDataCollection playerData) &&
 				playerData.GetValue(EntityDataIdentifiers.ALIVE, false));

@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
+using System;
 
 namespace SpaxUtils
 {
@@ -36,6 +37,7 @@ namespace SpaxUtils
 				{
 					return camera.fieldOfView;
 				}
+
 				return fov;
 			}
 		}
@@ -66,29 +68,52 @@ namespace SpaxUtils
 		{
 			List<ITargetable> spotted = new List<ITargetable>();
 
-			if (ViewPoint == null)
+			Transform vp = ViewPoint;
+			if (vp == null)
 			{
 				SpaxDebug.Error("Eye transform could not be found.", $"Eye transform identifier: {transformIdentifier}", this);
 				return spotted;
 			}
 
-			// For each targetable, check if they are in view (meaning in range and within FOV).
+			Vector3 eyePos = vp.position;
+			Vector3 forward = vp.forward;
+
+			float halfFovRad = FOV * 0.5f * Mathf.Deg2Rad;
+			float cosHalfFov = Mathf.Cos(halfFovRad);
+			float rangeSqr = range * range;
+
 			foreach (ITargetable targetable in targetables)
 			{
-				if (spotted.Contains(targetable))
+				if (targetable == null)
 				{
-					// Skip targetables that have already been spotted.
 					continue;
 				}
 
-				Vector3 eyeToTarget = targetable.Center - ViewPoint.position;
-				float distanceToTarget = eyeToTarget.magnitude;
-				if (distanceToTarget < range && Vector3.Angle(ViewPoint.forward, eyeToTarget.normalized) < fov * 0.5f)
+				if (targetable is MonoBehaviour mb && !mb)
 				{
-					if (!Physics.Raycast(ViewPoint.position, eyeToTarget, out _, eyeToTarget.magnitude, layerMask))
-					{
-						spotted.Add(targetable);
-					}
+					continue;
+				}
+
+				Vector3 toTarget = targetable.Center - eyePos;
+				float distSqr = toTarget.sqrMagnitude;
+
+				if (distSqr >= rangeSqr)
+				{
+					continue;
+				}
+
+				float dist = Mathf.Sqrt(distSqr);
+				Vector3 dir = toTarget / dist;
+
+				float dot = Vector3.Dot(forward, dir);
+				if (dot <= cosHalfFov)
+				{
+					continue;
+				}
+
+				if (!Physics.Raycast(eyePos, dir, dist, layerMask))
+				{
+					spotted.Add(targetable);
 				}
 			}
 
@@ -100,13 +125,31 @@ namespace SpaxUtils
 		{
 			List<ITargetable> visible = Spot(targetables);
 
+			Transform vp = ViewPoint;
+			if (vp == null)
+			{
+				return null;
+			}
+
 			ITargetable best = null;
 			float bestScore = 0f;
+
 			foreach (ITargetable targetable in visible)
 			{
-				float angleScore = Vector3.Normalize(targetable.Center - ViewPoint.position).ClampedDot(ViewPoint.forward);
+				if (targetable == null)
+				{
+					continue;
+				}
+
+				if (targetable is MonoBehaviour mb && !mb)
+				{
+					continue;
+				}
+
+				float angleScore = Vector3.Normalize(targetable.Center - vp.position).ClampedDot(vp.forward);
 				float distanceScore = (Vector3.Distance(targetable.Position, agent.Transform.position) / Range).InvertClamped();
 				float score = angleScore * 5f + distanceScore;
+
 				if (score > bestScore)
 				{
 					best = targetable;
@@ -119,30 +162,32 @@ namespace SpaxUtils
 
 		protected void OnDrawGizmos()
 		{
-			if (debug)
+			if (!debug)
 			{
-				if (eyeTransform == null && !string.IsNullOrEmpty(transformIdentifier))
-				{
-					if (transformLookup == null)
-					{
-						transformLookup = GetComponent<TransformLookup>();
-					}
-
-					if (transformLookup != null)
-					{
-						eyeTransform = transformLookup.Lookup(transformIdentifier);
-					}
-				}
-
-				if (ViewPoint == null)
-				{
-					return;
-				}
-
-				Gizmos.color = Color.white;
-				Gizmos.matrix = ViewPoint.localToWorldMatrix;
-				Gizmos.DrawFrustum(Vector3.zero, fov, range * 2f / ViewPoint.lossyScale.magnitude, 0f, 1f);
+				return;
 			}
+
+			if (eyeTransform == null && !string.IsNullOrEmpty(transformIdentifier))
+			{
+				if (transformLookup == null)
+				{
+					transformLookup = GetComponent<TransformLookup>();
+				}
+
+				if (transformLookup != null)
+				{
+					eyeTransform = transformLookup.Lookup(transformIdentifier);
+				}
+			}
+
+			if (ViewPoint == null)
+			{
+				return;
+			}
+
+			Gizmos.color = Color.white;
+			Gizmos.matrix = ViewPoint.localToWorldMatrix;
+			Gizmos.DrawFrustum(Vector3.zero, fov, range * 2f / ViewPoint.lossyScale.magnitude, 0f, 1f);
 		}
 	}
 }

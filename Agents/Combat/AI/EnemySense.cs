@@ -38,6 +38,9 @@ namespace SpaxUtils
 		private float pointSum;
 		private List<ITargetable> visible;
 
+		private HashSet<ITargetable> visibleSet = new HashSet<ITargetable>();
+		private List<ITargetable> forgetBuffer = new List<ITargetable>(16);
+
 		public EnemySense(
 			IAgent agent,
 			IVisionComponent vision,
@@ -90,17 +93,36 @@ namespace SpaxUtils
 		{
 			pointSum = statHandler.PointStats.Vector8.Sum();
 
-			visible = vision.Spot(agent.Targeter.Enemies.Components);
-			foreach (ITargetable enemy in agent.Targeter.Enemies.Components)
+			List<ITargetable> enemyList = agent.Targeter.Enemies.Components;
+
+			visible = vision.Spot(enemyList);
+
+			visibleSet.Clear();
+			for (int i = 0; i < visible.Count; i++)
 			{
+				visibleSet.Add(visible[i]);
+			}
+
+			for (int i = 0; i < enemyList.Count; i++)
+			{
+				ITargetable enemy = enemyList[i];
+
+				// Unity fake-null guard for interface references.
+				if (enemy is MonoBehaviour mb && !mb)
+				{
+					continue;
+				}
+
 				IAgent enemyAgent = enemy.Entity as IAgent;
-				if (enemyAgent == null || !enemyAgent.Alive || (!enemies.ContainsKey(enemy) && !visible.Contains(enemy)))
+
+				if (enemyAgent == null || !enemyAgent.Alive || (!enemies.ContainsKey(enemy) && !visibleSet.Contains(enemy)))
 				{
 					// Enemy is not an agent, is dead, or invisible and not being tracked; skip.
 					continue;
 				}
 
 				EnemyInfo enemyData;
+
 				if (!enemies.ContainsKey(enemy))
 				{
 					enemyData = new EnemyInfo(enemyAgent);
@@ -122,13 +144,39 @@ namespace SpaxUtils
 				UpdateEnemyInfo(enemy, enemyData, delta);
 			}
 
-			// Forget enemies out of view for too long.
-			List<ITargetable> outOfView = enemies.Keys.Except(visible).ToList();
-			foreach (ITargetable lostTargetable in outOfView)
+			// Forget enemies out of view for too long (no LINQ allocations).
+			forgetBuffer.Clear();
+
+			foreach (KeyValuePair<ITargetable, EnemyInfo> kv in enemies)
 			{
-				if (Time.time - enemies[lostTargetable].LastSeen > settings.ForgetTime)
+				ITargetable t = kv.Key;
+
+				if (t is MonoBehaviour mb && !mb)
 				{
-					enemies[lostTargetable].Agent.DiedEvent -= OnEnemyDiedEvent;
+					forgetBuffer.Add(t);
+					continue;
+				}
+
+				if (!visibleSet.Contains(t))
+				{
+					if (Time.time - kv.Value.LastSeen > settings.ForgetTime)
+					{
+						forgetBuffer.Add(t);
+					}
+				}
+			}
+
+			for (int i = 0; i < forgetBuffer.Count; i++)
+			{
+				ITargetable lostTargetable = forgetBuffer[i];
+
+				if (lostTargetable != null && enemies.TryGetValue(lostTargetable, out EnemyInfo info))
+				{
+					info.Agent.DiedEvent -= OnEnemyDiedEvent;
+					enemies.Remove(lostTargetable);
+				}
+				else
+				{
 					enemies.Remove(lostTargetable);
 				}
 			}
@@ -137,7 +185,7 @@ namespace SpaxUtils
 		private void UpdateEnemyInfo(ITargetable enemy, EnemyInfo info, float delta)
 		{
 			// Visibility.
-			if (visible.Contains(enemy))
+			if (visibleSet.Contains(enemy))
 			{
 				info.Visible = true;
 				info.LastSeen = Time.time;
@@ -220,9 +268,17 @@ namespace SpaxUtils
 			float rawIntent = 0f;
 			if (info.CombatComp != null)
 			{
-				if (info.CombatComp.InCombatMode) rawIntent += 0.5f;
-				if (info.CombatComp.CurrentCombatMove != null) rawIntent += 0.5f;
+				if (info.CombatComp.InCombatMode)
+				{
+					rawIntent += 0.5f;
+				}
+
+				if (info.CombatComp.CurrentCombatMove != null)
+				{
+					rawIntent += 0.5f;
+				}
 			}
+
 			rawIntent = Mathf.Clamp01(rawIntent);
 			info.Intent = rawIntent * facingToSelf;
 
@@ -255,8 +311,12 @@ namespace SpaxUtils
 		{
 			// Enemy has died, satisfy all motivations towards them.
 			agent.Mind.Satisfy(Vector8.One * AEMOI.MAX_STIM, enemy);
-			enemies[enemy.Targetable].Agent.DiedEvent -= OnEnemyDiedEvent;
-			enemies.Remove(enemy.Targetable);
+
+			if (enemy != null && enemy.Targetable != null)
+			{
+				enemies[enemy.Targetable].Agent.DiedEvent -= OnEnemyDiedEvent;
+				enemies.Remove(enemy.Targetable);
+			}
 		}
 
 		#endregion Enemy Tracking
@@ -338,7 +398,6 @@ namespace SpaxUtils
 				float utilize = utilizeDanger - utilizeRelax;
 
 				// E (Evade).
-				// Evade should respond mostly to immediate attack intent and windup.
 				float immediateThreat = threatStim * intent01;
 				float evadeDanger = immediateThreat + windupDanger;
 
@@ -370,11 +429,6 @@ namespace SpaxUtils
 				float guard = guardDanger - guardRelax;
 
 				// NW (Target / aggro).
-				// Continuous sense may only build NW up to a cap:
-				//   - if Resentment >= 1 => cap = Resentment
-				//   - if Resentment < 1  => cap = 1
-				//
-				// Anything above that must come from discrete events (being hit, etc.).
 				float hateNorm = Mathf.Clamp01(info.Resentment);          // 0..1 hostility
 				float maxContNW = Mathf.Max(info.Resentment, 1f);          // resentment or at least 1
 
@@ -388,13 +442,10 @@ namespace SpaxUtils
 				{
 					if (currentNW >= maxContNW)
 					{
-						// Already at/above continuous cap: EnemySense not allowed
-						// to push NW any higher – only negative impulses may reduce it.
 						target = 0f;
 					}
 					else
 					{
-						// As we approach the cap the positive impulse fades out.
 						float factor = Mathf.Clamp01((maxContNW - currentNW) / maxContNW);
 						target *= factor;
 					}

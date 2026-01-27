@@ -80,7 +80,7 @@ namespace SpaxUtils
 		{
 			if (this == null)
 			{
-				SpaxDebug.Error("Fetching renderers from non-existing targetable.", $"Entity: {Entity.Identification}", Entity.GameObject);
+				SpaxDebug.Error("Fetching renderers from non-existing targetable.", $"Entity: {Entity.Identification}");
 			}
 
 			if (renderersAtStart == null || renderersAtStart.Any(r => r == null))

@@ -17,24 +17,22 @@ namespace SpaxUtils
 		{
 			get
 			{
-				if (_components == null)
-				{
-					_components = entityCollection.GetComponents(evaluateEntity, evaluateComponent, exclude);
-				}
-				return _components;
+				EnsureInitialized();
+				return components;
 			}
 			private set
 			{
-				_components = value;
+				components = value;
 			}
 		}
+
+		private List<T> components;
+		private Dictionary<IEntity, T> byEntity;
 
 		protected Func<IEntity, bool> evaluateEntity;
 		protected Func<T, bool> evaluateComponent;
 		protected IEntity[] exclude;
 		protected IEntityCollection entityCollection;
-
-		private List<T> _components;
 
 		/// <summary>
 		/// Creates a new type-only <see cref="IEntityComponent"/> filter.
@@ -53,64 +51,160 @@ namespace SpaxUtils
 			this.evaluateComponent = evaluateComponent;
 			this.exclude = exclude;
 
-			// The entity components aren't retrieved until we require a reference to them.
-			// This is because in some cases the evaluate func is set in a higher implementation, after the base construction.
-
+			// Lazy init: we only build the initial list when needed or when the first event arrives.
 			entityCollection.AddedEntityEvent += OnAddedEntity;
 			entityCollection.RemovedEntityEvent += OnRemovedEntity;
 		}
 
 		public void Reevaluate()
 		{
-			List<T> old = new List<T>(Components);
-			Components = entityCollection.GetComponents(evaluateEntity, evaluateComponent, exclude);
-			List<T> removed = old.Except(Components).ToList();
-			List<T> added = Components.Except(old).ToList();
-			foreach (T r in removed)
+			EnsureInitialized();
+
+			Dictionary<IEntity, T> oldMap = new Dictionary<IEntity, T>(byEntity);
+			List<T> newComponents = entityCollection.GetComponents(evaluateEntity, evaluateComponent, exclude);
+
+			Dictionary<IEntity, T> newMap = new Dictionary<IEntity, T>();
+			for (int i = 0; i < newComponents.Count; i++)
 			{
-				RemovedComponentEvent?.Invoke(r);
+				T c = newComponents[i];
+				if (c == null)
+				{
+					continue;
+				}
+
+				IEntity e = c.Entity;
+				if (e == null)
+				{
+					continue;
+				}
+
+				if (!newMap.ContainsKey(e))
+				{
+					newMap.Add(e, c);
+				}
 			}
-			foreach (T a in added)
+
+			// Removed: in oldMap but not in newMap.
+			foreach (KeyValuePair<IEntity, T> kv in oldMap)
 			{
-				AddedComponentEvent?.Invoke(a);
+				if (!newMap.ContainsKey(kv.Key))
+				{
+					RemovedComponentEvent?.Invoke(kv.Value);
+				}
 			}
+
+			// Added: in newMap but not in oldMap.
+			foreach (KeyValuePair<IEntity, T> kv in newMap)
+			{
+				if (!oldMap.ContainsKey(kv.Key))
+				{
+					AddedComponentEvent?.Invoke(kv.Value);
+				}
+			}
+
+			components = newComponents;
+			byEntity = newMap;
 		}
 
 		protected virtual void OnAddedEntity(IEntity entity)
 		{
-			if (evaluateEntity(entity) &&
-				entity.TryGetEntityComponent(out T component) &&
-				!exclude.Contains(component.Entity) && // Through shared dependencies, some entities can receive components from parent entities.
-				evaluateComponent(component))
+			EnsureInitialized();
+
+			if (entity == null)
 			{
-				AddComponent(component);
+				return;
+			}
+
+			if (exclude != null && exclude.Contains(entity))
+			{
+				return;
+			}
+
+			if (!evaluateEntity(entity))
+			{
+				return;
+			}
+
+			if (!entity.TryGetEntityComponent(out T component))
+			{
+				return;
+			}
+
+			if (component == null)
+			{
+				return;
+			}
+
+			if (exclude != null && exclude.Contains(component.Entity))
+			{
+				return;
+			}
+
+			if (!evaluateComponent(component))
+			{
+				return;
+			}
+
+			if (!byEntity.ContainsKey(entity))
+			{
+				byEntity.Add(entity, component);
+				components.Add(component);
+				AddedComponentEvent?.Invoke(component);
 			}
 		}
 
 		protected virtual void OnRemovedEntity(IEntity entity)
 		{
-			if (entity.TryGetEntityComponent(out T component) && Components.Contains(component))
+			EnsureInitialized();
+
+			if (entity == null)
 			{
-				RemoveComponent(component);
+				return;
 			}
-		}
 
-		protected virtual void AddComponent(T component)
-		{
-			Components.Add(component);
-			AddedComponentEvent?.Invoke(component);
-		}
-
-		protected virtual void RemoveComponent(T component)
-		{
-			Components.Remove(component);
-			RemovedComponentEvent?.Invoke(component);
+			if (byEntity.TryGetValue(entity, out T component))
+			{
+				byEntity.Remove(entity);
+				components.Remove(component);
+				RemovedComponentEvent?.Invoke(component);
+			}
 		}
 
 		public virtual void Dispose()
 		{
 			entityCollection.AddedEntityEvent -= OnAddedEntity;
 			entityCollection.RemovedEntityEvent -= OnRemovedEntity;
+		}
+
+		private void EnsureInitialized()
+		{
+			if (components != null && byEntity != null)
+			{
+				return;
+			}
+
+			components = entityCollection.GetComponents(evaluateEntity, evaluateComponent, exclude);
+
+			byEntity = new Dictionary<IEntity, T>();
+			for (int i = 0; i < components.Count; i++)
+			{
+				T c = components[i];
+				if (c == null)
+				{
+					continue;
+				}
+
+				IEntity e = c.Entity;
+				if (e == null)
+				{
+					continue;
+				}
+
+				if (!byEntity.ContainsKey(e))
+				{
+					byEntity.Add(e, c);
+				}
+			}
 		}
 	}
 }
