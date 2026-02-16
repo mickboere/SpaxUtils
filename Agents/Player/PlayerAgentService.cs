@@ -19,16 +19,20 @@ namespace SpaxUtils
 		/// <summary>
 		/// All currently marked player agents.
 		/// </summary>
-		public IReadOnlyList<IAgent> Agents => _agents;
-		private List<IAgent> _agents = new List<IAgent>();
+		public IReadOnlyList<IAgent> Agents => agents;
+		private List<IAgent> agents = new List<IAgent>();
 
 		/// <summary>
 		/// The <see cref="IAgent"/> of player one.
 		/// </summary>
-		public IAgent PlayerAgent => _agents.Count > 0 ? _agents[0] : null;
+		public IAgent PlayerAgent => agents.Count > 0 ? agents[0] : null;
 
 		private RuntimeDataService runtimeDataService;
 		private CycleService cycleService;
+
+		// Reverse lookup so we can unmark by IEntity/IAgent in lifecycle callbacks without scanning the list.
+		// Keyed by entity ID so we don't rely on interface refs behaving nicely with Unity's fake-null.
+		private Dictionary<string, int> agentIdToIndex = new Dictionary<string, int>();
 
 		public PlayerAgentService(RuntimeDataService runtimeDataService, CycleService cycleService)
 		{
@@ -67,16 +71,43 @@ namespace SpaxUtils
 		/// </summary>
 		/// <param name="agent">The agent currently under control by player <paramref name="playerIndex"/>.</param>
 		/// <param name="playerIndex">The index of the player controlling the agent.</param>
-		public void MarkPlayerAgent(IAgent agent, int playerIndex)
+		public void MarkPlayerAgent(IAgent agent, int playerIndex = -1)
 		{
-			if (_agents.Count <= playerIndex)
+			if (agent == null)
 			{
-				_agents.Add(agent);
+				SpaxDebug.Error("Can't mark player agent", "Agent is null.");
+				return;
 			}
-			else
+
+			if (playerIndex < 0)
 			{
-				_agents[playerIndex] = agent;
+				playerIndex = 0;
 			}
+
+			// Ensure slot list is large enough.
+			while (agents.Count <= playerIndex)
+			{
+				agents.Add(null);
+			}
+
+			// If this agent is already marked under a different index, clear its old slot.
+			string newId = agent.Identification != null ? agent.Identification.ID : null;
+			if (!string.IsNullOrEmpty(newId) && agentIdToIndex.TryGetValue(newId, out int oldIndex) && oldIndex != playerIndex)
+			{
+				DismissPlayerAgent(oldIndex);
+			}
+
+			// If this slot already has a different agent, unhook it first.
+			IAgent previous = agents[playerIndex];
+			if (previous != null && previous != agent)
+			{
+				UnhookAgent(previous);
+				agents[playerIndex] = null;
+				PlayerDeregisteredEvent?.Invoke(previous);
+			}
+
+			agents[playerIndex] = agent;
+			HookAgent(agent, playerIndex);
 
 			// Load player collection.
 			List<string> playerCollection = new List<string>();
@@ -85,18 +116,14 @@ namespace SpaxUtils
 				playerCollection = runtimeDataService.CurrentProfile.GetValue<List<string>>(ID_PLAYER_COLLECTION);
 			}
 
-			if (playerIndex < playerCollection.Count)
+			while (playerCollection.Count <= playerIndex)
 			{
-				// Overwrite entity at player index.
-				playerCollection[playerIndex] = agent.Identification.ID;
-				runtimeDataService.CurrentProfile.SetValue(ID_PLAYER_COLLECTION, playerCollection);
+				playerCollection.Add(string.Empty);
 			}
-			else
-			{
-				// Expand player collection.
-				playerCollection.Add(agent.Identification.ID);
-				runtimeDataService.CurrentProfile.SetValue(ID_PLAYER_COLLECTION, playerCollection);
-			}
+
+			// Overwrite entity at player index.
+			playerCollection[playerIndex] = agent.Identification.ID;
+			runtimeDataService.CurrentProfile.SetValue(ID_PLAYER_COLLECTION, playerCollection);
 
 			PlayerRegisteredEvent?.Invoke(agent);
 		}
@@ -106,22 +133,23 @@ namespace SpaxUtils
 		/// </summary>
 		public void DismissPlayerAgent(int index)
 		{
-			if (_agents.Count > index)
+			if (index < 0 || index >= agents.Count)
 			{
-				IAgent agent = null;
-
-				if (_agents[index] != null)
-				{
-					agent = _agents[index];
-				}
-
-				_agents.RemoveAt(index);
-
-				if (agent != null)
-				{
-					PlayerDeregisteredEvent?.Invoke(agent);
-				}
+				return;
 			}
+
+			IAgent agent = agents[index];
+			if (agent == null)
+			{
+				return;
+			}
+
+			agents[index] = null;
+			UnhookAgent(agent);
+
+			PlayerDeregisteredEvent?.Invoke(agent);
+
+			TrimTrailingNulls();
 		}
 
 		/// <summary>
@@ -129,15 +157,40 @@ namespace SpaxUtils
 		/// </summary>
 		public void DismissPlayerAgent(IAgent agent)
 		{
-			_agents.Remove(agent);
-			PlayerDeregisteredEvent?.Invoke(agent);
+			if (agent == null)
+			{
+				return;
+			}
+
+			string id = agent.Identification != null ? agent.Identification.ID : null;
+			if (!string.IsNullOrEmpty(id) && agentIdToIndex.TryGetValue(id, out int index))
+			{
+				DismissPlayerAgent(index);
+				return;
+			}
+
+			// Fallback (should be rare): scan the slots.
+			for (int i = 0; i < agents.Count; i++)
+			{
+				if (agents[i] == agent)
+				{
+					DismissPlayerAgent(i);
+					return;
+				}
+			}
 		}
 
 		/// <summary>
 		/// Spawns a new player agent.
 		/// </summary>
-		public IAgent SpawnPlayer(IDependencyManager dependencyManager, PlayerConfig config, AgentSpawnData spawnData, Transform spawnpoint,
-			out List<GameObject> instances, Camera inputCamOverride = null, bool activate = true)
+		public IAgent SpawnPlayer(
+			IDependencyManager dependencyManager,
+			PlayerConfig config,
+			AgentSpawnData spawnData,
+			Transform spawnpoint,
+			out List<GameObject> instances,
+			Camera inputCamOverride = null,
+			bool activate = true)
 		{
 			instances = new List<GameObject>();
 
@@ -243,6 +296,7 @@ namespace SpaxUtils
 				}
 			}
 
+			MarkPlayerAgent(playerAgent, playerInputWrapper.PlayerIndex);
 			return playerAgent;
 		}
 
@@ -251,13 +305,26 @@ namespace SpaxUtils
 		/// </summary>
 		public bool IsAlive(int playerIndex = 0)
 		{
-			return
-				(_agents.Count > playerIndex &&
-				//_agents[playerIndex].RuntimeData.GetValue(EntityDataIdentifiers.ALIVE, false))
-				_agents[playerIndex].Alive)
-				||
-				(TryRetrievePlayerEntityData(playerIndex, out RuntimeDataCollection playerData) &&
-				playerData.GetValue(EntityDataIdentifiers.ALIVE, false));
+			if (agents.Count > playerIndex)
+			{
+				IAgent a = agents[playerIndex];
+
+				if (a != null)
+				{
+					// If IAgent is backed by a UnityEngine.Object, handle destroyed refs too.
+					if (!(a is UnityEngine.Object uo) || uo)
+					{
+						return a.Alive;
+					}
+				}
+			}
+
+			if (TryRetrievePlayerEntityData(playerIndex, out RuntimeDataCollection playerData))
+			{
+				return playerData.GetValue(EntityDataIdentifiers.ALIVE, false);
+			}
+
+			return false;
 		}
 
 		/// <summary>
@@ -267,8 +334,13 @@ namespace SpaxUtils
 		{
 			closest = null;
 			float closestDistance = float.MaxValue;
-			foreach (IAgent player in _agents)
+			foreach (IAgent player in agents)
 			{
+				if (player == null)
+				{
+					continue;
+				}
+
 				float distance = (player.Transform.position - point).sqrMagnitude;
 				if (distance < closestDistance)
 				{
@@ -286,6 +358,58 @@ namespace SpaxUtils
 		public float GetDistanceToClosestPlayer(Vector3 point, out IAgent closest)
 		{
 			return GetSqrDistanceToClosestPlayer(point, out closest).Sqrt();
+		}
+
+		private void HookAgent(IAgent agent, int index)
+		{
+			string id = agent.Identification != null ? agent.Identification.ID : null;
+			if (!string.IsNullOrEmpty(id))
+			{
+				agentIdToIndex[id] = index;
+			}
+
+			if (agent is IEntity entity)
+			{
+				entity.DeactivatedEvent += OnAgentDeactivatedEvent;
+			}
+		}
+
+		private void UnhookAgent(IAgent agent)
+		{
+			string id = agent.Identification != null ? agent.Identification.ID : null;
+			if (!string.IsNullOrEmpty(id))
+			{
+				agentIdToIndex.Remove(id);
+			}
+
+			if (agent is IEntity entity)
+			{
+				entity.DeactivatedEvent -= OnAgentDeactivatedEvent;
+			}
+		}
+
+		private void OnAgentDeactivatedEvent(IEntity entity)
+		{
+			IAgent agent = entity as IAgent;
+			if (agent == null)
+			{
+				return;
+			}
+
+			DismissPlayerAgent(agent);
+		}
+
+		private void TrimTrailingNulls()
+		{
+			for (int i = agents.Count - 1; i >= 0; i--)
+			{
+				if (agents[i] != null)
+				{
+					return;
+				}
+
+				agents.RemoveAt(i);
+			}
 		}
 	}
 }

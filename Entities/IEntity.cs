@@ -16,6 +16,11 @@ namespace SpaxUtils
 		/// </summary>
 		event Action<RuntimeDataCollection> OnSaveEvent;
 
+		/// <summary>
+		/// Invoked when the entity is disabled or destroyed.
+		/// </summary>
+		event Action<IEntity> DeactivatedEvent;
+
 		#region Properties
 
 		/// <summary>

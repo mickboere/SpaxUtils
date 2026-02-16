@@ -194,7 +194,7 @@ namespace SpaxUtils
 			timescaleStat.RemoveModifier(this);
 			timescaleStat.AddModifier(this, hitPauseMod);
 
-			SpaxDebug.Log($"{agent.ID} - HIT:", hitData.ToString());
+			//SpaxDebug.Log($"{agent.ID} - HIT:", hitData.ToString());
 		}
 	}
 }

@@ -165,13 +165,16 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public void Die()
 		{
-			if (Alive && Brain.TryTransition(AgentStateIdentifiers.DEAD))
+			if (!Alive)
 			{
-				Alive = false;
-				Actor.TryCancel(true);
-				Actor.AddBlocker(this);
-				DiedEvent?.Invoke(this);
+				return;
 			}
+
+			Alive = false;
+			Actor.TryCancel(true);
+			Actor.AddBlocker(this);
+			Brain.TryTransition(AgentStateIdentifiers.DEAD);
+			DiedEvent?.Invoke(this);
 		}
 
 		/// <inheritdoc/>

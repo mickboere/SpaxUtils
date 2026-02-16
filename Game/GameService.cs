@@ -22,6 +22,9 @@ namespace SpaxUtils
 
 		private Coroutine coroutine;
 
+		// Monotonic request id to prevent stale transitions / scene-load callbacks from winning races.
+		private int switchVersion;
+
 		public GameService(GameData gameData, IDependencyManager dependencyManager, CallbackService callbackService, SceneService sceneService)
 		{
 			this.gameData = gameData;
@@ -67,6 +70,10 @@ namespace SpaxUtils
 				return;
 			}
 
+			// Supersede any prior switch request.
+			switchVersion++;
+			int version = switchVersion;
+
 			// Retrieve desired scene.
 			if (scene.IsNullOrEmpty() &&
 				gameData.StateData.ContainsKey(state) &&
@@ -78,37 +85,39 @@ namespace SpaxUtils
 			SpaxDebug.Log($"Enter: [{state}]", "//" + scene);
 
 			// Create a new transition, NULL if immediate.
-			ITransition transition = NewTransition();
+			ITransition transition = NewTransition(duration);
 
 			// Show loading screen.
 			Brain.TryTransition(GameStateIdentifiers.LOADING, transition);
-			AwaitTransition(transition, () =>
+			AwaitTransition(version, transition, () =>
 			{
+				if (version != switchVersion)
+				{
+					return;
+				}
+
 				if (!scene.IsNullOrEmpty() && sceneService.CurrentScene != scene)
 				{
 					// Load new scene.
 					sceneService.LoadScene(scene, () =>
 					{
+						if (version != switchVersion)
+						{
+							return;
+						}
+
 						// Enter new state.
-						transition = NewTransition();
-						Brain.TryTransition(state, transition);
+						ITransition enterTransition = NewTransition(duration);
+						Brain.TryTransition(state, enterTransition);
 					});
 				}
 				else
 				{
 					// Already in correct scene, enter new state.
-					transition = NewTransition();
-					Brain.TryTransition(state, transition);
+					ITransition enterTransition = NewTransition(duration);
+					Brain.TryTransition(state, enterTransition);
 				}
 			});
-
-			ITransition NewTransition()
-			{
-				return duration.Approx(0f) ? null :
-					duration < 0f ?
-						new TimedStateTransition(gameData.TransitionTime, true) :
-						new TimedStateTransition(duration, true);
-			}
 		}
 
 		/// <summary>
@@ -137,11 +146,28 @@ namespace SpaxUtils
 			SwitchLevel(gameData.Levels.Keys.ElementAt(levelIndex), duration);
 		}
 
-		private void AwaitTransition(ITransition transition, Action callback)
+		private ITransition NewTransition(float duration)
+		{
+			if (duration.Approx(0f))
+			{
+				return null;
+			}
+
+			float t = duration < 0f ? gameData.TransitionTime : duration;
+			return new TimedStateTransition(t, true);
+		}
+
+		private void AwaitTransition(int version, ITransition transition, Action callback)
 		{
 			if (coroutine != null)
 			{
 				callbackService.StopCoroutine(coroutine);
+				coroutine = null;
+			}
+
+			if (version != switchVersion)
+			{
+				return;
 			}
 
 			if (transition == null)
@@ -150,16 +176,27 @@ namespace SpaxUtils
 			}
 			else
 			{
-				coroutine = callbackService.StartCoroutine(AwaitEnumerator(transition, callback));
+				coroutine = callbackService.StartCoroutine(AwaitEnumerator(version, transition, callback));
 			}
 		}
 
-		private IEnumerator AwaitEnumerator(ITransition transition, Action callback)
+		private IEnumerator AwaitEnumerator(int version, ITransition transition, Action callback)
 		{
 			while (!transition.Completed)
 			{
+				if (version != switchVersion)
+				{
+					yield break;
+				}
+
 				yield return null;
 			}
+
+			if (version != switchVersion)
+			{
+				yield break;
+			}
+
 			coroutine = null;
 			callback?.Invoke();
 		}

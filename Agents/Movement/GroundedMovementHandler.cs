@@ -124,7 +124,7 @@ namespace SpaxUtils
 			this.statHandler = statHandler;
 
 			moveSpeedStat = Agent.Stats.GetStat(AgentStatIdentifiers.MOVEMENT_SPEED, true, 1f);
-			recoveryStat = Agent.Stats.GetStat(AgentStatIdentifiers.RECOVERY);
+			recoveryStat = Agent.Stats.GetStat(AgentStatIdentifiers.RECOVERY, true, 1f);
 		}
 
 		protected void OnEnable()

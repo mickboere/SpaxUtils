@@ -32,7 +32,7 @@ namespace SpaxUtils.StateMachines
 
 		[SerializeField, Input(backingValue = ShowBackingValue.Never)] protected Connections.StateComponent inConnection;
 		[SerializeField, Output(backingValue = ShowBackingValue.Never, connectionType = ConnectionType.Override, typeConstraint = TypeConstraint.Inherited)] protected Connections.State elseConnection;
-		[SerializeField, Tooltip("Overwrites the validity of this transition.")] private float priority = 0f;
+		[SerializeField, Tooltip(">0 Multiplies the validity of this transition.")] private float priority = 0f;
 
 		public void InjectDependencies()
 		{

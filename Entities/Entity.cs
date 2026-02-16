@@ -18,6 +18,9 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public event Action<RuntimeDataCollection> OnSaveEvent;
 
+		/// <inheritdoc/>
+		public event Action<IEntity> DeactivatedEvent;
+
 		#region Properties
 
 		/// <inheritdoc/>
@@ -123,6 +126,7 @@ namespace SpaxUtils
 		protected RuntimeDataService runtimeDataService;
 		protected SceneService sceneService;
 		private bool initialized;
+		private bool deactivated;
 		private List<object> occupiers = new List<object>();
 		private List<Action<float>> optimizedUpdateCallbacks = new List<Action<float>>();
 
@@ -220,8 +224,7 @@ namespace SpaxUtils
 			}
 #endif
 
-			Identification.IdentificationUpdatedEvent -= OnIdentificationUpdatedEvent;
-			entityCollection?.Remove(this);
+			Deactivate();
 		}
 
 		protected virtual void OnDestroy()
@@ -233,8 +236,7 @@ namespace SpaxUtils
 			}
 #endif
 
-			Identification.IdentificationUpdatedEvent -= OnIdentificationUpdatedEvent;
-			entityCollection?.Remove(this);
+			Deactivate();
 		}
 
 		protected virtual void Update()
@@ -279,6 +281,19 @@ namespace SpaxUtils
 					runtimeDataService.SavingCurrentToDiskEvent += OnSavingEvent;
 				}
 			}
+		}
+
+		private void Deactivate()
+		{
+			if (deactivated)
+			{
+				return;
+			}
+
+			deactivated = true;
+			Identification.IdentificationUpdatedEvent -= OnIdentificationUpdatedEvent;
+			entityCollection?.Remove(this);
+			DeactivatedEvent?.Invoke(this);
 		}
 
 		#region Occupation
