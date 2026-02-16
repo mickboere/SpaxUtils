@@ -32,17 +32,27 @@ namespace SpaxUtils
 		[SerializeField] private AudioListener listener;
 		[SerializeField] private AudioMixer mixer;
 
+		// TODO: Save & load mixer settings.
 		private RuntimeDataService runtimeDataService;
+
+		private bool quitting;
 
 		public void InjectDependencies(RuntimeDataService runtimeDataService)
 		{
 			this.runtimeDataService = runtimeDataService;
+
+			// Track application quit explicitly (instead of frameCount hacks).
+			// This prevents creating new audio objects during shutdown.
+			Application.quitting -= OnApplicationQuitting;
+			Application.quitting += OnApplicationQuitting;
 
 			InitializeListener();
 		}
 
 		protected void OnDestroy()
 		{
+			Application.quitting -= OnApplicationQuitting;
+
 			if (_listener)
 			{
 				Destroy(_listener.gameObject);
@@ -65,11 +75,21 @@ namespace SpaxUtils
 
 		private void InitializeListener()
 		{
-			if (!_listener && Time.frameCount > 0) // If framecount is 0 it means the application has begun quiting, so don't create a new listener.
+			if (quitting || !Application.isPlaying)
+			{
+				return;
+			}
+
+			if (!_listener)
 			{
 				_listener = Instantiate(listener);
 				DontDestroyOnLoad(_listener);
 			}
+		}
+
+		private void OnApplicationQuitting()
+		{
+			quitting = true;
 		}
 	}
 }

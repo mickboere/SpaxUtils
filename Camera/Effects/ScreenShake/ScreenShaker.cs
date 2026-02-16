@@ -10,17 +10,22 @@ namespace SpaxUtils
 
 		[SerializeField] private float maxAngle = 10f;
 		[SerializeField] private float rollAmount = 1f;
+
+		[SerializeField, Tooltip("Scales positional shake relative to the rotational shake output. " +
+			"X/Y are directional bias, Z is rumble amplitude, matching IShakeSource.Magnitude semantics.")]
+		private float positionMultiplier = 0.015f;
+
 		[SerializeField] private ShakeSettings defaultSettings;
 		[SerializeField] private bool test;
 
-		private CameraWrapper cameraHandler;
+		private CinemachineShakeExtension shakeExtension;
 		private AgentImpactHandler agentSenseComponent;
 
 		private List<IShakeSource> sources = new List<IShakeSource>();
 
-		public void InjectDependencies(CameraWrapper cameraHandler, AgentImpactHandler awarenessComponent)
+		public void InjectDependencies(CinemachineShakeExtension shakeExtension, AgentImpactHandler awarenessComponent)
 		{
-			this.cameraHandler = cameraHandler;
+			this.shakeExtension = shakeExtension;
 			this.agentSenseComponent = awarenessComponent;
 		}
 
@@ -44,6 +49,11 @@ namespace SpaxUtils
 		protected void OnDisable()
 		{
 			agentSenseComponent.ImpactEvent -= OnImpactEvent;
+
+			if (shakeExtension != null)
+			{
+				shakeExtension.Clear();
+			}
 		}
 
 		protected void LateUpdate()
@@ -79,6 +89,8 @@ namespace SpaxUtils
 		private void ApplyShake()
 		{
 			Vector3 angles = new Vector3(), magnitude, bias;
+			Vector3 positionOffset = Vector3.zero;
+
 			float intensity, noiseX, noiseY, x, y, z;
 			for (int i = 0; i < sources.Count; i++)
 			{
@@ -99,14 +111,23 @@ namespace SpaxUtils
 				noiseY = GenerateNoise(source.Seed, OFFSET, source.Time);
 				bias = source.Direction == Vector3.zero ?
 					magnitude :
-					cameraHandler.transform.InverseTransformDirection(source.Direction).normalized.Multiply(magnitude);
+					transform.InverseTransformDirection(source.Direction).normalized.Multiply(magnitude);
+
+				// Rotation:
 				x = bias.x + noiseX * magnitude.z;
 				y = -bias.y + noiseY * magnitude.z;
 				z = x * y * rollAmount;
 				angles += new Vector3(y, x, z) * intensity;
+
+				// Position:
+				positionOffset += new Vector3(x, y, 0f) * intensity * positionMultiplier;
 			}
 
-			cameraHandler.Cam.transform.localEulerAngles = angles.Clamp(-maxAngle, maxAngle);
+			if (shakeExtension != null)
+			{
+				shakeExtension.SetRotationEuler(angles.Clamp(-maxAngle, maxAngle));
+				shakeExtension.SetPositionLocal(positionOffset);
+			}
 		}
 
 		/// <summary>

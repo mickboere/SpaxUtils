@@ -242,6 +242,12 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public virtual bool Bind(object value)
 		{
+			if (value == null)
+			{
+				SpaxDebug.Error(IdentifierPrefix + "Cannot bind null value.");
+				return false;
+			}
+
 			return Bind(value.GetType(), value);
 		}
 

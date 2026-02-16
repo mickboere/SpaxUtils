@@ -29,15 +29,17 @@ namespace SpaxUtils
 
 		private RuntimeDataService runtimeDataService;
 		private CycleService cycleService;
+		private CameraManager cameraManager;
 
 		// Reverse lookup so we can unmark by IEntity/IAgent in lifecycle callbacks without scanning the list.
 		// Keyed by entity ID so we don't rely on interface refs behaving nicely with Unity's fake-null.
 		private Dictionary<string, int> agentIdToIndex = new Dictionary<string, int>();
 
-		public PlayerAgentService(RuntimeDataService runtimeDataService, CycleService cycleService)
+		public PlayerAgentService(RuntimeDataService runtimeDataService, CycleService cycleService, CameraManager cameraManager)
 		{
 			this.runtimeDataService = runtimeDataService;
 			this.cycleService = cycleService;
+			this.cameraManager = cameraManager;
 		}
 
 		/// <summary>
@@ -207,18 +209,19 @@ namespace SpaxUtils
 			DependencyManager cameraDependencies = null;
 
 			// Create deactivated instances.
-			GameObject cameraInstance = null;
+			GameObject camRigInstance = null;
 			Camera cameraComponent = null;
 			if (config.CameraPrefab != null)
 			{
-				cameraInstance = DependencyUtils.InstantiateDeactivated(config.CameraPrefab, spawnpoint.position, spawnpoint.rotation);
-				instances.Add(cameraInstance);
+				camRigInstance = DependencyUtils.InstantiateDeactivated(config.CameraPrefab, spawnpoint.position, spawnpoint.rotation);
+				instances.Add(camRigInstance);
 
-				cameraComponent = cameraInstance.GetComponentInChildren<Camera>();
+				//cameraComponent = camRigInstance.GetComponentInChildren<Camera>();
+				cameraComponent = cameraManager.MainCamera; // SINGLE PLAYER ONLY.
 				cameraDependencies = new DependencyManager(playerDependencies, "PlayerCamera");
 				playerDependencies.Bind(EntityLabels.CAMERA, cameraComponent);
 				playerDependencies.Bind(cameraComponent);
-				if (cameraInstance.TryGetComponentInChildren(out CameraWrapper cameraHandler))
+				if (camRigInstance.TryGetComponentInChildren(out CineCameraWrapper cameraHandler))
 				{
 					playerDependencies.Bind(cameraHandler);
 				}
@@ -269,14 +272,14 @@ namespace SpaxUtils
 			instances.Add(playerAgent.gameObject);
 
 			// Set up player camera.
-			if (cameraInstance != null)
+			if (camRigInstance != null)
 			{
 				string camName = $"PLAYER_CAMERA_{playerInputWrapper.PlayerIndex}";
-				var cameraIdentification = new Identification(camName, camName, new List<string>() { EntityLabels.CAMERA }, cameraInstance.GetComponent<IEntity>());
+				var cameraIdentification = new Identification(camName, camName, new List<string>() { EntityLabels.CAMERA }, camRigInstance.GetComponent<IEntity>());
 				cameraDependencies.Bind(cameraIdentification);
-				DependencyUtils.BindMonoBehaviours(cameraInstance, cameraDependencies, includeChildren: true);
-				DependencyUtils.Inject(cameraInstance, cameraDependencies, includeChildren: true, bindComponents: false);
-				cameraInstance.SetActive(true);
+				DependencyUtils.BindMonoBehaviours(camRigInstance, cameraDependencies, includeChildren: true);
+				DependencyUtils.Inject(camRigInstance, cameraDependencies, includeChildren: true, bindComponents: false);
+				camRigInstance.SetActive(true);
 			}
 
 			// Set up UI.

@@ -19,7 +19,7 @@ namespace SpaxUtils
 		[SerializeField, Range(0f, 1f)] private float accelerationInfluence = 0.25f;
 
 		private IAgent agent;
-		private CameraWrapper cameraWrapper;
+		private CineCameraWrapper cameraWrapper;
 
 		private FloatOperationModifier fovMod;
 		private Vector3 lastPos;
@@ -27,7 +27,7 @@ namespace SpaxUtils
 		private float lastVelocity;
 		private SmoothFloat acceleration;
 
-		public void InjectDependencies(IAgent agent, CameraWrapper cameraWrapper)
+		public void InjectDependencies(IAgent agent, CineCameraWrapper cameraWrapper)
 		{
 			this.agent = agent;
 			this.cameraWrapper = cameraWrapper;

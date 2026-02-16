@@ -18,6 +18,14 @@ namespace SpaxUtils
 		protected void Awake()
 		{
 			gameService = GlobalDependencyManager.Instance.Get<GameService>();
+
+			CameraManager cameraManager = GlobalDependencyManager.Instance.Get<CameraManager>();
+			AudioManager audioManager = GlobalDependencyManager.Instance.Get<AudioManager>();
+
+			if (audioManager != null && cameraManager != null && cameraManager.Handler != null)
+			{
+				audioManager.ClaimListener(cameraManager.Handler.transform);
+			}
 		}
 
 #if UNITY_EDITOR

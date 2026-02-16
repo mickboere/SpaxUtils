@@ -121,7 +121,7 @@ namespace SpaxUtils
 
 		protected IEntityCollection entityCollection;
 		protected OptimizedCallbackService optimizationService;
-		protected CameraService cameraService;
+		protected CameraManager cameraService;
 		protected EntityOptimizationSettings entityOptimizationSettings;
 		protected RuntimeDataService runtimeDataService;
 		protected SceneService sceneService;
@@ -132,7 +132,7 @@ namespace SpaxUtils
 
 		public void InjectDependencies(
 			IDependencyManager dependencyManager, IEntityComponent[] entityComponents, IEntityCollection entityCollection,
-			OptimizedCallbackService optimizationService, CameraService cameraService, EntityOptimizationSettings entityOptimizationSettings,
+			OptimizedCallbackService optimizationService, CameraManager cameraService, EntityOptimizationSettings entityOptimizationSettings,
 			RuntimeDataService runtimeDataService, IStatLibrary statLibrary, SceneService sceneService,
 			[Optional] RuntimeDataCollection runtimeData, [Optional] IIdentification identification)
 		{
