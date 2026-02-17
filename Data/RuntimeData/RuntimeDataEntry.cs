@@ -87,7 +87,7 @@ namespace SpaxUtils
 		{
 			ID = id;
 			_value = value;
-			_parent = parent;
+			Parent = parent;
 			Dirty = dirty;
 		}
 
@@ -95,7 +95,7 @@ namespace SpaxUtils
 		{
 			ID = labeledData.ID;
 			Value = labeledData.Value;
-			_parent = parent;
+			Parent = parent;
 			Dirty = dirty;
 		}
 

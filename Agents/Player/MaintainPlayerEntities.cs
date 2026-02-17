@@ -53,6 +53,7 @@ namespace SpaxUtils
 		public override void OnStateExit()
 		{
 			base.OnStateExit();
+
 			foreach (GameObject instance in instances)
 			{
 				Destroy(instance);

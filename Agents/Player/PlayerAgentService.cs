@@ -248,7 +248,7 @@ namespace SpaxUtils
 				playerDependencies.Bind(playerInputWrapper.PlayerInput);
 			}
 
-			SpaxDebug.Log($"Spawn Player [{playerInputWrapper.PlayerIndex}]");
+			//SpaxDebug.Log($"Spawn Player [{playerInputWrapper.PlayerIndex}]");
 
 			// Bind necessary data to dependency managers.
 			RuntimeDataCollection entityData;
