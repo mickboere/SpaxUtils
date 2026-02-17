@@ -52,6 +52,7 @@ namespace SpaxUtils.UI
 				screen.gameObject.SetActive(false);
 			}
 			comms.Listen<SwitchBaseContextMsg>(this, OnSwitchBaseContextMsg);
+			playerInputWrapper.ControlSchemeChangedEvent += OnControlSchemeChanged;
 			playerInputWrapper.RequestActionMaps(subscriberA, 0, shortcutActionMap);
 			SwitchContext(defaultContext);
 		}
@@ -62,6 +63,7 @@ namespace SpaxUtils.UI
 			playerInputWrapper.CompleteActionMapRequest(subscriberB);
 			timeService.CompletePauseRequest(this);
 			comms.StopListening(this);
+			playerInputWrapper.ControlSchemeChangedEvent -= OnControlSchemeChanged;
 			foreach (Option shortcut in shortcuts)
 			{
 				shortcut.Dispose();
@@ -130,6 +132,21 @@ namespace SpaxUtils.UI
 		{
 			baseContextOverride = msg.Context;
 			SwitchContext(baseContextOverride);
+		}
+
+		private void OnControlSchemeChanged(string scheme)
+		{
+			// Only adjust if the current context's screen requires input.
+			var active = screens.FirstOrDefault(s => s.Context == context);
+
+			if (active != null && active.RequireInput && scheme == ControlSchemes.KEYBOARD_AND_MOUSE)
+			{
+				cursorService.RequestCursor(this);
+			}
+			else
+			{
+				cursorService.CompleteRequest(this);
+			}
 		}
 	}
 }

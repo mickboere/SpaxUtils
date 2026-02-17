@@ -90,25 +90,39 @@ namespace SpaxUtils
 		private bool switchingActionMaps;
 		private bool ateInput;
 
-		public static PlayerInputWrapper Create(InputActionAsset inputActionAsset, IDependencyManager dependencies, Camera camera = null)
+		public static PlayerInputWrapper Create(InputActionAsset inputActionAsset, Camera camera = null)
 		{
-			GameObject go = new GameObject($"PlayerInput ({inputActionAsset.name})");
-			go.SetActive(false);
+			GameObject go = new GameObject();
+//			GameObject.DontDestroyOnLoad(go);
 
 			PlayerInput playerInput = go.AddComponent<PlayerInput>();
 			playerInput.camera = camera;
 			playerInput.notificationBehavior = PlayerNotifications.InvokeCSharpEvents;
 			playerInput.actions = inputActionAsset;
-			dependencies.Bind(playerInput);
 
 			PlayerInputWrapper wrapper = go.AddComponent<PlayerInputWrapper>();
-			dependencies.Bind(wrapper);
-
-			DependencyUtils.Inject(go, dependencies, true, true);
-
-			go.SetActive(true);
-
+			go.name = $"PlayerInput ({inputActionAsset.name})[{wrapper.PlayerIndex}]";
 			return wrapper;
+		}
+
+		public void SetCamera(Camera camera)
+		{
+			if (PlayerInput != null)
+			{
+				PlayerInput.camera = camera;
+			}
+		}
+
+		/// <summary>
+		/// Keeps the wrapper clean between states.
+		/// </summary>
+		public void ResetInputState()
+		{
+			actionSubscriptions.Clear();
+			actionMapRequests.Clear();
+			switchingActionMaps = false;
+			ateInput = false;
+			// ActiveActionMaps can be left as-is or cleared.
 		}
 
 		protected void OnEnable()

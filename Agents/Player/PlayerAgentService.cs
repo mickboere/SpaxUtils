@@ -30,16 +30,18 @@ namespace SpaxUtils
 		private RuntimeDataService runtimeDataService;
 		private CycleService cycleService;
 		private CameraManager cameraManager;
+		private PlayerInputService playerInputService;
 
 		// Reverse lookup so we can unmark by IEntity/IAgent in lifecycle callbacks without scanning the list.
 		// Keyed by entity ID so we don't rely on interface refs behaving nicely with Unity's fake-null.
 		private Dictionary<string, int> agentIdToIndex = new Dictionary<string, int>();
 
-		public PlayerAgentService(RuntimeDataService runtimeDataService, CycleService cycleService, CameraManager cameraManager)
+		public PlayerAgentService(RuntimeDataService runtimeDataService, CycleService cycleService, CameraManager cameraManager, PlayerInputService playerInputService)
 		{
 			this.runtimeDataService = runtimeDataService;
 			this.cycleService = cycleService;
 			this.cameraManager = cameraManager;
+			this.playerInputService = playerInputService;
 		}
 
 		/// <summary>
@@ -233,12 +235,20 @@ namespace SpaxUtils
 				instances.Add(hudInstance.gameObject);
 			}
 
-			// Create player input
+			// Get persistent player input (NOT included in instances list).
 			Camera inputCam = inputCamOverride != null ? inputCamOverride : cameraComponent != null ? cameraComponent : hudInstance != null ? hudInstance.Camera : null;
-			PlayerInputWrapper playerInputWrapper = PlayerInputWrapper.Create(config.InputActionAsset, playerDependencies, inputCam);
-			instances.Add(playerInputWrapper.gameObject);
 
-			//SpaxDebug.Log($"Spawn Player [{playerInputWrapper.PlayerIndex}]");
+			int playerIndex = 0; // SINGLE PLAYER ONLY. When split screen exists, revisit.
+			PlayerInputWrapper playerInputWrapper = playerInputService.GetOrCreate(playerIndex, config.InputActionAsset, inputCam);
+			playerDependencies.Bind(playerInputWrapper);
+
+			// Some consumers may depend on the underlying PlayerInput as well.
+			if (playerInputWrapper.PlayerInput != null)
+			{
+				playerDependencies.Bind(playerInputWrapper.PlayerInput);
+			}
+
+			SpaxDebug.Log($"Spawn Player [{playerInputWrapper.PlayerIndex}]");
 
 			// Bind necessary data to dependency managers.
 			RuntimeDataCollection entityData;

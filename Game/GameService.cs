@@ -176,7 +176,7 @@ namespace SpaxUtils
 				return;
 			}
 
-			bool transitioned = Brain.TryTransition(state, null);
+			bool transitioned = Brain.TryTransition(state);
 			if (!transitioned)
 			{
 				SpaxDebug.Error("Failed to transition game state.", state);
