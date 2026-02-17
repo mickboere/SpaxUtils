@@ -74,23 +74,23 @@ namespace SpaxUtils.UI
 			Transition.EmptyImmediately();
 		}
 
-		public virtual void Show(Action callback = null, float delay = 0f)
+		public virtual void Show(Action callback = null, float delay = 0f, float overrideTime = -1f)
 		{
 			OnShow();
 			Transition.Fill(() =>
 			{
 				SelectFirstSelectable();
 				callback?.Invoke();
-			}, delay);
+			}, delay, overrideTime);
 		}
 
-		public virtual void Hide(Action callback = null, float delay = 0f)
+		public virtual void Hide(Action callback = null, float delay = 0f, float overrideTime = -1f)
 		{
 			OnHide();
 			Transition.Empty(() =>
 			{
 				callback?.Invoke();
-			}, delay);
+			}, delay, overrideTime);
 		}
 
 		public virtual void SelectFirstSelectable()

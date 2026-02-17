@@ -16,6 +16,7 @@ namespace SpaxUtils
 		public EventSystem EventSystem { get; }
 		public Brain Brain { get; }
 
+		private LoadingScreenService loadingScreenService;
 		private GameData gameData;
 		private CallbackService callbackService;
 		private SceneService sceneService;
@@ -25,17 +26,22 @@ namespace SpaxUtils
 		// Monotonic request id to prevent stale transitions / scene-load callbacks from winning races.
 		private int switchVersion;
 
-		public GameService(GameData gameData, IDependencyManager dependencyManager, CallbackService callbackService, SceneService sceneService)
+		public GameService(LoadingScreenService loadingScreenService, GameData gameData,
+			IDependencyManager dependencyManager, CallbackService callbackService, SceneService sceneService)
 		{
+			this.loadingScreenService = loadingScreenService;
 			this.gameData = gameData;
 			this.callbackService = callbackService;
 			this.sceneService = sceneService;
 
 			EventSystem = GameObject.Instantiate(gameData.EventSystem);
 			GameObject.DontDestroyOnLoad(EventSystem.gameObject);
+
+			// Keep the brain purely for gameplay-level state (GAME/LOBBY/etc).
 			Brain = new Brain(dependencyManager, callbackService, GameStateIdentifiers.LOADING, null, new List<StateMachineGraph>() { gameData.GameBrainGraph });
 			Brain.Start();
 
+			// Bootstrap into the correct state for the currently opened scene.
 			if (gameData.Levels.ContainsKey(sceneService.CurrentScene))
 			{
 				// In game state.
@@ -60,11 +66,13 @@ namespace SpaxUtils
 		/// Switches the game's state to <paramref name="state"/>.
 		/// </summary>
 		/// <param name="state">The desired state to put the game in.</param>
-		/// <param name="duration">The duration of the transition. <0 uses default value configured in <see cref="GameData.TransitionTime"/>, 0 is immediate.</param>
+		/// <param name="duration">The duration override for the loading screen UI transition. <0 uses prefab defaults, 0 is immediate.</param>
 		/// <param name="scene">An optional desired scene to load.</param>
 		public void SwitchState(string state, float duration = -1f, string scene = "")
 		{
-			if (Brain.HeadState.ID == state && (scene.IsNullOrEmpty() || sceneService.CurrentScene == scene))
+			if (Brain.HeadState != null &&
+				Brain.HeadState.ID == state &&
+				(scene.IsNullOrEmpty() || sceneService.CurrentScene == scene))
 			{
 				// Already in desired state and scene.
 				return;
@@ -84,47 +92,35 @@ namespace SpaxUtils
 
 			SpaxDebug.Log($"Enter: [{state}]", "//" + scene);
 
-			// Create a new transition, NULL if immediate.
-			ITransition transition = NewTransition(duration);
-
-			// Show loading screen.
-			Brain.TryTransition(GameStateIdentifiers.LOADING, transition);
-			AwaitTransition(version, transition, () =>
+			// 1) Fade loading screen IN (to black) first.
+			// 2) Load scene (if needed) behind black.
+			// 3) Enter the target state (spawns happen while still black).
+			// 4) Wait 1 frame to allow enter logic/spawns to run.
+			// 5) Fade loading screen OUT.
+			if (duration.Approx(0f))
 			{
-				if (version != switchVersion)
+				loadingScreenService.ShowImmediate();
+				BeginLoadAndEnterState(version, state, scene);
+			}
+			else
+			{
+				loadingScreenService.Show(() =>
 				{
-					return;
-				}
-
-				if (!scene.IsNullOrEmpty() && sceneService.CurrentScene != scene)
-				{
-					// Load new scene.
-					sceneService.LoadScene(scene, () =>
+					if (version != switchVersion)
 					{
-						if (version != switchVersion)
-						{
-							return;
-						}
+						return;
+					}
 
-						// Enter new state.
-						ITransition enterTransition = NewTransition(duration);
-						Brain.TryTransition(state, enterTransition);
-					});
-				}
-				else
-				{
-					// Already in correct scene, enter new state.
-					ITransition enterTransition = NewTransition(duration);
-					Brain.TryTransition(state, enterTransition);
-				}
-			});
+					BeginLoadAndEnterState(version, state, scene, duration);
+				}, duration);
+			}
 		}
 
 		/// <summary>
 		/// Switches game state to <see cref="GameStateIdentifiers.GAME"/> and loads <paramref name="scene"/> as the active scene.
 		/// </summary>
 		/// <param name="scene">The name of the scene you wish to load.</param>
-		/// <param name="duration">The duration of the transition. <-1 uses default value configured in <see cref="GameData.TransitionTime"/>, 0 is immediate.</param>
+		/// <param name="duration">The duration override for the loading screen UI transition. <0 uses prefab defaults, 0 is immediate.</param>
 		public void SwitchLevel(string scene, float duration = -1f)
 		{
 			SwitchState(GameStateIdentifiers.GAME, duration, scene);
@@ -134,7 +130,7 @@ namespace SpaxUtils
 		/// Switches game state to <see cref="GameStateIdentifiers.GAME"/> and loads the level at <paramref name="levelIndex"/> from <see cref="GameData.Levels"/>.
 		/// </summary>
 		/// <param name="levelIndex">The index of the level you wish to switch to.</param>
-		/// <param name="duration">The duration of the transition. <-1 uses default value configured in <see cref="GameData.TransitionTime"/>, 0 is immediate.</param>
+		/// <param name="duration">The duration override for the loading screen UI transition. <0 uses prefab defaults, 0 is immediate.</param>
 		public void SwitchLevel(int levelIndex, float duration = -1f)
 		{
 			if (levelIndex < 0 || levelIndex >= gameData.Levels.Count)
@@ -146,18 +142,62 @@ namespace SpaxUtils
 			SwitchLevel(gameData.Levels.Keys.ElementAt(levelIndex), duration);
 		}
 
-		private ITransition NewTransition(float duration)
+		private void BeginLoadAndEnterState(int version, string state, string scene, float duration = -1f)
 		{
-			if (duration.Approx(0f))
+			if (version != switchVersion)
 			{
-				return null;
+				return;
 			}
 
-			float t = duration < 0f ? gameData.TransitionTime : duration;
-			return new TimedStateTransition(t, true);
+			if (!scene.IsNullOrEmpty() && sceneService.CurrentScene != scene)
+			{
+				// Load new scene behind the loading screen.
+				sceneService.LoadScene(scene, () =>
+				{
+					if (version != switchVersion)
+					{
+						return;
+					}
+
+					EnterTargetStateAndHide(version, state, duration);
+				});
+			}
+			else
+			{
+				// Already in correct scene, enter new state.
+				EnterTargetStateAndHide(version, state, duration);
+			}
 		}
 
-		private void AwaitTransition(int version, ITransition transition, Action callback)
+		private void EnterTargetStateAndHide(int version, string state, float duration = -1f)
+		{
+			if (version != switchVersion)
+			{
+				return;
+			}
+
+			bool transitioned = Brain.TryTransition(state, null);
+			if (!transitioned)
+			{
+				SpaxDebug.Error("Failed to transition game state.", state);
+			}
+
+			// Important: give the newly entered state's OnStateEntered/OnEnable spawners a frame to run
+			// while we're still black, so the player/camera/UI are ready before fade-out begins.
+			AwaitOneFrame(version, () =>
+			{
+				if (duration.Approx(0f))
+				{
+					loadingScreenService.HideImmediate();
+				}
+				else
+				{
+					loadingScreenService.Hide(null, duration);
+				}
+			});
+		}
+
+		private void AwaitOneFrame(int version, Action callback)
 		{
 			if (coroutine != null)
 			{
@@ -170,27 +210,12 @@ namespace SpaxUtils
 				return;
 			}
 
-			if (transition == null)
-			{
-				callback?.Invoke();
-			}
-			else
-			{
-				coroutine = callbackService.StartCoroutine(AwaitEnumerator(version, transition, callback));
-			}
+			coroutine = callbackService.StartCoroutine(AwaitOneFrameEnumerator(version, callback));
 		}
 
-		private IEnumerator AwaitEnumerator(int version, ITransition transition, Action callback)
+		private IEnumerator AwaitOneFrameEnumerator(int version, Action callback)
 		{
-			while (!transition.Completed)
-			{
-				if (version != switchVersion)
-				{
-					yield break;
-				}
-
-				yield return null;
-			}
+			yield return null;
 
 			if (version != switchVersion)
 			{
