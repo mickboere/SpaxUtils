@@ -36,7 +36,7 @@ namespace SpaxUtils
 				dependencies.Cast<object>().ToList();
 
 		/// <inheritdoc/>
-		public bool ContainsData => data.Count > 0 || (template != null && template.ContainsData);
+		public bool ContainsData => (data != null && data.Count > 0) || (template != null && template.ContainsData);
 
 		[SerializeField] private AgentSetupAsset template;
 		[SerializeField] private Identification identification;

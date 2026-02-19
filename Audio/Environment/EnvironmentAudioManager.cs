@@ -11,7 +11,7 @@ namespace SpaxUtils
 		[SerializeField] private AudioSource musicAudioSource;
 
 		private PlayerAgentService playerAgentService;
-		private WorldService worldService;
+		private WorldRegionService worldService;
 		private AudioManager audioManager;
 
 		private IAgent player;
@@ -23,7 +23,7 @@ namespace SpaxUtils
 		private IEnvironmentAudioSettings overrideSettings;
 		private float musicTimeBackup;
 
-		public void InjectDependencies(CallbackService callbackService, PlayerAgentService playerAgentService, WorldService worldService, AudioManager audioManager)
+		public void InjectDependencies(CallbackService callbackService, PlayerAgentService playerAgentService, WorldRegionService worldService, AudioManager audioManager)
 		{
 			this.playerAgentService = playerAgentService;
 			this.worldService = worldService;

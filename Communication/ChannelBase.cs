@@ -38,9 +38,10 @@ namespace SpaxUtils
 
 			OnReceived(key, val);
 
-			if (subscriptions.ContainsKey(key))
+			if (subscriptions.TryGetValue(key, out Dictionary<object, Action<Val>> dict) && dict != null)
 			{
-				foreach (KeyValuePair<object, Action<Val>> listener in subscriptions[key])
+				var listeners = new Dictionary<object, Action<Val>>(dict);
+				foreach (KeyValuePair<object, Action<Val>> listener in listeners)
 				{
 					listener.Value(val);
 				}
@@ -61,18 +62,47 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public virtual void StopListening(object listener, Key key = default)
 		{
-			if (key == null || default(Key).Equals(key))
+			if (listener == null || subscriptions == null)
 			{
-				// Remove listener from all keys.
-				foreach (KeyValuePair<Key, Dictionary<object, Action<Val>>> kvp in subscriptions)
+				return;
+			}
+
+			// Treat default(Key) as "no key supplied" and remove from all keys.
+			bool removeFromAll = EqualityComparer<Key>.Default.Equals(key, default(Key));
+
+			if (removeFromAll)
+			{
+				// Copy keys to avoid modification-during-enumeration issues.
+				List<Key> keys = new List<Key>(subscriptions.Keys);
+				for (int i = 0; i < keys.Count; i++)
 				{
-					kvp.Value.Remove(listener);
+					Key k = keys[i];
+
+					if (!subscriptions.TryGetValue(k, out Dictionary<object, Action<Val>> dict) || dict == null)
+					{
+						subscriptions.Remove(k);
+						continue;
+					}
+
+					dict.Remove(listener);
+
+					if (dict.Count == 0)
+					{
+						subscriptions.Remove(k);
+					}
 				}
 			}
 			else
 			{
-				// Remove listener only from given key.
-				subscriptions.Remove(key);
+				// Remove listener only from the given key.
+				if (subscriptions.TryGetValue(key, out Dictionary<object, Action<Val>> dict) && dict != null)
+				{
+					dict.Remove(listener);
+					if (dict.Count == 0)
+					{
+						subscriptions.Remove(key);
+					}
+				}
 			}
 		}
 

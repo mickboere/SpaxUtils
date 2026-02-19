@@ -28,7 +28,7 @@ namespace SpaxUtils
 		public IAgent PlayerAgent => agents.Count > 0 ? agents[0] : null;
 
 		private RuntimeDataService runtimeDataService;
-		private CycleService cycleService;
+		private WorldService cycleService;
 		private CameraManager cameraManager;
 		private PlayerInputService playerInputService;
 
@@ -36,7 +36,7 @@ namespace SpaxUtils
 		// Keyed by entity ID so we don't rely on interface refs behaving nicely with Unity's fake-null.
 		private Dictionary<string, int> agentIdToIndex = new Dictionary<string, int>();
 
-		public PlayerAgentService(RuntimeDataService runtimeDataService, CycleService cycleService, CameraManager cameraManager, PlayerInputService playerInputService)
+		public PlayerAgentService(RuntimeDataService runtimeDataService, WorldService cycleService, CameraManager cameraManager, PlayerInputService playerInputService)
 		{
 			this.runtimeDataService = runtimeDataService;
 			this.cycleService = cycleService;
@@ -314,7 +314,7 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
-		/// Returns whether the player with index <paramref name="playerIndex"/> is currently alive, whether actively or in its runtime data.
+		/// Returns whether the player with index <paramref name="playerIndex"/> is currently alive, either actively or in its runtime data.
 		/// </summary>
 		public bool IsAlive(int playerIndex = 0)
 		{

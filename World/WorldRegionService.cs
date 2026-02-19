@@ -7,13 +7,13 @@ namespace SpaxUtils
 	/// <summary>
 	/// Service that keeps track of which <see cref="IWorldRegion"/> a transform/point is contained in.
 	/// </summary>
-	public class WorldService : IService
+	public class WorldRegionService : IService
 	{
 		List<IWorldRegion> regions = new List<IWorldRegion>();
 		Dictionary<Transform, List<Action<IWorldRegion>>> subscribers = new Dictionary<Transform, List<Action<IWorldRegion>>>();
 		Dictionary<Transform, IWorldRegion> register = new Dictionary<Transform, IWorldRegion>();
 
-		public WorldService(CallbackService callbackService)
+		public WorldRegionService(CallbackService callbackService)
 		{
 			callbackService.SubscribeUpdate(UpdateMode.Update, this, OnUpdate);
 		}

@@ -28,14 +28,15 @@ namespace SpaxUtils
 							// Apply data values before they're injected.
 							RuntimeDataCollection runtimeData = dependencyManager.Get<RuntimeDataCollection>(true, false);
 							data.ApplyToRuntimeDataCollection(runtimeData, overwriteData, false);
-							wasAlive = runtimeData.GetValue(EntityDataIdentifiers.ALIVE, false);
 							break;
 					}
 				},
 				activate: activate);
 
-			// Agent is freshly born, recover all stats.
-			if (activate && !wasAlive)
+			// If agent is freshly born, recover all stats.
+			RuntimeDataCollection runtimeData = dependencyManager.Get<RuntimeDataCollection>(true, false);
+			wasAlive = runtimeData.GetValue(EntityDataIdentifiers.ALIVE, false);
+			if (!wasAlive)
 			{
 				agent.Recover();
 			}

@@ -18,11 +18,11 @@ namespace SpaxUtils
 		[SerializeField, Tooltip("Will regenerate every time a new cycle is initiated.")] private bool regenerate;
 		[SerializeField, Conditional(nameof(regenerate))] private bool onlyRegenIfEmpty;
 
-		private CycleService cycleService;
+		private WorldService cycleService;
 		private RandomService randomService;
 		private InventoryComponent inventoryComponent;
 
-		public void InjectDependencies(CycleService cycleService, RandomService randomService)
+		public void InjectDependencies(WorldService cycleService, RandomService randomService)
 		{
 			this.cycleService = cycleService;
 			this.randomService = randomService;

@@ -39,14 +39,14 @@ namespace SpaxUtils
 
 		protected void OnEnable()
 		{
-			GlobalDependencyManager.Instance.Get<WorldService>().Register(this);
+			GlobalDependencyManager.Instance.Get<WorldRegionService>().Register(this);
 		}
 
 		protected void OnDisable()
 		{
 			if (GlobalDependencyManager.HasInstance) // Don't call if application is quiting.
 			{
-				GlobalDependencyManager.Instance.Get<WorldService>().Remove(this);
+				GlobalDependencyManager.Instance.Get<WorldRegionService>().Remove(this);
 			}
 		}
 

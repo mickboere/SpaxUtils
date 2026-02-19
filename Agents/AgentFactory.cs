@@ -106,7 +106,14 @@ namespace SpaxUtils
 			dependencyManager.Bind(identification);
 
 			// Ensure agent has runtime data.
+			// IMPORTANT: dependencyManager may already have a RuntimeDataCollection bound upstream (e.g. spawner entity data).
+			// Only treat it as agent data if it matches this agent's identification.ID.
 			RuntimeDataCollection injectorData = dependencyManager.Get<RuntimeDataCollection>(true, false);
+			if (injectorData != null && injectorData.ID != identification.ID)
+			{
+				injectorData = null;
+			}
+
 			if (data == null)
 			{
 				if (injectorData == null)

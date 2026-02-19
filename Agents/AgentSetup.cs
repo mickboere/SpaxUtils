@@ -61,7 +61,17 @@ namespace SpaxUtils
 			Body = body ?? template.Body;
 			Children = children == null ? new List<GameObject>(template.Children) : template.Children.Union(children).ToList();
 			Dependencies = dependencies == null ? new List<object>(template.Dependencies) : template.Dependencies.Union(dependencies).ToList();
-			this.data = template.ContainsData ? template.RetrieveDataClone() : new RuntimeDataCollection(Identification.ID);
+
+			if (template.ContainsData)
+			{
+				this.data = template.RetrieveDataClone();
+				this.data.ID = Identification.ID;
+			}
+			else
+			{
+				this.data = new RuntimeDataCollection(Identification.ID);
+			}
+
 			if (data != null)
 			{
 				this.data.Append(data, true);
