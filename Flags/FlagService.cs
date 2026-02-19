@@ -62,7 +62,7 @@ namespace SpaxUtils
 			{
 				data.TryAdd(flag.Value.ToRuntimeDataCollection(flag.Key));
 			}
-			runtimeDataService.SaveDataToProfile(data);
+			runtimeDataService.WriteToProfile(data);
 		}
 
 		/// <summary>

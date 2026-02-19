@@ -389,7 +389,7 @@ namespace SpaxUtils
 			if (runtimeDataService.EnsureCurrentProfile().TryGetEntry(Identification.ID, out RuntimeDataCollection loadedData))
 			{
 				// Saved data was found in data service, append to existing data and overwrite duplicate data.
-				RuntimeData.Append(loadedData, true);
+				RuntimeData.AppendCollection(loadedData, true);
 			}
 		}
 
@@ -433,7 +433,7 @@ namespace SpaxUtils
 			OnSavingData();
 			//SpaxDebug.Log("Saving entity:", RuntimeData.ToString());
 			OnSaveEvent?.Invoke(RuntimeData);
-			runtimeDataService.SaveDataToProfile(RuntimeData);
+			runtimeDataService.WriteToProfile(RuntimeData);
 		}
 
 		protected virtual void OnSavingEvent(RuntimeDataCollection _)

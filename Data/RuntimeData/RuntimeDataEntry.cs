@@ -101,6 +101,14 @@ namespace SpaxUtils
 
 		public virtual void Dispose() { }
 
+		/// <summary>
+		/// Creates a new parent-less clone of this data entry with the same ID and value, optionally with a new ID.
+		/// </summary>
+		public virtual RuntimeDataEntry Clone(string id = null)
+		{
+			return new RuntimeDataEntry(id ?? ID, Value, null, Dirty);
+		}
+
 		public override string ToString()
 		{
 			return SpaxJsonUtils.Serialize(this);

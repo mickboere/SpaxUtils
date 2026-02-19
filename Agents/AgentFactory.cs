@@ -130,7 +130,7 @@ namespace SpaxUtils
 			else if (injectorData != null && data != injectorData)
 			{
 				// Combine data, but have injector data overwrite default data.
-				data.Append(injectorData, true);
+				data.AppendCollection(injectorData, true);
 			}
 
 			// Ensure the combined data is bound to dependency injector.

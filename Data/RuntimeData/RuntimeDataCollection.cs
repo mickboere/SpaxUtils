@@ -118,7 +118,7 @@ namespace SpaxUtils
 				// If entry is collection, clone and add.
 				if (entry is RuntimeDataCollection childCollection)
 				{
-					to.TryAdd(childCollection.Clone(), overwrite);
+					to.TryAdd(childCollection.CloneCollection(), overwrite);
 				}
 				else // If entry is not a collection, 
 				{
@@ -389,10 +389,16 @@ namespace SpaxUtils
 
 		#region Cloning and Appending
 
+		/// <inheritdoc/>
+		public override RuntimeDataEntry Clone(string id = null)
+		{
+			return CloneCollection();
+		}
+
 		/// <summary>
 		/// Create a deep copy of this <see cref="RuntimeDataCollection"/>.
 		/// </summary>
-		public RuntimeDataCollection Clone(string id = null)
+		public RuntimeDataCollection CloneCollection(string id = null)
 		{
 			RuntimeDataCollection collection = new RuntimeDataCollection(id.IsNullOrEmpty() ? ID : id);
 
@@ -411,7 +417,7 @@ namespace SpaxUtils
 		/// </summary>
 		/// <param name="runtimeDataCollection">The collection to copy the entries from.</param>
 		/// <param name="overwrite">If this collection already contains an entry with the same ID, should it be overwritten?</param>
-		public RuntimeDataCollection Append(RuntimeDataCollection runtimeDataCollection, bool overwrite = false)
+		public RuntimeDataCollection AppendCollection(RuntimeDataCollection runtimeDataCollection, bool overwrite = false)
 		{
 			if (runtimeDataCollection != null && runtimeDataCollection.Data.Count > 0)
 			{
@@ -425,11 +431,11 @@ namespace SpaxUtils
 		/// In case of duplicate ID's, the entry already in this collection will take precedence.
 		/// </summary>
 		/// <param name="collections">The collections to copy the entries from.</param>
-		public RuntimeDataCollection Append(params RuntimeDataCollection[] collections)
+		public RuntimeDataCollection AppendCollections(params RuntimeDataCollection[] collections)
 		{
 			foreach (RuntimeDataCollection collection in collections)
 			{
-				Append(collection);
+				AppendCollection(collection);
 			}
 			return this;
 		}

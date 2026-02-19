@@ -63,7 +63,10 @@ namespace SpaxUtils
 				equipmentData = Entity.RuntimeData.GetEntry<RuntimeDataCollection>(EQUIPMENT_DATA_ID);
 				foreach (RuntimeDataEntry entry in equipmentData.Data)
 				{
-					TryEquip(inventoryComponent.Inventory.Get((string)entry.Value), out _, entry.ID);
+					if (!TryEquip(inventoryComponent.Inventory.Get((string)entry.Value), out _, entry.ID))
+					{
+						SpaxDebug.Warning($"Failed to equip item from runtime data on slot '{entry.ID}'.", $"Item RuntimeID='{entry.Value}'");
+					}
 				}
 			}
 			else
@@ -76,7 +79,10 @@ namespace SpaxUtils
 					RuntimeItemData itemData = inventoryComponent.Inventory.Get(equipment);
 					if (itemData != null)
 					{
-						TryEquip(itemData, out _);
+						if (!TryEquip(itemData, out _))
+						{
+							SpaxDebug.Warning($"Failed to equip injected equipment data on start.", $"Equipment='{equipment.ID}'");
+						}
 					}
 				}
 			}

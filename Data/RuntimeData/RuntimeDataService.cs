@@ -109,6 +109,8 @@ namespace SpaxUtils
 			}
 		}
 
+		#region Profiles
+
 		/// <summary>
 		/// Creates a new profile / root <see cref="RuntimeDataCollection"/>.
 		/// </summary>
@@ -154,6 +156,23 @@ namespace SpaxUtils
 
 			return true;
 		}
+
+		private void SetCurrentProfile(RuntimeDataCollection profile, bool unloadPrevious = true)
+		{
+			if (profile == CurrentProfile)
+			{
+				return; // Already set.
+			}
+			if (unloadPrevious && CurrentProfile != null)
+			{
+				UnloadProfile(CurrentProfile.ID, false); // Unload currently selected profile but don't fire event.
+			}
+
+			// Set the profile and allow event to be fired.
+			CurrentProfile = profile;
+		}
+
+		#endregion Profiles
 
 		#region Loading
 
@@ -256,9 +275,19 @@ namespace SpaxUtils
 				return CurrentProfile;
 			}
 
-			if (useLastSave && TryGetLastSavedMetaData(out RuntimeDataCollection result, true))
+			if (useLastSave && TryGetLastSavedMetaData(out RuntimeDataCollection meta, true))
 			{
-				return result;
+				// TryGetLastSavedMetaData(loadResultAsCurrent: true) loads and sets CurrentProfile.
+				if (CurrentProfile != null && CurrentProfile.ID == meta.ID)
+				{
+					return CurrentProfile;
+				}
+
+				// Fallback: force-load and return it.
+				if (LoadProfile(meta.ID, out RuntimeDataCollection loaded, true, true))
+				{
+					return loaded;
+				}
 			}
 
 			if (LoadProfile(defaultIfNull, out RuntimeDataCollection data, true, true))
@@ -341,36 +370,6 @@ namespace SpaxUtils
 		#region Saving
 
 		/// <summary>
-		/// Saves the given <paramref name="data"/> entry to the root of the specified profile, <see cref="CurrentProfile"/> if null.
-		/// </summary>
-		public void SaveDataToProfile(RuntimeDataEntry data, string profileId = null, bool overwrite = true)
-		{
-			if (profileId == null)
-			{
-				CurrentProfile.TryAdd(data, overwrite);
-				return;
-			}
-			if (profileId == GLOBAL_DATA_ID)
-			{
-				GlobalData.TryAdd(data, overwrite);
-				return;
-			}
-			if (!Profiles.ContainsKey(profileId))
-			{
-				SpaxDebug.Error("Couldn't save data.", $"No profile loaded with ID <color=red>\"{profileId}\"</color=red>.");
-				return;
-			}
-			else if (Profiles[profileId] == null)
-			{
-				SpaxDebug.Error("Couldn't save data.", $"Profile with ID <color=red>\"{profileId}\"</color=red> is not loaded yet.");
-				return;
-			}
-
-			RuntimeDataCollection profile = Profiles[profileId];
-			profile.TryAdd(data, overwrite);
-		}
-
-		/// <summary>
 		/// Attempt to save a loaded profile's contents to the disk.
 		/// </summary>
 		/// <param name="profileId">The ID of the profile to save to the disk.</param>
@@ -442,19 +441,42 @@ namespace SpaxUtils
 
 		#endregion Saving
 
-		private void SetCurrentProfile(RuntimeDataCollection profile, bool unloadPrevious = true)
+		#region Writing
+
+		/// <summary>
+		/// Saves a CLONE of the given <paramref name="data"/> entry to the root of the specified profile, <see cref="CurrentProfile"/> if null.
+		/// A clone is written to prevent data references from unintentionally altering profile data.
+		/// </summary>
+		public void WriteToProfile(RuntimeDataEntry data, string profileId = null, bool overwrite = true)
 		{
-			if (profile == CurrentProfile)
+			RuntimeDataEntry write = data.Clone();
+
+			if (profileId == null)
 			{
-				return; // Already set.
+				CurrentProfile.TryAdd(write, overwrite);
+				return;
 			}
-			if (unloadPrevious && CurrentProfile != null)
+			if (profileId == GLOBAL_DATA_ID)
 			{
-				UnloadProfile(CurrentProfile.ID, false); // Unload currently selected profile but don't fire event.
+				GlobalData.TryAdd(write, overwrite);
+				return;
+			}
+			if (!Profiles.ContainsKey(profileId))
+			{
+				SpaxDebug.Error("Couldn't save data.", $"No profile loaded with ID <color=red>\"{profileId}\"</color=red>.");
+				return;
+			}
+			else if (Profiles[profileId] == null)
+			{
+				SpaxDebug.Error("Couldn't save data.", $"Profile with ID <color=red>\"{profileId}\"</color=red> is not loaded yet.");
+				return;
 			}
 
-			// Set the profile and allow event to be fired.
-			CurrentProfile = profile;
+			RuntimeDataCollection profile = Profiles[profileId];
+			profile.TryAdd(write, overwrite);
 		}
+
+		#endregion Writing
+
 	}
 }

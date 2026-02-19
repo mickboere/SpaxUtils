@@ -74,14 +74,14 @@ namespace SpaxUtils
 
 			if (data != null)
 			{
-				this.data.Append(data, true);
+				this.data.AppendCollection(data, true);
 			}
 		}
 
 		/// <inheritdoc/>
 		public RuntimeDataCollection RetrieveDataClone()
 		{
-			return data.Clone();
+			return data.CloneCollection();
 		}
 	}
 }

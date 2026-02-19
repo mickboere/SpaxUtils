@@ -80,12 +80,16 @@ namespace SpaxUtils
 				CurrentAudioSource.volume = 0f;
 				CurrentAudioSource.clip = clip;
 				CurrentAudioSource.loop = loop;
-				CurrentAudioSource.time = startTime;
 
 				currentTransition = transitionSettings != null ? new TransitionHelper(transitionSettings) : new TransitionHelper();
 				float trueDelay = delay + (previousTransition == null ? 0f : previousTransition.TimeRemaining);
 				currentTransition.Fill(delay: trueDelay);
-				CurrentAudioSource.PlayDelayed(trueDelay * currentTransition.RelativeDelay);
+
+				if (clip != null)
+				{
+					CurrentAudioSource.time = startTime;
+					CurrentAudioSource.PlayDelayed(trueDelay * currentTransition.RelativeDelay);
+				}
 			}
 		}
 

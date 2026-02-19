@@ -39,15 +39,31 @@ namespace SpaxUtils
 
 		private void UpdateIdentification()
 		{
-			if (item != null && item.Asset != null && Entity != null)
+			if (item == null || item.Asset == null || Entity == null)
+			{
+				return;
+			}
+
+			// Always keep label.
+			Entity.Identification.Add(EntityLabels.ITEM);
+
+#if UNITY_EDITOR
+			// Only allow ID resets in the editor, not during play.
+			if (!Application.isPlaying)
 			{
 				if (Entity.Identification.Name != item.Asset.Identification.Name)
 				{
 					Entity.Identification.Name = item.Asset.Identification.Name;
-					Entity.Identification.ID = Guid.NewGuid().ToString(); // Reset ID on item change.
+					Entity.Identification.ID = Guid.NewGuid().ToString();
 				}
-				Entity.Identification.Add(EntityLabels.ITEM);
 			}
+#else
+			// In builds/play mode: never touch ID. Optionally sync name only.
+			if (Entity.Identification.Name != item.Asset.Identification.Name)
+			{
+				Entity.Identification.Name = item.Asset.Identification.Name;
+			}
+#endif
 		}
 
 		private void RefreshRuntimeItemData()

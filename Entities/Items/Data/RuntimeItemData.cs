@@ -102,7 +102,7 @@ namespace SpaxUtils
 			RuntimeData.SetValue(ItemDataIdentifiers.ITEM_ID, ItemID, true, true);
 
 			// Append base data without overriding.
-			RuntimeData.Append(itemData.Data, false);
+			RuntimeData.AppendCollection(itemData.Data, false);
 		}
 
 		public void InitializeBehaviour()

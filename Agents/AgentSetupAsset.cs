@@ -52,7 +52,7 @@ namespace SpaxUtils
 			var dataCollection = data.ToRuntimeDataCollection(Identification.ID);
 			if (template != null && template.ContainsData)
 			{
-				dataCollection.Append(template.RetrieveDataClone(), false);
+				dataCollection.AppendCollection(template.RetrieveDataClone(), false);
 			}
 			return dataCollection;
 		}
