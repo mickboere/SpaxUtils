@@ -9,20 +9,19 @@ namespace SpaxUtils
 		{
 			get
 			{
-				if (agent == null)
+				if (_agent == null)
 				{
-					agent = gameObject.GetComponentInParent<IAgent>();
+					_agent = gameObject.GetComponentInParent<IAgent>();
 				}
 
-				return agent;
+				return _agent;
 			}
 		}
-
-		private IAgent agent;
+		private IAgent _agent;
 
 		public virtual void InjectDependencies(IAgent agent)
 		{
-			this.agent = agent;
+			_agent = agent;
 		}
 	}
 }

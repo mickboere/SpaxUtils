@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace SpaxUtils
 {
-	[CreateAssetMenu(fileName = "CombatSettings", menuName = "ScriptableObjects/Combat/CombatSettings")]
+	[CreateAssetMenu(fileName = nameof(CombatSettings), menuName = "ScriptableObjects/Combat/" + nameof(CombatSettings))]
 	public class CombatSettings : ScriptableObject, IService
 	{
 		public Vector2 HitPauseReceiver => hitPauseReceiver;

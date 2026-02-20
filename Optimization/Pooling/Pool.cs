@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -59,14 +60,14 @@ namespace SpaxUtils
 			}
 		}
 
-		public T Request(Transform parent = null)
+		public T Request(Transform parent = null, Action<T> onWillActivate = null)
 		{
-			return Request(Vector3.zero, parent);
+			return Request(Vector3.zero, parent, onWillActivate);
 		}
 
-		public T Request(Vector3 position, Transform parent = null)
+		public T Request(Vector3 position, Transform parent = null, Action<T> onWillActivate = null)
 		{
-			return Request(position, Quaternion.identity, parent);
+			return Request(position, Quaternion.identity, parent, onWillActivate);
 		}
 
 		/// <summary>
@@ -76,20 +77,20 @@ namespace SpaxUtils
 		/// <param name="rotation">The rotation of the item in world space.</param>
 		/// <param name="parent">The transform to set as the item's parent.</param>
 		/// <returns>An active instance of type <typeparamref name="T"/>.</returns>
-		public T Request(Vector3 position, Quaternion rotation, Transform parent = null)
+		public T Request(Vector3 position, Quaternion rotation, Transform parent = null, Action<T> onWillActivate = null)
 		{
 			if (inactive.Count > 0)
 			{
 				// Item(s) are available, return the first.
 				T item = inactive[0];
-				Claim(item, position, rotation, parent);
+				Claim(item, position, rotation, parent, onWillActivate);
 				return item;
 			}
 			else if (dynamic)
 			{
 				// No items are available but the pool is dynamic, instantiate a new item and return it.
 				T item = Instantiate();
-				Claim(item, position, rotation, parent);
+				Claim(item, position, rotation, parent, onWillActivate);
 				return item;
 			}
 
@@ -126,13 +127,13 @@ namespace SpaxUtils
 		private T Instantiate()
 		{
 			// Instantiate a new item and add it to the inactive list.
-			T item = Object.Instantiate(prefab, collectionParent);
+			T item = UnityEngine.Object.Instantiate(prefab, collectionParent);
 			item.gameObject.SetActive(false);
 			inactive.Add(item);
 			return item;
 		}
 
-		private void Claim(T item, Vector3 position, Quaternion rotation, Transform parent)
+		private void Claim(T item, Vector3 position, Quaternion rotation, Transform parent, Action<T> onWillActivate = null)
 		{
 			// Claim an inactive item and make it active.
 			active.Add(item);
@@ -140,6 +141,7 @@ namespace SpaxUtils
 			item.transform.position = position;
 			item.transform.rotation = rotation;
 			item.transform.SetParent(parent);
+			onWillActivate?.Invoke(item);
 			item.gameObject.SetActive(true);
 		}
 	}

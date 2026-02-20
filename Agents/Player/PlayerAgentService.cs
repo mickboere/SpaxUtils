@@ -12,6 +12,7 @@ namespace SpaxUtils
 	public class PlayerAgentService : IService
 	{
 		private const string ID_PLAYER_COLLECTION = "PLAYER_ENTITIES";
+		private const string PLAYER_ID_PREFIX = "PLAYER_";
 
 		public event Action<IAgent> PlayerRegisteredEvent;
 		public event Action<IAgent> PlayerDeregisteredEvent;
@@ -44,29 +45,37 @@ namespace SpaxUtils
 			this.playerInputService = playerInputService;
 		}
 
-		/// <summary>
-		/// Will attempt to load player entity data from the <paramref name="playerIndex"/>.
-		/// </summary>
-		/// <param name="playerIndex">The index of player last in control on the entity.</param>
-		/// <param name="data">The resulting loaded data, if any.</param>
-		/// <returns>Whether retrieving the player entity data was a success.</returns>
-		public bool TryRetrievePlayerEntityData(int playerIndex, out RuntimeDataCollection data)
+		public static string GetPlayerId(int playerIndex)
 		{
-			if (runtimeDataService.CurrentProfile != null && runtimeDataService.CurrentProfile.ContainsEntry(ID_PLAYER_COLLECTION))
+			if (playerIndex < 0)
 			{
-				List<string> playerCollection = runtimeDataService.CurrentProfile.GetValue<List<string>>(ID_PLAYER_COLLECTION);
-				if (playerIndex < playerCollection.Count)
-				{
-					string id = playerCollection[playerIndex];
-					if (runtimeDataService.CurrentProfile.ContainsEntry(id))
-					{
-						data = runtimeDataService.CurrentProfile.GetEntry<RuntimeDataCollection>(id);
-						return true;
-					}
-				}
+				SpaxDebug.Error("Player index out of range.");
+				return null;
 			}
 
+			return PLAYER_ID_PREFIX + playerIndex.ToString();
+		}
+
+		/// <summary>
+		/// Will attempt to load player entity data for <paramref name="playerIndex"/>.
+		/// Uses deterministic player IDs (PLAYER_0, PLAYER_1, ...).
+		/// </summary>
+		public bool TryRetrievePlayerEntityData(int playerIndex, out RuntimeDataCollection data)
+		{
 			data = null;
+
+			if (runtimeDataService.CurrentProfile == null)
+			{
+				return false;
+			}
+
+			string deterministicId = GetPlayerId(playerIndex);
+			if (runtimeDataService.CurrentProfile.ContainsEntry(deterministicId))
+			{
+				data = runtimeDataService.CurrentProfile.GetEntry<RuntimeDataCollection>(deterministicId);
+				return true;
+			}
+
 			return false;
 		}
 
@@ -94,13 +103,6 @@ namespace SpaxUtils
 				agents.Add(null);
 			}
 
-			// If this agent is already marked under a different index, clear its old slot.
-			string newId = agent.Identification != null ? agent.Identification.ID : null;
-			if (!string.IsNullOrEmpty(newId) && agentIdToIndex.TryGetValue(newId, out int oldIndex) && oldIndex != playerIndex)
-			{
-				DismissPlayerAgent(oldIndex);
-			}
-
 			// If this slot already has a different agent, unhook it first.
 			IAgent previous = agents[playerIndex];
 			if (previous != null && previous != agent)
@@ -113,21 +115,28 @@ namespace SpaxUtils
 			agents[playerIndex] = agent;
 			HookAgent(agent, playerIndex);
 
-			// Load player collection.
-			List<string> playerCollection = new List<string>();
-			if (runtimeDataService.CurrentProfile.ContainsEntry(ID_PLAYER_COLLECTION))
+			// Store deterministic mapping in the profile collection.
+			if (runtimeDataService.CurrentProfile != null)
 			{
-				playerCollection = runtimeDataService.CurrentProfile.GetValue<List<string>>(ID_PLAYER_COLLECTION);
-			}
+				List<string> playerCollection = new List<string>();
+				if (runtimeDataService.CurrentProfile.ContainsEntry(ID_PLAYER_COLLECTION))
+				{
+					playerCollection = runtimeDataService.CurrentProfile.GetValue<List<string>>(ID_PLAYER_COLLECTION);
+				}
 
-			while (playerCollection.Count <= playerIndex)
-			{
-				playerCollection.Add(string.Empty);
-			}
+				if (playerCollection == null)
+				{
+					playerCollection = new List<string>();
+				}
 
-			// Overwrite entity at player index.
-			playerCollection[playerIndex] = agent.Identification.ID;
-			runtimeDataService.CurrentProfile.SetValue(ID_PLAYER_COLLECTION, playerCollection);
+				while (playerCollection.Count <= playerIndex)
+				{
+					playerCollection.Add(string.Empty);
+				}
+
+				playerCollection[playerIndex] = GetPlayerId(playerIndex);
+				runtimeDataService.CurrentProfile.SetValue(ID_PLAYER_COLLECTION, playerCollection);
+			}
 
 			PlayerRegisteredEvent?.Invoke(agent);
 		}
@@ -206,6 +215,9 @@ namespace SpaxUtils
 				return null;
 			}
 
+			int playerIndex = 0; // SINGLE PLAYER ONLY. When split screen exists, revisit.
+			string deterministicPlayerId = GetPlayerId(playerIndex);
+
 			// Create dependency managers for entities.
 			DependencyManager playerDependencies = new DependencyManager(dependencyManager, "Player");
 			DependencyManager cameraDependencies = null;
@@ -238,7 +250,6 @@ namespace SpaxUtils
 			// Get persistent player input (NOT included in instances list).
 			Camera inputCam = inputCamOverride != null ? inputCamOverride : cameraComponent != null ? cameraComponent : hudInstance != null ? hudInstance.Camera : null;
 
-			int playerIndex = 0; // SINGLE PLAYER ONLY. When split screen exists, revisit.
 			PlayerInputWrapper playerInputWrapper = playerInputService.GetOrCreate(playerIndex, config.InputActionAsset, inputCam);
 			playerDependencies.Bind(playerInputWrapper);
 
@@ -248,8 +259,6 @@ namespace SpaxUtils
 				playerDependencies.Bind(playerInputWrapper.PlayerInput);
 			}
 
-			//SpaxDebug.Log($"Spawn Player [{playerInputWrapper.PlayerIndex}]");
-
 			// Bind necessary data to dependency managers.
 			RuntimeDataCollection entityData;
 			if (TryRetrievePlayerEntityData(playerInputWrapper.PlayerIndex, out entityData))
@@ -258,11 +267,12 @@ namespace SpaxUtils
 			}
 			else if (playerInputWrapper.PlayerIndex == 0)
 			{
-				// The main player character is being spawned for the first time, give it the correct data to initialize.
-				entityData = new RuntimeDataCollection(config.AgentSetup.Identification.ID.IsNullOrEmpty() ? Guid.NewGuid().ToString() : config.AgentSetup.Identification.ID,
+				// The main player character is being spawned for the first time, give it deterministic ID and profile-based name.
+				entityData = new RuntimeDataCollection(
+					deterministicPlayerId,
 					new List<RuntimeDataEntry>()
 					{
-						new RuntimeDataEntry(EntityDataIdentifiers.NAME, runtimeDataService.CurrentProfile.ID)
+						new RuntimeDataEntry(EntityDataIdentifiers.NAME, runtimeDataService.CurrentProfile != null ? runtimeDataService.CurrentProfile.ID : string.Empty)
 					});
 				playerDependencies.Bind(entityData);
 
@@ -270,11 +280,14 @@ namespace SpaxUtils
 				cycleService.NewCycle();
 			}
 
-			// Create player setup with loaded ID, if any.
+			// Create player setup with deterministic ID and profile-based name.
+			string desiredPlayerName = runtimeDataService.CurrentProfile != null ? runtimeDataService.CurrentProfile.ID : config.AgentSetup.Identification.Name;
+
 			IIdentification identification =
 				entityData == null ?
-					config.AgentSetup.Identification :
-					new Identification(entityData.ID, config.AgentSetup.Identification.Name, config.AgentSetup.Identification.Labels, null);
+					new Identification(deterministicPlayerId, desiredPlayerName, config.AgentSetup.Identification.Labels, null) :
+					new Identification(entityData.ID, desiredPlayerName, config.AgentSetup.Identification.Labels, null);
+
 			AgentSetup setup = new AgentSetup(config.AgentSetup, identification, data: entityData);
 
 			// Create player agent.
@@ -284,7 +297,7 @@ namespace SpaxUtils
 			// Set up player camera.
 			if (camRigInstance != null)
 			{
-				string camName = $"PLAYER_CAMERA_{playerInputWrapper.PlayerIndex}";
+				string camName = "PLAYER_CAMERA_" + playerInputWrapper.PlayerIndex;
 				var cameraIdentification = new Identification(camName, camName, new List<string>() { EntityLabels.CAMERA }, camRigInstance.GetComponent<IEntity>());
 				cameraDependencies.Bind(cameraIdentification);
 				DependencyUtils.BindMonoBehaviours(camRigInstance, cameraDependencies, includeChildren: true);

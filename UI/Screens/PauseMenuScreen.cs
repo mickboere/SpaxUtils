@@ -59,8 +59,11 @@ namespace SpaxUtils.UI
 				// Add Quit option.
 				msg.AddOption(new Option("Quit", "", (option) =>
 				{
-					SpaxDebug.Log("Quit game");
+#if UNITY_EDITOR
+					UnityEditor.EditorApplication.isPlaying = false;
+#else
 					Application.Quit();
+#endif
 				}));
 			}
 		}

@@ -11,7 +11,7 @@ namespace SpaxUtils
 	/// </summary>
 	public class Agent : Entity, IAgent
 	{
-		public event Action<IAgent> DiedEvent;
+		public event Action<DeathContext> DiedEvent;
 		public event Action ReviveEvent;
 		public event Action RecoverEvent;
 
@@ -163,7 +163,7 @@ namespace SpaxUtils
 		}
 
 		/// <inheritdoc/>
-		public void Die()
+		public void Die(DeathContext context)
 		{
 			if (!Alive)
 			{
@@ -174,13 +174,13 @@ namespace SpaxUtils
 			Actor.TryCancel(true);
 			Actor.AddBlocker(this);
 			Brain.TryTransition(AgentStateIdentifiers.DEAD);
-			DiedEvent?.Invoke(this);
+			DiedEvent?.Invoke(context);
 		}
 
 		/// <inheritdoc/>
-		public void Revive(ITransition transition = null)
+		public void Revive()
 		{
-			if (!Alive && (Brain.IsStateActive(AgentStateIdentifiers.ACTIVE) || Brain.TryTransition(AgentStateIdentifiers.ACTIVE, transition)))
+			if (!Alive && (Brain.IsStateActive(AgentStateIdentifiers.ACTIVE) || Brain.TryTransition(AgentStateIdentifiers.ACTIVE)))
 			{
 				Alive = true;
 				Actor.RemoveBlocker(this);

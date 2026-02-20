@@ -9,7 +9,9 @@ namespace SpaxUtils
 	/// </summary>
 	public class AgentHitHandlerComponent : EntityComponentMono
 	{
-		protected bool Invulnerable => agent.RuntimeData.GetValue(AgentDataIdentifiers.INVULNERABLE, false);
+		public IReadOnlyDictionary<string, float> DamageLedger => damageLedger;
+
+		public bool Invulnerable => agent.RuntimeData.GetValue(AgentDataIdentifiers.INVULNERABLE, false);
 
 		private IAgent agent;
 		private IHittable hittable;
@@ -25,6 +27,8 @@ namespace SpaxUtils
 		private EntityStat luckStat;
 
 		private TimedCurveModifier hitPauseMod;
+
+		private Dictionary<string, float> damageLedger = new Dictionary<string, float>();
 
 		public void InjectDependencies(
 			IAgent agent,
@@ -176,7 +180,8 @@ namespace SpaxUtils
 				if (dead)
 				{
 					stunHandler.EnterStun(hitData, 5f);
-					agent.Die();
+					DeathContext context = new DeathContext(agent, hitData.Hitter, "Hit");
+					agent.Die(context);
 				}
 			}
 
@@ -193,6 +198,16 @@ namespace SpaxUtils
 
 			timescaleStat.RemoveModifier(this);
 			timescaleStat.AddModifier(this, hitPauseMod);
+
+			// Update ledger.
+			if (damageLedger.ContainsKey(hitData.Hitter.ID))
+			{
+				damageLedger[hitData.Hitter.ID] += damageToTake;
+			}
+			else
+			{
+				damageLedger[hitData.Hitter.ID] = damageToTake;
+			}
 
 			//SpaxDebug.Log($"{agent.ID} - HIT:", hitData.ToString());
 		}

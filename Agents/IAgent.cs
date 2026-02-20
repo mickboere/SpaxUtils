@@ -12,7 +12,7 @@ namespace SpaxUtils
 		/// <summary>
 		/// Invoked once the agent has died.
 		/// </summary>
-		event Action<IAgent> DiedEvent;
+		event Action<DeathContext> DiedEvent;
 
 		/// <summary>
 		/// Invoked once the agent has revived.
@@ -76,12 +76,12 @@ namespace SpaxUtils
 		/// <summary>
 		/// Kills the agent, having it enter the "dead" state.
 		/// </summary>
-		void Die();
+		void Die(DeathContext context);
 
 		/// <summary>
 		/// Revives the agent, having it exit the "dead" state.
 		/// </summary>
-		void Revive(ITransition transition = null);
+		void Revive();
 
 		/// <summary>
 		/// Ensures the Agent recovers to full capacity.
