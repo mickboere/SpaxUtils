@@ -42,6 +42,7 @@ namespace SpaxUtils
 		[SerializeField, MinMaxRange(0.01f, 1f, true)] private Vector2 volumeRange = new Vector2(1f, 1f);
 		[SerializeField, MinMaxRange(0.01f, 3f, true, false)] private Vector2 pitchRange = new Vector2(1f, 1f);
 		[SerializeField] private float distance = 1f;
+		[SerializeField, Range(0f, 1f), Tooltip("0f=2D, 1f=3D")] private float spatialBlend = 1f;
 
 		[NonSerialized] private int lastClip = -1;
 
@@ -66,6 +67,7 @@ namespace SpaxUtils
 			audioSourceWrapper.Pitch.BaseValue = audioSourceWrapper.AudioSource.pitch;
 			audioSourceWrapper.AudioSource.volume = RandomVolume * volume;
 			audioSourceWrapper.Volume.BaseValue = audioSourceWrapper.AudioSource.volume;
+			audioSourceWrapper.SpatialBlend = spatialBlend;
 			audioSourceWrapper.MinDistance = MinDistance * distance;
 			audioSourceWrapper.MaxDistance = MaxDistance * distance;
 			audioSourceWrapper.Play();
@@ -86,6 +88,7 @@ namespace SpaxUtils
 			audioSourceWrapper.Pitch.BaseValue = pitch;
 			audioSourceWrapper.AudioSource.volume = volume;
 			audioSourceWrapper.Volume.BaseValue = volume;
+			audioSourceWrapper.SpatialBlend = spatialBlend;
 			audioSourceWrapper.MinDistance = MinDistance * distance;
 			audioSourceWrapper.MaxDistance = MaxDistance * distance;
 			if (randomStart) audioSourceWrapper.Time = UnityEngine.Random.value * audioSourceWrapper.Duration;

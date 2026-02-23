@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace SpaxUtils
 {
@@ -77,12 +78,14 @@ namespace SpaxUtils
 
 		[Header("Audio")]
 		[SerializeField] private AudioSourceWrapper audioSourceWrapper;
-		[SerializeField] private SFXData sfxData;
-		[SerializeField] private float audioFadeIn = 1f;
-		[SerializeField] private float audioFadeOut = 1f;
+		[SerializeField, FormerlySerializedAs("sfxData")] private SFXData loopSFX;
+		[SerializeField] private float loopFadeIn = 1f;
+		[SerializeField] private float loopFadeOut = 1f;
+		[SerializeField] private SFXData absorbSFX;
 
 		private AetherRewardService rewardService;
 		private AetherRewardService.AetherReservation reservation;
+		private Pool<PooledAudioSource> audioPool;
 
 		private Vector3 velocity;
 		private bool claimed;
@@ -92,9 +95,10 @@ namespace SpaxUtils
 		private float noiseSeed;
 		private float ageSeconds;
 
-		public void InjectDependencies(AetherRewardService rewardService)
+		public void InjectDependencies(AetherRewardService rewardService, Pool<PooledAudioSource> audioPool)
 		{
 			this.rewardService = rewardService;
+			this.audioPool = audioPool;
 		}
 
 		public void Initialize(AetherRewardService.AetherReservation reservation)
@@ -122,11 +126,8 @@ namespace SpaxUtils
 				particles.Play(true);
 			}
 
-			if (audioSourceWrapper != null)
-			{
-				sfxData.PlayLoop(audioSourceWrapper, true);
-				audioSourceWrapper.FadeIn(audioFadeIn, EasingMethod.OutSine);
-			}
+			loopSFX.PlayLoop(audioSourceWrapper, true);
+			audioSourceWrapper.FadeIn(loopFadeIn, EasingMethod.OutSine);
 		}
 
 		private void Awake()
@@ -277,10 +278,8 @@ namespace SpaxUtils
 				particles.Stop(true, ParticleSystemStopBehavior.StopEmitting);
 			}
 
-			if (audioSourceWrapper != null)
-			{
-				audioSourceWrapper.FadeOut(audioFadeOut, EasingMethod.InOutSine);
-			}
+			audioSourceWrapper.FadeOut(loopFadeOut, EasingMethod.InOutSine);
+			absorbSFX.Play(audioPool.Request(transform.position).AudioSourceWrapper);
 
 			TryCompleteAfterVisuals();
 		}
