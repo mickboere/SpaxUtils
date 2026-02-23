@@ -42,6 +42,7 @@ namespace SpaxUtils
 
 		private TimerClass timer;
 		private FloatFuncModifier mod;
+		private bool fadingOut;
 
 		protected void Awake()
 		{
@@ -56,7 +57,10 @@ namespace SpaxUtils
 			if (timer != null && timer.Update(UnityEngine.Time.deltaTime))
 			{
 				Cleanup();
-				Stop();
+				if (fadingOut)
+				{
+					Stop();
+				}
 			}
 		}
 
@@ -106,6 +110,7 @@ namespace SpaxUtils
 			timer = new TimerClass(duration, 1f, false);
 			mod = new FloatFuncModifier(ModMethod.Absolute, (float v) => v * timer.Progress.Ease(easing));
 			Volume.AddModifier(mod);
+			fadingOut = false;
 		}
 
 		public void FadeOut(float duration, EasingMethod easing = EasingMethod.Linear)
@@ -114,6 +119,7 @@ namespace SpaxUtils
 			timer = new TimerClass(duration, 1f, false);
 			mod = new FloatFuncModifier(ModMethod.Absolute, (float v) => v * timer.Progress.Invert().Ease(easing));
 			Volume.AddModifier(mod);
+			fadingOut = true;
 		}
 
 		#endregion Fading Methods

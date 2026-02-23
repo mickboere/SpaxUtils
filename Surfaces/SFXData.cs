@@ -8,7 +8,7 @@ namespace SpaxUtils
 	public class SFXData
 	{
 		public const float DISTANCE_MIN = 1f;
-		public const float DISTANCE_MAX = 100f;
+		public const float DISTANCE_MAX = 250f;
 
 		public IReadOnlyList<AudioClip> Clips => clips;
 		public AudioClip RandomClip

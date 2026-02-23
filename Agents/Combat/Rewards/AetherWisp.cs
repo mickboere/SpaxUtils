@@ -24,14 +24,14 @@ namespace SpaxUtils
 		[SerializeField, Tooltip("Distance (in units) from the target at which the wisp is considered to have arrived and will claim the reservation.")]
 		private float arriveDistance = 0.5f;
 
-		[Header("Drift - Wander (low freq, high strength)")]
+		[Header("Drift - Wander")]
 		[SerializeField, Tooltip("Large, slow drift that makes the wisp 'wander' off course before suction pulls it in.")]
 		private float wanderStrength = 2.5f;
 
 		[SerializeField, Tooltip("Frequency of the wander drift. Lower = slower, broader wandering motion.")]
 		private float wanderFrequency = 0.35f;
 
-		[Header("Drift - Flutter (high freq, low strength)")]
+		[Header("Drift - Flutter")]
 		[SerializeField, Tooltip("Small, faster drift that adds airy jitter on top of the big wander motion.")]
 		private float flutterStrength = 0.6f;
 
@@ -39,6 +39,9 @@ namespace SpaxUtils
 		private float flutterFrequency = 1.6f;
 
 		[Header("Suction")]
+		[SerializeField, Tooltip("Delay (seconds) before suction begins. During this time the wisp looks like it is 'finding its way'.")]
+		private float suctionDelay = 1f;
+
 		[SerializeField, Tooltip("Radius around the target where the wisp becomes more attracted: drift is reduced and turning is increased.")]
 		private float suctionRadius = 10f;
 
@@ -71,6 +74,12 @@ namespace SpaxUtils
 
 		[SerializeField, Tooltip("ParticleSystem used for the wisp. Finished won't be true until particles are no longer alive.")]
 		private ParticleSystem particles;
+
+		[Header("Audio")]
+		[SerializeField] private AudioSourceWrapper audioSourceWrapper;
+		[SerializeField] private SFXData sfxData;
+		[SerializeField] private float audioFadeIn = 1f;
+		[SerializeField] private float audioFadeOut = 1f;
 
 		private AetherRewardService rewardService;
 		private AetherRewardService.AetherReservation reservation;
@@ -111,6 +120,12 @@ namespace SpaxUtils
 			{
 				particles.Clear(true);
 				particles.Play(true);
+			}
+
+			if (audioSourceWrapper != null)
+			{
+				sfxData.PlayLoop(audioSourceWrapper, true);
+				audioSourceWrapper.FadeIn(audioFadeIn, EasingMethod.OutSine);
 			}
 		}
 
@@ -168,9 +183,11 @@ namespace SpaxUtils
 			Vector3 dirToTarget = dist > 0.0001f ? (toTarget / dist) : Vector3.forward;
 
 			// Suction: inside suctionRadius, reduce drift and increase turning toward the target.
+			// Suction only starts after suctionDelay seconds.
 			float driftMul = 1.0f;
 			float turnMul = 1.0f;
-			if (suctionRadius > 0.0001f && dist <= suctionRadius)
+			bool suctionEnabled = suctionDelay <= 0f || ageSeconds >= suctionDelay;
+			if (suctionEnabled && suctionRadius > 0.0001f && dist <= suctionRadius)
 			{
 				float t = Mathf.InverseLerp(suctionRadius, arriveDistance, dist);
 				driftMul = Mathf.Lerp(1.0f, suctionDriftMultiplier, t);
@@ -258,6 +275,11 @@ namespace SpaxUtils
 			if (particles != null)
 			{
 				particles.Stop(true, ParticleSystemStopBehavior.StopEmitting);
+			}
+
+			if (audioSourceWrapper != null)
+			{
+				audioSourceWrapper.FadeOut(audioFadeOut, EasingMethod.InOutSine);
 			}
 
 			TryCompleteAfterVisuals();

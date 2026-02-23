@@ -9,7 +9,7 @@ namespace SpaxUtils
 
 		[SerializeField] private float dissolveDuration = 4f;
 		[SerializeField] private float rewardPercentage = 0.01f;
-		[SerializeField] private AetherWisp whispPrefab;
+		[SerializeField] private AetherWisp wispPrefab;
 
 		private AgentHitHandlerComponent hitHandler;
 		private RigidbodyWrapper rigidbodyWrapper;

@@ -164,7 +164,7 @@ namespace SpaxUtils
 					// Screen is now fully blocking the view.
 					LoadingScreenShownEvent?.Invoke(state, scene, reason);
 
-					BeginLoadAndEnterState(version, state, scene, reason, duration);
+					BeginLoadAndEnterState(version, state, scene, reason);
 				}, duration);
 			}
 		}
