@@ -73,7 +73,10 @@ namespace SpaxUtils
 
 		public void Play()
 		{
-			audioSource.Play();
+			if (audioSource.isActiveAndEnabled)
+			{
+				audioSource.Play();
+			}
 		}
 
 		public void Pause()

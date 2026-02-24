@@ -119,7 +119,7 @@ namespace SpaxUtils
 			limbMassStat = Agent.Stats.GetStat(AgentStatIdentifiers.MASS.SubStat(this.move.Limb));
 			strengthStat = Agent.Stats.GetStat(AgentStatIdentifiers.STRENGTH);
 			powerStat = Agent.Stats.GetStat(AgentStatIdentifiers.POWER);
-			pierceStat = Agent.Stats.GetStat(AgentStatIdentifiers.PIERCE);
+			pierceStat = Agent.Stats.GetStat(AgentStatIdentifiers.PIERCING);
 			critChanceStat = Agent.Stats.GetStat(AgentStatIdentifiers.CRIT_CHANCE);
 			precisionStat = Agent.Stats.GetStat(AgentStatIdentifiers.PRECISION);
 			chargeStat = Agent.Stats.GetStat(move.ChargeCost.Stat);

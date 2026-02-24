@@ -121,6 +121,7 @@ namespace SpaxUtils
 			// If we already have a mod using this identifier, first remove the existing one.
 			if (HasModifier(modIdentifier))
 			{
+				SpaxDebug.Warning($"Overwriting existing modifier with identifier '{modIdentifier}'.");
 				RemoveModifier(modIdentifier);
 			}
 

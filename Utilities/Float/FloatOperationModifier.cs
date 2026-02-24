@@ -94,6 +94,8 @@ namespace SpaxUtils
 					return Mathf.Pow(input, value);
 				case Operation.Set:
 					return value;
+				case Operation.Fraction:
+					return value / input;
 				default:
 					SpaxDebug.Error("FloatModifier: ", $"ModType [{operation}] is not supported.");
 					return input;

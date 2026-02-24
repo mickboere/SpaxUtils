@@ -53,7 +53,7 @@ namespace SpaxUtils
 			{
 				// Apply override.
 				overrideSettings = settings;
-				musicTimeBackup = music.CurrentAudioSource.time;
+				musicTimeBackup = music.CurrentAudioSource.clip == null ? 0f : music.CurrentAudioSource.time;
 				Switch(settings);
 			}
 		}

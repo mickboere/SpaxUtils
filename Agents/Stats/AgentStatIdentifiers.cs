@@ -110,32 +110,32 @@
 		// Fire
 		private const string BODY_FIRE = BODY_STAT + "FIRE/";
 		public const string ENERGY = BODY_FIRE + "Energy"; // POINTSTAT: Amount of spendable force-points.
-		public const string POWER = BODY_FIRE + "Power"; // PHYSIC: The body's physical output force.
+		public const string POWER = BODY_FIRE + "Power"; // PHYSIC: The body's physical output force (increases impact).
 		public const string STRENGTH = BODY_FIRE + "Strength"; // The body's lifting strength in KG.
 
 		// Light
 		private const string BODY_LIGHT = BODY_STAT + "LIGHT/";
 		public const string STATIC = BODY_LIGHT + "Static"; // POINTSTAT: Amount of spendable charging points.
-		public const string PRECISION = BODY_LIGHT + "Precision"; // PHYSIC: The amount of critical damage bonus.
+		public const string PRECISION = BODY_LIGHT + "Precision"; // PHYSIC: The body's critical precision (crit quality).
 		public const string CRIT_CHANCE = BODY_LIGHT + "Crit_Chance"; // % chance to land a critical hit.
 		public const string STORM_SPEED = BODY_LIGHT + "Storm_Speed"; // Speed while storming during a charged attack.
 
 		// Air
 		private const string BODY_AIR = BODY_STAT + "AIR/";
 		public const string STAMINA = BODY_AIR + "Stamina"; // POINTSTAT: Amount of spendable movement points.
-		public const string PACE = BODY_AIR + "Pace"; // PHYSIC: The body's mobility bonus, decreases stamina cost.
+		public const string PLIANCY = BODY_AIR + "Pliancy"; // PHYSIC: The ability to roll with hits (crit glancing / impact padding).
 		public const string DASH_SPEED = BODY_AIR + "Dash_Speed"; // Speed of the initial dash burst.
 		public const string GLIDE_SPEED = BODY_AIR + "Glide_Speed"; // Speed of the gliding state (after dashing).
 
 		// Spirit
 		private const string BODY_SPIRIT = BODY_STAT + "SPIRIT/";
 		public const string GRACE = BODY_SPIRIT + "Grace"; // POINTSTAT: Amount of spendable damage negation points.
-		public const string PROTECTION = BODY_SPIRIT + "Protection"; // PHYSIC: Linear damage reduction.
+		public const string PROTECTION = BODY_SPIRIT + "Protection"; // PHYSIC: Defends against all non-physical damage. (magic / status resistance)
 
 		// Water
 		private const string BODY_WATER = BODY_STAT + "WATER/";
 		public const string MANA = BODY_WATER + "Mana"; // POINTSTAT: Amount of spendable magic points.
-		public const string POTENCY = BODY_WATER + "Potency"; // PHYSIC: The mind's magic power output.
+		public const string POTENCY = BODY_WATER + "Potency"; // PHYSIC: The body's magic power output (increases non-physical damage).
 		public const string PROFICIENCY = BODY_WATER + "Proficiency"; // The mind's magic proficiency vs spell complexity.
 
 		// Nature
@@ -149,14 +149,14 @@
 		// Earth
 		private const string BODY_EARTH = BODY_STAT + "EARTH/";
 		public const string ENDURANCE = BODY_EARTH + "Endurance"; // POINTSTAT: Amount absorbable force points before being stunned.
-		public const string POISE = BODY_EARTH + "Poise"; // PHYSIC: The body's physical resistance bonus (defence).
-		public const string BALANCE = BODY_EARTH + "Balance"; // Endurance cost divider.
+		public const string PLATING = BODY_EARTH + "Plating"; // PHYSIC: The body's resistance to piercing (sharp defence).
+		public const string POISE = BODY_EARTH + "Poise"; // Endurance cost divider.
 		public const string GUARD = BODY_EARTH + "Guard"; // Total amount of active guarding defence.
 
 		// Void
 		private const string BODY_VOID = BODY_STAT + "VOID/";
 		public const string MALICE = BODY_VOID + "Malice"; // POINTSTAT: Amount of available damage bonus points.
-		public const string PIERCE = BODY_VOID + "Pierce"; // PHYSIC: The body's sharp damage output.
+		public const string PIERCING = BODY_VOID + "Piercing"; // PHYSIC: The body's sharp damage output.
 
 		#endregion Bodily Stats
 
@@ -169,6 +169,7 @@
 		public const string AETHER = SOUL_GENERAL + "Aether"; // Currency of the soul, equal to GOLD and EXP.
 		public const string VIRTUE = SOUL_GENERAL + "Virtue"; // Total amount of virtuous aether gained.
 		public const string SIN = SOUL_GENERAL + "Sin"; // Total amount of sinful aether gained.
+		public const string ALIGNMENT = SOUL_GENERAL + "Alignment"; // Virtue/Sin ratio.
 
 		// Fire
 		private const string SOUL_FIRE = SOUL_STAT + "FIRE/";

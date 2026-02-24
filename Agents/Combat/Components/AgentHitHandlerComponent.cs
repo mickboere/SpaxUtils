@@ -51,7 +51,7 @@ namespace SpaxUtils
 		protected void OnEnable()
 		{
 			timescaleStat = agent.Stats.GetStat(EntityStatIdentifiers.TIMESCALE, true);
-			poiseStat = agent.Stats.GetStat(AgentStatIdentifiers.POISE, true);
+			poiseStat = agent.Stats.GetStat(AgentStatIdentifiers.PLATING, true);
 			protectionStat = agent.Stats.GetStat(AgentStatIdentifiers.PROTECTION, true);
 			luckStat = agent.Stats.GetStat(AgentStatIdentifiers.LUCK, true);
 

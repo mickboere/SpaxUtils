@@ -39,14 +39,15 @@ namespace SpiritAxis
 		private void AddMap(StatMap map)
 		{
 			// Configure the defined stat-to-stat mappings.
-			foreach (StatMapping mapping in map.StatMappings)
+			for (int i = 0; i < map.StatMappings.Count; i++)
 			{
+				StatMapping mapping = map.StatMappings[i];
+
 				// Get the target stat to add the mapping to.
 				EntityStat toStat = Entity.Stats.GetStat(mapping.ToStat, true);
 
-				// Only add the modifier if this stat does not have a mapping from the mapping stat yet.
-				// Easily checkable since we use the input stat's identifier as mod identifier.
-				if (!toStat.HasModifier(mapping.FromStat))
+				string id = map.name + "_" + i.ToString();
+				if (!toStat.HasModifier(id))
 				{
 					// Get the stat we're going to use as input value for the mapping.
 					EntityStat fromStat = Entity.Stats.GetStat(mapping.FromStat, true);
@@ -55,11 +56,11 @@ namespace SpiritAxis
 					StatModifier mod = new StatModifier(mapping, fromStat, mapping.SourceBase);
 
 					// Add the mapping modifier.
-					toStat.AddModifier(mapping.FromStat, mod);
+					toStat.AddModifier(id, mod);
 				}
 				else
 				{
-					SpaxDebug.Error($"Stat '{mapping.ToStat}' already contains a mapping from '{mapping.FromStat}'.", "Mapping was not added.", map);
+					SpaxDebug.Error($"Stat '{mapping.ToStat}' somehow already contains a mapping for id '{id}' from '{mapping.FromStat}'.", "Mapping was not added.", map);
 				}
 			}
 		}

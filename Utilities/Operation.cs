@@ -9,6 +9,7 @@
 		Min = 1 << 4,
 		Max = 1 << 5,
 		Power = 1 << 6,
-		Set = 1 << 7
+		Set = 1 << 7,
+		Fraction = 1 << 8
 	}
 }
