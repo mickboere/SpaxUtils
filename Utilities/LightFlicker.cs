@@ -1,6 +1,7 @@
 using SpaxUtils;
 using System.Collections;
 using System.Collections.Generic;
+using UnityEditor;
 using UnityEngine;
 
 namespace SpaxUtils
@@ -14,6 +15,7 @@ namespace SpaxUtils
 		[SerializeField] private Vector2 range = new Vector2(5f, 10f);
 		[SerializeField] private PerlinHelper noiseA;
 		[SerializeField] private PerlinHelper noiseB;
+		[SerializeField] private bool executeInEditMode;
 #if UNITY_EDITOR
 		[SerializeField, ReadOnly] private Color a;
 		[SerializeField, ReadOnly] private Color b;
@@ -29,6 +31,11 @@ namespace SpaxUtils
 
 		protected void Update()
 		{
+			if (!executeInEditMode && !Application.isPlaying)
+			{
+				return;
+			}
+
 			float a = noiseA.Update(Time.deltaTime);
 			float b = noiseB.Update(Time.deltaTime);
 			float x = a.Max(b);
@@ -43,6 +50,11 @@ namespace SpaxUtils
 
 		protected void OnDrawGizmosSelected()
 		{
+			if (Selection.activeGameObject != gameObject)
+			{
+				return;
+			}
+
 			Gizmos.color = new Color(intensity.x, intensity.x, intensity.x, 1f);
 			Gizmos.DrawWireSphere(transform.position, range.x * Multiplier);
 			Gizmos.color = new Color(intensity.y, intensity.y, intensity.y, 1f);
@@ -50,7 +62,7 @@ namespace SpaxUtils
 
 #if UNITY_EDITOR
 			// Ensure continuous Update calls.
-			if (!Application.isPlaying)
+			if (executeInEditMode && !Application.isPlaying)
 			{
 				UnityEditor.EditorApplication.QueuePlayerLoopUpdate();
 				UnityEditor.SceneView.RepaintAll();

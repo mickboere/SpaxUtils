@@ -100,6 +100,10 @@ namespace SpaxUtils
 
 			// Mandatory data used when loading item data.
 			RuntimeData.SetValue(ItemDataIdentifiers.ITEM_ID, ItemID, true, true);
+			if (!Unique && !runtimeData.ContainsEntry(ItemDataIdentifiers.QUANTITY))
+			{
+				RuntimeData.SetValue(ItemDataIdentifiers.QUANTITY, 1, true, false);
+			}
 
 			// Append base data without overriding.
 			RuntimeData.AppendCollection(itemData.Data, false);

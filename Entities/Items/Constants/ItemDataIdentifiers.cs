@@ -30,6 +30,7 @@
 		// Bools
 		public const string AETHERIAL = BOOL + "Aetherial"; // Aetherial items are not lost on death.
 		public const string UNIQUE = BOOL + "Unique"; // Unique items cannot be stacked (always have a quantity of 1).
+		public const string EQUIPED = BOOL + "Equiped"; // Whether the item is/was equiped or not.
 		public const string CONSUME = BOOL + "Consume"; // Whether the item is consumed (destroyed) on use.
 	}
 }

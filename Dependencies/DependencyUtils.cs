@@ -136,8 +136,8 @@ namespace SpaxUtils
 		/// <summary>
 		/// (Safely) Instantiates an object deactivated, preventing its Awake function from being called until it is enabled in the future.
 		/// </summary>
-		/// <param name="worldPosition">If true, 'position' is treated as World Space. If false, 'position' is treated as Local Space.</param>
-		public static GameObject InstantiateDeactivated(GameObject gameObject, Transform parent, Vector3 position, Quaternion rotation, bool worldPosition = false)
+		/// <param name="worldSpace">If true, 'position' is treated as World Space. If false, 'position' is treated as Local Space.</param>
+		public static GameObject InstantiateDeactivated(GameObject gameObject, Transform parent, Vector3 position, Quaternion rotation, bool worldSpace = false)
 		{
 			bool prefabWasActive = gameObject.activeSelf;
 			GameObject instance;
@@ -150,7 +150,7 @@ namespace SpaxUtils
 				instance = parent == null ? GameObject.Instantiate(gameObject) : GameObject.Instantiate(gameObject, parent, false);
 
 				// 2. Apply Coordinates based on context
-				if (worldPosition && parent != null)
+				if (worldSpace && parent != null)
 				{
 					// If we want World Position but have a parent, we must set position (World)
 					instance.transform.position = position;
@@ -190,7 +190,8 @@ namespace SpaxUtils
 		/// Instantiates the given <paramref name="gameObject"/> as a child of <paramref name="parent"/> on <paramref name="position"/>, <paramref name="rotation"/>,
 		/// injecting all dependencies on all child <see cref="MonoBehaviour"/>s that implement <see cref="DependencyManager.INJECT_DEPENDENCIES_METHOD"/>.
 		/// </summary>
-		public static GameObject InstantiateAndInject(GameObject gameObject, Transform parent, Vector3 position, Quaternion rotation, IDependencyManager dependencies, bool includeChildren = true, bool bindComponents = true)
+		public static GameObject InstantiateAndInject(GameObject gameObject, Transform parent, Vector3 position, Quaternion rotation,
+			IDependencyManager dependencies, bool includeChildren = true, bool bindComponents = true)
 		{
 			bool prefabWasActive = gameObject.activeSelf;
 

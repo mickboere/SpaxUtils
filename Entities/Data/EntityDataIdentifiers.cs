@@ -7,11 +7,13 @@ namespace SpaxUtils
 	{
 		private const string ENTITY = "ENTITY/";
 
+		public const string ID = ENTITY + "ID";
 		public const string NAME = ENTITY + "Name";
 		public const string SEED = ENTITY + "Seed";
 		public const string ALIVE = ENTITY + "Alive";
 		public const string AGE = ENTITY + "Age";
 		public const string SCENE = ENTITY + "Scene";
+		public const string CYCLE = ENTITY + "Cycle";
 		public const string POSITION = ENTITY + "Pos";
 		public const string ROTATION = ENTITY + "Rot";
 		public const string SCALE = ENTITY + "Scale";
@@ -28,7 +30,12 @@ namespace SpaxUtils
 		public const string COLOR = ENTITY + "Color";
 
 		/// <summary>
-		/// Float (0-1).
+		/// Float (0-1) that scales the entity's stats.
+		/// </summary>
+		public const string SCALING = ENTITY + "Scaling";
+
+		/// <summary>
+		/// Float (0-1) that scales the entity's behaviour to be more or less difficult.
 		/// </summary>
 		public const string DIFFICULTY = ENTITY + "Difficulty";
 

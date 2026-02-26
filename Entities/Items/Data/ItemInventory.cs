@@ -235,37 +235,37 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
-		/// Removes the <paramref name="runtimeData"/> from the inventory.
+		/// Removes the <paramref name="runtimeItemData"/> from the inventory.
 		/// </summary>
 		/// <param name="quantity">The quantative amount of this item to remove.
 		/// If quantity is <0 or >total, item will be entirely removed from inventory instead of only decreasing quantity.</param>
-		public void RemoveItem(RuntimeItemData runtimeData, int quantity = -1)
+		public void RemoveItem(RuntimeItemData runtimeItemData, int quantity = -1)
 		{
-			if (runtimeData == null)
+			if (runtimeItemData == null)
 			{
-				SpaxDebug.Error("No runtimedata was provided.");
+				SpaxDebug.Error("No runtimeItemData was provided.");
 				return;
 			}
 
-			if (!entries.ContainsKey(runtimeData.RuntimeID))
+			if (!entries.ContainsKey(runtimeItemData.RuntimeID))
 			{
-				SpaxDebug.Error("Cannot remove item from inventory because it does not contain it!", $"{runtimeData.ItemID} | {runtimeData.RuntimeID}");
+				SpaxDebug.Error("Cannot remove item from inventory because it does not contain it!", $"{runtimeItemData.ItemID} | {runtimeItemData.RuntimeID}");
 				return;
 			}
 
-			if (quantity < 1 || quantity >= runtimeData.Quantity)
+			if (quantity < 1 || quantity >= runtimeItemData.Quantity)
 			{
 				// Delete item from inventory.
-				inventoryData.TryRemove(runtimeData.RuntimeID, true);
-				entries.Remove(runtimeData.RuntimeID);
-				RemovedItemEvent?.Invoke(runtimeData);
-				runtimeData.DisposeEvent -= OnDisposingRuntimeItemDataEvent;
-				runtimeData.Dispose();
+				inventoryData.TryRemove(runtimeItemData.RuntimeID, true);
+				entries.Remove(runtimeItemData.RuntimeID);
+				RemovedItemEvent?.Invoke(runtimeItemData);
+				runtimeItemData.DisposeEvent -= OnDisposingRuntimeItemDataEvent;
+				runtimeItemData.Dispose();
 			}
 			else
 			{
 				// Substract quantity from item data.
-				runtimeData.RuntimeData.SetValue(ItemDataIdentifiers.QUANTITY, runtimeData.Quantity - quantity);
+				runtimeItemData.RuntimeData.SetValue(ItemDataIdentifiers.QUANTITY, runtimeItemData.Quantity - quantity);
 			}
 		}
 

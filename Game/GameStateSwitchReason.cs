@@ -10,6 +10,7 @@ namespace SpaxUtils
 		Boot = 1,
 		UserRequest = 2,
 		LevelChange = 3,
-		Respawn = 4
+		Death = 4,
+		Respawn = 5
 	}
 }

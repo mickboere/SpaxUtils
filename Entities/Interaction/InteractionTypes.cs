@@ -15,5 +15,8 @@
 		public const string DOOR = "Door";
 		public const string DOOR_OPEN = DOOR + "/Open";
 		public const string DOOR_CLOSE = DOOR + "/Close";
+
+		public const string CAIRN = "Cairn";
+		public const string CAIRN_COLLECT = CAIRN + "/Collect";
 	}
 }

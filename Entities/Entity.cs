@@ -375,8 +375,13 @@ namespace SpaxUtils
 		{
 			if (baseData != null)
 			{
+				if (baseData.ID != Identification.ID)
+				{
+					// This is actually fine in cases like camera entity receiving player data.
+					//SpaxDebug.Warning("Base data ID does not match entity ID! ", $"Base data ID: {baseData.ID}, Entity ID: {Identification.ID}. This may cause issues with saving/loading data.", this);
+				}
+
 				// Data was supplied through dependencies.
-				//RuntimeData = baseData.Clone(Identification.ID);
 				RuntimeData = baseData;
 			}
 			else
@@ -386,7 +391,8 @@ namespace SpaxUtils
 				RuntimeData = new RuntimeDataCollection(Identification.ID);
 			}
 
-			if (runtimeDataService.EnsureCurrentProfile().TryGetEntry(Identification.ID, out RuntimeDataCollection loadedData))
+			if (runtimeDataService.EnsureCurrentProfile().TryGetEntry(Identification.ID, out RuntimeDataCollection loadedData) &&
+				loadedData != RuntimeData)
 			{
 				// Saved data was found in data service, append to existing data and overwrite duplicate data.
 				RuntimeData.AppendCollection(loadedData, true);

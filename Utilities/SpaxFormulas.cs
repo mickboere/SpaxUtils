@@ -40,6 +40,21 @@ namespace SpaxUtils
 			return Mathf.Lerp(linear, expo, exponence).Max(0f);
 		}
 
+		//public static float CalculateDamage(float offence, float defence, float exponence = 0.5f)
+		//{
+		//	// 1. Linear Term: "The Armor Check"
+		//	float linear = (offence - defence).Max(0f);
+
+		//	// 2. Curved Term: "The Mitigation Check"
+		//	// Uses the system constant SCALE (100) as the pivot.
+		//	// Example: 100 Offence vs 100 Defence = 100 * (100/200) = 50 Damage.
+		//	float mitigationFactor = SCALE / (SCALE + defence);
+		//	float expo = offence * mitigationFactor;
+
+		//	// Blend based on exponence.
+		//	return Mathf.Lerp(linear, expo, exponence);
+		//}
+
 		#region Standardized Formulas
 
 		/// <summary>
@@ -327,5 +342,35 @@ namespace SpaxUtils
 		}
 
 		#endregion Rarity
+
+		#region Spiritual Alignment
+
+		public static float GetAlignment(float sin, float virtue)
+		{
+			return virtue / (sin + virtue);
+		}
+
+		public static SpiritAlignment GetSpiritAlignment(float sin, float virtue)
+		{
+			return GetSpiritAlignment(GetAlignment(sin, virtue));
+		}
+
+		public static SpiritAlignment GetSpiritAlignment(float alignment)
+		{
+			if (alignment < 0.4f)
+			{
+				return SpiritAlignment.Sinner;
+			}
+			else if (alignment > 0.6f)
+			{
+				return SpiritAlignment.Saint;
+			}
+			else
+			{
+				return SpiritAlignment.Neutral;
+			}
+		}
+
+		#endregion
 	}
 }

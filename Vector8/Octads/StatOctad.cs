@@ -14,44 +14,44 @@ namespace SpaxUtils
 
 		public Vector8 Vector8 => this;
 
-		public EntityStat N => stats[0];
-		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifiers), includeEmpty: true)] public string north;
-		public EntityStat NE => stats[1];
-		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifiers), includeEmpty: true)] public string northEast;
-		public EntityStat E => stats[2];
-		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifiers), includeEmpty: true)] public string east;
-		public EntityStat SE => stats[3];
-		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifiers), includeEmpty: true)] public string southEast;
-		public EntityStat S => stats[4];
-		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifiers), includeEmpty: true)] public string south;
-		public EntityStat SW => stats[5];
-		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifiers), includeEmpty: true)] public string southWest;
-		public EntityStat W => stats[6];
-		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifiers), includeEmpty: true)] public string west;
-		public EntityStat NW => stats[7];
-		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifiers), includeEmpty: true)] public string northWest;
+		public EntityStat[] Stats { get; private set; }
 
-		private EntityStat[] stats;
+		public EntityStat N => Stats[0];
+		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifiers), includeEmpty: true)] public string north;
+		public EntityStat NE => Stats[1];
+		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifiers), includeEmpty: true)] public string northEast;
+		public EntityStat E => Stats[2];
+		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifiers), includeEmpty: true)] public string east;
+		public EntityStat SE => Stats[3];
+		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifiers), includeEmpty: true)] public string southEast;
+		public EntityStat S => Stats[4];
+		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifiers), includeEmpty: true)] public string south;
+		public EntityStat SW => Stats[5];
+		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifiers), includeEmpty: true)] public string southWest;
+		public EntityStat W => Stats[6];
+		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifiers), includeEmpty: true)] public string west;
+		public EntityStat NW => Stats[7];
+		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifiers), includeEmpty: true)] public string northWest;
 
 		public StatOctad(EntityStat north, EntityStat northEast, EntityStat east, EntityStat southEast,
 			EntityStat south, EntityStat southWest, EntityStat west, EntityStat northWest)
 		{
-			stats = new EntityStat[8];
-			stats[0] = north;
+			Stats = new EntityStat[8];
+			Stats[0] = north;
 			this.north = north.Identifier;
-			stats[1] = northEast;
+			Stats[1] = northEast;
 			this.northEast = northEast.Identifier;
-			stats[2] = east;
+			Stats[2] = east;
 			this.east = east.Identifier;
-			stats[3] = southEast;
+			Stats[3] = southEast;
 			this.southEast = southEast.Identifier;
-			stats[4] = south;
+			Stats[4] = south;
 			this.south = south.Identifier;
-			stats[5] = southWest;
+			Stats[5] = southWest;
 			this.southWest = southWest.Identifier;
-			stats[6] = west;
+			Stats[6] = west;
 			this.west = west.Identifier;
-			stats[7] = northWest;
+			Stats[7] = northWest;
 			this.northWest = northWest.Identifier;
 
 			Subscribe();
@@ -92,25 +92,25 @@ namespace SpaxUtils
 		/// <param name="entity">The entity to initialize the octon with.</param>
 		public void Initialize(IEntity entity, Vector8 defaultValues)
 		{
-			if (stats != null)
+			if (Stats != null)
 			{
 				Unsubscribe();
 			}
-			stats = new EntityStat[8];
-			stats[0] = entity.Stats.GetStat(north, true, defaultValues.N);
-			stats[1] = entity.Stats.GetStat(northEast, true, defaultValues.NE);
-			stats[2] = entity.Stats.GetStat(east, true, defaultValues.E);
-			stats[3] = entity.Stats.GetStat(southEast, true, defaultValues.SE);
-			stats[4] = entity.Stats.GetStat(south, true, defaultValues.S);
-			stats[5] = entity.Stats.GetStat(southWest, true, defaultValues.SW);
-			stats[6] = entity.Stats.GetStat(west, true, defaultValues.W);
-			stats[7] = entity.Stats.GetStat(northWest, true, defaultValues.NW);
+			Stats = new EntityStat[8];
+			Stats[0] = entity.Stats.GetStat(north, true, defaultValues.N);
+			Stats[1] = entity.Stats.GetStat(northEast, true, defaultValues.NE);
+			Stats[2] = entity.Stats.GetStat(east, true, defaultValues.E);
+			Stats[3] = entity.Stats.GetStat(southEast, true, defaultValues.SE);
+			Stats[4] = entity.Stats.GetStat(south, true, defaultValues.S);
+			Stats[5] = entity.Stats.GetStat(southWest, true, defaultValues.SW);
+			Stats[6] = entity.Stats.GetStat(west, true, defaultValues.W);
+			Stats[7] = entity.Stats.GetStat(northWest, true, defaultValues.NW);
 			Subscribe();
 		}
 
 		private void Subscribe()
 		{
-			foreach (EntityStat stat in stats)
+			foreach (EntityStat stat in Stats)
 			{
 				stat.CompositeChangedEvent += OnStatChange;
 			}
@@ -118,7 +118,7 @@ namespace SpaxUtils
 
 		private void Unsubscribe()
 		{
-			foreach (EntityStat stat in stats)
+			foreach (EntityStat stat in Stats)
 			{
 				stat.CompositeChangedEvent -= OnStatChange;
 			}

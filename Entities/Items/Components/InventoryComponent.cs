@@ -8,7 +8,7 @@ namespace SpaxUtils
 	/// </summary>
 	public class InventoryComponent : InteractableComponentBase, IInteractor
 	{
-		public const string INVENTORY_DATA_ID = "Inventory";
+		public const string INVENTORY_DATA_ID = "INVENTORY";
 
 		/// <inheritdoc/>
 		public override string InteractableType => InteractionTypes.INVENTORY;

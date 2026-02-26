@@ -37,6 +37,10 @@ namespace SpaxUtils
 		private Dictionary<string, IEquipmentSlot> slots = new Dictionary<string, IEquipmentSlot>();
 		private Dictionary<string, RuntimeEquipedData> equipedItems = new Dictionary<string, RuntimeEquipedData>(); // string = slot.UID
 
+		// Fast lookup for "was this removed inventory item currently equiped?"
+		// Key is RuntimeItemData.RuntimeID.
+		private Dictionary<string, RuntimeEquipedData> equipedByRuntimeId = new Dictionary<string, RuntimeEquipedData>();
+
 		public void InjectDependencies(EntityAppearanceHandler sharedRigHandler,
 			ICommunicationChannel comms, InventoryComponent inventoryComponent,
 			IEquipmentData[] injectedEquipment)
@@ -92,11 +96,33 @@ namespace SpaxUtils
 		{
 			comms.Listen<RequestOptionsMsg<RuntimeItemData>>(this, OnRequestInventoryItemOptionsMsg);
 			comms.Listen<RequestOptionsMsg<RuntimeEquipedData>>(this, OnRequestEquipedItemOptionsMsg);
+			inventoryComponent.Inventory.RemovedItemEvent += OnRemovedItemEvent;
 		}
 
 		protected void OnDisable()
 		{
 			comms.StopListening(this);
+			inventoryComponent.Inventory.RemovedItemEvent -= OnRemovedItemEvent;
+		}
+
+		private void OnRemovedItemEvent(RuntimeItemData runtimeItemData)
+		{
+			// Inventory may remove many items in a burst. This must be O(1) per removal.
+			if (runtimeItemData == null)
+			{
+				return;
+			}
+
+			string runtimeId = runtimeItemData.RuntimeID;
+			if (string.IsNullOrEmpty(runtimeId))
+			{
+				return;
+			}
+
+			if (equipedByRuntimeId.TryGetValue(runtimeId, out RuntimeEquipedData equipedData) && equipedData != null)
+			{
+				Unequip(equipedData);
+			}
 		}
 
 		#region Slot Management
@@ -306,6 +332,8 @@ namespace SpaxUtils
 
 				// Occupy the slot, apply data and invoke equiped event.
 				equipedItems[slot.ID] = equipedData;
+				equipedByRuntimeId[equipedData.RuntimeItemData.RuntimeID] = equipedData;
+
 				equipmentData.SetValue(slot.ID, equipedData.RuntimeItemData.RuntimeID);
 				slot.Equip(equipedData);
 				EquipedEvent?.Invoke(equipedData);
@@ -323,6 +351,11 @@ namespace SpaxUtils
 		/// </summary>
 		public void Unequip(RuntimeEquipedData equipedData)
 		{
+			if (equipedData == null)
+			{
+				return;
+			}
+
 			if (equipedItems.ContainsKey(equipedData.Slot.ID))
 			{
 				// Stop all running equiped behaviour.
@@ -337,6 +370,13 @@ namespace SpaxUtils
 
 				// Clear equiped slot, apply data and invoke unequiping event.
 				equipedItems.Remove(equipedData.Slot.ID);
+
+				string runtimeId = equipedData.RuntimeItemData != null ? equipedData.RuntimeItemData.RuntimeID : null;
+				if (!string.IsNullOrEmpty(runtimeId))
+				{
+					equipedByRuntimeId.Remove(runtimeId);
+				}
+
 				equipmentData.TryRemove(equipedData.Slot.ID, true);
 				equipedData.Slot.Unequip(equipedData);
 				UnequipingEvent?.Invoke(equipedData);

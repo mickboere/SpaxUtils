@@ -19,7 +19,7 @@ namespace SpaxUtils
 		/// <summary>
 		/// The current cycle count for the active profile.
 		/// </summary>
-		public int Count { get; private set; }
+		public int Cycle { get; private set; }
 
 		/// <summary>
 		/// Whether the world is currently active.
@@ -80,14 +80,14 @@ namespace SpaxUtils
 		/// </summary>
 		public void NewCycle()
 		{
-			Count++;
-			runtimeDataService.CurrentProfile.SetValue(ProfileDataIdentifiers.CYCLE, Count);
-			NewCycleEvent?.Invoke(Count);
+			Cycle++;
+			runtimeDataService.CurrentProfile.SetValue(ProfileDataIdentifiers.CYCLE, Cycle);
+			NewCycleEvent?.Invoke(Cycle);
 		}
 
 		private void OnCurrentDataProfileChangedEvent(RuntimeDataCollection profile)
 		{
-			Count = runtimeDataService.CurrentProfile.GetValue<int>(ProfileDataIdentifiers.CYCLE, -1);
+			Cycle = runtimeDataService.CurrentProfile.GetValue<int>(ProfileDataIdentifiers.CYCLE, -1);
 		}
 
 		private void OnLoadingScreenShownEvent(string targetState, string targetScene, GameStateSwitchReason reason)

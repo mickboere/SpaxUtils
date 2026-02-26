@@ -125,6 +125,11 @@ namespace SpaxUtils
 		/// </summary>
 		public Vector3 StepPoint { get; private set; }
 
+		/// <summary>
+		/// The last position where the agent was safely grounded.
+		/// </summary>
+		public Vector3 LastSafePosition { get; private set; }
+
 		[SerializeField] private LayerMask layerMask;
 		[SerializeField] private float gravity = 9.8f;
 		[SerializeField] private OptimizationSettings settings = new OptimizationSettings(1, 3, 5, 8, 16);
@@ -169,6 +174,7 @@ namespace SpaxUtils
 			Gravity = new CompositeFloat(gravity);
 			SurfaceNormal = rigidbodyWrapper.Up;
 			TerrainNormal = rigidbodyWrapper.Up;
+			LastSafePosition = rigidbodyWrapper.Position;
 		}
 
 		protected void FixedUpdate()
@@ -178,6 +184,7 @@ namespace SpaxUtils
 			CalculateTraction();
 			ApplyForces();
 			BlockActor();
+			CheckIfSafe();
 		}
 
 		private void GroundCheck()
@@ -322,6 +329,18 @@ namespace SpaxUtils
 			else
 			{
 				agent.Actor.RemoveBlocker(this);
+			}
+		}
+
+		private void CheckIfSafe()
+		{
+			if (Ground &&
+				Grounded &&
+				!Sliding &&
+				GroundedAmount.Approx(1f) &&
+				!agent.Actor.Blocked)
+			{
+				LastSafePosition = rigidbodyWrapper.Position;
 			}
 		}
 	}

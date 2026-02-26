@@ -64,6 +64,12 @@ namespace SpaxUtils
 		protected List<Object> instances = new List<Object>();
 
 		/// <summary>
+		/// Tracks which created instances have been initialized.
+		/// Prevents Initialize() from being called more than once.
+		/// </summary>
+		protected HashSet<object> initialized = new HashSet<object>();
+
+		/// <summary>
 		/// Creates a new DependencyManager.
 		/// </summary>
 		/// <param name="parent">If a dependency can not be found using this locator, we will be able to search in the parent.</param>
@@ -100,6 +106,8 @@ namespace SpaxUtils
 				Object.Destroy(instance);
 			}
 			instances.Clear();
+
+			initialized.Clear();
 
 			GlobalDependencyManager.AllManagers.Remove(this);
 		}
@@ -154,8 +162,13 @@ namespace SpaxUtils
 			// Try to return new instance of requested type.
 			if (createIfNull && TryInstantiateDependency(valueType, out object instance))
 			{
+				// IMPORTANT:
+				// Bind FIRST, then Initialize.
+				// This prevents circular dependencies where Initialize() triggers injection
+				// that requests this same dependency during its own construction path.
 				if (Bind(key, instance))
 				{
+					TryInitialize(instance);
 					return instance;
 				}
 			}
@@ -307,6 +320,8 @@ namespace SpaxUtils
 			{
 				bindings.Remove(item.Key);
 			}
+
+			initialized.Remove(value);
 		}
 
 		/// <inheritdoc/>
@@ -332,6 +347,29 @@ namespace SpaxUtils
 		#endregion // Public Methods
 
 		#region Private Methods
+
+		/// <summary>
+		/// Runs IInitializable.Initialize exactly once per created instance.
+		/// Called after the instance has been bound.
+		/// </summary>
+		protected virtual void TryInitialize(object instance)
+		{
+			if (instance == null)
+			{
+				return;
+			}
+
+			if (initialized.Contains(instance))
+			{
+				return;
+			}
+
+			if (instance is IInitializable initializable)
+			{
+				initialized.Add(instance);
+				initializable.Initialize();
+			}
+		}
 
 		/// <summary>
 		/// Will try to create a new instance of <see cref="Type"/> <paramref name="type"/>, injecting all its dependencies.
@@ -493,7 +531,7 @@ namespace SpaxUtils
 				// Prevent circular dependencies.
 				if (currentlyResolving.Contains(key))
 				{
-					SpaxDebug.Error(IdentifierPrefix + "Circular Dependency detected!", $"Method={method.Name}, Dependency={key.GetType()}");
+					SpaxDebug.Error(IdentifierPrefix + "Circular Dependency detected!", $"Method={method.Name}, Dependency={key}");
 					return false;
 				}
 
