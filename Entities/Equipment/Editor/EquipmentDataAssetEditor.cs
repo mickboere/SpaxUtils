@@ -33,7 +33,7 @@ namespace SpaxUtils
 			for (int i = 0; i < 8; i++)
 			{
 				float lvl = lanePoints[i] <= 0f ? 0f : SpaxFormulas.LevelFromPoints(lanePoints[i]);
-				physics[i] = Mathf.Round(lvl * 4f);
+				physics[i] = Mathf.Round(lvl * 6f * eq.PhysicsScaling);
 			}
 
 			using (new EditorGUI.IndentLevelScope(1))

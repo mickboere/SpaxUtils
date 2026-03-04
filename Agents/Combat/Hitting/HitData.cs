@@ -44,29 +44,24 @@ namespace SpaxUtils
 		public float Mass { get; }
 
 		/// <summary>
+		/// The total piercing power of the hit, defines penetration damage.
+		/// </summary>
+		public float Piercing { get; }
+
+		/// <summary>
 		/// Total power behind the hit (before mass).
 		/// </summary>
 		public float Power { get; }
 
 		/// <summary>
-		/// Convenience: physical force = mass * power.
+		/// Total crit quality behind the hit.
 		/// </summary>
-		public float Force => Mass * Power;
+		public float Precision { get; }
 
 		/// <summary>
-		/// The total piercing power of the hit, defines penetration damage.
+		/// Total luck of the hitter.
 		/// </summary>
-		public float Pierce { get; }
-
-		/// <summary>
-		/// Final crit chance for this hit (0–1).
-		/// </summary>
-		public float CritChance { get; }
-
-		/// <summary>
-		/// Crit damage bonus.
-		/// </summary>
-		public float CritBonus { get; }
+		public float Luck { get; }
 
 		/// <summary>
 		/// Runtime data container used to store additional hit data.
@@ -81,10 +76,10 @@ namespace SpaxUtils
 			Vector3 point,
 			Vector3 direction,
 			float mass,
+			float piercing,
 			float power,
-			float pierce,
-			float critChance,
-			float critBonus,
+			float precision,
+			float luck,
 			RuntimeDataCollection data = null)
 		{
 			Receiver = receiver;
@@ -94,10 +89,10 @@ namespace SpaxUtils
 			Point = point;
 			Direction = direction;
 			Mass = mass;
+			Piercing = piercing;
 			Power = power;
-			Pierce = pierce;
-			CritChance = critChance;
-			CritBonus = critBonus;
+			Precision = precision;
+			Luck = luck;
 			Data = data ?? new RuntimeDataCollection(null);
 		}
 
@@ -111,11 +106,9 @@ namespace SpaxUtils
 				$"\nPoint={Point}," +
 				$"\nDirection={Direction}," +
 				$"\nMass={Mass}," +
+				$"\nPiercing={Piercing}," +
 				$"\nPower={Power}," +
-				$"\nForce={Force}," +
-				$"\nPierce={Pierce}," +
-				$"\nCritChance={CritChance}," +
-				$"\nCritMult={CritBonus}," +
+				$"\nPrecision={Precision}," +
 				$"\n\nData:\n{Data},";
 		}
 	}
@@ -152,7 +145,11 @@ namespace SpaxUtils
 		/// </summary>
 		public const string GUARD = "Guard";
 		/// <summary>
-		/// The amount of added critical damage.
+		/// Return data defining the amount of coupling.
+		/// </summary>
+		public const string COUPLING = "Coupling";
+		/// <summary>
+		/// Return data defining the amount of added critical damage.
 		/// </summary>
 		public const string CRIT_DAMAGE = "Crit_Damage";
 		/// <summary>
@@ -160,15 +157,27 @@ namespace SpaxUtils
 		/// </summary>
 		public const string PENETRATION = "Penetration";
 		/// <summary>
+		/// Return data defining the amount of piercing damage.
+		/// </summary>
+		public const string PIERCING_DAMAGE = "Piercing_Damage";
+		/// <summary>
 		/// Return data defining percentage of impact dealt to receiver (0-1~).
 		/// </summary>
 		public const string IMPACT = "Impact";
 		/// <summary>
+		/// Return data defining the amount of blunt damage.
+		/// </summary>
+		public const string BLUNT_DAMAGE = "Blunt_Damage";
+		/// <summary>
+		/// Return data defining the amount of grace intervention that was subtracted from total damage.
+		/// </summary>
+		public const string GRACE = "Grace";
+		/// <summary>
 		/// Return data defining total amount of damage that will be dealt to the receiver.
 		/// </summary>
-		public const string DAMAGE = "Damage";
+		public const string DAMAGE_TOTAL = "Damage_Total";
 		/// <summary>
-		/// Return data defining actual amount of damage that has been substracted from the receiver's health.
+		/// Return data defining actual amount of damage that has been subtracted from the receiver's health.
 		/// </summary>
 		public const string DAMAGE_DEALT = "Damage_Dealt";
 		/// <summary>

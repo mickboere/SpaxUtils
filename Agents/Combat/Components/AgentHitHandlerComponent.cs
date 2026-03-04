@@ -22,8 +22,11 @@ namespace SpaxUtils
 		private AgentStatHandler statHandler;
 
 		private EntityStat timescaleStat;
-		private EntityStat poiseStat;       // Maps to 'defence' in the formula
-		private EntityStat protectionStat;  // Maps to 'protection' in the formula
+		private EntityStat hardnessStat;
+		private EntityStat vulnerabilityStat;
+		private EntityStat proofingStat;
+		private EntityStat pliancyStat;
+		private EntityStat protectionStat;
 		private EntityStat luckStat;
 
 		private TimedCurveModifier hitPauseMod;
@@ -51,7 +54,10 @@ namespace SpaxUtils
 		protected void OnEnable()
 		{
 			timescaleStat = agent.Stats.GetStat(EntityStatIdentifiers.TIMESCALE, true);
-			poiseStat = agent.Stats.GetStat(AgentStatIdentifiers.PLATING, true);
+			hardnessStat = agent.Stats.GetStat(AgentStatIdentifiers.HARDNESS, true);
+			vulnerabilityStat = agent.Stats.GetStat(AgentStatIdentifiers.VULNERABILITY, true);
+			proofingStat = agent.Stats.GetStat(AgentStatIdentifiers.PROOFING, true);
+			pliancyStat = agent.Stats.GetStat(AgentStatIdentifiers.PLIANCY, true);
 			protectionStat = agent.Stats.GetStat(AgentStatIdentifiers.PROTECTION, true);
 			luckStat = agent.Stats.GetStat(AgentStatIdentifiers.LUCK, true);
 
@@ -70,79 +76,85 @@ namespace SpaxUtils
 			bool deflected = hitData.Data.GetValue<bool>(HitDataIdentifiers.DEFLECTED);
 			bool neglect = blocked || parried || deflected;
 
-			float currentProtection = protectionStat;
-			float currentDefence = poiseStat;
-
 			// --- 1. CRIT LAYER ---
-			float effectiveCritChance = Mathf.Clamp01(hitData.CritChance / Mathf.Max(0.001f, 1f + luckStat));
+			float coupling = SpaxFormulas.CalculateCoupling(hitData.Precision, pliancyStat);
+			float critChance = SpaxFormulas.CalculateCritChance(coupling, vulnerabilityStat, hitData.Luck, luckStat);
 			bool isCrit = !neglect &&
-				hitData.CritBonus > 0f &&
-				hitData.CritChance > 0f &&
-				Random.value < effectiveCritChance;
+				hitData.Precision > 0f &&
+				Random.value < critChance;
 
 			float critDamage = isCrit
-				? SpaxFormulas.CalculateDamage(hitData.CritBonus, currentProtection, currentDefence)
+				? SpaxFormulas.CalculateDamage(hitData.Precision, pliancyStat)
 				: 0f;
 
 			hitData.Data.SetValue(HitDataIdentifiers.CRIT, isCrit);
+			hitData.Data.SetValue(HitDataIdentifiers.COUPLING, coupling);
 			hitData.Data.SetValue(HitDataIdentifiers.CRIT_DAMAGE, critDamage);
 
 			// --- 2. PIERCE LAYER ---
 			float pierceDamage = 0f;
 			float penetration = 0f;
 
-			if (!neglect && hitData.Pierce > 0f)
+			if (!neglect && hitData.Piercing > 0f)
 			{
-				pierceDamage = SpaxFormulas.CalculateDamage(hitData.Pierce, currentProtection, currentDefence);
-				// Calculate penetration purely based on physics results
-				penetration = Mathf.Clamp01(Mathf.Max(0f, pierceDamage) / hitData.Pierce);
+				// Proofing defends against Piercing.
+				pierceDamage = SpaxFormulas.CalculateDamage(hitData.Piercing, proofingStat);
+
+				// Penetration is defined by how much of the incoming piercing becomes actual piercing damage.
+				penetration = Mathf.Clamp01(pierceDamage / hitData.Piercing);
 			}
+
 			hitData.Data.SetValue(HitDataIdentifiers.PENETRATION, penetration);
+			hitData.Data.SetValue(HitDataIdentifiers.PIERCING_DAMAGE, pierceDamage);
 
 			// --- 3. BLUNT LAYER ---
-			float powerRatio = (hitData.Power / (hitData.Power + hitData.Pierce + 0.001f)).Clamp01();
-			float impact = (1f - penetration * (1f - powerRatio)).Clamp01();
-			hitData.Data.SetValue(HitDataIdentifiers.IMPACT, impact);
-
+			float impact = 0f;
 			float bluntDamage = 0f;
-			float effectiveBluntInput = hitData.Power * impact;
 
-			if (!neglect && effectiveBluntInput > 0f)
+			if (!neglect && hitData.Power > 0f)
 			{
-				bluntDamage = SpaxFormulas.CalculateDamage(effectiveBluntInput, currentProtection, currentDefence);
+				// Impact is defined only by Coupling and Penetration.
+				impact = coupling * (1f - penetration) * 2f;
+
+				// Power is not defended; Impact determines how much Power couples into blunt damage.
+				float bluntOffence = hitData.Power * impact;
+				bluntDamage = SpaxFormulas.CalculateDamage(bluntOffence, (proofingStat + pliancyStat) * 0.5f);
 			}
 
+			hitData.Data.SetValue(HitDataIdentifiers.IMPACT, impact);
+			hitData.Data.SetValue(HitDataIdentifiers.BLUNT_DAMAGE, bluntDamage);
+
 			// --- 4. TOTAL PHYSICS DAMAGE ---
-			float rawTotalDamage = critDamage + pierceDamage + bluntDamage;
-			float damageToTake = Mathf.Max(0f, rawTotalDamage); // Floor at 0 before Grace
+			float totalDamage = critDamage + pierceDamage + bluntDamage;
 
 			// --- 5. GRACE INTERVENTION ---
 			// Applied AFTER physics calculation. It absorbs damage, it does not act as armor.
-			if (damageToTake > 0f)
+			if (totalDamage > 0f)
 			{
 				// Drain Grace
-				float drained = statHandler.PointStats.SE.Drain(damageToTake);
+				float drained = statHandler.PointStats.SE.Drain(totalDamage);
+				hitData.Data.SetValue(HitDataIdentifiers.GRACE, drained);
 
 				// Reduce final damage by amount successfully drained from Grace
-				damageToTake -= drained;
+				totalDamage -= drained;
 			}
 
-			hitData.Data.SetValue(HitDataIdentifiers.DAMAGE, damageToTake);
+			hitData.Data.SetValue(HitDataIdentifiers.DAMAGE_TOTAL, totalDamage);
 
 			// --- IMPACT & FORCE ---
-			float force = hitData.Force * impact;
+			float force = hitData.Mass * hitData.Power * impact;
 			hitData.Data.SetValue(HitDataIdentifiers.FORCE, force);
 
 			// --- ENDURANCE DAMAGE ---
-			float endure = neglect ? 0f : damageToTake + force;
+			float toEndure = neglect ? 0f : totalDamage + force;
 			float enduranceDamage = statHandler.PointStats.W.Drain(
-				endure,
+				toEndure,
 				out bool stunned,
 				out float enduranceOverdraw);
 			hitData.Data.SetValue(HitDataIdentifiers.STUNNED, stunned);
 
-			enduranceOverdraw *= endure / (enduranceDamage + enduranceOverdraw).Max(1f);
-			float endured = endure > 0f ? (endure - enduranceOverdraw) / endure : 1f;
+			enduranceOverdraw *= toEndure / (enduranceDamage + enduranceOverdraw).Max(1f);
+			float endured = toEndure > 0f ? (toEndure - enduranceOverdraw) / toEndure : 1f;
 			hitData.Data.SetValue(HitDataIdentifiers.ENDURED, endured);
 
 			// --- STUN / IMPACT APPLICATION ---
@@ -158,6 +170,7 @@ namespace SpaxUtils
 				rigidbodyWrapper.Push(hitData.Direction * force, 1f);
 			}
 
+			// Mandatory inertia transfer.
 			rigidbodyWrapper.Push(
 				hitData.Inertia * (endured.Invert() * 0.5f),
 				hitData.HitterMass);
@@ -165,7 +178,7 @@ namespace SpaxUtils
 			// --- HP DAMAGE & MALICE ---
 			if (!Invulnerable)
 			{
-				float damageDealt = statHandler.PointStats.SW.Drain(damageToTake, out bool dead, out _);
+				float damageDealt = statHandler.PointStats.SW.Drain(totalDamage, out bool dead, out _);
 				hitData.Data.SetValue(HitDataIdentifiers.DAMAGE_DEALT, damageDealt);
 
 				// --- MALICE BUILDUP ---
@@ -202,14 +215,14 @@ namespace SpaxUtils
 			// Update ledger.
 			if (damageLedger.ContainsKey(hitData.Hitter.ID))
 			{
-				damageLedger[hitData.Hitter.ID] += damageToTake;
+				damageLedger[hitData.Hitter.ID] += totalDamage;
 			}
 			else
 			{
-				damageLedger[hitData.Hitter.ID] = damageToTake;
+				damageLedger[hitData.Hitter.ID] = totalDamage;
 			}
 
-			//SpaxDebug.Log($"{agent.ID} - HIT:", hitData.ToString());
+			//SpaxDebug.Log($"{agent.ID} - HIT:", hitData.ToString() + "\nEntity Stats:\n" + Entity.Stats.GetSnapshot());
 		}
 	}
 }

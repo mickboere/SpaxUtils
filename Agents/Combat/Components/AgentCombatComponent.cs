@@ -38,7 +38,7 @@ namespace SpaxUtils
 		public float Power => powerStat.Value;
 
 		/// <summary>The current poise stat value.</summary>
-		public float Poise => poiseStat.Value;
+		public float Proofing => proofingStat.Value;
 
 		#region Move Selection
 
@@ -77,7 +77,7 @@ namespace SpaxUtils
 		private IStunHandler stunHandler;
 
 		private EntityStat powerStat;
-		private EntityStat poiseStat;
+		private EntityStat proofingStat;
 
 		public void InjectDependencies(
 			AgentStatHandler agentStatHandler,
@@ -89,7 +89,7 @@ namespace SpaxUtils
 			this.stunHandler = stunHandler;
 
 			powerStat = Agent.Stats.GetStat(AgentStatIdentifiers.POWER);
-			poiseStat = Agent.Stats.GetStat(AgentStatIdentifiers.PLATING);
+			proofingStat = Agent.Stats.GetStat(AgentStatIdentifiers.PROOFING);
 		}
 
 		protected void OnEnable()
@@ -371,7 +371,7 @@ namespace SpaxUtils
 					{
 						if (fuCombat is IMeleeCombatMove melee)
 						{
-							score += melee.Power + melee.Offence;
+							score += melee.Power + melee.Piercing;
 						}
 						else
 						{

@@ -93,7 +93,7 @@ namespace SpaxUtils
 		private void OnReceivedHitEvent(HitData hitData)
 		{
 			// Actual damage removed from health.
-			float damageDealt = hitData.Data.GetValue<float>(HitDataIdentifiers.DAMAGE, 0f);
+			float damageDealt = hitData.Data.GetValue<float>(HitDataIdentifiers.DAMAGE_TOTAL, 0f);
 			if (damageDealt <= 0f)
 			{
 				return;

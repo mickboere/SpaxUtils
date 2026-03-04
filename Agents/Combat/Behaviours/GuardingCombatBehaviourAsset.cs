@@ -33,7 +33,7 @@ namespace SpaxUtils
 			this.hittable = hittable;
 
 			agentStatHandler.TryGetPointStat(Move.ChargeCost.Stat, out chargeStat);
-			defenceStat = Agent.Stats.GetStat(AgentStatIdentifiers.PLATING);
+			defenceStat = Agent.Stats.GetStat(AgentStatIdentifiers.PROOFING);
 			guardStat = Agent.Stats.GetStat(AgentStatIdentifiers.GUARD);
 		}
 

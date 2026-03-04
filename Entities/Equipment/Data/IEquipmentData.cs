@@ -40,6 +40,11 @@ namespace SpaxUtils
 		IReadOnlyList<StatMap> EquipedStatMappings { get; }
 
 		/// <summary>
+		/// Scaler for the final physics rating, can be used as "coverage" for apparel.
+		/// </summary>
+		float PhysicsScaling { get; }
+
+		/// <summary>
 		/// The normal distribution of this equipment's physics effects.
 		/// </summary>
 		Vector8 PhysicsDistribution { get; }

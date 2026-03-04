@@ -208,7 +208,7 @@ namespace SpaxUtils
 			// Lethality of enemy to agent.
 			float enemyPointSum = info.StatHandler.PointStats.Vector8.Sum();
 			float pointRatio = enemyPointSum <= Mathf.Epsilon ? 0.5f : enemyPointSum / pointSum;
-			float offenseRatio = info.CombatComp.Offense / Mathf.Max(combatComponent.Poise, 0.001f);
+			float offenseRatio = info.CombatComp.Offense / Mathf.Max(combatComponent.Proofing, 0.001f);
 			float powerRatio = info.CombatComp.Power / agent.Body.RigidbodyWrapper.Mass;
 
 			float pointLeth = pointRatio / (pointRatio + 1f);

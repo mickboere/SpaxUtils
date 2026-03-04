@@ -12,48 +12,139 @@ namespace SpaxUtils
 		public const float POWER = 2f;
 		public const float SCALE = 100f;
 
+		#region Combat
+
 		/// <summary>
-		/// Standard damage formula taking an offence value and separate protection and defence values.
-		/// Protection is a linear subtractor, defence (poise) defines the curved part.
+		/// Standard damage formula taking an offence value and a defence value to calculate damage.
 		/// </summary>
 		/// <param name="offence">The attacker's offensive power.</param>
-		/// <param name="protection">The defender's linear protection.</param>
-		/// <param name="defence">The defender's curved defence (poise/hardness).</param>
-		/// <param name="exponence">
-		/// Amount of exponence applied to the formula.
-		/// 0 will simply subtract protection+defence linearly (afterProtection),
-		/// 1 will fully use the curved term.
-		/// </param>
-		public static float CalculateDamage(float offence, float protection, float defence, float exponence = 0.5f)
-		{
-			// 1. Linear Term: "The Armor Check"
-			// This can be negative, and will be clamped in the final damage calculation.
-			float linear = offence - protection;
-
-			// 2. Curved Term: "The Mitigation Check"
-			// Uses the system constant SCALE (100) as the pivot.
-			// Example: 100 Offence vs 100 Defence = 100 * (100/200) = 50 Damage.
-			float mitigationFactor = SCALE / (SCALE + defence);
-			float expo = offence * mitigationFactor;
-
-			// Blend based on slider
-			return Mathf.Lerp(linear, expo, exponence).Max(0f);
-		}
-
-		//public static float CalculateDamage(float offence, float defence, float exponence = 0.5f)
+		/// <param name="defence">The defender's defensive power.</param>
+		//public static float CalculateDamage(float offence, float defence)
 		//{
 		//	// 1. Linear Term: "The Armor Check"
-		//	float linear = (offence - defence).Max(0f);
+		//	float linear = (offence - defence);
+		//	if (linear < 0f)
+		//	{
+		//		linear *= 0.1f; // Soften negative pull.
+		//	}
 
 		//	// 2. Curved Term: "The Mitigation Check"
-		//	// Uses the system constant SCALE (100) as the pivot.
-		//	// Example: 100 Offence vs 100 Defence = 100 * (100/200) = 50 Damage.
 		//	float mitigationFactor = SCALE / (SCALE + defence);
 		//	float expo = offence * mitigationFactor;
 
-		//	// Blend based on exponence.
-		//	return Mathf.Lerp(linear, expo, exponence);
+		//	// 3. Blend based on exponence.
+		//	return Mathf.Lerp(linear, expo, 0.5f).Max(0f);
 		//}
+
+		/// <summary>
+		/// Damage formula using an offence-relative Hill curve:
+		/// damage = offence / (1 + crossFactor * (defence/offence)^exponent).
+		///
+		/// crossFactor sets the damage fraction when offence == defence:
+		/// damage(off==def) = offence / (1 + crossFactor).
+		/// Example: crossFactor=3 -> 25% at equality.
+		///
+		/// exponent controls steepness of falloff as defence exceeds offence (higher = steeper).
+		/// </summary>
+		/// <param name="offence">Attacker offensive power (>= 0).</param>
+		/// <param name="defence">Defender defensive power (>= 0).</param>
+		/// <param name="crossFactor">
+		/// Controls the equality point.
+		/// CrossFactor=1 means offence==defence yields 50% of offence.
+		/// CrossFactor=3 means offence==defence yields 25% of offence.
+		/// </param>
+		/// <param name="exponent">Steepness (>= 0). Try 2..6.</param>
+		/// <returns>Damage (>= 0).</returns>
+		public static float CalculateDamage(float offence,
+			float defence,
+			float crossFactor = 1f,
+			float exponent = 2f)
+		{
+			float o = Mathf.Max(0f, offence);
+			float d = Mathf.Max(0f, defence);
+
+			if (o <= 0.0001f) return 0f;
+
+			float c = Mathf.Max(0f, crossFactor);
+			float n = Mathf.Max(0.0001f, exponent);
+
+			float ratio = d / o;
+			float denom = 1f + c * Mathf.Pow(ratio, n);
+
+			return o / denom;
+		}
+
+		/// <summary>
+		/// Calculates the coupling factor (0..1) representing how cleanly a hit can couple into the target.
+		/// Higher attackerPrecision increases coupling, higher defenderPliancy decreases it.
+		/// </summary>
+		/// <param name="precision">Attacker Precision (>= 0).</param>
+		/// <param name="pliancy">Defender Pliancy (>= 0).</param>
+		/// <param name="physicsPivot">Pivot constant for the contest (typically SCALE=100).</param>
+		/// <returns>Coupling factor in 0..1.</returns>
+		public static float CalculateCoupling(float precision, float pliancy, float physicsPivot = SCALE)
+		{
+			float pr = Mathf.Max(0f, precision);
+			float pl = Mathf.Max(0f, pliancy);
+
+			float coupling = pr / (pr + pl + physicsPivot);
+			return Mathf.Clamp01(coupling);
+		}
+
+		/// <summary>
+		/// Calculates the final critical-hit chance using a Precision vs Pliancy coupling contest,
+		/// a smoothed Luck contest, and an anatomy-driven Vulnerability remap.
+		/// Vulnerability anchors the output: 0 -> 0% crit, 0.5 -> base chance, 1 -> 100% crit.
+		/// The returned value is clamped to 0..1.
+		/// </summary>
+		/// <param name="attackerPrecision">Attacker Precision (>= 0). Higher increases coupling.</param>
+		/// <param name="defenderPliancy">Defender Pliancy (>= 0). Higher reduces coupling.</param>
+		/// <param name="vulnerability01">
+		/// Anatomy vulnerability in 0..1. Remaps chance so 0 disables crits, 0.5 leaves base chance unchanged,
+		/// and 1 guarantees a crit.
+		/// </param>
+		/// <param name="attackerLuck">Attacker Luck (>= 0). Competes with defenderLuck in the luck contest.</param>
+		/// <param name="defenderLuck">Defender Luck (>= 0). Competes with attackerLuck in the luck contest.</param>
+		/// <param name="physicsPivot">
+		/// Pivot constant for the coupling contest (typically SCALE=100). Higher pivots reduce sensitivity.
+		/// </param>
+		/// <param name="luckPivot">
+		/// Smoothing constant for the luck contest (default 0.1). Lower makes luck differences matter more.
+		/// </param>
+		/// <returns>Final crit chance in 0..1.</returns>
+		public static float CalculateCritChance(
+			float coupling,
+			float vulnerability01 = 0.5f,
+			float attackerLuck = 0f,
+			float defenderLuck = 0f,
+			float luckPivot = 0.1f)
+		{
+			// 1) Luck contest (smoothed).
+			float attLuck = Mathf.Max(0f, attackerLuck);
+			float defLuck = Mathf.Max(0f, defenderLuck);
+			float luckFactor = (attLuck + luckPivot) / (attLuck + defLuck + 2f * luckPivot);
+			luckFactor = Mathf.Clamp01(luckFactor);
+
+			// 2) Default crit chance at vulnerability = 0.5.
+			float baseChance = Mathf.Clamp01(coupling * luckFactor);
+
+			// 3) Vulnerability remap:
+			// v=0 -> 0, v=0.5 -> baseChance, v=1 -> 1.
+			float vulnerability = Mathf.Clamp01(vulnerability01);
+			float critChance;
+			if (vulnerability <= 0.5f)
+			{
+				critChance = vulnerability * 2f * baseChance;
+			}
+			else
+			{
+				critChance = baseChance + (vulnerability - 0.5f) * 2f * (1f - baseChance);
+			}
+
+			return Mathf.Clamp01(critChance);
+		}
+
+		#endregion Combat
 
 		#region Standardized Formulas
 

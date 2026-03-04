@@ -13,6 +13,7 @@ namespace SpaxUtils
 		public IReadOnlyList<BehaviourAsset> EquipedBehaviour => equipedBehaviour;
 		public IReadOnlyList<StatMap> EquipedStatMappings => equipedStatMappings;
 
+		public float PhysicsScaling => physicsScaling;
 		public Vector8 PhysicsDistribution => physicsDistribution.Vector8;
 
 		private const string TT_SLOT_TYPE =
@@ -26,6 +27,7 @@ namespace SpaxUtils
 		[SerializeField, Expandable] private List<BehaviourAsset> equipedBehaviour;
 		[SerializeField, Expandable] private List<StatMap> equipedStatMappings;
 		[Header("Physics")]
+		[SerializeField, Range(0f, 1f)] private float physicsScaling = 1f;
 		[SerializeField] private RangedOctad physicsDistribution;
 	}
 }

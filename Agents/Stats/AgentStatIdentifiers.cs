@@ -102,6 +102,8 @@
 		private const string BODY_GENERAL = BODY_STAT + "GENERAL/";
 		public const string MASS = BODY_GENERAL + "Mass"; // Total body mass in KG.
 		public const string LOAD = BODY_GENERAL + "Load"; // Total equip load in KG.
+		public const string HARDNESS = BODY_GENERAL + "Hardness"; // Hardness of the body (0-1), used in calculating impacts.
+		public const string VULNERABILITY = BODY_GENERAL + "Vulnerability"; // Vulnerability of the body (0-1), used in calculating damage.
 		public const string REACH = BODY_GENERAL + "Reach"; // The agent's base melee reach (should be as large as the idle collision radius, limbs define actual reach).
 		public const string ATTACK_CHARGE_SPEED = BODY_GENERAL + "Attack_Charge_Speed";
 		public const string ATTACK_PERFORM_SPEED = BODY_GENERAL + "Attack_Perform_Speed";
@@ -117,7 +119,6 @@
 		private const string BODY_LIGHT = BODY_STAT + "LIGHT/";
 		public const string STATIC = BODY_LIGHT + "Static"; // POINTSTAT: Amount of spendable charging points.
 		public const string PRECISION = BODY_LIGHT + "Precision"; // PHYSIC: The body's critical precision (crit quality).
-		public const string CRIT_CHANCE = BODY_LIGHT + "Crit_Chance"; // % chance to land a critical hit.
 		public const string STORM_SPEED = BODY_LIGHT + "Storm_Speed"; // Speed while storming during a charged attack.
 
 		// Air
@@ -149,7 +150,7 @@
 		// Earth
 		private const string BODY_EARTH = BODY_STAT + "EARTH/";
 		public const string ENDURANCE = BODY_EARTH + "Endurance"; // POINTSTAT: Amount absorbable force points before being stunned.
-		public const string PLATING = BODY_EARTH + "Plating"; // PHYSIC: The body's resistance to piercing (sharp defence).
+		public const string PROOFING = BODY_EARTH + "Proofing"; // PHYSIC: The body's resistance to piercing (sharp defence).
 		public const string POISE = BODY_EARTH + "Poise"; // Endurance cost divider.
 		public const string GUARD = BODY_EARTH + "Guard"; // Total amount of active guarding defence.
 
@@ -182,7 +183,7 @@
 
 		// Spirit
 		private const string SOUL_SPIRIT = SOUL_STAT + "SPIRIT/";
-		public const string LUCK = SOUL_SPIRIT + "Luck"; // Chance to avoid negative effects.
+		public const string LUCK = SOUL_SPIRIT + "Luck"; // Stat influencing all randomness relating to the agent.
 
 		// Water
 		private const string SOUL_WATER = SOUL_STAT + "WATER/";

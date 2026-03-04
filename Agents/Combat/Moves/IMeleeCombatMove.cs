@@ -74,14 +74,19 @@ namespace SpaxUtils
 		string Limb { get; }
 
 		/// <summary>
-		/// Percentage of user's strength that gets transfered into the attack.
+		/// Percentage of user's Piercing that gets transfered into the attack.
+		/// </summary>
+		float Piercing { get; }
+
+		/// <summary>
+		/// Percentage of user's Power that gets transfered into the attack.
 		/// </summary>
 		float Power { get; }
 
 		/// <summary>
-		/// Percentage of user's offence that gets transfered into the attack.
+		/// Percentage of user's Precision that gets transfered into the attack.
 		/// </summary>
-		float Offence { get; }
+		float Precision { get; }
 
 		/// <summary>
 		/// How much balance is maintained while charging.

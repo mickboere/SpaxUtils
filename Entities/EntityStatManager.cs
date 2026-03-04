@@ -81,14 +81,19 @@ namespace SpaxUtils
 			return stat != null;
 		}
 
-		public virtual void PrintSnapshot()
+		public string GetSnapshot()
 		{
 			string snapshot = $"\n";
 			foreach (EntityStat stat in Collection.Stats)
 			{
 				snapshot += $"\t- Stat '{stat.Identifier}': Value = {stat.GetValue()} (BaseValue = {stat.BaseValue})\n";
 			}
-			SpaxDebug.Log($"StatSnapshot for Entity '{entity.Identification.TagFull()}':", snapshot);
+			return snapshot;
+		}
+
+		public void PrintSnapshot()
+		{
+			SpaxDebug.Log($"StatSnapshot for Entity '{entity.Identification.TagFull()}':", GetSnapshot());
 		}
 	}
 }

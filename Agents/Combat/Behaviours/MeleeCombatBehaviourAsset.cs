@@ -53,10 +53,10 @@ namespace SpaxUtils
 		private EntityStat timescaleStat;
 		private EntityStat limbMassStat;
 		private EntityStat strengthStat;
+		private EntityStat piercingStat;
 		private EntityStat powerStat;
-		private EntityStat pierceStat;
-		private EntityStat critChanceStat;
 		private EntityStat precisionStat;
+		private EntityStat luckStat;
 		private EntityStat chargeStat;
 		private EntityStat chargeSpeedStat;
 		private EntityStat performSpeedStat;
@@ -118,10 +118,10 @@ namespace SpaxUtils
 			timescaleStat = Agent.Stats.GetStat(EntityStatIdentifiers.TIMESCALE, true, 1f);
 			limbMassStat = Agent.Stats.GetStat(AgentStatIdentifiers.MASS.SubStat(this.move.Limb));
 			strengthStat = Agent.Stats.GetStat(AgentStatIdentifiers.STRENGTH);
+			piercingStat = Agent.Stats.GetStat(AgentStatIdentifiers.PIERCING);
 			powerStat = Agent.Stats.GetStat(AgentStatIdentifiers.POWER);
-			pierceStat = Agent.Stats.GetStat(AgentStatIdentifiers.PIERCING);
-			critChanceStat = Agent.Stats.GetStat(AgentStatIdentifiers.CRIT_CHANCE);
 			precisionStat = Agent.Stats.GetStat(AgentStatIdentifiers.PRECISION);
+			luckStat = Agent.Stats.GetStat(AgentStatIdentifiers.LUCK, true);
 			chargeStat = Agent.Stats.GetStat(move.ChargeCost.Stat);
 			chargeSpeedStat = Agent.Stats.GetStat(move.ChargeSpeedMultiplierStat, false);
 			performSpeedStat = Agent.Stats.GetStat(move.PerformSpeedMultiplierStat, false);
@@ -445,7 +445,7 @@ namespace SpaxUtils
 					float powerValue = basePower * totalCharge * phaseMult;
 
 					// --- MALICE LOGIC ---
-					float basePierce = pierceStat * move.Offence;
+					float basePierce = piercingStat * move.Piercing;
 					float maliceBonus = 0f;
 
 					if (basePierce > 0f)
@@ -462,11 +462,11 @@ namespace SpaxUtils
 						maliceBonus = basePierce * coverage;
 					}
 
-					// Final Pierce = Base + Malice
+					// Final Pierce = Base + Malice.
 					float finalPierce = basePierce + maliceBonus;
 
-					float critChance = critChanceStat + Mathf.Max(0f, totalCharge - 1f) * chargeCritBonusFactor;
-					float critBonus = precisionStat + (accumulatedChargePoints * chargeDamageEfficiency);
+					// Final precision = Base + Charge.
+					float finalPrecision = precisionStat * move.Precision + (accumulatedChargePoints * chargeDamageEfficiency);
 
 					HitData hitData = new HitData(
 						hittable,
@@ -476,10 +476,10 @@ namespace SpaxUtils
 						hit.Point,
 						direction,
 						mass,
-						powerValue,
 						finalPierce,
-						critChance,
-						critBonus
+						powerValue,
+						finalPrecision,
+						luckStat
 					);
 
 					ProcessHit(hittable, hitData);
@@ -491,6 +491,9 @@ namespace SpaxUtils
 		{
 			if (hittable.Hit(hitData))
 			{
+				// This statement is entered after the target has fully processed the hit,
+				// meaning all return data is present in the hitData.
+
 				float force = hitData.Data.GetValue<float>(HitDataIdentifiers.FORCE);
 
 				rigidbodyWrapper.AddForce(
