@@ -1,4 +1,3 @@
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -7,6 +6,12 @@ namespace SpaxUtils
 	[CreateAssetMenu(fileName = nameof(EnvironmentAudioManager), menuName = "ScriptableObjects/Audio/" + nameof(EnvironmentAudioManager))]
 	public class EnvironmentAudioManager : ScriptableObject, IService
 	{
+		private sealed class OverrideLayer
+		{
+			public object Key;
+			public IEnvironmentAudioSettings Settings;
+		}
+
 		[SerializeField] private AudioSource ambienceAudioSource;
 		[SerializeField] private AudioSource musicAudioSource;
 
@@ -19,9 +24,9 @@ namespace SpaxUtils
 
 		private AudioFader ambience;
 		private AudioFader music;
+
 		private IEnvironmentAudioSettings currentSettings;
-		private IEnvironmentAudioSettings overrideSettings;
-		private float musicTimeBackup;
+		private readonly List<OverrideLayer> overrideStack = new List<OverrideLayer>(4);
 
 		public void InjectDependencies(CallbackService callbackService, PlayerAgentService playerAgentService, WorldRegionService worldService, AudioManager audioManager)
 		{
@@ -31,8 +36,8 @@ namespace SpaxUtils
 
 			callbackService.SubscribeUpdate(UpdateMode.Update, this, OnUpdate);
 
-			ambience = new AudioFader(Source(ambienceAudioSource), Source(ambienceAudioSource), callbackService);
-			music = new AudioFader(Source(musicAudioSource), Source(musicAudioSource), callbackService);
+			ambience = new AudioFader(Source(ambienceAudioSource), callbackService);
+			music = new AudioFader(Source(musicAudioSource), callbackService);
 		}
 
 		protected void OnDestroy()
@@ -41,21 +46,115 @@ namespace SpaxUtils
 			music?.Dispose();
 		}
 
-		public void Override(IEnvironmentAudioSettings settings)
+		public void PushOverride(object key, IEnvironmentAudioSettings settings)
 		{
-			if (settings == null && overrideSettings != null)
+			if (key == null)
 			{
-				// Remove override.
-				Switch(currentSettings, overrideSettings.AmbienceTransition, overrideSettings.MusicTransition, 0f, musicTimeBackup);
-				overrideSettings = null;
+				Debug.LogError($"{nameof(EnvironmentAudioManager)}.{nameof(PushOverride)} called with null key.");
+				return;
 			}
-			else if (overrideSettings != settings)
+
+			if (settings == null)
 			{
-				// Apply override.
-				overrideSettings = settings;
-				musicTimeBackup = music.CurrentAudioSource.clip == null ? 0f : music.CurrentAudioSource.time;
-				Switch(settings);
+				Debug.LogError($"{nameof(EnvironmentAudioManager)}.{nameof(PushOverride)} called with null settings.");
+				return;
 			}
+
+			if (ContainsOverrideKey(key))
+			{
+				Debug.LogError($"{nameof(EnvironmentAudioManager)}.{nameof(PushOverride)} called with duplicate key.");
+				return;
+			}
+
+			overrideStack.Add(new OverrideLayer
+			{
+				Key = key,
+				Settings = settings
+			});
+
+			ambience.PushOverride(
+				key,
+				settings.Ambience,
+				settings.AmbienceTransition,
+				0f,
+				true,
+				settings.Ambience == null ? 0f : settings.Ambience.length * Random.value);
+
+			music.PushOverride(
+				key,
+				settings.Music,
+				settings.MusicTransition,
+				settings.Delay,
+				settings.Loop,
+				settings.Music != null && settings.RandomStart ? settings.Music.length * Random.value : 0f);
+
+			audioManager.SetReverb(settings.Reverb);
+		}
+
+		public bool PopOverride(object key)
+		{
+			if (key == null)
+			{
+				Debug.LogError($"{nameof(EnvironmentAudioManager)}.{nameof(PopOverride)} called with null key.");
+				return false;
+			}
+
+			if (overrideStack.Count == 0)
+			{
+				Debug.LogError($"{nameof(EnvironmentAudioManager)}.{nameof(PopOverride)} called with empty override stack.");
+				return false;
+			}
+
+			OverrideLayer top = overrideStack[overrideStack.Count - 1];
+			if (!ReferenceEquals(top.Key, key))
+			{
+				Debug.LogError(
+					$"{nameof(EnvironmentAudioManager)}.{nameof(PopOverride)} must pop the top override layer. " +
+					$"Attempted to pop a non-top key.");
+				return false;
+			}
+
+			overrideStack.RemoveAt(overrideStack.Count - 1);
+
+			ambience.PopOverride(key, top.Settings.AmbienceTransition);
+			music.PopOverride(key, top.Settings.MusicTransition);
+
+			if (overrideStack.Count > 0)
+			{
+				audioManager.SetReverb(overrideStack[overrideStack.Count - 1].Settings.Reverb);
+			}
+			else
+			{
+				audioManager.SetReverb(currentSettings != null ? currentSettings.Reverb : AudioReverbPreset.Off);
+			}
+
+			return true;
+		}
+
+		public void ClearOverrides()
+		{
+			if (overrideStack.Count == 0)
+			{
+				return;
+			}
+
+			overrideStack.Clear();
+			ambience.ClearOverrides();
+			music.ClearOverrides();
+			audioManager.SetReverb(currentSettings != null ? currentSettings.Reverb : AudioReverbPreset.Off);
+		}
+
+		private bool ContainsOverrideKey(object key)
+		{
+			for (int i = 0; i < overrideStack.Count; i++)
+			{
+				if (ReferenceEquals(overrideStack[i].Key, key))
+				{
+					return true;
+				}
+			}
+
+			return false;
 		}
 
 		private void OnUpdate(float delta)
@@ -109,39 +208,49 @@ namespace SpaxUtils
 			{
 				SetCurrent(audioComponent.Settings);
 			}
+			else
+			{
+				SetCurrent(null);
+			}
 		}
 
 		private void SetCurrent(IEnvironmentAudioSettings settings)
 		{
 			currentSettings = settings;
-			if (overrideSettings == null)
-			{
-				Switch(currentSettings);
-			}
-		}
 
-		private void Switch(IEnvironmentAudioSettings settings,
-			TransitionSettings ambienceTransitionOverride = null, TransitionSettings musicTransitionOverride = null,
-			float delayOverride = -1f, float timeOverride = -1f)
-		{
+			bool hidden = overrideStack.Count > 0;
+
 			if (settings == null)
 			{
-				ambience.Fade(null, null);
-				music.Fade(null, null);
-				audioManager.SetReverb(AudioReverbPreset.Off);
+				ambience.SetBase(null, null, 0f, true, 0f, hidden);
+				music.SetBase(null, null, 0f, true, 0f, hidden);
+
+				if (!hidden)
+				{
+					audioManager.SetReverb(AudioReverbPreset.Off);
+				}
+
+				return;
 			}
-			else
+
+			ambience.SetBase(
+				settings.Ambience,
+				settings.AmbienceTransition,
+				0f,
+				true,
+				settings.Ambience == null ? 0f : settings.Ambience.length * Random.value,
+				hidden);
+
+			music.SetBase(
+				settings.Music,
+				settings.MusicTransition,
+				settings.Delay,
+				settings.Loop,
+				settings.Music != null && settings.RandomStart ? settings.Music.length * Random.value : 0f,
+				hidden);
+
+			if (!hidden)
 			{
-				ambience.Fade(settings.Ambience,
-					ambienceTransitionOverride ?? settings.AmbienceTransition,
-					startTime: settings.Ambience == null ? 0f : settings.Ambience.length * Random.value);
-
-				music.Fade(settings.Music,
-					musicTransitionOverride ?? settings.MusicTransition,
-					delayOverride < 0f ? settings.Delay : delayOverride,
-					settings.Loop,
-					timeOverride < 0f ? (settings.Music != null && settings.RandomStart ? settings.Music.length * Random.value : 0f) : timeOverride);
-
 				audioManager.SetReverb(settings.Reverb);
 			}
 		}

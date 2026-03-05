@@ -7,7 +7,7 @@ namespace SpaxUtils
 		protected void Start()
 		{
 			GlobalDependencyManager.Instance.Get<AudioManager>();
-			GlobalDependencyManager.Instance.Get<EnvironmentAudioManager>().Override(null);
+			GlobalDependencyManager.Instance.Get<EnvironmentAudioManager>();
 		}
 	}
 }
