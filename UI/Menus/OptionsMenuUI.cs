@@ -1,7 +1,10 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using TMPro;
+using UnityEngine.UI;
 
 namespace SpaxUtils.UI
 {
@@ -49,6 +52,12 @@ namespace SpaxUtils.UI
 		private ItemMenu<Option> _menu;
 		private List<Option> menuOptions = new List<Option>();
 
+		// When Initialize() is called while inactive (common in your flow), we defer selection until enabled/fill.
+		private bool pendingEnsureSelection;
+
+		// Minimal "next-frame reselect" to survive Unity clearing selection after Destroy().
+		private Coroutine reselectionCoroutine;
+
 		public void InjectDependencies(GameService gameService, PlayerInputWrapper playerInputWrapper, ICommunicationChannel comms)
 		{
 			this.gameService = gameService;
@@ -56,29 +65,54 @@ namespace SpaxUtils.UI
 			this.comms = comms;
 		}
 
-		protected void OnDestroy()
+		protected void OnEnable()
 		{
-			Menu.Dispose();
+			if (UIGroup != null)
+			{
+				UIGroup.FilledEvent += OnUIGroupFilled;
+			}
+
+			if (pendingEnsureSelection)
+			{
+				pendingEnsureSelection = false;
+				EnsureValidSelection();
+			}
 		}
 
-		/// <summary>
-		/// Initialize the menu's options through a <see cref="RequestOptionsMsg{T}"/> sent over the injected communication channel.
-		/// </summary>
-		/// <param name="context">The context to utilize for the options request.</param>
-		/// <param name="addCancel">Whether a cancel option should be added as the final option.</param>
-		/// <param name="title">The menu's title, if any.</param>
+		protected void OnDisable()
+		{
+			if (UIGroup != null)
+			{
+				UIGroup.FilledEvent -= OnUIGroupFilled;
+			}
+
+			if (reselectionCoroutine != null)
+			{
+				StopCoroutine(reselectionCoroutine);
+				reselectionCoroutine = null;
+			}
+		}
+
+		protected void OnDestroy()
+		{
+			if (_menu != null)
+			{
+				_menu.Dispose();
+			}
+		}
+
+		private void OnUIGroupFilled()
+		{
+			// When transitions toggle interactable state, selection can be lost; re-assert once fully visible.
+			EnsureValidSelection();
+		}
+
 		public void Initialize(string context, string title, bool addCancel = false)
 		{
 			var request = RequestOptionsMsg<OptionsMenuUI>.New(this, context, comms);
 			Initialize(request.Options, title, addCancel);
 		}
 
-		/// <summary>
-		/// Initialize this menu with <paramref name="options"/>
-		/// </summary>
-		/// <param name="options"></param>
-		/// <param name="addCancel"></param>
-		/// <param name="title"></param>
 		public void Initialize(IEnumerable<Option> options, string title, bool addCancel = false)
 		{
 			CleanMenu();
@@ -104,16 +138,17 @@ namespace SpaxUtils.UI
 			}
 
 			Menu.Populate(menuOptions);
+
+			EnsureValidSelection();
 		}
 
-		/// <summary>
-		/// Manually pick the currently highlighted option.
-		/// </summary>
 		public void SelectCurrentOption()
 		{
 			foreach (KeyValuePair<string, (Option data, MenuItem visual)> item in Menu.Items)
 			{
-				if (gameService.EventSystem.currentSelectedGameObject == item.Value.visual.Button.gameObject)
+				if (gameService != null &&
+					gameService.EventSystem != null &&
+					gameService.EventSystem.currentSelectedGameObject == item.Value.visual.Button.gameObject)
 				{
 					item.Value.visual.Button.onClick.Invoke();
 					return;
@@ -135,7 +170,6 @@ namespace SpaxUtils.UI
 			foreach (Option option in menuOptions)
 			{
 				option.PickedEvent -= OnPickedOption;
-				//option.Disable();
 				option.Dispose();
 			}
 			Menu.Clear();
@@ -148,8 +182,69 @@ namespace SpaxUtils.UI
 
 		private void OnPickedOption(Option option)
 		{
-			//Hide();
 			SelectedOptionEvent?.Invoke(option);
+		}
+
+		private void EnsureValidSelection()
+		{
+			// If this menu is inactive in the hierarchy, selection can't be applied reliably yet.
+			if (!isActiveAndEnabled || !gameObject.activeInHierarchy)
+			{
+				pendingEnsureSelection = true;
+				return;
+			}
+
+			ForceSelectFirstIfNeeded();
+
+			// Unity can clear selection later in the frame after Destroy() of the previously-selected button.
+			// Re-assert on the next frame to guarantee a selected element remains.
+			if (reselectionCoroutine != null)
+			{
+				StopCoroutine(reselectionCoroutine);
+			}
+			reselectionCoroutine = StartCoroutine(CoReselectNextFrame());
+		}
+
+		private IEnumerator CoReselectNextFrame()
+		{
+			yield return null; // (swap to WaitForEndOfFrame() if still flaky)
+			reselectionCoroutine = null;
+			ForceSelectFirstIfNeeded();
+		}
+
+		private void ForceSelectFirstIfNeeded()
+		{
+			// If no EventSystem reference, fall back to UIGroup helper.
+			if (gameService == null || gameService.EventSystem == null)
+			{
+				UIGroup.SelectFirstSelectable();
+				return;
+			}
+
+			GameObject currentSelected = gameService.EventSystem.currentSelectedGameObject;
+
+			// If current selection is already inside this menu, keep it.
+			if (currentSelected != null && currentSelected.transform.IsChildOf(transform))
+			{
+				return;
+			}
+
+			// Prefer configured FirstSelectable.
+			Selectable first = UIGroup.FirstSelectable;
+			if (first == null || !first.gameObject.activeInHierarchy || !first.IsInteractable())
+			{
+				first = GetComponentsInChildren<Selectable>(true)
+					.FirstOrDefault(s => s != null && s.gameObject.activeInHierarchy && s.IsInteractable());
+			}
+
+			if (first == null)
+			{
+				return;
+			}
+
+			gameService.EventSystem.SetSelectedGameObject(null);
+			gameService.EventSystem.SetSelectedGameObject(first.gameObject);
+			first.Select();
 		}
 	}
 }

@@ -48,7 +48,7 @@ namespace SpaxUtils
 				{
 					if (data != null)
 					{
-						SpaxDebug.Error(
+						SpaxDebug.Warning(
 							"No interpolator data found.",
 							$"For key: \"{Interpolator}\" in collection: \"{data.ID}\".\n" +
 							$"Tried to interpolate a {nameof(Vector8ConfigurationAssetBase)} but no interpolator data was found. " +
@@ -57,7 +57,7 @@ namespace SpaxUtils
 					}
 					else
 					{
-						SpaxDebug.Error(
+						SpaxDebug.Warning(
 							"No data found for interpolator.",
 							$"For key: \"{Interpolator}\".\n" +
 							$"Tried to interpolate a {nameof(Vector8ConfigurationAssetBase)} but no interpolator data was found. " +
