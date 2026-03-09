@@ -42,18 +42,40 @@ namespace SpaxUtils
 			public void Dispose()
 			{
 				IntrinsicTransition?.Dispose();
+				IntrinsicTransition = null;
+
 				MaskTransition?.Dispose();
+				MaskTransition = null;
 
 				if (Source)
 				{
-					Object.Destroy(Source.gameObject);
+					GameObject sourceObject = Source.gameObject;
+					if (sourceObject)
+					{
+#if UNITY_EDITOR
+						if (!Application.isPlaying)
+						{
+							Object.DestroyImmediate(sourceObject);
+						}
+						else
+						{
+							Object.Destroy(sourceObject);
+						}
+#else
+						Object.Destroy(sourceObject);
+#endif
+					}
 				}
+
+				Source = null;
 			}
 		}
 
 		private readonly AudioSource sourceTemplate;
 		private readonly CallbackService callbackService;
 		private readonly List<LayerState> layers = new List<LayerState>(4);
+
+		private bool isDisposed;
 
 		public AudioFader(AudioSource sourceTemplate, CallbackService callbackService)
 		{
@@ -65,6 +87,15 @@ namespace SpaxUtils
 
 		public void Dispose()
 		{
+			if (isDisposed)
+			{
+				return;
+			}
+
+			isDisposed = true;
+
+			callbackService.UnsubscribeUpdates(this);
+
 			for (int i = layers.Count - 1; i >= 0; i--)
 			{
 				layers[i].Dispose();
@@ -74,14 +105,32 @@ namespace SpaxUtils
 
 			if (sourceTemplate)
 			{
-				Object.Destroy(sourceTemplate.gameObject);
+				GameObject templateObject = sourceTemplate.gameObject;
+				if (templateObject)
+				{
+#if UNITY_EDITOR
+					if (!Application.isPlaying)
+					{
+						Object.DestroyImmediate(templateObject);
+					}
+					else
+					{
+						Object.Destroy(templateObject);
+					}
+#else
+					Object.Destroy(templateObject);
+#endif
+				}
 			}
-
-			callbackService.UnsubscribeUpdates(this);
 		}
 
 		public void SetBase(AudioClip clip, TransitionSettings settings, float clipDelay = 0f, bool loop = true, float startTime = 0f, bool hidden = false)
 		{
+			if (isDisposed)
+			{
+				return;
+			}
+
 			LayerState existingBase = FindLayer(BaseLayerKey);
 
 			if (existingBase != null && BaseMatches(existingBase, clip, loop, startTime, clipDelay))
@@ -116,14 +165,17 @@ namespace SpaxUtils
 					initialMaskProgress: 0f,
 					intrinsicDelay: clipDelay);
 
-				layers.Insert(0, hiddenBase);
+				if (hiddenBase != null)
+				{
+					layers.Insert(0, hiddenBase);
+				}
+
 				return;
 			}
 
 			LayerState currentTop = GetTopLayer();
 			if (currentTop != null)
 			{
-				// Base-to-base transition: the new base settings control both sides.
 				FadeMaskOut(currentTop, settings);
 				currentTop.RemoveWhenMaskSilent = true;
 			}
@@ -138,21 +190,50 @@ namespace SpaxUtils
 				initialMaskProgress: 1f,
 				intrinsicDelay: clipDelay + (currentTop != null ? GetOverlapDelay(settings) : 0f));
 
-			layers.Add(newBase);
+			if (newBase != null)
+			{
+				layers.Add(newBase);
+			}
 		}
 
 		public void PushOverride(object key, AudioClip clip, TransitionSettings settings, float clipDelay = 0f, bool loop = true, float startTime = 0f)
 		{
+			if (isDisposed)
+			{
+				return;
+			}
+
 			if (key == null)
 			{
 				Debug.LogError($"{nameof(AudioFader)}.{nameof(PushOverride)} called with null key.");
 				return;
 			}
 
-			if (FindLayer(key) != null)
+			LayerState existing = FindLayer(key);
+			if (existing != null)
 			{
-				Debug.LogError($"{nameof(AudioFader)}.{nameof(PushOverride)} called with duplicate key.");
-				return;
+				LayerState currentTopExisting = GetTopLayer();
+
+				// Rapid re-open case: same key is already the current top layer and was fading out.
+				// Preserve current playback state and only revive the fade.
+				if (ReferenceEquals(existing, currentTopExisting) && LayerContentMatches(existing, clip, loop))
+				{
+					existing.RemoveWhenMaskSilent = false;
+					existing.MaskSettings = settings;
+
+					ResumeMaskIn(existing, settings);
+
+					LayerState belowExisting = GetLayerBelow(existing);
+					if (belowExisting != null)
+					{
+						FadeMaskOut(belowExisting, settings);
+					}
+
+					return;
+				}
+
+				// Stale same-key layer still hanging around. Remove it and replace cleanly.
+				RemoveLayerImmediate(existing);
 			}
 
 			LayerState currentTop = GetTopLayer();
@@ -171,30 +252,46 @@ namespace SpaxUtils
 				initialMaskProgress: 1f,
 				intrinsicDelay: clipDelay + (currentTop != null ? GetOverlapDelay(settings) : 0f));
 
-			layers.Add(overrideLayer);
+			if (overrideLayer != null)
+			{
+				layers.Add(overrideLayer);
+			}
 		}
 
 		public bool PopOverride(object key, TransitionSettings settings)
 		{
+			if (isDisposed)
+			{
+				return false;
+			}
+
 			if (key == null)
 			{
 				Debug.LogError($"{nameof(AudioFader)}.{nameof(PopOverride)} called with null key.");
 				return false;
 			}
 
-			LayerState top = GetTopLayer();
-			if (top == null || !ReferenceEquals(top.Key, key))
+			LayerState target = FindLayer(key);
+			if (target == null)
 			{
-				Debug.LogError(
-					$"{nameof(AudioFader)}.{nameof(PopOverride)} must pop the top override layer. " +
-					$"Attempted to pop a non-top key.");
 				return false;
 			}
 
-			LayerState below = GetLayerBelow(top);
+			LayerState top = GetTopLayer();
+			if (!ReferenceEquals(target, top))
+			{
+				return false;
+			}
 
-			FadeMaskOut(top, settings);
-			top.RemoveWhenMaskSilent = true;
+			if (target.RemoveWhenMaskSilent)
+			{
+				return true;
+			}
+
+			LayerState below = GetLayerBelow(target);
+
+			FadeMaskOut(target, settings);
+			target.RemoveWhenMaskSilent = true;
 
 			if (below != null)
 			{
@@ -206,6 +303,11 @@ namespace SpaxUtils
 
 		public void ClearOverrides()
 		{
+			if (isDisposed)
+			{
+				return;
+			}
+
 			for (int i = layers.Count - 1; i >= 0; i--)
 			{
 				LayerState layer = layers[i];
@@ -224,6 +326,11 @@ namespace SpaxUtils
 
 		private void OnUpdate(float delta)
 		{
+			if (isDisposed)
+			{
+				return;
+			}
+
 			for (int i = 0; i < layers.Count; i++)
 			{
 				LayerState layer = layers[i];
@@ -262,7 +369,7 @@ namespace SpaxUtils
 
 		private void StartPlayback(LayerState layer)
 		{
-			if (layer == null || layer.Source == null || layer.Clip == null)
+			if (isDisposed || layer == null || layer.Source == null || layer.Clip == null)
 			{
 				return;
 			}
@@ -284,8 +391,18 @@ namespace SpaxUtils
 			float initialMaskProgress,
 			float intrinsicDelay)
 		{
+			if (isDisposed || sourceTemplate == null)
+			{
+				return null;
+			}
+
 			AudioSource source = Object.Instantiate(sourceTemplate);
-			Object.DontDestroyOnLoad(source);
+			if (source == null)
+			{
+				return null;
+			}
+
+			Object.DontDestroyOnLoad(source.gameObject);
 
 			source.Stop();
 			source.volume = 0f;
@@ -344,6 +461,20 @@ namespace SpaxUtils
 			layer.MaskTransition = BuildTransition(settings, progress);
 			layer.MaskSettings = settings;
 			layer.MaskTransition.Fill(delay: GetOverlapDelay(settings));
+		}
+
+		private void ResumeMaskIn(LayerState layer, TransitionSettings settings)
+		{
+			if (layer == null)
+			{
+				return;
+			}
+
+			float progress = layer.MaskTransition != null ? layer.MaskTransition.Progress : 0f;
+			layer.MaskTransition?.Dispose();
+			layer.MaskTransition = BuildTransition(settings, progress);
+			layer.MaskSettings = settings;
+			layer.MaskTransition.Fill();
 		}
 
 		private void SetMaskImmediate(LayerState layer, float progress)
@@ -419,6 +550,13 @@ namespace SpaxUtils
 			}
 
 			return null;
+		}
+
+		private bool LayerContentMatches(LayerState layer, AudioClip clip, bool loop)
+		{
+			return layer != null &&
+				layer.Clip == clip &&
+				layer.Loop == loop;
 		}
 
 		private bool BaseMatches(LayerState layer, AudioClip clip, bool loop, float startTime, float clipDelay)

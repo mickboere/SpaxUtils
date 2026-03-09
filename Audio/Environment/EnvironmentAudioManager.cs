@@ -15,12 +15,14 @@ namespace SpaxUtils
 		[SerializeField] private AudioSource ambienceAudioSource;
 		[SerializeField] private AudioSource musicAudioSource;
 
+		private CallbackService callbackService;
 		private PlayerAgentService playerAgentService;
 		private WorldRegionService worldService;
 		private AudioManager audioManager;
 
 		private IAgent player;
 		private bool awaitingRegister;
+		private bool isDisposed;
 
 		private AudioFader ambience;
 		private AudioFader music;
@@ -30,6 +32,7 @@ namespace SpaxUtils
 
 		public void InjectDependencies(CallbackService callbackService, PlayerAgentService playerAgentService, WorldRegionService worldService, AudioManager audioManager)
 		{
+			this.callbackService = callbackService;
 			this.playerAgentService = playerAgentService;
 			this.worldService = worldService;
 			this.audioManager = audioManager;
@@ -42,12 +45,16 @@ namespace SpaxUtils
 
 		protected void OnDestroy()
 		{
-			ambience?.Dispose();
-			music?.Dispose();
+			DisposeManager();
 		}
 
 		public void PushOverride(object key, IEnvironmentAudioSettings settings)
 		{
+			if (isDisposed)
+			{
+				return;
+			}
+
 			if (key == null)
 			{
 				Debug.LogError($"{nameof(EnvironmentAudioManager)}.{nameof(PushOverride)} called with null key.");
@@ -60,10 +67,37 @@ namespace SpaxUtils
 				return;
 			}
 
-			if (ContainsOverrideKey(key))
+			int existingIndex = FindOverrideIndex(key);
+			if (existingIndex >= 0)
 			{
-				Debug.LogError($"{nameof(EnvironmentAudioManager)}.{nameof(PushOverride)} called with duplicate key.");
-				return;
+				// Rapid reopen case: same key is already the active top override.
+				if (existingIndex == overrideStack.Count - 1)
+				{
+					OverrideLayer existingTop = overrideStack[existingIndex];
+					existingTop.Settings = settings;
+
+					ambience.PushOverride(
+						key,
+						settings.Ambience,
+						settings.AmbienceTransition,
+						0f,
+						true,
+						settings.Ambience == null ? 0f : settings.Ambience.length * Random.value);
+
+					music.PushOverride(
+						key,
+						settings.Music,
+						settings.MusicTransition,
+						settings.Delay,
+						settings.Loop,
+						settings.Music != null && settings.RandomStart ? settings.Music.length * Random.value : 0f);
+
+					audioManager.SetReverb(settings.Reverb);
+					return;
+				}
+
+				// Stale duplicate deeper in stack. Remove it and replace cleanly at the top.
+				overrideStack.RemoveAt(existingIndex);
 			}
 
 			overrideStack.Add(new OverrideLayer
@@ -93,6 +127,11 @@ namespace SpaxUtils
 
 		public bool PopOverride(object key)
 		{
+			if (isDisposed)
+			{
+				return false;
+			}
+
 			if (key == null)
 			{
 				Debug.LogError($"{nameof(EnvironmentAudioManager)}.{nameof(PopOverride)} called with null key.");
@@ -101,16 +140,13 @@ namespace SpaxUtils
 
 			if (overrideStack.Count == 0)
 			{
-				Debug.LogError($"{nameof(EnvironmentAudioManager)}.{nameof(PopOverride)} called with empty override stack.");
 				return false;
 			}
 
 			OverrideLayer top = overrideStack[overrideStack.Count - 1];
 			if (!ReferenceEquals(top.Key, key))
 			{
-				Debug.LogError(
-					$"{nameof(EnvironmentAudioManager)}.{nameof(PopOverride)} must pop the top override layer. " +
-					$"Attempted to pop a non-top key.");
+				// Ignore stale/out-of-order pops caused by rapid UI churn.
 				return false;
 			}
 
@@ -133,7 +169,7 @@ namespace SpaxUtils
 
 		public void ClearOverrides()
 		{
-			if (overrideStack.Count == 0)
+			if (isDisposed || overrideStack.Count == 0)
 			{
 				return;
 			}
@@ -144,21 +180,26 @@ namespace SpaxUtils
 			audioManager.SetReverb(currentSettings != null ? currentSettings.Reverb : AudioReverbPreset.Off);
 		}
 
-		private bool ContainsOverrideKey(object key)
+		private int FindOverrideIndex(object key)
 		{
 			for (int i = 0; i < overrideStack.Count; i++)
 			{
 				if (ReferenceEquals(overrideStack[i].Key, key))
 				{
-					return true;
+					return i;
 				}
 			}
 
-			return false;
+			return -1;
 		}
 
 		private void OnUpdate(float delta)
 		{
+			if (isDisposed)
+			{
+				return;
+			}
+
 			if (player == null)
 			{
 				if (playerAgentService.PlayerAgent != null)
@@ -175,6 +216,11 @@ namespace SpaxUtils
 
 		private void OnPlayerRegistered(IAgent p)
 		{
+			if (isDisposed || p == null)
+			{
+				return;
+			}
+
 			player = p;
 			worldService.Subscribe(p.Transform, OnRegionChange);
 			playerAgentService.PlayerRegisteredEvent -= OnPlayerRegistered;
@@ -186,6 +232,11 @@ namespace SpaxUtils
 
 		private void OnPlayerDeregistered(IAgent p)
 		{
+			if (isDisposed)
+			{
+				return;
+			}
+
 			if (player == p)
 			{
 				player = null;
@@ -197,6 +248,11 @@ namespace SpaxUtils
 
 		private void OnRegionChange(IWorldRegion worldRegion)
 		{
+			if (isDisposed)
+			{
+				return;
+			}
+
 			if (worldRegion == null)
 			{
 				SetCurrent(null);
@@ -216,6 +272,11 @@ namespace SpaxUtils
 
 		private void SetCurrent(IEnvironmentAudioSettings settings)
 		{
+			if (isDisposed)
+			{
+				return;
+			}
+
 			currentSettings = settings;
 
 			bool hidden = overrideStack.Count > 0;
@@ -257,9 +318,55 @@ namespace SpaxUtils
 
 		private AudioSource Source(AudioSource prefab)
 		{
+			if (prefab == null)
+			{
+				return null;
+			}
+
 			AudioSource instance = Instantiate(prefab);
-			DontDestroyOnLoad(instance);
+			if (instance == null)
+			{
+				return null;
+			}
+
+			DontDestroyOnLoad(instance.gameObject);
 			return instance;
+		}
+
+		private void DisposeManager()
+		{
+			if (isDisposed)
+			{
+				return;
+			}
+
+			isDisposed = true;
+
+			if (callbackService != null)
+			{
+				callbackService.UnsubscribeUpdates(this);
+			}
+
+			if (playerAgentService != null)
+			{
+				playerAgentService.PlayerRegisteredEvent -= OnPlayerRegistered;
+				playerAgentService.PlayerDeregisteredEvent -= OnPlayerDeregistered;
+			}
+
+			if (player != null && worldService != null)
+			{
+				worldService.Unsubscribe(player.Transform, OnRegionChange);
+			}
+
+			awaitingRegister = false;
+			player = null;
+			overrideStack.Clear();
+
+			ambience?.Dispose();
+			ambience = null;
+
+			music?.Dispose();
+			music = null;
 		}
 	}
 }

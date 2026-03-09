@@ -44,7 +44,9 @@ namespace SpaxUtils
 
 		private void OnUpdate(float delta)
 		{
-			if (agent.Targeter.Target != null && navigationHandler.Distance() > maxDistance)
+			if (agent.Targeter.Target != null &&
+				(navigationHandler.Distance() > maxDistance ||
+					!agent.Targeter.Target.Entity.GameObject.activeInHierarchy))
 			{
 				agent.Targeter.SetTarget(null);
 			}

@@ -41,11 +41,14 @@ namespace SpaxUtils
 		public void Reward(Vector3 origin, string targetID, float amount)
 		{
 			AetherReservation reservation = Reserve(targetID, amount);
-			wispPool.Request(origin, null, (whisp) =>
+			if (reservation != null)
 			{
-				reservation.Target.DependencyManager.Inject(whisp);
-				whisp.Initialize(reservation);
-			});
+				wispPool.Request(origin, null, (whisp) =>
+				{
+					reservation.Target.DependencyManager.Inject(whisp);
+					whisp.Initialize(reservation);
+				});
+			}
 		}
 
 		/// <summary>

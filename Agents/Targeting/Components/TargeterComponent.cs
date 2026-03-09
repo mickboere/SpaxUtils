@@ -56,13 +56,17 @@ namespace SpaxUtils
 			enemies?.Dispose();
 			enemies = new EntityComponentFilter<ITargetable>(
 				entityCollection,
-				(entity) => entity.Identification.HasAny(agent.Relations.Enemies) || agent.Relations.Enemies.Contains(entity.Identification.ID),
+				(other) =>
+					agent.Relations.Score(other.Identification) < -AgentRelations.THRESHOLD ||
+					(other is IAgent a && a.Relations.Score(agent.Identification) < -AgentRelations.THRESHOLD),
 				(c) => true,
 				agent);
 			allies?.Dispose();
 			allies = new EntityComponentFilter<ITargetable>(
 				entityCollection,
-				(entity) => entity.Identification.HasAny(agent.Relations.Allies) || agent.Relations.Allies.Contains(entity.Identification.ID),
+				(other) =>
+					agent.Relations.Score(other.Identification) > AgentRelations.THRESHOLD ||
+					(other is IAgent a && a.Relations.Score(agent.Identification) > AgentRelations.THRESHOLD),
 				(c) => true,
 				agent);
 		}
