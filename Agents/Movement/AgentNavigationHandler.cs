@@ -1,8 +1,8 @@
-using SpaxUtils;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.AI;
 
 namespace SpaxUtils
 {
@@ -14,10 +14,22 @@ namespace SpaxUtils
 	{
 		private const float DEFAULT_ACCURACY = 0.1f;
 
+		[Header("NavMesh")]
+		[SerializeField, Tooltip("How far the target must drift from its last-calculated position before the path is recalculated.")]
+		private float recalculationThreshold = 1f;
+
+		[SerializeField, Tooltip("Corner advance tolerance expressed as seconds of travel time. Scales with speed so faster agents don't overshoot corners.")]
+		private float cornerAdvanceTime = 0.5f;
+
 		private IAgent agent;
 		private IAgentMovementHandler movementHandler;
-
 		private Coroutine coroutine;
+
+		private NavMeshPath navMeshPath;
+		private int cornerIndex;
+		private Vector3 pathTarget;
+		private float cachedPathLength;
+		private bool pathValid;
 
 		public void InjectDependencies(
 			Agent agent,
@@ -25,6 +37,28 @@ namespace SpaxUtils
 		{
 			this.agent = agent;
 			this.movementHandler = movementHandler;
+		}
+
+		private void OnEnable()
+		{
+			navMeshPath = new NavMeshPath();
+			agent.SubscribeOptimizedUpdate(OnOptimizedUpdate);
+		}
+
+		private void OnDisable()
+		{
+			agent.UnsubscribeOptimizedUpdate(OnOptimizedUpdate);
+		}
+
+		private void OnOptimizedUpdate(float delta)
+		{
+			if (!pathValid)
+				return;
+
+			Vector3 currentTarget = GetTargetPosition();
+
+			if (Vector3.SqrMagnitude(currentTarget - pathTarget) > recalculationThreshold * recalculationThreshold)
+				CalculatePath(currentTarget);
 		}
 
 		public void ResetInput(bool resetSmoothInput = false)
@@ -37,33 +71,14 @@ namespace SpaxUtils
 			}
 		}
 
-		#region Coroutines
-
-		private void StartEnumerator(IEnumerator enumerator)
-		{
-			StopEnumerator();
-			coroutine = StartCoroutine(enumerator);
-		}
-
-		private void StopEnumerator()
-		{
-			if (coroutine != null)
-			{
-				StopCoroutine(coroutine);
-				coroutine = null;
-			}
-		}
-
-		#endregion
-
 		#region Targeting
 
 		/// <summary>
 		/// Has the agent navigate towards the target's position.
 		/// </summary>
-		/// <param name="range">The minimum range to get within with.</param>
-		/// <param name="speed">The speed at which to move at. Default is 1.</param>
-		/// <param name="navMesh">Use navmesh?</param>
+		/// <param name="range">The minimum range to get within.</param>
+		/// <param name="speed">The speed at which to move. Default is 1.</param>
+		/// <param name="navMesh">Use navmesh pathing?</param>
 		/// <param name="target">Target position override.</param>
 		/// <returns>Whether the agent is within range of the target.</returns>
 		public bool MoveInRange(float range, float speed = 1f, bool navMesh = false, Vector3? target = null)
@@ -75,31 +90,56 @@ namespace SpaxUtils
 				ResetInput();
 				return true;
 			}
-			else if (navMesh)
+
+			if (navMesh)
 			{
-				SpaxDebug.Error("NavMesh is not implemented yet.");
+				FollowNavMeshPath(targetPosition, speed);
 			}
 			else
 			{
-				// Get direction to target position.
-				Vector3 direction = Direction(targetPosition);
-				// Set direction as target movement direction.
-				movementHandler.InputAxis = direction;
-				// Order NPC to move forwards towards target direction.
-				if (float.IsNaN((Vector3.forward * speed).x))
-				{
-					SpaxDebug.Error("Nan!", $"range={range}, speed={speed}");
-				}
+				movementHandler.InputAxis = Direction(targetPosition);
 				movementHandler.InputRaw = Vector3.forward * speed;
 			}
 
 			return false;
 		}
 
+		private void FollowNavMeshPath(Vector3 targetPosition, float speed)
+		{
+			if (!pathValid || Vector3.SqrMagnitude(targetPosition - pathTarget) > recalculationThreshold * recalculationThreshold)
+				CalculatePath(targetPosition);
+
+			if (!pathValid || navMeshPath.corners.Length == 0)
+			{
+				// Path failed entirely, fall back to direct movement.
+				movementHandler.InputAxis = Direction(targetPosition);
+				movementHandler.InputRaw = Vector3.forward * speed;
+				return;
+			}
+
+			float tolerance = movementHandler.CalculateSpeed(speed) * cornerAdvanceTime;
+			while (cornerIndex < navMeshPath.corners.Length - 1 &&
+				   Vector3.Distance(agent.Transform.position, navMeshPath.corners[cornerIndex]) < tolerance)
+			{
+				cornerIndex++;
+			}
+
+			Vector3 cornerDirection = Direction(navMeshPath.corners[cornerIndex]);
+
+			// InputAxis rejects zero vectors, guard before assigning.
+			if (cornerDirection.sqrMagnitude < 0.001f)
+			{
+				ResetInput();
+				return;
+			}
+
+			movementHandler.InputAxis = cornerDirection;
+			movementHandler.InputRaw = Vector3.forward * speed;
+		}
+
 		/// <summary>
 		/// Will rotate the agent towards the target.
 		/// </summary>
-		/// <param name="target"></param>
 		public void RotateTowardsTarget(Vector3? target = null)
 		{
 			Vector3 targetPosition = GetTargetPosition(target);
@@ -138,9 +178,7 @@ namespace SpaxUtils
 			foreach (ITargetable targetable in targetables)
 			{
 				if (!targetable.IsTargetable)
-				{
 					continue;
-				}
 
 				float distance = Distance(agent.GameObject.transform.position, targetable.Position, navmesh);
 				if (distance < closestDistance)
@@ -164,20 +202,25 @@ namespace SpaxUtils
 		public float Distance(Vector3 from, Vector3 to, bool navMesh = false)
 		{
 			if (navMesh)
-			{
-				Debug.LogWarning("NavMesh is not implemented yet.");
-				return 0f;
-			}
-			else
-			{
-				return Direction(from, to).magnitude;
-			}
+				return NavMeshPathLength(from, to);
+
+			return Direction(from, to).magnitude;
 		}
 
 		public float Distance(bool navMesh = false, Vector3? target = null)
 		{
 			Vector3 targetPosition = GetTargetPosition(target);
-			return Distance(agent.Transform.position, targetPosition, navMesh);
+
+			if (navMesh)
+			{
+				if (pathValid && Vector3.SqrMagnitude(targetPosition - pathTarget) <= recalculationThreshold * recalculationThreshold)
+					return RemainingPathLength();
+
+				CalculatePath(targetPosition);
+				return pathValid ? cachedPathLength : Distance(agent.Transform.position, targetPosition, false);
+			}
+
+			return Distance(agent.Transform.position, targetPosition, false);
 		}
 
 		public Vector3 Direction(Vector3 from, Vector3 to)
@@ -238,6 +281,94 @@ namespace SpaxUtils
 				}
 				ForceAlign(position, direction);
 				callback?.Invoke();
+			}
+		}
+
+		#endregion
+
+		#region NavMesh
+
+		private void CalculatePath(Vector3 targetPosition)
+		{
+			navMeshPath.ClearCorners();
+			cornerIndex = 0;
+			pathTarget = targetPosition;
+
+			bool found = NavMesh.CalculatePath(
+				agent.Transform.position,
+				targetPosition,
+				NavMesh.AllAreas,
+				navMeshPath);
+
+			// Partial paths are followed to their endpoint by design.
+			pathValid = found && navMeshPath.status != NavMeshPathStatus.PathInvalid;
+
+			if (pathValid)
+			{
+				cachedPathLength = CalculatePathLength(navMeshPath.corners, 0);
+
+				// NavMesh sometimes places the first corner at the agent's feet; skip it if so.
+				if (navMeshPath.corners.Length > 1 &&
+					Vector3.Distance(agent.Transform.position, navMeshPath.corners[0]) <
+					cornerAdvanceTime * movementHandler.CalculateSpeed(1f))
+				{
+					cornerIndex = 1;
+				}
+			}
+			else
+			{
+				cachedPathLength = 0f;
+			}
+		}
+
+		private float CalculatePathLength(Vector3[] corners, int fromIndex)
+		{
+			float length = 0f;
+			for (int i = fromIndex; i < corners.Length - 1; i++)
+				length += Vector3.Distance(corners[i], corners[i + 1]);
+			return length;
+		}
+
+		private float RemainingPathLength()
+		{
+			if (!pathValid || navMeshPath.corners.Length == 0)
+				return 0f;
+
+			float remaining = Vector3.Distance(agent.Transform.position, navMeshPath.corners[cornerIndex]);
+			remaining += CalculatePathLength(navMeshPath.corners, cornerIndex);
+			return remaining;
+		}
+
+		/// <summary>
+		/// One-shot path length between two arbitrary world points. Does not affect the cached path.
+		/// </summary>
+		private float NavMeshPathLength(Vector3 from, Vector3 to)
+		{
+			NavMeshPath tempPath = new NavMeshPath();
+			bool found = NavMesh.CalculatePath(from, to, NavMesh.AllAreas, tempPath);
+
+			if (!found || tempPath.status == NavMeshPathStatus.PathInvalid)
+				return Vector3.Distance(from, to);
+
+			return CalculatePathLength(tempPath.corners, 0);
+		}
+
+		#endregion
+
+		#region Coroutines
+
+		private void StartEnumerator(IEnumerator enumerator)
+		{
+			StopEnumerator();
+			coroutine = StartCoroutine(enumerator);
+		}
+
+		private void StopEnumerator()
+		{
+			if (coroutine != null)
+			{
+				StopCoroutine(coroutine);
+				coroutine = null;
 			}
 		}
 
