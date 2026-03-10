@@ -6,10 +6,10 @@ namespace SpaxUtils
 	public class EntityOptimizationSettings : ScriptableObject, IService
 	{
 		public int EntityOptimizationInterval = 1000;
-		public float TopPriorityRange = 12.5f;
-		public float HighPriorityRange = 25f;
-		public float MediumPriorityRange = 50f;
-		public float LowPriorityRange = 100f;
+		public float TopPriorityRange = 15f;
+		public float HighPriorityRange = 30f;
+		public float MediumPriorityRange = 60f;
+		public float LowPriorityRange = 120f;
 
 		public PriorityLevel GetPriorityBySqrDistance(float sqrDistance)
 		{

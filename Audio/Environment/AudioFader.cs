@@ -131,30 +131,26 @@ namespace SpaxUtils
 				return;
 			}
 
-			LayerState existingBase = FindLayer(BaseLayerKey);
+			LayerState existingBase = FindBaseLayer();
 
 			if (existingBase != null && BaseMatches(existingBase, clip, loop, startTime, clipDelay))
 			{
-				if (hidden)
-				{
-					SetMaskImmediate(existingBase, 0f);
-				}
-				else
-				{
-					SetMaskImmediate(existingBase, 1f);
-				}
+				existingBase.IntrinsicSettings = settings;
+				existingBase.MaskSettings = settings;
 
+				SetMaskImmediate(existingBase, hidden ? 0f : 1f);
 				return;
-			}
-
-			if (existingBase != null)
-			{
-				RemoveLayerImmediate(existingBase);
-				existingBase = null;
 			}
 
 			if (hidden)
 			{
+				// While hidden under an override, just replace the base state silently.
+				// No audible transition is desired here because the override owns audibility.
+				if (existingBase != null)
+				{
+					RemoveLayerImmediate(existingBase);
+				}
+
 				LayerState hiddenBase = CreateLayer(
 					BaseLayerKey,
 					clip,
@@ -173,11 +169,17 @@ namespace SpaxUtils
 				return;
 			}
 
-			LayerState currentTop = GetTopLayer();
-			if (currentTop != null)
+			float newBaseDelay = clipDelay;
+
+			if (existingBase != null)
 			{
-				FadeMaskOut(currentTop, settings);
-				currentTop.RemoveWhenMaskSilent = true;
+				TransitionSettings oldBaseSettings = existingBase.MaskSettings ?? existingBase.IntrinsicSettings;
+
+				DemoteLayer(existingBase);
+				FadeMaskOut(existingBase, oldBaseSettings);
+				existingBase.RemoveWhenMaskSilent = true;
+
+				newBaseDelay += GetBaseOverlapDelay(oldBaseSettings, settings);
 			}
 
 			LayerState newBase = CreateLayer(
@@ -188,7 +190,7 @@ namespace SpaxUtils
 				loop,
 				startTime,
 				initialMaskProgress: 1f,
-				intrinsicDelay: clipDelay + (currentTop != null ? GetOverlapDelay(settings) : 0f));
+				intrinsicDelay: newBaseDelay);
 
 			if (newBase != null)
 			{
@@ -214,8 +216,6 @@ namespace SpaxUtils
 			{
 				LayerState currentTopExisting = GetTopLayer();
 
-				// Rapid re-open case: same key is already the current top layer and was fading out.
-				// Preserve current playback state and only revive the fade.
 				if (ReferenceEquals(existing, currentTopExisting) && LayerContentMatches(existing, clip, loop))
 				{
 					existing.RemoveWhenMaskSilent = false;
@@ -226,19 +226,20 @@ namespace SpaxUtils
 					LayerState belowExisting = GetLayerBelow(existing);
 					if (belowExisting != null)
 					{
+						// Override settings own the outgoing fade.
 						FadeMaskOut(belowExisting, settings);
 					}
 
 					return;
 				}
 
-				// Stale same-key layer still hanging around. Remove it and replace cleanly.
 				RemoveLayerImmediate(existing);
 			}
 
 			LayerState currentTop = GetTopLayer();
 			if (currentTop != null)
 			{
+				// Override settings own the outgoing fade.
 				FadeMaskOut(currentTop, settings);
 			}
 
@@ -250,7 +251,7 @@ namespace SpaxUtils
 				loop,
 				startTime,
 				initialMaskProgress: 1f,
-				intrinsicDelay: clipDelay + (currentTop != null ? GetOverlapDelay(settings) : 0f));
+				intrinsicDelay: clipDelay + (currentTop != null ? GetOverrideOverlapDelay(settings) : 0f));
 
 			if (overrideLayer != null)
 			{
@@ -290,6 +291,7 @@ namespace SpaxUtils
 
 			LayerState below = GetLayerBelow(target);
 
+			// Override settings own both sides of the pop transition too.
 			FadeMaskOut(target, settings);
 			target.RemoveWhenMaskSilent = true;
 
@@ -317,7 +319,7 @@ namespace SpaxUtils
 				}
 			}
 
-			LayerState baseLayer = FindLayer(BaseLayerKey);
+			LayerState baseLayer = FindBaseLayer();
 			if (baseLayer != null)
 			{
 				SetMaskImmediate(baseLayer, 1f);
@@ -460,7 +462,7 @@ namespace SpaxUtils
 			layer.MaskTransition?.Dispose();
 			layer.MaskTransition = BuildTransition(settings, progress);
 			layer.MaskSettings = settings;
-			layer.MaskTransition.Fill(delay: GetOverlapDelay(settings));
+			layer.MaskTransition.Fill(delay: GetOverrideOverlapDelay(settings));
 		}
 
 		private void ResumeMaskIn(LayerState layer, TransitionSettings settings)
@@ -528,6 +530,16 @@ namespace SpaxUtils
 			layer.Dispose();
 		}
 
+		private void DemoteLayer(LayerState layer)
+		{
+			if (layer == null)
+			{
+				return;
+			}
+
+			layer.Key = new object();
+		}
+
 		private LayerState GetTopLayer()
 		{
 			return layers.Count > 0 ? layers[layers.Count - 1] : null;
@@ -552,6 +564,11 @@ namespace SpaxUtils
 			return null;
 		}
 
+		private LayerState FindBaseLayer()
+		{
+			return FindLayer(BaseLayerKey);
+		}
+
 		private bool LayerContentMatches(LayerState layer, AudioClip clip, bool loop)
 		{
 			return layer != null &&
@@ -561,10 +578,17 @@ namespace SpaxUtils
 
 		private bool BaseMatches(LayerState layer, AudioClip clip, bool loop, float startTime, float clipDelay)
 		{
-			return layer != null &&
-				layer.Clip == clip &&
-				layer.Loop == loop &&
-				Mathf.Approximately(layer.StartTime, startTime) &&
+			if (layer == null || layer.Clip != clip || layer.Loop != loop)
+			{
+				return false;
+			}
+
+			if (layer.StartedPlayback)
+			{
+				return true;
+			}
+
+			return Mathf.Approximately(layer.StartTime, startTime) &&
 				Mathf.Approximately(layer.StartDelayRemaining, Mathf.Max(0f, clipDelay));
 		}
 
@@ -584,14 +608,21 @@ namespace SpaxUtils
 			return transition;
 		}
 
-		private float GetOverlapDelay(TransitionSettings settings)
+		private float GetBaseOverlapDelay(TransitionSettings oldBaseSettings, TransitionSettings newBaseSettings)
 		{
-			if (settings == null)
+			float oldOutTime = oldBaseSettings != null ? Mathf.Max(0f, oldBaseSettings.OutTime) : 0f;
+			float relativeDelay = newBaseSettings != null ? Mathf.Clamp01(newBaseSettings.RelativeDelay) : 0f;
+			return oldOutTime * relativeDelay;
+		}
+
+		private float GetOverrideOverlapDelay(TransitionSettings overrideSettings)
+		{
+			if (overrideSettings == null)
 			{
 				return 0f;
 			}
 
-			return Mathf.Max(0f, settings.OutTime) * Mathf.Clamp01(settings.RelativeDelay);
+			return Mathf.Max(0f, overrideSettings.OutTime) * Mathf.Clamp01(overrideSettings.RelativeDelay);
 		}
 	}
 }

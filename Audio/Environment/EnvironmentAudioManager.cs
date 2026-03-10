@@ -70,7 +70,6 @@ namespace SpaxUtils
 			int existingIndex = FindOverrideIndex(key);
 			if (existingIndex >= 0)
 			{
-				// Rapid reopen case: same key is already the active top override.
 				if (existingIndex == overrideStack.Count - 1)
 				{
 					OverrideLayer existingTop = overrideStack[existingIndex];
@@ -96,7 +95,6 @@ namespace SpaxUtils
 					return;
 				}
 
-				// Stale duplicate deeper in stack. Remove it and replace cleanly at the top.
 				overrideStack.RemoveAt(existingIndex);
 			}
 
@@ -146,7 +144,6 @@ namespace SpaxUtils
 			OverrideLayer top = overrideStack[overrideStack.Count - 1];
 			if (!ReferenceEquals(top.Key, key))
 			{
-				// Ignore stale/out-of-order pops caused by rapid UI churn.
 				return false;
 			}
 
@@ -159,9 +156,9 @@ namespace SpaxUtils
 			{
 				audioManager.SetReverb(overrideStack[overrideStack.Count - 1].Settings.Reverb);
 			}
-			else
+			else if (currentSettings != null)
 			{
-				audioManager.SetReverb(currentSettings != null ? currentSettings.Reverb : AudioReverbPreset.Off);
+				audioManager.SetReverb(currentSettings.Reverb);
 			}
 
 			return true;
@@ -177,7 +174,11 @@ namespace SpaxUtils
 			overrideStack.Clear();
 			ambience.ClearOverrides();
 			music.ClearOverrides();
-			audioManager.SetReverb(currentSettings != null ? currentSettings.Reverb : AudioReverbPreset.Off);
+
+			if (currentSettings != null)
+			{
+				audioManager.SetReverb(currentSettings.Reverb);
+			}
 		}
 
 		private int FindOverrideIndex(object key)
@@ -242,7 +243,6 @@ namespace SpaxUtils
 				player = null;
 				worldService.Unsubscribe(p.Transform, OnRegionChange);
 				playerAgentService.PlayerDeregisteredEvent -= OnPlayerDeregistered;
-				OnRegionChange(null);
 			}
 		}
 
@@ -253,26 +253,17 @@ namespace SpaxUtils
 				return;
 			}
 
-			if (worldRegion == null)
-			{
-				SetCurrent(null);
-				return;
-			}
-
 			if (worldRegion is WorldRegion region &&
-				region.TryGetComponent(out WorldRegionAudioComponent audioComponent))
+				region.TryGetComponent(out WorldRegionAudioComponent audioComponent) &&
+				audioComponent.Settings != null)
 			{
 				SetCurrent(audioComponent.Settings);
-			}
-			else
-			{
-				SetCurrent(null);
 			}
 		}
 
 		private void SetCurrent(IEnvironmentAudioSettings settings)
 		{
-			if (isDisposed)
+			if (isDisposed || settings == null)
 			{
 				return;
 			}
@@ -280,19 +271,6 @@ namespace SpaxUtils
 			currentSettings = settings;
 
 			bool hidden = overrideStack.Count > 0;
-
-			if (settings == null)
-			{
-				ambience.SetBase(null, null, 0f, true, 0f, hidden);
-				music.SetBase(null, null, 0f, true, 0f, hidden);
-
-				if (!hidden)
-				{
-					audioManager.SetReverb(AudioReverbPreset.Off);
-				}
-
-				return;
-			}
 
 			ambience.SetBase(
 				settings.Ambience,
