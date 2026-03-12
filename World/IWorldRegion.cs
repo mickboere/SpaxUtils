@@ -1,40 +1,29 @@
-﻿using UnityEngine;
+﻿using System.Collections.Generic;
+using UnityEngine;
 
 namespace SpaxUtils
 {
 	public interface IWorldRegion
 	{
 		/// <summary>
-		/// The priority of this region, higher prio takes priority.
+		/// The priority of this region. Higher priority takes precedence when regions overlap.
 		/// </summary>
 		int Prio { get; }
 
 		/// <summary>
-		/// Whether this region has a specific entry zone.
-		/// </summary>
-		bool HasEntry { get; }
-
-		/// <summary>
-		/// Whether this region has a specific exit zone.
-		/// </summary>
-		bool HasExit { get; }
-
-		/// <summary>
 		/// Returns whether <paramref name="point"/> lies within the region.
 		/// </summary>
-		/// <param name="point">The world space position to check.</param>
 		bool IsInside(Vector3 point);
 
 		/// <summary>
-		/// Returns whether <paramref name="point"/> lies within an entry-zone.
+		/// Returns a random point sampled uniformly within the region's volume.
+		/// Larger sub-regions are sampled proportionally more often.
 		/// </summary>
-		/// <param name="point">The world space position to check.</param>
-		bool HasEntered(Vector3 point);
+		Vector3 SamplePoint();
 
 		/// <summary>
-		/// Returns whether <paramref name="point"/> lies outside of the exit-zones.
+		/// Returns all unoccupied points of interest belonging to this region that match the required tags.
 		/// </summary>
-		/// <param name="point">The world space position to check.</param>
-		bool HasExited(Vector3 point);
+		List<PointOfInterest> GetAvailablePOIs(string[] requiredTags = null);
 	}
 }

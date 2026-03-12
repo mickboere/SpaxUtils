@@ -12,7 +12,7 @@ namespace SpaxUtils
 		/// <summary>
 		/// X & Y values of a diagonal line with a length of 1.
 		/// </summary>
-		public const float DIAGONAL = 0.70710856237f;
+		public const float DIAGONAL = 0.70710678118f;
 
 		#region Static Values
 		public static Vector8 Zero => new Vector8(0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f);

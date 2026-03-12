@@ -93,6 +93,17 @@
 		// < Stats >
 		// Stats are either measured in Points (PointStats & Physics), percentages (0..1) or in real values (kg, m/s, etc).
 
+		// MIND STATS
+		#region Mind Stats
+
+		private const string MIND_STAT = IStatIdentifiers.STATS + "MIND/";
+
+		// General
+		private const string MIND_GENERAL = MIND_STAT + "GENERAL/";
+		public const string AGGRO = MIND_STAT + "Aggro"; // Current aggro level.
+
+		#endregion Mind Stats
+
 		// BODILY STATS
 		#region Bodily Stats
 

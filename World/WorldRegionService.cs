@@ -5,13 +5,14 @@ using UnityEngine;
 namespace SpaxUtils
 {
 	/// <summary>
-	/// Service that keeps track of which <see cref="IWorldRegion"/> a transform/point is contained in.
+	/// Service that keeps track of which <see cref="IWorldRegion"/> a transform is contained in.
+	/// Subscribers are notified when their current highest-priority region changes.
 	/// </summary>
 	public class WorldRegionService : IService
 	{
-		List<IWorldRegion> regions = new List<IWorldRegion>();
-		Dictionary<Transform, List<Action<IWorldRegion>>> subscribers = new Dictionary<Transform, List<Action<IWorldRegion>>>();
-		Dictionary<Transform, IWorldRegion> register = new Dictionary<Transform, IWorldRegion>();
+		private List<IWorldRegion> regions = new List<IWorldRegion>();
+		private Dictionary<Transform, List<Action<IWorldRegion>>> subscribers = new Dictionary<Transform, List<Action<IWorldRegion>>>();
+		private Dictionary<Transform, IWorldRegion> register = new Dictionary<Transform, IWorldRegion>();
 
 		public WorldRegionService(CallbackService callbackService)
 		{
@@ -20,75 +21,28 @@ namespace SpaxUtils
 
 		private void OnUpdate(float delta)
 		{
-			foreach (Transform transform in subscribers.Keys)
+			// Copy keys to avoid issues if a callback modifies the subscriber list.
+			List<Transform> transforms = new List<Transform>(subscribers.Keys);
+
+			foreach (Transform t in transforms)
 			{
-				// First check if subscriber entered a higher priority region than current.
-				IWorldRegion highest = register[transform];
-				List<IWorldRegion> inside = new List<IWorldRegion>();
-				if (highest != null) { inside.Add(highest); }
-				foreach (IWorldRegion region in regions)
-				{
-					if ((region.HasEntry && region.HasExit && region.HasEntered(transform.position) && !region.HasExited(transform.position)) ||
-						(region.HasEntry && !region.HasExit && region.HasEntered(transform.position)) ||
-						(!region.HasEntry && region.IsInside(transform.position)))
-					{
-						if (highest == null || region.Prio > highest.Prio)
-						{
-							// New highest.
-							highest = region;
-							inside.Add(region);
-						}
-						else
-						{
-							// Insert on prio list.
-							for (int i = 0; i < inside.Count; i++)
-							{
-								if (region.Prio < inside[i].Prio)
-								{
-									inside.Insert(i, region);
-									break;
-								}
-							}
-						}
-					}
-				}
-				if (highest == null)
-				{
-					// Inside no region.
-					register[transform] = null;
-					continue;
-				}
+				IWorldRegion newRegion = GetRegion(t.position);
 
-				// Check if highest has been exited
-				if ((highest.HasExit && highest.HasExited(transform.position)) ||
-					(!highest.HasExit && !highest.IsInside(transform.position)))
+				if (newRegion != register[t])
 				{
-					int i = inside.IndexOf(highest) - 1;
-					if (i < 0)
+					register[t] = newRegion;
+
+					List<Action<IWorldRegion>> callbacks = subscribers[t];
+					for (int i = 0; i < callbacks.Count; i++)
 					{
-						highest = null;
-					}
-					else
-					{
-						highest = inside[i];
+						callbacks[i](newRegion);
 					}
 				}
-
-				// Invoke subscribers with new highest prio region.
-				if (highest != register[transform])
-				{
-					foreach (Action<IWorldRegion> subscriber in subscribers[transform])
-					{
-						subscriber(highest);
-					}
-				}
-
-				register[transform] = highest;
 			}
 		}
 
 		/// <summary>
-		/// Register a new world region to be included.
+		/// Registers a region to be tracked by this service.
 		/// </summary>
 		public void Register(IWorldRegion region)
 		{
@@ -99,37 +53,34 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
-		/// Removes a world region to no longer be included.
+		/// Removes a region from this service.
 		/// </summary>
 		public void Remove(IWorldRegion region)
 		{
-			if (regions.Contains(region))
-			{
-				regions.Remove(region);
-			}
+			regions.Remove(region);
 		}
 
 		/// <summary>
-		/// Returns which region <paramref name="point"/> is contained in.
-		/// Does not take into account entry- and exit-zones.
+		/// Returns the highest-priority region that contains <paramref name="point"/>, or null if none.
 		/// </summary>
 		public IWorldRegion GetRegion(Vector3 point)
 		{
 			IWorldRegion highest = null;
-			int prio = int.MinValue;
+
 			foreach (IWorldRegion region in regions)
 			{
-				if (region.Prio > prio && region.IsInside(point))
+				if (region.IsInside(point) && (highest == null || region.Prio > highest.Prio))
 				{
 					highest = region;
 				}
 			}
+
 			return highest;
 		}
 
 		/// <summary>
-		/// Returns which region <paramref name="transform"/> is contained in.
-		/// If the <paramref name="transform"/> is a subscriber, the region contained within the registry will be returned, meaning entry- and exit-zones are taken into account.
+		/// Returns the highest-priority region that contains <paramref name="transform"/>.
+		/// If the transform is a subscriber, returns the cached registered value.
 		/// </summary>
 		public IWorldRegion GetRegion(Transform transform)
 		{
@@ -137,22 +88,13 @@ namespace SpaxUtils
 			{
 				return register[transform];
 			}
-			else
-			{
-				return GetRegion(transform.position);
-			}
+
+			return GetRegion(transform.position);
 		}
 
 		/// <summary>
-		/// Registers <paramref name="transform"/> to be within <paramref name="region"/>.
-		/// </summary>
-		private void Register(Transform transform, IWorldRegion region)
-		{
-			register[transform] = region;
-		}
-
-		/// <summary>
-		/// A a new region-change subscriber for <paramref name="transform"/>.
+		/// Subscribes <paramref name="transform"/> to region-change notifications.
+		/// <paramref name="callback"/> is invoked whenever the transform moves into a different region.
 		/// </summary>
 		public void Subscribe(Transform transform, Action<IWorldRegion> callback)
 		{
@@ -163,16 +105,22 @@ namespace SpaxUtils
 			else
 			{
 				subscribers[transform] = new List<Action<IWorldRegion>>() { callback };
+				register[transform] = GetRegion(transform.position);
 			}
-			register[transform] = GetRegion(transform);
 		}
 
 		/// <summary>
-		/// Removes a region-change subscriber from <paramref name="transform"/>.
+		/// Removes a region-change subscription from <paramref name="transform"/>.
 		/// </summary>
 		public void Unsubscribe(Transform transform, Action<IWorldRegion> callback)
 		{
+			if (!subscribers.ContainsKey(transform))
+			{
+				return;
+			}
+
 			subscribers[transform].Remove(callback);
+
 			if (subscribers[transform].Count == 0)
 			{
 				subscribers.Remove(transform);

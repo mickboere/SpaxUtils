@@ -1,3 +1,4 @@
+using SpaxUtils;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -19,11 +20,36 @@ namespace SpaxUtils
 		private float recalculationThreshold = 1f;
 
 		[SerializeField, Tooltip("Corner advance tolerance expressed as seconds of travel time. Scales with speed so faster agents don't overshoot corners.")]
-		private float cornerAdvanceTime = 0.5f;
+		private float cornerAdvanceTime = 0.15f;
+
+		[Header("Steering")]
+		[SerializeField, Tooltip("Layers considered solid obstacles for wall avoidance.")]
+		private LayerMask steeringObstacleLayers;
+
+		[SerializeField, Tooltip("How far ahead to cast wall detection rays.")]
+		private float wallRayLength = 1f;
+		[SerializeField, Tooltip("Angle in degrees between the center ray and each side ray for wall and cliff detection.")]
+		private float steeringRayAngle = 35f;
+
+		[SerializeField, Tooltip("How far ahead of the agent to probe for cliff edges.")]
+		private float cliffLookAheadDist = 0.6f;
+
+		[SerializeField, Tooltip("Downward distance at which no ground counts as a cliff.")]
+		private float cliffDropThreshold = 1.5f;
+
+		[Header("Debug")]
+		[SerializeField] private bool debugGizmos;
 
 		private IAgent agent;
 		private IAgentMovementHandler movementHandler;
+		private ITargetable targetable;
 		private Coroutine coroutine;
+
+		// Last steered direction and target, kept for gizmo drawing.
+		private Vector3 debugSteerDir;
+		private Vector3 debugMoveTarget;
+		private bool debugHasTarget;
+		private int debugLastSteerFrame = -1;
 
 		private NavMeshPath navMeshPath;
 		private int cornerIndex;
@@ -33,10 +59,12 @@ namespace SpaxUtils
 
 		public void InjectDependencies(
 			Agent agent,
-			IAgentMovementHandler movementHandler)
+			IAgentMovementHandler movementHandler,
+			ITargetable targetable)
 		{
 			this.agent = agent;
 			this.movementHandler = movementHandler;
+			this.targetable = targetable;
 		}
 
 		private void OnEnable()
@@ -53,12 +81,16 @@ namespace SpaxUtils
 		private void OnOptimizedUpdate(float delta)
 		{
 			if (!pathValid)
+			{
 				return;
+			}
 
 			Vector3 currentTarget = GetTargetPosition();
 
 			if (Vector3.SqrMagnitude(currentTarget - pathTarget) > recalculationThreshold * recalculationThreshold)
+			{
 				CalculatePath(currentTarget);
+			}
 		}
 
 		public void ResetInput(bool resetSmoothInput = false)
@@ -85,6 +117,12 @@ namespace SpaxUtils
 		{
 			Vector3 targetPosition = GetTargetPosition(target);
 
+			if (debugGizmos)
+			{
+				debugMoveTarget = targetPosition;
+				debugHasTarget = true;
+			}
+
 			if (IsInRange(range, navMesh, targetPosition))
 			{
 				ResetInput();
@@ -107,7 +145,9 @@ namespace SpaxUtils
 		private void FollowNavMeshPath(Vector3 targetPosition, float speed)
 		{
 			if (!pathValid || Vector3.SqrMagnitude(targetPosition - pathTarget) > recalculationThreshold * recalculationThreshold)
+			{
 				CalculatePath(targetPosition);
+			}
 
 			if (!pathValid || navMeshPath.corners.Length == 0)
 			{
@@ -178,7 +218,9 @@ namespace SpaxUtils
 			foreach (ITargetable targetable in targetables)
 			{
 				if (!targetable.IsTargetable)
+				{
 					continue;
+				}
 
 				float distance = Distance(agent.GameObject.transform.position, targetable.Position, navmesh);
 				if (distance < closestDistance)
@@ -202,7 +244,9 @@ namespace SpaxUtils
 		public float Distance(Vector3 from, Vector3 to, bool navMesh = false)
 		{
 			if (navMesh)
+			{
 				return NavMeshPathLength(from, to);
+			}
 
 			return Direction(from, to).magnitude;
 		}
@@ -214,7 +258,9 @@ namespace SpaxUtils
 			if (navMesh)
 			{
 				if (pathValid && Vector3.SqrMagnitude(targetPosition - pathTarget) <= recalculationThreshold * recalculationThreshold)
+				{
 					return RemainingPathLength();
+				}
 
 				CalculatePath(targetPosition);
 				return pathValid ? cachedPathLength : Distance(agent.Transform.position, targetPosition, false);
@@ -286,6 +332,217 @@ namespace SpaxUtils
 
 		#endregion
 
+		#region Steering
+
+		/// <summary>
+		/// Steers the agent using a world-space walk direction.
+		/// Sets InputAxis to the (possibly deflected) walk direction and InputRaw to Vector3.forward * walkDirection.magnitude.
+		/// If a lookDirection is provided it overrides the facing direction, otherwise the agent faces the walk direction.
+		/// Returns false if movement was obstructed. If applyAvoidance is true, direction is deflected away from walls and
+		/// cliff edges where possible; all-three-rays cliff is always a hard stop regardless.
+		/// <paramref name="hardStop"/> is true when there is no safe direction to deflect toward.
+		/// </summary>
+		public bool TrySteerWorld(Vector3 walkDirection, out bool hardStop, Vector3? lookDirection = null, bool applyAvoidance = true)
+		{
+			hardStop = false;
+
+			if (walkDirection.sqrMagnitude < 0.001f)
+			{
+				ResetInput();
+				return true;
+			}
+
+			float magnitude = walkDirection.magnitude;
+			Vector3 flatWalkDir = walkDirection.FlattenY().normalized;
+
+			if (debugGizmos)
+			{
+				debugMoveTarget = agent.Transform.position + flatWalkDir * magnitude;
+				debugHasTarget = true;
+			}
+
+			bool clear = ApplySteering(ref flatWalkDir, out hardStop, applyAvoidance);
+
+			if (hardStop)
+			{
+				ResetInput();
+				return false;
+			}
+
+			movementHandler.InputAxis = lookDirection.HasValue ? lookDirection.Value : flatWalkDir;
+			movementHandler.InputRaw = Vector3.forward * magnitude;
+			return clear;
+		}
+
+		/// <summary>
+		/// Steers the agent using a local-space input and a world-space look direction.
+		/// Matches the pattern used by strafing behaviours: InputAxis = lookDirection, InputRaw = localInput.
+		/// Returns false if movement was obstructed. If applyAvoidance is true, direction is deflected away from walls and
+		/// cliff edges where possible; all-three-rays cliff is always a hard stop regardless.
+		/// <paramref name="hardStop"/> is true when there is no safe direction to deflect toward.
+		/// </summary>
+		public bool TrySteerLocal(Vector3 localInput, Vector3 lookDirection, out bool hardStop, bool applyAvoidance = true)
+		{
+			hardStop = false;
+
+			if (localInput.sqrMagnitude < 0.001f)
+			{
+				ResetInput();
+				return true;
+			}
+
+			// Convert local input to world-space walk direction for safety checks.
+			Vector3 worldWalkDir = (Quaternion.LookRotation(lookDirection.FlattenY().normalized) * localInput).FlattenY().normalized;
+
+			bool clear = ApplySteering(ref worldWalkDir, out hardStop, applyAvoidance);
+
+			if (hardStop)
+			{
+				ResetInput();
+				return false;
+			}
+
+			// If avoidance deflected the direction, transform back to local space and preserve magnitude.
+			if (!clear && applyAvoidance)
+			{
+				Vector3 deflectedLocal = Quaternion.Inverse(Quaternion.LookRotation(lookDirection.FlattenY().normalized)) * worldWalkDir;
+				deflectedLocal = deflectedLocal.normalized * localInput.magnitude;
+				movementHandler.InputAxis = lookDirection;
+				movementHandler.InputRaw = deflectedLocal;
+			}
+			else
+			{
+				movementHandler.InputAxis = lookDirection;
+				movementHandler.InputRaw = localInput;
+			}
+
+			return clear;
+		}
+
+		/// <summary>
+		/// Runs wall and cliff safety checks against the given world-space flat direction.
+		/// Modifies the direction in-place when applyAvoidance is true.
+		/// Returns true if the path is clear.
+		/// <paramref name="hardStop"/> is true only when all three cliff rays detect a drop - no safe direction exists.
+		/// </summary>
+		private bool ApplySteering(ref Vector3 flatWorldDir, out bool hardStop, bool applyAvoidance)
+		{
+			hardStop = false;
+
+			if (debugGizmos)
+			{
+				debugSteerDir = flatWorldDir;
+				debugLastSteerFrame = Time.frameCount;
+			}
+
+			// --- Cliff check (three-ray fan) ---
+			// Rays originate from targetable.Center projected forward and cast downward.
+			// Three rays in a fan to catch diagonal approaches.
+			// The elevated origin (center height) clears slopes and stairs before casting down.
+			Vector3 centerHeight = targetable.Center;
+			Vector3 leftCliffDir = Quaternion.AngleAxis(-steeringRayAngle, Vector3.up) * flatWorldDir;
+			Vector3 rightCliffDir = Quaternion.AngleAxis(steeringRayAngle, Vector3.up) * flatWorldDir;
+
+			Vector3 cliffOriginC = centerHeight + flatWorldDir * cliffLookAheadDist;
+			Vector3 cliffOriginL = centerHeight + leftCliffDir * cliffLookAheadDist;
+			Vector3 cliffOriginR = centerHeight + rightCliffDir * cliffLookAheadDist;
+
+			// Total downward cast covers center height above feet plus the cliff drop threshold.
+			float cliffCastDist = (centerHeight.y - agent.Transform.position.y) + cliffDropThreshold;
+
+			bool cliffC = !Physics.Raycast(cliffOriginC, Vector3.down, cliffCastDist, steeringObstacleLayers);
+			bool cliffL = !Physics.Raycast(cliffOriginL, Vector3.down, cliffCastDist, steeringObstacleLayers);
+			bool cliffR = !Physics.Raycast(cliffOriginR, Vector3.down, cliffCastDist, steeringObstacleLayers);
+
+			if (cliffC || cliffL || cliffR)
+			{
+				if (cliffL && cliffR)
+				{
+					// All directions lead off the edge, hard stop regardless of applyAvoidance.
+					hardStop = true;
+					return false;
+				}
+
+				if (applyAvoidance)
+				{
+					// Deflect away from the cliff edge toward the safe side.
+					// If only one side is clear, rotate fully toward it.
+					// If center is the only cliff, both sides are safe; pick the one with more forward progress.
+					if (!cliffL && cliffR)
+					{
+						// Right side is cliff, steer left.
+						flatWorldDir = leftCliffDir;
+					}
+					else if (cliffL && !cliffR)
+					{
+						// Left side is cliff, steer right.
+						flatWorldDir = rightCliffDir;
+					}
+					else
+					{
+						// Only center ray is cliff; pick whichever side keeps more forward progress.
+						flatWorldDir = Vector3.Dot(leftCliffDir, flatWorldDir) >= Vector3.Dot(rightCliffDir, flatWorldDir)
+							? leftCliffDir
+							: rightCliffDir;
+					}
+				}
+				else
+				{
+					hardStop = true;
+				}
+
+				return false;
+			}
+
+			// --- Wall check (three-point raycast) ---
+			Vector3 rayOrigin = targetable.Center;
+			Vector3 leftDir = Quaternion.AngleAxis(-steeringRayAngle, Vector3.up) * flatWorldDir;
+			Vector3 rightDir = Quaternion.AngleAxis(steeringRayAngle, Vector3.up) * flatWorldDir;
+
+			bool centerHit = Physics.Raycast(rayOrigin, flatWorldDir, out RaycastHit centerHitInfo, wallRayLength, steeringObstacleLayers);
+			bool leftHit = Physics.Raycast(rayOrigin, leftDir, out RaycastHit leftHitInfo, wallRayLength, steeringObstacleLayers);
+			bool rightHit = Physics.Raycast(rayOrigin, rightDir, out RaycastHit rightHitInfo, wallRayLength, steeringObstacleLayers);
+
+			if (!centerHit && !leftHit && !rightHit)
+			{
+				return true;
+			}
+
+			if (!applyAvoidance)
+			{
+				return false;
+			}
+
+			// Choose which wall normal to slide along.
+			// Prefer the side ray that gives the largest dot product with original direction (most forward progress).
+			Vector3 deflected;
+
+			if (centerHit)
+			{
+				// Use the center hit normal as primary deflection surface.
+				deflected = Vector3.ProjectOnPlane(flatWorldDir, centerHitInfo.normal).FlattenY().normalized;
+			}
+			else
+			{
+				// Only side rays hit; pick the deflection that keeps more forward progress.
+				Vector3 leftDeflect = leftHit ? Vector3.ProjectOnPlane(flatWorldDir, leftHitInfo.normal).FlattenY().normalized : flatWorldDir;
+				Vector3 rightDeflect = rightHit ? Vector3.ProjectOnPlane(flatWorldDir, rightHitInfo.normal).FlattenY().normalized : flatWorldDir;
+
+				deflected = Vector3.Dot(leftDeflect, flatWorldDir) >= Vector3.Dot(rightDeflect, flatWorldDir)
+					? leftDeflect
+					: rightDeflect;
+			}
+
+			if (deflected.sqrMagnitude > 0.001f)
+			{
+				flatWorldDir = deflected;
+			}
+
+			return false;
+		}
+
+		#endregion
+
 		#region NavMesh
 
 		private void CalculatePath(Vector3 targetPosition)
@@ -325,14 +582,18 @@ namespace SpaxUtils
 		{
 			float length = 0f;
 			for (int i = fromIndex; i < corners.Length - 1; i++)
+			{
 				length += Vector3.Distance(corners[i], corners[i + 1]);
+			}
 			return length;
 		}
 
 		private float RemainingPathLength()
 		{
 			if (!pathValid || navMeshPath.corners.Length == 0)
+			{
 				return 0f;
+			}
 
 			float remaining = Vector3.Distance(agent.Transform.position, navMeshPath.corners[cornerIndex]);
 			remaining += CalculatePathLength(navMeshPath.corners, cornerIndex);
@@ -348,7 +609,9 @@ namespace SpaxUtils
 			bool found = NavMesh.CalculatePath(from, to, NavMesh.AllAreas, tempPath);
 
 			if (!found || tempPath.status == NavMeshPathStatus.PathInvalid)
+			{
 				return Vector3.Distance(from, to);
+			}
 
 			return CalculatePathLength(tempPath.corners, 0);
 		}
@@ -371,6 +634,90 @@ namespace SpaxUtils
 				coroutine = null;
 			}
 		}
+
+		#endregion
+
+		#region Debug Gizmos
+
+#if UNITY_EDITOR
+		private void OnDrawGizmos()
+		{
+			if (!debugGizmos || agent == null)
+			{
+				return;
+			}
+
+			Vector3 agentPos = agent.Transform.position;
+
+			// Draw current movement target.
+			if (debugHasTarget)
+			{
+				Gizmos.color = Color.yellow;
+				Gizmos.DrawSphere(debugMoveTarget, 0.12f);
+
+				if (pathValid && navMeshPath != null && navMeshPath.corners.Length > 1)
+				{
+					// Draw NavMesh path corners and connecting lines.
+					Gizmos.color = Color.cyan;
+					Gizmos.DrawLine(agentPos, navMeshPath.corners[0]);
+
+					for (int i = 0; i < navMeshPath.corners.Length; i++)
+					{
+						Gizmos.DrawSphere(navMeshPath.corners[i], 0.06f);
+
+						if (i < navMeshPath.corners.Length - 1)
+						{
+							// Highlight the active corner in a brighter color.
+							Gizmos.color = i == cornerIndex ? Color.white : Color.cyan;
+							Gizmos.DrawLine(navMeshPath.corners[i], navMeshPath.corners[i + 1]);
+							Gizmos.color = Color.cyan;
+						}
+					}
+				}
+				else
+				{
+					// No path, draw direct line to target.
+					Gizmos.color = new Color(1f, 0.5f, 0f);
+					Gizmos.DrawLine(agentPos, debugMoveTarget);
+				}
+			}
+
+			// Draw steering rays only when steering was actually performed this frame.
+			if (targetable != null && debugLastSteerFrame == Time.frameCount)
+			{
+				Vector3 steerOrigin = targetable.Center;
+				Vector3 steerDir = debugSteerDir.sqrMagnitude > 0.001f
+					? debugSteerDir
+					: agent.Transform.forward;
+
+				Vector3 leftCliffDir = Quaternion.AngleAxis(-steeringRayAngle, Vector3.up) * steerDir;
+				Vector3 rightCliffDir = Quaternion.AngleAxis(steeringRayAngle, Vector3.up) * steerDir;
+				float cliffCastDist = (steerOrigin.y - agentPos.y) + cliffDropThreshold;
+
+				// Cliff rays - red if no ground detected, green if ground found.
+				DrawSteeringRay(steerOrigin + steerDir * cliffLookAheadDist, Vector3.down, cliffCastDist);
+				DrawSteeringRay(steerOrigin + leftCliffDir * cliffLookAheadDist, Vector3.down, cliffCastDist);
+				DrawSteeringRay(steerOrigin + rightCliffDir * cliffLookAheadDist, Vector3.down, cliffCastDist);
+
+				// Wall rays - orange if hit, green if clear.
+				DrawSteeringRay(steerOrigin, steerDir, wallRayLength);
+				DrawSteeringRay(steerOrigin, leftCliffDir, wallRayLength);
+				DrawSteeringRay(steerOrigin, rightCliffDir, wallRayLength);
+			}
+		}
+
+		private void DrawSteeringRay(Vector3 origin, Vector3 direction, float length)
+		{
+			bool hit = Physics.Raycast(origin, direction, out RaycastHit hitInfo, length, steeringObstacleLayers);
+			Gizmos.color = hit ? new Color(1f, 0.4f, 0f) : Color.green;
+			Gizmos.DrawRay(origin, direction * (hit ? hitInfo.distance : length));
+
+			if (hit)
+			{
+				Gizmos.DrawSphere(hitInfo.point, 0.04f);
+			}
+		}
+#endif
 
 		#endregion
 	}

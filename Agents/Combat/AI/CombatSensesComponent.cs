@@ -5,11 +5,19 @@ namespace SpaxUtils
 {
 	/// <summary>
 	/// Agent component that tracks all combat variables and sends appropriate stimuli to the mind so the agent can react to them.
+	/// Also manages aggro accumulation and drives Passive/Combat brain state transitions.
 	/// </summary>
 	public class CombatSensesComponent : AgentComponentBase
 	{
 		public EnemySense EnemySense { get; private set; }
 		public ProjectileSense ProjectileSense { get; private set; }
+
+		[Header("Aggro")]
+		[SerializeField, Tooltip("Aggro level at which the agent transitions to Combat.")]
+		private float aggroEnterThreshold = 2f;
+
+		[SerializeField, Tooltip("Aggro level at which the agent transitions back to Passive. Lower than enter to prevent flickering.")]
+		private float aggroExitThreshold = 1f;
 
 		private IVisionComponent vision;
 		private IHittable hittable;
@@ -18,6 +26,9 @@ namespace SpaxUtils
 		private CombatSensesSettings settings;
 		private ProjectileService projectileService;
 		private AgentCombatComponent combatComponent;
+
+		private EntityStat aggroStat;
+		private bool inCombat;
 
 		public void InjectDependencies(IVisionComponent vision,
 			IHittable hittable, [Optional] ISpawnpoint spawnpoint,
@@ -30,6 +41,8 @@ namespace SpaxUtils
 			this.settings = settings;
 			this.projectileService = projectileService;
 			this.combatComponent = combatComponent;
+
+			aggroStat = Agent.Stats.GetStat(AgentStatIdentifiers.AGGRO, true, 0f);
 		}
 
 		protected void Awake()
@@ -76,11 +89,30 @@ namespace SpaxUtils
 					Agent.Targeter.SetTarget(Agent.Mind.Motivation.target.GetEntityComponent<ITargetable>());
 				}
 			}
-			//else
-			//{
-			//	// There is no motivation target.
-			//	agent.Targeter.SetTarget(null);
-			//}
+			else
+			{
+				// There is no motivation target.
+				Agent.Targeter.SetTarget(null);
+			}
+
+			// Aggro = sum of all threat-relevant emotion axes (all except SE).
+			Vector8 emotion = Agent.Mind.Motivation.emotion;
+			float rawAggro = emotion.Sum() - emotion.SE;
+			aggroStat.BaseValue = rawAggro;
+			float effectiveAggro = aggroStat.Value;
+
+			if (!inCombat && effectiveAggro >= aggroEnterThreshold)
+			{
+				inCombat = true;
+				Agent.Brain.TryTransition(AgentStateIdentifiers.COMBAT);
+			}
+			else if (inCombat && effectiveAggro <= aggroExitThreshold)
+			{
+				inCombat = false;
+				Agent.Brain.TryTransition(AgentStateIdentifiers.PASSIVE);
+			}
+
+			//SpaxDebug.Log($"[{Agent.Identification.Name}] rawAggro={rawAggro}, effectiveAggro={effectiveAggro}, inCombat={inCombat}, enterThreshold={aggroEnterThreshold}");
 		}
 
 		private void OnMindUpdating(float delta)
@@ -144,25 +176,24 @@ namespace SpaxUtils
 
 			Vector8 stim = Vector8.Zero;
 
-			// N (Fight) – retaliation / rage.
+			// N (Fight) - retaliation / rage.
 			stim.N = angerStim * (0.7f + 0.3f * fierceness) - fearStim * 0.2f;
 
-			// S (Retreat) – urge to back off.
+			// S (Retreat) - urge to back off.
 			stim.S = fearStim * (0.7f + 0.3f * carefulness);
 
-			// E (Evade) – reflexive evasiveness.
+			// E (Evade) - reflexive evasiveness.
 			stim.E = fearStim * (0.3f + 0.4f * (1f - fightBias + carefulness));
 
-			// W (Guard) – raising guard / bracing.
+			// W (Guard) - raising guard / bracing.
 			stim.W = fearStim * (0.2f + 0.6f * steadfastness);
 
-			// NW (Hate / aggro) – long-term hostility from pain.
+			// NW (Hate / aggro) - long-term hostility from pain.
 			float hateGain = baseStim * (0.5f + 0.5f * ruthlessness); // 0..MAX_HIT_STIM
 			stim.NW = hateGain;
 
 			// Use the same damping as continuous stimuli (handled in AEMOI.Stimulate).
 			Agent.Mind.Stimulate(stim, hitData.Hitter);
 		}
-
 	}
 }

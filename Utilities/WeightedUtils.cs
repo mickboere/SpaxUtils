@@ -68,6 +68,46 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
+		/// Retrieves a weighted random index from a list of raw float weights.
+		/// Weights do not need to be normalized or sum to any particular value.
+		/// Returns -1 if the list is null, empty, or all weights are zero.
+		/// </summary>
+		/// <param name="weights">The weight for each index. Must not be negative.</param>
+		/// <returns>The randomly selected index.</returns>
+		public static int RandomIndex(IList<float> weights)
+		{
+			if (weights == null || weights.Count == 0)
+			{
+				return -1;
+			}
+
+			float total = 0f;
+			for (int i = 0; i < weights.Count; i++)
+			{
+				total += weights[i];
+			}
+
+			if (total <= 0f)
+			{
+				return -1;
+			}
+
+			float roll = UnityEngine.Random.Range(0f, total);
+			float cumulative = 0f;
+
+			for (int i = 0; i < weights.Count; i++)
+			{
+				cumulative += weights[i];
+				if (roll <= cumulative)
+				{
+					return i;
+				}
+			}
+
+			return weights.Count - 1;
+		}
+
+		/// <summary>
 		/// Retrieve priotized normalized weights from a weighted list of items with unique priorities.
 		/// Highest priority has room to utilize full 0 to 1 weight, lower priorities get only what's left over.
 		/// </summary>

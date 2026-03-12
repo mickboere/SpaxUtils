@@ -28,8 +28,16 @@ namespace SpaxUtils
 		[SerializeField] new private string name;
 		[SerializeField] protected int priority;
 		[SerializeField, FormerlySerializedAs("motivation")] protected Vector8 trigger;
-		[SerializeField, HideInInspector] protected bool requireState;
-		[SerializeField, Conditional(nameof(requireState), drawToggle: true, hide: false), ConstDropdown(typeof(IStateIdentifiers))] protected string brainState;
+
+		[SerializeField, Tooltip("Behaviour is only valid when the brain is already in the required state. Ignored when Enforce State is also true.")]
+		protected bool requireState;
+
+		[SerializeField, Conditional(nameof(requireState), drawToggle: false, hide: false), Tooltip("When selected, forces the brain into the required state.")]
+		protected bool enforceState;
+
+		[SerializeField, Conditional(nameof(requireState), drawToggle: false, hide: false), ConstDropdown(typeof(IStateIdentifiers))]
+		protected string brainState;
+
 		[SerializeField] private bool debug;
 
 		public void InjectDependencies(IAgent agent, CallbackService callbackService, AgentStatHandler agentStatHandler, CombatSensesComponent combatSenses)
@@ -38,13 +46,18 @@ namespace SpaxUtils
 			CallbackService = callbackService;
 			StatHandler = agentStatHandler;
 			CombatSenses = combatSenses;
-
 			EntityTimescale = Agent.Stats.GetStat(EntityStatIdentifiers.TIMESCALE, true, 1f);
 		}
 
 		public virtual bool Valid(Vector8 motivation, IEntity target, out float strength)
 		{
 			strength = 0f;
+
+			// When requireBrainState is set and we are NOT also enforcing, the brain must already be in state.
+			if (requireState && !enforceState && !Agent.Brain.IsStateActive(brainState))
+			{
+				return false;
+			}
 
 			if (motivation >= trigger)
 			{
@@ -66,7 +79,8 @@ namespace SpaxUtils
 		{
 			base.Start();
 			Log("Start", index: 2);
-			if (requireState)
+
+			if (requireState && enforceState && !string.IsNullOrEmpty(brainState))
 			{
 				Agent.Brain.TryTransition(brainState);
 			}
