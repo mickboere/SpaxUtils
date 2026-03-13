@@ -26,13 +26,18 @@ namespace SpaxUtils
 		private CombatSensesSettings settings;
 		private ProjectileService projectileService;
 		private AgentCombatComponent combatComponent;
+		private FocusHandler focusHandler;
 
 		private EntityStat aggroStat;
 		private bool inCombat;
 
+		private System.Func<Vector3?> combatFocusProvider;
+
 		public void InjectDependencies(IVisionComponent vision,
 			IHittable hittable, [Optional] ISpawnpoint spawnpoint,
-			AgentStatHandler statHandler, CombatSensesSettings settings, ProjectileService projectileService, AgentCombatComponent combatComponent)
+			AgentStatHandler statHandler, CombatSensesSettings settings,
+			ProjectileService projectileService, AgentCombatComponent combatComponent,
+			[Optional] FocusHandler focusHandler)
 		{
 			this.vision = vision;
 			this.hittable = hittable;
@@ -41,6 +46,7 @@ namespace SpaxUtils
 			this.settings = settings;
 			this.projectileService = projectileService;
 			this.combatComponent = combatComponent;
+			this.focusHandler = focusHandler;
 
 			aggroStat = Agent.Stats.GetStat(AgentStatIdentifiers.AGGRO, true, 0f);
 		}
@@ -65,6 +71,12 @@ namespace SpaxUtils
 
 			EnemySense = new EnemySense(Agent, vision, statHandler, combatComponent, settings);
 			ProjectileSense = new ProjectileSense(Agent, projectileService);
+
+			if (focusHandler != null)
+			{
+				combatFocusProvider = GetCombatFocusPoint;
+				focusHandler.Register(FocusHandler.PRIORITY_COMBAT, combatFocusProvider);
+			}
 		}
 
 		public void OnMindDeactivated()
@@ -76,6 +88,22 @@ namespace SpaxUtils
 
 			EnemySense.Dispose();
 			ProjectileSense.Dispose();
+
+			if (focusHandler != null && combatFocusProvider != null)
+			{
+				focusHandler.Unregister(combatFocusProvider);
+				combatFocusProvider = null;
+			}
+		}
+
+		private Vector3? GetCombatFocusPoint()
+		{
+			if (Agent.Targeter.Target == null)
+			{
+				return null;
+			}
+
+			return Agent.Targeter.Target.Point;
 		}
 
 		private void OnMindMotivated()
@@ -89,11 +117,7 @@ namespace SpaxUtils
 					Agent.Targeter.SetTarget(Agent.Mind.Motivation.target.GetEntityComponent<ITargetable>());
 				}
 			}
-			else
-			{
-				// There is no motivation target.
-				Agent.Targeter.SetTarget(null);
-			}
+			// Dont set target to NULL, because another system may require a target (friendly).
 
 			// Aggro = sum of all threat-relevant emotion axes (all except SE).
 			Vector8 emotion = Agent.Mind.Motivation.emotion;
@@ -170,7 +194,6 @@ namespace SpaxUtils
 			// cap the per-hit impulse to a modest fraction of MAX_STIM.
 			const float MAX_HIT_STIM = AEMOI.MAX_STIM * 0.3f; // e.g. 3 when MAX_STIM=10.
 			float baseStim = impact01 * MAX_HIT_STIM;
-
 			float angerStim = anger01 * MAX_HIT_STIM;
 			float fearStim = fear01 * MAX_HIT_STIM;
 

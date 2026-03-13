@@ -32,9 +32,12 @@ namespace SpaxUtils
 
 		private ITargeter targeter;
 		private ITargetable targetable;
+		private FocusHandler focusHandler;
+
+		private System.Func<Vector3?> interactionFocusProvider;
 
 		public void InjectDependencies(IInteractable[] interactables, IInteractor[] interactors, IInteractionBlocker[] blockers,
-			[Optional] ITargeter targeter, [Optional] ITargetable targetable)
+			[Optional] ITargeter targeter, [Optional] ITargetable targetable, [Optional] FocusHandler focusHandler)
 		{
 			foreach (IInteractable interactable in interactables)
 			{
@@ -47,6 +50,7 @@ namespace SpaxUtils
 			this.blockers = new List<IInteractionBlocker>(blockers);
 			this.targeter = targeter;
 			this.targetable = targetable;
+			this.focusHandler = focusHandler;
 		}
 
 		/// <summary>
@@ -250,11 +254,23 @@ namespace SpaxUtils
 				if (targeter != null)
 				{
 					IEntity other = interaction.Interactor == this ? interaction.Interactable.Entity : interaction.Interactor;
-					if (other.TryGetEntityComponent(out ITargetable targetable))
+					if (other.TryGetEntityComponent(out ITargetable otherTargetable))
 					{
 						// Target the interactable.
-						targeter.SetTarget(targetable);
+						targeter.SetTarget(otherTargetable);
 					}
+				}
+
+				if (Entity is IAgent agent)
+				{
+					agent.Brain.TryTransition(AgentStateIdentifiers.INTERACTING);
+				}
+
+				// Register interaction focus provider once the first interaction starts.
+				if (focusHandler != null && interactionFocusProvider == null)
+				{
+					interactionFocusProvider = GetInteractionFocusPoint;
+					focusHandler.Register(FocusHandler.PRIORITY_INTERACTION, interactionFocusProvider);
 				}
 			}
 
@@ -268,7 +284,42 @@ namespace SpaxUtils
 				interaction.ConcludedEvent -= OnConcludedEvent;
 				interactions.Remove(interaction);
 				targeter?.SetTarget(null);
+
+				// Only leave INTERACTING state and unregister focus once all interactions have concluded.
+				if (interactions.Count == 0)
+				{
+					if (Entity is IAgent agent)
+					{
+						agent.Brain.TryTransition(AgentStateIdentifiers.IDLE);
+					}
+
+					if (focusHandler != null && interactionFocusProvider != null)
+					{
+						focusHandler.Unregister(interactionFocusProvider);
+						interactionFocusProvider = null;
+					}
+				}
 			}
+		}
+
+		private Vector3? GetInteractionFocusPoint()
+		{
+			if (interactions.Count == 0)
+			{
+				return null;
+			}
+
+			// Use the most recent active interaction as focus source.
+			IInteraction interaction = interactions[interactions.Count - 1];
+			IEntity other = interaction.Interactor == this ? interaction.Interactable.Entity : interaction.Interactor;
+
+			// Prefer ITargetable.Point if the other entity has one, otherwise fall back to interaction point.
+			if (other != null && other.TryGetEntityComponent(out ITargetable otherTargetable))
+			{
+				return otherTargetable.Point;
+			}
+
+			return InteractionPoint;
 		}
 
 		protected void OnDrawGizmosSelected()

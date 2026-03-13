@@ -8,7 +8,6 @@ namespace SpaxUtils
 	public class AgentTargeterNode : StateMachineNodeBase
 	{
 		[SerializeField, Input(backingValue = ShowBackingValue.Never)] protected Connections.StateComponent inConnection;
-		[SerializeField] private float maxDistance;
 
 		private IAgent agent;
 		private AgentNavigationHandler navigationHandler;
@@ -45,7 +44,7 @@ namespace SpaxUtils
 		private void OnUpdate(float delta)
 		{
 			if (agent.Targeter.Target != null &&
-				(navigationHandler.Distance() > maxDistance ||
+				(navigationHandler.Distance() > visionComponent.Range ||
 					!agent.Targeter.Target.Entity.GameObject.activeInHierarchy))
 			{
 				agent.Targeter.SetTarget(null);

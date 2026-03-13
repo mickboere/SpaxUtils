@@ -65,6 +65,7 @@ namespace SpaxUtils
 		private enum WanderActivity { Idle, Moving, MovingRaw, Dwelling }
 		private enum ActivityOption { Region = 0, Radius = 1, POI = 2 }
 
+		private bool initialized;
 		private WanderActivity activity;
 		private Vector3 currentDestination;
 		private PointOfInterest currentPOI;
@@ -91,9 +92,27 @@ namespace SpaxUtils
 		public override void OnStateEntered()
 		{
 			base.OnStateEntered();
-			activity = WanderActivity.Idle;
-			currentPOI = null;
-			queryTimer = queryInterval;
+
+			if (!initialized)
+			{
+				initialized = true;
+				activity = WanderActivity.Idle;
+				currentPOI = null;
+				queryTimer = queryInterval;
+			}
+			else if (currentPOI != null)
+			{
+				// We had a POI when we left. Try to reclaim it.
+				if (!currentPOI.TryOccupy(agent))
+				{
+					// Taken by someone else, requery.
+					currentPOI = null;
+					activity = WanderActivity.Idle;
+					queryTimer = 0f;
+				}
+				// Otherwise POI is ours again, resume moving toward it or dwelling.
+			}
+
 			callbackService.SubscribeUpdate(UpdateMode.Update, this, OnUpdate);
 		}
 
@@ -101,8 +120,14 @@ namespace SpaxUtils
 		{
 			base.OnStateExit();
 			callbackService.UnsubscribeUpdate(UpdateMode.Update, this);
-			VacatePOI();
 			navigation.ResetInput();
+
+			// Vacate POI but remember it - we'll try to reclaim it on re-entry.
+			// If it was taken while we were away, we requery instead.
+			if (currentPOI != null)
+			{
+				currentPOI.Vacate(agent);
+			}
 		}
 
 		private void OnUpdate(float delta)

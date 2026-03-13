@@ -10,39 +10,6 @@ namespace SpaxUtils
 	public class VisionComponent : EntityComponentMono, IVisionComponent
 	{
 		/// <inheritdoc/>
-		public Transform ViewPoint
-		{
-			get
-			{
-				if (camera != null)
-				{
-					return camera.transform;
-				}
-
-				if (eyeTransform == null && !string.IsNullOrEmpty(transformIdentifier))
-				{
-					eyeTransform = transformLookup.Lookup(transformIdentifier);
-				}
-
-				return eyeTransform;
-			}
-		}
-
-		/// <inheritdoc/>
-		public float FOV
-		{
-			get
-			{
-				if (camera != null)
-				{
-					return camera.fieldOfView;
-				}
-
-				return fov;
-			}
-		}
-
-		/// <inheritdoc/>
 		public float Range => range;
 
 		[SerializeField, ConstDropdown(typeof(ITransformLookupIdentifiers), includeEmpty: true)] private string transformIdentifier;
@@ -63,12 +30,47 @@ namespace SpaxUtils
 			this.camera = camera;
 		}
 
+		/// <summary>
+		/// Returns the viewpoint transform to use for vision checks.
+		/// Uses the agent's eye transform by default.
+		/// </summary>
+		/// <param name="useCameraIfAvailable">If true and a camera is present, returns the camera transform instead.</param>
+		public Transform GetViewPoint(bool useCameraIfAvailable = false)
+		{
+			if (useCameraIfAvailable && camera != null)
+			{
+				return camera.transform;
+			}
+
+			if (eyeTransform == null && !string.IsNullOrEmpty(transformIdentifier))
+			{
+				eyeTransform = transformLookup.Lookup(transformIdentifier);
+			}
+
+			return eyeTransform;
+		}
+
+		/// <summary>
+		/// Returns the field of view to use for vision checks.
+		/// Uses the agent's configured FOV by default.
+		/// </summary>
+		/// <param name="useCameraIfAvailable">If true and a camera is present, returns the camera's field of view instead.</param>
+		public float GetFOV(bool useCameraIfAvailable = false)
+		{
+			if (useCameraIfAvailable && camera != null)
+			{
+				return camera.fieldOfView;
+			}
+
+			return fov;
+		}
+
 		/// <inheritdoc/>
-		public List<ITargetable> Spot(IEnumerable<ITargetable> targetables)
+		public List<ITargetable> Spot(IEnumerable<ITargetable> targetables, bool useCameraIfAvailable = false)
 		{
 			List<ITargetable> spotted = new List<ITargetable>();
 
-			Transform vp = ViewPoint;
+			Transform vp = GetViewPoint(useCameraIfAvailable);
 			if (vp == null)
 			{
 				SpaxDebug.Error("Eye transform could not be found.", $"Eye transform identifier: {transformIdentifier}", this);
@@ -77,8 +79,7 @@ namespace SpaxUtils
 
 			Vector3 eyePos = vp.position;
 			Vector3 forward = vp.forward;
-
-			float halfFovRad = FOV * 0.5f * Mathf.Deg2Rad;
+			float halfFovRad = GetFOV(useCameraIfAvailable) * 0.5f * Mathf.Deg2Rad;
 			float cosHalfFov = Mathf.Cos(halfFovRad);
 			float rangeSqr = range * range;
 
@@ -104,8 +105,8 @@ namespace SpaxUtils
 
 				float dist = Mathf.Sqrt(distSqr);
 				Vector3 dir = toTarget / dist;
-
 				float dot = Vector3.Dot(forward, dir);
+
 				if (dot <= cosHalfFov)
 				{
 					continue;
@@ -121,11 +122,11 @@ namespace SpaxUtils
 		}
 
 		/// <inheritdoc/>
-		public ITargetable GetMostLikelyTarget(IEnumerable<ITargetable> targetables)
+		public ITargetable GetMostLikelyTarget(IEnumerable<ITargetable> targetables, bool useCameraIfAvailable = false)
 		{
-			List<ITargetable> visible = Spot(targetables);
+			List<ITargetable> visible = Spot(targetables, useCameraIfAvailable);
 
-			Transform vp = ViewPoint;
+			Transform vp = GetViewPoint(useCameraIfAvailable);
 			if (vp == null)
 			{
 				return null;
@@ -180,14 +181,14 @@ namespace SpaxUtils
 				}
 			}
 
-			if (ViewPoint == null)
+			if (GetViewPoint() == null)
 			{
 				return;
 			}
 
 			Gizmos.color = Color.white;
-			Gizmos.matrix = ViewPoint.localToWorldMatrix;
-			Gizmos.DrawFrustum(Vector3.zero, fov, range * 2f / ViewPoint.lossyScale.magnitude, 0f, 1f);
+			Gizmos.matrix = GetViewPoint().localToWorldMatrix;
+			Gizmos.DrawFrustum(Vector3.zero, fov, range * 2f / GetViewPoint().lossyScale.magnitude, 0f, 1f);
 		}
 	}
 }
