@@ -200,6 +200,18 @@ namespace SpaxUtils
 				return;
 			}
 
+			// Signal act: prepare and perform immediately in one shot.
+			if (act is ActSignal)
+			{
+				IPerformer performer = null;
+				if (TryPrepare(act, out performer))
+				{
+					performer.TryPerform();
+					act.Callback?.Invoke(performer);
+				}
+				return;
+			}
+
 			// Default Act<bool> behaviour
 			// (AKA button behaviour - TRUE prepares act, FALSE performs it).
 			if (act is Act<bool> input)

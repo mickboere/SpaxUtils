@@ -112,6 +112,14 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
+		/// Turns a <paramref name="collection"/> into a single string using the <paramref name="selector>.
+		/// </summary>
+		public static string Join(this IEnumerable<string> collection, string separator = ", ")
+		{
+			return string.Join(separator, collection);
+		}
+
+		/// <summary>
 		/// Returns a sub-stat identifier for stat <paramref name="s"/> with the last division ("/") of <paramref name="subStat"/>.
 		/// </summary>
 		/// <param name="s">The main stat identifier.</param>

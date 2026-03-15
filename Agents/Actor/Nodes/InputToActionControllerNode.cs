@@ -16,7 +16,7 @@ namespace SpaxUtils
 
 		[SerializeField, ConstDropdown(typeof(IInputActionMaps))] private string actionMap;
 		[SerializeField, ConstDropdown(typeof(IInputActions))] private string input;
-		[SerializeField, ConstDropdown(typeof(IActTitles))] private string act;
+		[SerializeField, ConstDropdown(typeof(IActIdentifiers))] private string act;
 		[SerializeField] private bool interuptable;
 		[SerializeField] private bool interuptor;
 		[SerializeField, HideInInspector] private bool customBuffer;

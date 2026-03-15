@@ -1,6 +1,6 @@
 ﻿namespace SpaxUtils
 {
-	public class ActorActs : IActTitles
+	public class ActorActs : IActIdentifiers
 	{
 		public const string CANCEL = "Cancel";
 

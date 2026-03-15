@@ -61,6 +61,7 @@ namespace SpaxUtils
 		private CallbackService callbackService;
 		private ISpawnpoint spawnpoint;
 		private WorldRegionService worldRegionService;
+		private POIHandler poiHandler;
 
 		private enum WanderActivity { Idle, Moving, MovingRaw, Dwelling }
 		private enum ActivityOption { Region = 0, Radius = 1, POI = 2 }
@@ -68,7 +69,7 @@ namespace SpaxUtils
 		private bool initialized;
 		private WanderActivity activity;
 		private Vector3 currentDestination;
-		private PointOfInterest currentPOI;
+		private PointOfInterest targetPOI;
 		private float queryTimer;
 		private float dwellTimer;
 
@@ -80,12 +81,14 @@ namespace SpaxUtils
 			AgentNavigationHandler navigation,
 			CallbackService callbackService,
 			WorldRegionService worldRegionService,
+			POIHandler poiHandler,
 			[Optional] ISpawnpoint spawnpoint)
 		{
 			this.agent = agent;
 			this.navigation = navigation;
 			this.callbackService = callbackService;
 			this.worldRegionService = worldRegionService;
+			this.poiHandler = poiHandler;
 			this.spawnpoint = spawnpoint;
 		}
 
@@ -97,20 +100,24 @@ namespace SpaxUtils
 			{
 				initialized = true;
 				activity = WanderActivity.Idle;
-				currentPOI = null;
-				queryTimer = queryInterval;
+				targetPOI = null;
+				queryTimer = 0f;
 			}
-			else if (currentPOI != null)
+			else if (poiHandler.IsOccupying)
 			{
-				// We had a POI when we left. Try to reclaim it.
-				if (!currentPOI.TryOccupy(agent))
-				{
-					// Taken by someone else, requery.
-					currentPOI = null;
-					activity = WanderActivity.Idle;
-					queryTimer = 0f;
-				}
-				// Otherwise POI is ours again, resume moving toward it or dwelling.
+				// We were dwelling at a POI when Idle was exited (e.g. entered Interacting).
+				// POIHandler still holds the reference (Passive scope kept it alive).
+				// Resume dwelling with a fresh dwell time.
+				targetPOI = poiHandler.CurrentPOI;
+				activity = WanderActivity.Dwelling;
+				dwellTimer = Random.Range(dwellTimeMin, dwellTimeMax);
+			}
+			else
+			{
+				// No POI occupation. Normal requery.
+				targetPOI = null;
+				activity = WanderActivity.Idle;
+				queryTimer = 0f;
 			}
 
 			callbackService.SubscribeUpdate(UpdateMode.Update, this, OnUpdate);
@@ -122,11 +129,12 @@ namespace SpaxUtils
 			callbackService.UnsubscribeUpdate(UpdateMode.Update, this);
 			navigation.ResetInput();
 
-			// Vacate POI but remember it - we'll try to reclaim it on re-entry.
-			// If it was taken while we were away, we requery instead.
-			if (currentPOI != null)
+			// Do NOT vacate POI here. POIHandler persists in Passive scope.
+			// AnimatedActionsNode handles vacating on Passive exit.
+			// If we were still moving toward a POI, just forget it - no reservation to release.
+			if (activity != WanderActivity.Dwelling)
 			{
-				currentPOI.Vacate(agent);
+				targetPOI = null;
 			}
 		}
 
@@ -145,10 +153,27 @@ namespace SpaxUtils
 				case WanderActivity.Moving:
 					if (navigation.MoveInRange(arrivalRange, moveSpeed, true, currentDestination))
 					{
-						float dwell = currentPOI != null
-							? currentPOI.SampleDwellTime()
-							: Random.Range(dwellTimeMin, dwellTimeMax);
-						BeginDwell(dwell);
+						if (targetPOI != null)
+						{
+							// Arrived at POI. Try to occupy now.
+							if (targetPOI.TryOccupy(agent))
+							{
+								AlignToPOI(targetPOI);
+								poiHandler.Occupy(targetPOI);
+								BeginDwell(targetPOI.SampleDwellTime());
+							}
+							else
+							{
+								// Someone else beat us to it. Requery.
+								targetPOI = null;
+								activity = WanderActivity.Idle;
+								queryTimer = 0f;
+							}
+						}
+						else
+						{
+							BeginDwell(Random.Range(dwellTimeMin, dwellTimeMax));
+						}
 					}
 					break;
 
@@ -273,12 +298,8 @@ namespace SpaxUtils
 				}
 			}
 
-			if (!chosen.TryOccupy(agent))
-			{
-				return false;
-			}
-
-			currentPOI = chosen;
+			// No reservation. Just navigate toward it. Occupation happens on arrival.
+			targetPOI = chosen;
 			currentDestination = chosen.transform.position;
 			activity = WanderActivity.Moving;
 			return true;
@@ -304,7 +325,7 @@ namespace SpaxUtils
 						continue;
 					}
 
-					currentPOI = null;
+					targetPOI = null;
 					currentDestination = hit.position;
 					activity = WanderActivity.Moving;
 					return true;
@@ -332,7 +353,7 @@ namespace SpaxUtils
 					continue;
 				}
 
-				currentPOI = null;
+				targetPOI = null;
 
 				// Always try NavMesh first regardless of region; only fall back to raw steering if it fails.
 				if (NavMesh.SamplePosition(sample, out NavMeshHit hit, NAVMESH_SAMPLE_RANGE, NavMesh.AllAreas))
@@ -366,11 +387,18 @@ namespace SpaxUtils
 
 		private void VacatePOI()
 		{
-			if (currentPOI != null)
+			if (targetPOI != null)
 			{
-				currentPOI.Vacate(agent);
-				currentPOI = null;
+				// Vacate through POIHandler, which also calls PointOfInterest.Vacate internally.
+				poiHandler.Vacate();
+				targetPOI = null;
 			}
+		}
+
+		private void AlignToPOI(PointOfInterest poi)
+		{
+			agent.Transform.position = poi.transform.position;
+			agent.Transform.rotation = poi.transform.rotation;
 		}
 	}
 }

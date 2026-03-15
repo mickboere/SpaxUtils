@@ -21,11 +21,12 @@ namespace SpaxUtils
 			history[key] = (message, timer);
 			OnReceived(key, message);
 
-			foreach (KeyValuePair<Type, Dictionary<object, Action<object>>> subscription in subscriptions)
+			var subscriptionsCopy = new Dictionary<Type, Dictionary<object, Action<object>>>(subscriptions);
+			foreach (KeyValuePair<Type, Dictionary<object, Action<object>>> subscription in subscriptionsCopy)
 			{
 				if (subscription.Key.IsAssignableFrom(key))
 				{
-					var listeners = new Dictionary<object, Action<object>>(subscription.Value); // This fixes unsub during callback bug.
+					var listeners = new Dictionary<object, Action<object>>(subscription.Value);
 					foreach (KeyValuePair<object, Action<object>> listener in listeners)
 					{
 						listener.Value(message);

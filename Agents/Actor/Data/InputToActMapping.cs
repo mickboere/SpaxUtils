@@ -20,7 +20,7 @@ namespace SpaxUtils
 		public int InputPrio => inputPrio;
 		public bool HoldEveryFrame => holdEveryFrame;
 
-		[SerializeField, ConstDropdown(typeof(IActTitles))] private string act;
+		[SerializeField, ConstDropdown(typeof(IActIdentifiers))] private string act;
 		[SerializeField, ConstDropdown(typeof(IInputActions))] private string input;
 		[SerializeField, ConstDropdown(typeof(IInputActionMaps))] private string actionMap;
 		[SerializeField, ConstDropdown(typeof(IStateIdentifiers))] private string state;

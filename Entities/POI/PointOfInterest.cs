@@ -1,3 +1,4 @@
+//using System.Linq;
 using UnityEngine;
 
 namespace SpaxUtils
@@ -17,8 +18,8 @@ namespace SpaxUtils
 		/// <summary>Tags used by WanderNode to filter which POIs this agent type will visit.</summary>
 		public string[] Tags => tags;
 
-		[SerializeField] private string[] tags;
-		[SerializeField] private string actionKey;
+		[SerializeField, ConstDropdown(typeof(IPOITags))] private string[] tags;
+		[SerializeField, ConstDropdown(typeof(IActIdentifiers), true)] private string actionKey;
 		[SerializeField] private float dwellTimeMin = 5f;
 		[SerializeField] private float dwellTimeMax = 15f;
 
@@ -77,6 +78,24 @@ namespace SpaxUtils
 			}
 
 			return true;
+		}
+
+		public string GetString()
+		{
+			return $"POI \"{gameObject.name}\", tags=[{tags.Join()}], actionKey={actionKey}, occupied={IsOccupied}, occupant={occupant.ID}";
+		}
+
+		protected virtual void OnDrawGizmos()
+		{
+			Gizmos.matrix = transform.localToWorldMatrix;
+			Gizmos.color = Color.red;
+			Gizmos.DrawSphere(Vector3.zero, 0.1f);
+			Gizmos.color = Color.blue;
+			Gizmos.DrawLine(Vector3.zero, Vector3.forward * 0.5f);
+			Gizmos.color = Color.yellow;
+			Gizmos.DrawWireSphere(Vector3.zero, 0.5f);
+			Gizmos.color = Color.blue;
+			Gizmos.DrawCube(Vector3.forward * 0.5f, Vector3.one * 0.1f);
 		}
 	}
 }
