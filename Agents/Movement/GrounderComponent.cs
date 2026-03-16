@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
 
 namespace SpaxUtils
@@ -59,12 +58,19 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
+		/// Invoked when the agent transitions from airborne to grounded.
+		/// Parameter is the peak downward speed (m/s) recorded during the current fall phase.
+		/// Peak resets whenever the agent gains upward velocity (double jump, ability, etc).
+		/// </summary>
+		public event Action<float> LandedEvent;
+
+		/// <summary>
 		/// Whether this entity should ground itself.
 		/// </summary>
 		public bool Ground { get; set; } = true;
 
 		/// <summary>
-		/// Returns true when the entity is touching the ground.
+		/// Returns true when the entity is touching the ground or within the coyote grace period.
 		/// </summary>
 		public bool Grounded { get; private set; }
 
@@ -79,39 +85,49 @@ namespace SpaxUtils
 		public CompositeFloat Gravity { get; private set; }
 
 		/// <summary>
-		/// Normal vector of the average surface normal.
+		/// Normal vector of the average surface normal (from geometry faces).
 		/// </summary>
 		public Vector3 SurfaceNormal { get; private set; }
 
 		/// <summary>
-		/// Normalized slope of the average surface normal.
+		/// Normalized slope of the average surface normal (0 = flat, 1 = vertical).
 		/// </summary>
 		public float SurfaceSlope { get; private set; }
 
 		/// <summary>
-		/// The grip on the current surface.
-		/// When too low, <see cref="Sliding"/> will be true.
+		/// Returns true when the agent is actively sliding down a slope.
+		/// Uses a static/dynamic friction model: static friction must be overcome to start sliding,
+		/// and dynamic friction (lower) must slow the agent enough to stop.
+		/// Stairs are detected via surface-terrain slope divergence and excluded from sliding.
 		/// </summary>
-		public float Traction { get; private set; }
+		public bool Sliding => Grounded && isSliding;
 
 		/// <summary>
-		/// Returns true when the entity is unable to move due to too low <see cref="Traction"/>.
+		/// Smooth 0-1 value representing sliding intensity.
+		/// Transitions softly around slide start and recovery thresholds.
+		/// Useful for animation blending and force interpolation.
 		/// </summary>
-		public bool Sliding => Grounded && Traction <= slidingThreshold;
+		public float SlidingAmount { get; private set; }
 
 		/// <summary>
-		/// Normal vector of the averaged terrain height.
+		/// The configured static friction angle in degrees.
+		/// Exposed for external consumers (e.g. movement handler braking authority).
+		/// </summary>
+		public float StaticFrictionAngle => staticFrictionAngle;
+
+		/// <summary>
+		/// Normal vector of the averaged terrain height (from hit point positions).
 		/// </summary>
 		public Vector3 TerrainNormal { get; private set; }
 
 		/// <summary>
-		/// Normalized slope of the average terrain height.
+		/// Normalized slope of the average terrain height (0 = flat, 1 = vertical).
 		/// </summary>
 		public float TerrainSlope { get; private set; }
 
 		/// <summary>
 		/// The ability to move on the current terrain.
-		/// Running down-hill may increase mobility, up-hill decrease. Stuff like walking in water may also decrease it.
+		/// Running down-hill may increase mobility, up-hill decrease.
 		/// </summary>
 		public float Mobility { get; private set; }
 
@@ -133,25 +149,56 @@ namespace SpaxUtils
 		[SerializeField] private LayerMask layerMask;
 		[SerializeField] private float gravity = 9.8f;
 		[SerializeField] private OptimizationSettings settings = new OptimizationSettings(1, 3, 5, 8, 16);
+
 		[Header("Grounding")]
 		[SerializeField] private float groundOffset = 1f;
 		[SerializeField] private float groundReach = 0.25f;
 		[SerializeField] private float groundRadius = 0.2f;
-		[SerializeField] private float jumpThreshold = 4f;
+		[SerializeField] private float jumpThreshold = 2.5f;
+		[SerializeField, Tooltip("Seconds the agent stays grounded after losing ground contact.")]
+		private float coyoteTime = 0.1f;
+
 		[Header("Stepping")]
 		[SerializeField] private float stepHeight = 1f;
-		[SerializeField] private Vector2 stepRadius = new Vector2(0.25f, 0.25f);
+		[SerializeField] private Vector2 stepRadius = new Vector2(0.5f, 0.5f);
 		[SerializeField, Range(0f, 20f)] private float stepSmooth = 20f;
-		[Header("Traction")]
-		[SerializeField, Range(0f, 20f)] private float normalSmoothing = 5f;
-		[SerializeField, Range(0f, 90f)] private float maxSurfaceAngle = 90f;
-		[SerializeField, Range(0f, 2f)] private float traction = 1f;
-		[SerializeField] private AnimationCurve tractionCurve = new AnimationCurve(new Keyframe(0f, 0f), new Keyframe(1f, 1f));
-		[SerializeField, Range(0f, 1f)] private float slidingThreshold = 0f;
-		[Header("Mobility")]
-		[SerializeField, Range(0f, 90f)] private float maxTerrainAngle = 90f;
+
+		[Header("Surface & Mobility")]
+		[SerializeField, Range(0f, 20f)] private float normalSmoothing = 12.5f;
+		[SerializeField, Range(0f, 90f)] private float maxTerrainAngle = 60f;
 		[SerializeField, Range(0f, 2f)] private float mobility = 1f;
 		[SerializeField] private AnimationCurve mobilityCurve = new AnimationCurve(new Keyframe(0f, 0f), new Keyframe(1f, 1f));
+		[SerializeField, Range(0f, 20f), Tooltip("How quickly mobility increases (easier terrain).")]
+		private float mobilityRampUp = 10f;
+		[SerializeField, Range(0f, 20f), Tooltip("How slowly mobility decreases (harder terrain). Lower = lazier.")]
+		private float mobilityRampDown = 3f;
+
+		[Header("Sliding (Static/Dynamic Friction)")]
+		[SerializeField, Range(0f, 90f), Tooltip("Terrain angle above which static friction is overcome and sliding begins.")]
+		private float staticFrictionAngle = 40f;
+		[SerializeField, Range(0f, 90f), Tooltip("Terrain angle below which the agent can recover from sliding.")]
+		private float dynamicFrictionAngle = 25f;
+		[SerializeField, Range(0f, 1f), Tooltip("Friction coefficient while sliding. Lower = more slippery.")]
+		private float dynamicFriction = 0.3f;
+		[SerializeField, Tooltip("Slide speed below which the agent can stop sliding (when terrain is below dynamic friction angle).")]
+		private float slideExitSpeed = 0.5f;
+		[SerializeField, Range(0f, 1f), Tooltip("How much horizontal speed (m/s, normalized) contributes to breaking static friction. " +
+			"High speed on a moderate slope can cause a slip.")]
+		private float speedSlideContribution = 0.1f;
+		[SerializeField, Range(0f, 1f), Tooltip("Minimum divergence between surface and terrain slope to detect stairs. " +
+			"When divergence exceeds this, the terrain is treated as stairs and sliding is suppressed.")]
+		private float stairDivergenceThreshold = 0.2f;
+		[SerializeField, Range(0f, 20f), Tooltip("How quickly SlidingAmount ramps up when entering a slide.")]
+		private float slidingRampUp = 10f;
+		[SerializeField, Range(0f, 20f), Tooltip("How slowly SlidingAmount ramps down when exiting a slide.")]
+		private float slidingRampDown = 4f;
+
+		[Header("Landing Impact")]
+		[SerializeField, Tooltip("Minimum falling speed (m/s) before horizontal velocity is absorbed on landing.")]
+		private float impactAbsorptionMinSpeed = 3f;
+		[SerializeField, Tooltip("Falling speed (m/s) at which all horizontal velocity is absorbed on landing.")]
+		private float impactAbsorptionMaxSpeed = 10f;
+
 		[Header("Debug")]
 		[SerializeField] private bool debug;
 		[SerializeField, Conditional(nameof(debug))] private float debugSize = 0.25f;
@@ -162,6 +209,19 @@ namespace SpaxUtils
 		private RaycastHit groundedHit;
 		private Vector3[] stepPoints;
 		private Vector3[] stepNormals;
+
+		// Landing detection.
+		private bool wasGrounded = true;
+		private float peakFallingSpeed;
+		private bool landedThisFrame;
+
+		// Coyote time.
+		private bool groundContact;
+		private float airborneTimer;
+
+		// Sliding state.
+		private bool isSliding;
+		private bool wasSliding;
 
 		public void InjectDependencies(RigidbodyWrapper rigidbodyWrapper, IAgent agent)
 		{
@@ -180,8 +240,10 @@ namespace SpaxUtils
 		protected void FixedUpdate()
 		{
 			GroundCheck();
+			DetectLanding();
 			StepCheck();
-			CalculateTraction();
+			CalculateSurface();
+			UpdateSlidingState();
 			ApplyForces();
 			BlockActor();
 			CheckIfSafe();
@@ -189,18 +251,85 @@ namespace SpaxUtils
 
 		private void GroundCheck()
 		{
-			Grounded = false;
+			groundContact = false;
 			GroundedAmount = 0f;
 			Vector3 origin = rigidbodyWrapper.Position + rigidbodyWrapper.Up * groundOffset;
 			if (Physics.SphereCast(origin, groundRadius, -rigidbodyWrapper.Up, out groundedHit, groundOffset + groundReach, layerMask))
 			{
-				Grounded = true;
+				groundContact = true;
 				GroundedAmount = Mathf.Clamp01((groundedHit.distance - groundOffset) / groundReach).Invert();
 				if (debug)
 				{
 					Debug.DrawLine(origin, groundedHit.point, Color.red);
 				}
 			}
+
+			// Coyote time: stay grounded for a short duration after losing ground contact.
+			if (groundContact)
+			{
+				airborneTimer = 0f;
+				Grounded = true;
+			}
+			else if (Grounded)
+			{
+				airborneTimer += Time.fixedDeltaTime;
+				if (airborneTimer > coyoteTime || rigidbodyWrapper.Velocity.y > jumpThreshold)
+				{
+					// Grace period expired, or agent is jumping upward.
+					Grounded = false;
+				}
+			}
+		}
+
+		/// <summary>
+		/// Detects the transition from airborne to grounded and fires <see cref="LandedEvent"/>.
+		/// Tracks peak downward speed while airborne to provide reliable impact data
+		/// even if physics collision resolution zeroes out velocity before detection.
+		/// Peak resets when the agent gains upward velocity (double jump, slow-fall ability, etc).
+		/// Uses raw ground contact, not coyote-grounded, for accurate landing detection.
+		/// </summary>
+		private void DetectLanding()
+		{
+			landedThisFrame = false;
+
+			if (!groundContact)
+			{
+				float verticalSpeed = rigidbodyWrapper.Velocity.y;
+
+				if (verticalSpeed > 0f)
+				{
+					// Agent is moving upward (jumped, double jumped, ability, etc).
+					// Reset peak so only the current fall phase counts.
+					peakFallingSpeed = 0f;
+				}
+				else
+				{
+					// Track peak downward speed while falling.
+					float downSpeed = -verticalSpeed;
+					if (downSpeed > peakFallingSpeed)
+					{
+						peakFallingSpeed = downSpeed;
+					}
+				}
+			}
+			else if (!wasGrounded)
+			{
+				// Just transitioned from airborne to grounded.
+				// Absorb horizontal velocity proportional to impact severity.
+				float severity = Mathf.InverseLerp(impactAbsorptionMinSpeed, impactAbsorptionMaxSpeed, peakFallingSpeed);
+				if (severity > 0f)
+				{
+					Vector3 vel = rigidbodyWrapper.Velocity;
+					Vector3 horizontal = new Vector3(vel.x, 0f, vel.z);
+					rigidbodyWrapper.Velocity = vel - horizontal * Mathf.Clamp01(severity);
+				}
+
+				landedThisFrame = true;
+				LandedEvent?.Invoke(peakFallingSpeed);
+				peakFallingSpeed = 0f;
+			}
+
+			wasGrounded = groundContact;
 		}
 
 		private void StepCheck()
@@ -230,12 +359,27 @@ namespace SpaxUtils
 				return;
 			}
 
-			// Calculate surface (traction)
-			stepNormals = hits.Select(h => h.normal).ToArray();
+			// Calculate surface normals.
+			int hitCount = hits.Count;
+			if (stepNormals == null || stepNormals.Length != hitCount)
+			{
+				stepNormals = new Vector3[hitCount];
+			}
+			for (int i = 0; i < hitCount; i++)
+			{
+				stepNormals[i] = hits[i].normal;
+			}
 			SurfaceNormal = Vector3.Slerp(SurfaceNormal, stepNormals.AverageDirection(), normalSmoothing * Time.fixedDeltaTime);
 
-			// Calculate terrain (mobility)
-			stepPoints = hits.Select(h => h.point).ToArray();
+			// Calculate terrain points (mobility).
+			if (stepPoints == null || stepPoints.Length != hitCount)
+			{
+				stepPoints = new Vector3[hitCount];
+			}
+			for (int i = 0; i < hitCount; i++)
+			{
+				stepPoints[i] = hits[i].point;
+			}
 			TerrainNormal = Vector3.Slerp(TerrainNormal, stepPoints.ApproxNormalFromPoints(rigidbodyWrapper.Up,
 				out Vector3 center, debug, debugSize), normalSmoothing * Time.fixedDeltaTime);
 
@@ -248,43 +392,125 @@ namespace SpaxUtils
 			if (debug)
 			{
 				Debug.DrawRay(StepPoint, TerrainNormal * debugSize, Color.magenta);
-
-				//foreach (RaycastHit hit in hits)
-				//{
-				//	Debug.DrawLine(origin, hit.point, Color.blue);
-				//}
 			}
 		}
 
-		private void CalculateTraction()
+		/// <summary>
+		/// Calculates surface slope, terrain slope, and mobility.
+		/// Mobility includes a directional component: going downhill on steep terrain
+		/// is easier than going uphill.
+		/// </summary>
+		private void CalculateSurface()
 		{
 			if (!Grounded)
 			{
-				Traction = 0f;
 				SurfaceSlope = 0f;
 				Mobility = 0f;
 				TerrainSlope = 0f;
 				return;
 			}
 
-			// Walk slowly up and down stairs.
-			//		Decrease mobility depending on slope.
-			// Walk slowly up slopes and increasingly fast down.
-			//		Decrease traction depending on slope.
-			//		Lower traction should increase downwards slope speed over time.
-
-			// Traction
+			// Surface slope (from geometry faces, noisy on stairs/detail).
 			float surfaceAngle = Vector3.Angle(rigidbodyWrapper.Up, SurfaceNormal);
-			Traction = tractionCurve.Evaluate(Mathf.Clamp01(surfaceAngle / maxSurfaceAngle * traction).Invert());
 			SurfaceSlope = Mathf.Clamp01(surfaceAngle / 90f);
 
-			// Mobility
+			// Terrain slope (from hit point positions, stable across stair geometry).
 			float terrainAngle = Vector3.Angle(rigidbodyWrapper.Up, TerrainNormal);
-			Mobility = mobilityCurve.Evaluate(Mathf.Clamp01(terrainAngle / maxTerrainAngle * mobility).Invert());
+			float targetMobility = mobilityCurve.Evaluate(Mathf.Clamp01(terrainAngle / maxTerrainAngle * mobility).Invert());
 			TerrainSlope = Mathf.Clamp01(terrainAngle / 90f);
 
-			// Down-slope
-			Mobility += Mathf.Clamp01((1f - Traction) * rigidbodyWrapper.Forward.Dot(SurfaceNormal));
+			// Directional mobility: going downhill is easier, going uphill is harder.
+			// Scaled by base mobility so the penalty doesn't create a dead zone
+			// when the mobility curve has already reduced movement.
+			Vector3 downhill = Vector3.ProjectOnPlane(Vector3.down, TerrainNormal).normalized;
+			Vector3 flatVel = rigidbodyWrapper.Velocity.FlattenY();
+			if (flatVel.magnitude > 0.1f && downhill.magnitude > 0.01f)
+			{
+				float downhillDot = Vector3.Dot(flatVel.normalized, downhill.FlattenY().normalized);
+				if (downhillDot > 0f)
+				{
+					// Downhill: boost mobility.
+					targetMobility += downhillDot * TerrainSlope;
+				}
+				else
+				{
+					// Uphill: reduce mobility, but only proportional to remaining mobility
+					// to avoid a dead zone where the agent can't move at all yet can't slide either.
+					targetMobility *= 1f + downhillDot * TerrainSlope;
+					targetMobility = Mathf.Max(0.05f, targetMobility);
+				}
+			}
+
+			// Asymmetric smoothing: mobility increases quickly (stepping onto easier terrain)
+			// but decreases slowly (absorbs jitter from stairs, debris, uneven ground).
+			float speed = targetMobility > Mobility ? mobilityRampUp : mobilityRampDown;
+			Mobility = Mathf.Lerp(Mobility, targetMobility, speed * Time.fixedDeltaTime);
+		}
+
+		/// <summary>
+		/// Static/dynamic friction model for sliding.
+		/// Static friction (high threshold) must be overcome to start sliding.
+		/// Dynamic friction (low threshold) keeps the agent sliding until they slow down enough
+		/// on sufficiently flat terrain.
+		/// Stairs are detected via surface-terrain slope divergence: when surface slope is much higher
+		/// than terrain slope, the geometry is stairs/detail and sliding is suppressed.
+		/// </summary>
+		private void UpdateSlidingState()
+		{
+			wasSliding = isSliding;
+
+			if (!Grounded)
+			{
+				isSliding = false;
+				SlidingAmount = 0f;
+				return;
+			}
+
+			float terrainAngle = Vector3.Angle(rigidbodyWrapper.Up, TerrainNormal);
+
+			// Stair detection: if surface slope diverges significantly from terrain slope,
+			// the agent is on stairs or detailed geometry and should not slide.
+			// On a real slope, surface and terrain slopes are roughly equal.
+			// On stairs, surface slope is much higher (risers are near vertical).
+			float slopeDivergence = SurfaceSlope - TerrainSlope;
+			bool isStairs = slopeDivergence > stairDivergenceThreshold;
+
+			if (!isSliding)
+			{
+				// Cannot enter sliding on stairs.
+				if (!isStairs)
+				{
+					// Check if static friction is overcome.
+					// Horizontal speed contributes: running fast across a steep slope can break traction.
+					float horizontalSpeed = rigidbodyWrapper.Velocity.FlattenY().magnitude;
+					float effectiveAngle = terrainAngle + horizontalSpeed * speedSlideContribution;
+					if (effectiveAngle > staticFrictionAngle)
+					{
+						isSliding = true;
+					}
+				}
+			}
+			else
+			{
+				// Already sliding. Exit if on stairs, or if terrain is flat enough and speed is low.
+				if (isStairs)
+				{
+					isSliding = false;
+				}
+				else
+				{
+					float slideSpeed = rigidbodyWrapper.Velocity.ProjectOnPlane(TerrainNormal).magnitude;
+					if (terrainAngle < dynamicFrictionAngle && slideSpeed < slideExitSpeed)
+					{
+						isSliding = false;
+					}
+				}
+			}
+
+			// Smooth SlidingAmount toward target.
+			float target = isSliding ? 1f : 0f;
+			float rampSpeed = target > SlidingAmount ? slidingRampUp : slidingRampDown;
+			SlidingAmount = Mathf.MoveTowards(SlidingAmount, target, rampSpeed * Time.fixedDeltaTime);
 		}
 
 		private void ApplyForces()
@@ -296,21 +522,42 @@ namespace SpaxUtils
 
 			if (Grounded && rigidbodyWrapper.Velocity.y < jumpThreshold)
 			{
-				if (Sliding)
+				if (isSliding)
 				{
-					// Slide down slope.
-					Vector3 slidingForce = (Vector3.down * Gravity).ProjectOnPlane(TerrainNormal);
-					slidingForce *= Mathf.Clamp(1f + rigidbodyWrapper.Velocity.y * 10f, 1f, 10f); // Upward-sliding resistance.
-					rigidbodyWrapper.AddForce(slidingForce * SurfaceSlope, ForceMode.Acceleration);
+					// Gravity projected along slope surface (downslope acceleration).
+					Vector3 downslope = (Vector3.down * Gravity).ProjectOnPlane(TerrainNormal);
+					rigidbodyWrapper.AddForce(downslope, ForceMode.Acceleration);
+
+					// Dynamic friction opposing slide velocity.
+					Vector3 slideVelocity = rigidbodyWrapper.Velocity.ProjectOnPlane(TerrainNormal);
+					if (slideVelocity.magnitude > 0.01f)
+					{
+						float normalForce = Gravity * (1f - TerrainSlope);
+						Vector3 frictionForce = -slideVelocity.normalized * dynamicFriction * normalForce;
+						rigidbodyWrapper.AddForce(frictionForce, ForceMode.Acceleration);
+					}
 				}
-				else
+				else if (!landedThisFrame && !wasSliding)
 				{
 					// Disperse along terrain normal.
+					// Skipped on landing frame and slide-exit frame to prevent velocity spikes.
 					Vector3 movementDispersion = rigidbodyWrapper.Velocity.DisperseOnPlane(TerrainNormal) * Mobility;
 					rigidbodyWrapper.AddForce(movementDispersion, ForceMode.VelocityChange);
 				}
 
-				// Glue to ground.
+				// When not sliding, zero downward vertical velocity.
+				// While sliding, the agent needs vertical velocity to move along the slope.
+				// Does not affect jumping because jumps exceed jumpThreshold and skip this block.
+				if (!isSliding)
+				{
+					Vector3 vel = rigidbodyWrapper.Velocity;
+					if (vel.y < 0f)
+					{
+						rigidbodyWrapper.Velocity = new Vector3(vel.x, 0f, vel.z);
+					}
+				}
+
+				// Glue to ground. Always active while grounded to prevent floating off surfaces.
 				rigidbodyWrapper.Position = rigidbodyWrapper.Position.SetY(StepPoint.y + Elevation);
 			}
 			else
@@ -336,6 +583,8 @@ namespace SpaxUtils
 		{
 			if (Ground &&
 				Grounded &&
+				rigidbodyWrapper.Control.Value.Approx(1f) &&
+				TerrainSlope < 0.33f &&
 				!Sliding &&
 				GroundedAmount.Approx(1f) &&
 				!agent.Actor.Blocked)

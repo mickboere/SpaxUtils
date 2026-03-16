@@ -61,7 +61,7 @@ namespace SpaxUtils
 				}
 				else
 				{
-					ITargetable best = visionComponent.GetMostLikelyTarget(entityCollection.GetComponents<ITargetable>(agent));
+					ITargetable best = visionComponent.GetMostLikelyTarget(entityCollection.GetComponents<ITargetable>(agent), true);
 					if (best != null)
 					{
 						agent.Targeter.SetTarget(best);

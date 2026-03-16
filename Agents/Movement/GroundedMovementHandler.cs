@@ -212,20 +212,46 @@ namespace SpaxUtils
 							rigidbodyWrapper.Control * delta);
 					}
 				}
-				else if (grounder.SurfaceNormal != Vector3.up)
+				else
 				{
-					// Slope-sliding control.
-					Vector3 right = Vector3.Cross(Vector3.up, grounder.SurfaceNormal);
-					Vector3 downhill = right.Cross(grounder.SurfaceNormal);
-					Quaternion downQ = Quaternion.LookRotation(downhill, grounder.SurfaceNormal).Inverse();
-					float current = (downQ * rigidbodyWrapper.Velocity).x;
-					float target = (downQ * (Quaternion.LookRotation(InputAxis) * InputSmooth).ProjectOnPlane(downhill)).x;
-					float scale = (rigidbodyWrapper.Velocity.y * slideSpeedSteerDamp).Abs().Clamp01().InOutSine();
-					Vector3 force = right * current.CalculateForce(
-						target * moveSpeedStat * slideSteeringSpeed * scale,
-						power * EntityTimeScale * scale,
-						maxAcceleration * EntityTimeScale * scale);
-					rigidbodyWrapper.AddForce(force);
+					float terrainAngle = Vector3.Angle(Vector3.up, grounder.TerrainNormal);
+
+					// Braking authority: high on flat ground, zero at friction angle.
+					float brakingAuthority = Mathf.Clamp01(1f - terrainAngle / grounder.StaticFrictionAngle);
+
+					if (terrainAngle > 1f)
+					{
+						// On a slope: lateral steering perpendicular to the downhill direction.
+						Vector3 right = Vector3.Cross(Vector3.up, grounder.TerrainNormal);
+						Vector3 downhill = right.Cross(grounder.TerrainNormal);
+						Quaternion downQ = Quaternion.LookRotation(downhill, grounder.TerrainNormal).Inverse();
+						float current = (downQ * rigidbodyWrapper.Velocity).x;
+						float target = (downQ * (Quaternion.LookRotation(InputAxis) * InputSmooth).ProjectOnPlane(downhill)).x;
+						float scale = (rigidbodyWrapper.Velocity.y * slideSpeedSteerDamp).Abs().Clamp01().InOutSine();
+						Vector3 force = right * current.CalculateForce(
+							target * moveSpeedStat * slideSteeringSpeed * scale,
+							power * EntityTimeScale * scale,
+							maxAcceleration * EntityTimeScale * scale);
+						rigidbodyWrapper.AddForce(force);
+					}
+
+					// Braking only. No acceleration - gravity handles downslope speed.
+					// Clamp input to non-sprint magnitude so sprint cannot sustain a slide.
+					if (brakingAuthority > 0.01f)
+					{
+						Vector3 clampedInput = InputSmooth.ClampMagnitude(1f);
+						Vector3 brakeTarget = clampedInput == Vector3.zero
+							? Vector3.zero
+							: Quaternion.LookRotation(InputAxis) *
+							  clampedInput.normalized *
+							  CalculateSpeed(clampedInput.magnitude);
+						rigidbodyWrapper.ApplyMovement(
+							brakeTarget,
+							0f,
+							maxDeceleration * brakingAuthority,
+							power * brakingAuthority,
+							ignoreControl);
+					}
 				}
 			}
 

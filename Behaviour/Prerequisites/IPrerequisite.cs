@@ -2,6 +2,6 @@
 {
 	public interface IPrerequisite
 	{
-        bool IsMet(IDependencyManager dependencies);
+		bool IsMet(IDependencyManager dependencies);
 	}
 }
