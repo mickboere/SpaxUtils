@@ -167,7 +167,7 @@ namespace SpiritAxis
 			// Grip is now directional alignment, so low grip = opposing velocity = skid.
 			float speed = rigidbodyWrapper.Velocity.FlattenY().magnitude;
 			float speedFactor = Mathf.Clamp01(speed / movementHandler.FullSpeed);
-			float skidTarget = rigidbodyWrapper.Grip.InvertClamped() * speedFactor;
+			float skidTarget = rigidbodyWrapper.Grip.InvertClamped().OutQuad() * speedFactor;
 
 			// Fast ramp up, slow decay for visual linger.
 			if (skidTarget > skidAmount)

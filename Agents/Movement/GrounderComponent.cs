@@ -161,7 +161,7 @@ namespace SpaxUtils
 		[SerializeField] private float groundOffset = 1f;
 		[SerializeField] private float groundReach = 0.25f;
 		[SerializeField] private float groundRadius = 0.2f;
-		[SerializeField] private float jumpThreshold = 2.5f;
+		[SerializeField] private float flyThreshold = 2.5f;
 		[SerializeField, Tooltip("Seconds the agent stays grounded after losing ground contact.")]
 		private float coyoteTime = 0.1f;
 
@@ -212,11 +212,6 @@ namespace SpaxUtils
 		[SerializeField] private bool debug;
 		[SerializeField, Conditional(nameof(debug))] private float debugSize = 0.25f;
 
-		[Header("Jumping")]
-		[SerializeField, Tooltip("Seconds after jumping before the agent transitions from jump to fall state. " +
-			"Prevents short hops from showing the falling animation.")]
-		private float jumpToFallTime = 0.5f;
-
 		private RigidbodyWrapper rigidbodyWrapper;
 		private IAgent agent;
 
@@ -238,9 +233,6 @@ namespace SpaxUtils
 		// Sliding state.
 		private bool isSliding;
 		private bool wasSliding;
-
-		// Jump tracking.
-		private float jumpTimer;
 
 		public void InjectDependencies(RigidbodyWrapper rigidbodyWrapper, IAgent agent)
 		{
@@ -284,7 +276,13 @@ namespace SpaxUtils
 			}
 
 			// Coyote time: stay grounded for a short duration after losing ground contact.
-			if (groundContact)
+			// IsJumping bypasses grounding so the agent always leaves the ground.
+			// Safe because UpdateJumpState clears IsJumping the moment velocity.y < 0.
+			if (IsJumping)
+			{
+				Grounded = false;
+			}
+			else if (groundContact)
 			{
 				airborneTimer = 0f;
 				Grounded = true;
@@ -292,9 +290,9 @@ namespace SpaxUtils
 			else if (Grounded)
 			{
 				airborneTimer += Time.fixedDeltaTime;
-				if (airborneTimer > coyoteTime || rigidbodyWrapper.Velocity.y > jumpThreshold)
+				if (airborneTimer > coyoteTime || rigidbodyWrapper.Velocity.y > flyThreshold)
 				{
-					// Grace period expired, or agent is jumping upward.
+					// Grace period expired or moving upward fast enough (external force).
 					Grounded = false;
 				}
 			}
@@ -370,7 +368,6 @@ namespace SpaxUtils
 				peakFallingSpeed = 0f;
 				airborneDuration = 0f;
 				IsJumping = false;
-				jumpTimer = 0f;
 				isLandingTransition = false;
 			}
 
@@ -587,7 +584,7 @@ namespace SpaxUtils
 				return;
 			}
 
-			if (Grounded && rigidbodyWrapper.Velocity.y < jumpThreshold)
+			if (Grounded && !IsJumping && rigidbodyWrapper.Velocity.y < flyThreshold)
 			{
 				if (isSliding)
 				{
@@ -663,15 +660,35 @@ namespace SpaxUtils
 		/// <param name="force">Jump force vector (direction and magnitude).</param>
 		public void Jump(Vector3 force)
 		{
-			rigidbodyWrapper.AddForce(force, ForceMode.VelocityChange);
+			// Convert force to velocity (F=ma -> v=F/m) so heavier agents jump lower.
+			Vector3 jumpVelocity = force / rigidbodyWrapper.Mass;
+
+			// Decompose into vertical and horizontal.
+			// Vertical always applies fully. Horizontal goes through Push
+			// so it won't exceed current sprint speed.
+			Vector3 vertical = new Vector3(0f, jumpVelocity.y, 0f);
+			Vector3 horizontal = new Vector3(jumpVelocity.x, 0f, jumpVelocity.z);
+
+			// Zero negative vertical velocity before jumping so downhill slide speed
+			// doesn't eat into the upward force.
+			Vector3 vel = rigidbodyWrapper.Velocity;
+			if (vel.y < 0f)
+			{
+				rigidbodyWrapper.Velocity = new Vector3(vel.x, 0f, vel.z);
+			}
+
+			rigidbodyWrapper.AddForce(vertical, ForceMode.VelocityChange);
+			if (horizontal.sqrMagnitude > 0.01f)
+			{
+				rigidbodyWrapper.Push(horizontal);
+			}
+
 			IsJumping = true;
-			jumpTimer = 0f;
 		}
 
 		/// <summary>
 		/// Tracks the jump-to-fall transition.
-		/// IsJumping stays true for short hops (preventing the flying blend tree from appearing).
-		/// Transitions to false after <see cref="jumpToFallTime"/> has elapsed AND velocity is negative.
+		/// IsJumping clears when vertical velocity goes negative (agent starts descending).
 		/// </summary>
 		private void UpdateJumpState()
 		{
@@ -680,12 +697,7 @@ namespace SpaxUtils
 				return;
 			}
 
-			jumpTimer += Time.fixedDeltaTime;
-
-			// Only transition to falling after both conditions are met:
-			// 1. Timer expired (prevents short hops from showing fall animation).
-			// 2. Actually falling (velocity.y < 0).
-			if (jumpTimer > jumpToFallTime && rigidbodyWrapper.Velocity.y < 0f)
+			if (rigidbodyWrapper.Velocity.y < 0f)
 			{
 				IsJumping = false;
 			}

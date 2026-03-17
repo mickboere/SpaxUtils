@@ -12,11 +12,11 @@ namespace SpaxUtils
 	public class JumpManeuverBehaviourAsset : BaseCombatMoveBehaviourAsset
 	{
 		[Header("Jump Force")]
-		[SerializeField, Tooltip("Minimum jump force applied on tap (no charge).")]
-		private float minForce = 5f;
+		[SerializeField, Tooltip("Minimum jump force applied on tap (no charge). Divided by mass for velocity.")]
+		private float minForce = 500f;
 
-		[SerializeField, Tooltip("Maximum jump force applied at full charge.")]
-		private float maxForce = 12f;
+		[SerializeField, Tooltip("Maximum jump force applied at full charge. Divided by mass for velocity.")]
+		private float maxForce = 1200f;
 
 		[SerializeField, Range(0f, 1f), Tooltip("How much input direction influences the jump angle. " +
 			"0 = pure surface normal, 1 = fully steered by input.")]
@@ -145,6 +145,19 @@ namespace SpaxUtils
 			if (movementHandler.InputSmooth.sqrMagnitude > 0.01f)
 			{
 				inputDir = Quaternion.LookRotation(movementHandler.InputAxis) * movementHandler.InputSmooth.normalized;
+
+				// When sliding, strip the uphill component from input so the player
+				// can steer laterally and downhill but can't jump up the slope.
+				if (grounder.Sliding)
+				{
+					Vector3 downhill = Vector3.ProjectOnPlane(Vector3.down, grounder.TerrainNormal).normalized;
+					Vector3 uphill = -downhill;
+					float uphillDot = Vector3.Dot(inputDir, uphill);
+					if (uphillDot > 0f)
+					{
+						inputDir -= uphill * uphillDot;
+					}
+				}
 			}
 
 			Vector3 jumpDirection;

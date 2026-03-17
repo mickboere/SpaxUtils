@@ -615,11 +615,13 @@ namespace SpaxUtils
 
 		/// <summary>
 		/// Calculates the effective change in velocity of pushing on a moving object.
+		/// Only affects velocity along the push direction; perpendicular velocity is untouched.
+		/// A push has no effect if the object is already moving faster than the push in that direction.
 		/// </summary>
 		/// <param name="current">The current velocity of the object being pushed.</param>
 		/// <param name="push">The velocity with which to push on the object.</param>
-		/// <param name="effect">The resulting effectiveness of the push.</param>
-		/// <returns>The effective change in velocity.</returns>
+		/// <param name="effect">The resulting effectiveness of the push (0-1).</param>
+		/// <returns>The effective change in velocity, aligned to the push direction.</returns>
 		public static Vector3 CalculatePush(this Vector3 current, Vector3 push, out float effect)
 		{
 			if (push == Vector3.zero)
@@ -628,9 +630,22 @@ namespace SpaxUtils
 				return Vector3.zero;
 			}
 
-			Vector3 diff = (push - current);
-			effect = push.normalized.NormalizedDot(diff.normalized);
-			return diff * effect;
+			Vector3 pushDir = push.normalized;
+			float pushMag = push.magnitude;
+
+			// Project current velocity onto the push direction.
+			float currentAlongPush = Vector3.Dot(current, pushDir);
+
+			// Only push if faster than what's already there in that direction.
+			float needed = pushMag - currentAlongPush;
+			if (needed <= 0f)
+			{
+				effect = 0f;
+				return Vector3.zero;
+			}
+
+			effect = needed / pushMag;
+			return pushDir * needed;
 		}
 
 		/// <summary>
