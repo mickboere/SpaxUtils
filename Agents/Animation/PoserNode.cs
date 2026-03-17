@@ -244,6 +244,10 @@ namespace SpiritAxis
 				landingWeight = landingSeverity * (1f - Mathf.Clamp01(fadeProgress));
 			}
 
+			// Scale by GroundedAmount so landing pose blends in as the agent settles
+			// instead of snapping when the ground check first enters range.
+			landingWeight *= grounder.GroundedAmount;
+
 			// Reduce movement control proportional to landing weight.
 			float control = 1f - (landingWeight * moveset.LandingControlReduction);
 			landingControlMod?.SetValue(control);

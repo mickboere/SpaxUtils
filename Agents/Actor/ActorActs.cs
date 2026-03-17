@@ -12,6 +12,7 @@
 		public const string LIGHT = "Light";
 		public const string HEAVY = "Heavy";
 
+		public const string JUMP = "Jump";
 		public const string DASH = "Dash";
 	}
 }

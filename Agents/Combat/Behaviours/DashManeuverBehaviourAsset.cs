@@ -5,7 +5,7 @@ using UnityEngine;
 namespace SpaxUtils
 {
 	[CreateAssetMenu(fileName = nameof(DashManeuverBehaviourAsset), menuName = "Performance/Behaviour/" + nameof(DashManeuverBehaviourAsset))]
-	public class DashManeuverBehaviourAsset : CorePerformanceMoveBehaviourAsset, IPrerequisite
+	public class DashManeuverBehaviourAsset : CorePerformanceMoveBehaviourAsset
 	{
 		protected float DashSpeed => dashSpeed * (dashSpeedStat ?? 1f);
 		protected float DashDuration => dashDistance / DashSpeed;
@@ -42,8 +42,13 @@ namespace SpaxUtils
 		private Vector3 direction;
 		private ContinuousShakeSource shakeSource;
 
-		public bool IsMet(IDependencyManager dependencies)
+		public override bool IsMet(IDependencyManager dependencies)
 		{
+			if (!base.IsMet(dependencies))
+			{
+				return false;
+			}
+
 			return dependencies.TryGet(out AgentStatHandler statHandler) &&
 				!statHandler.PointStats.E.IsRecoveringFromZero;
 		}

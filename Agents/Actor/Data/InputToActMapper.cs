@@ -4,19 +4,21 @@ namespace SpaxUtils
 {
 	/// <summary>
 	/// Instanced helper class that uses an <see cref="InputToActMapping"/> to map boolean input to actor acts.
+	/// Optionally checks brain state via a delegate before sending acts.
 	/// </summary>
 	public class InputToActMapper : IDisposable
 	{
 		private IActor actor;
 		private InputToActMapping mapping;
-
+		private Func<string, bool> stateChecker;
 		private bool holding;
 		private Action<IPerformer> callback;
 
-		public InputToActMapper(IActor actor, InputToActMapping mapping)
+		public InputToActMapper(IActor actor, InputToActMapping mapping, Func<string, bool> stateChecker = null)
 		{
 			this.actor = actor;
 			this.mapping = mapping;
+			this.stateChecker = stateChecker;
 		}
 
 		public void Send(bool input, Action<IPerformer> callback = null)
@@ -33,7 +35,7 @@ namespace SpaxUtils
 
 		public void Hold(Action<IPerformer> callback = null)
 		{
-			if (!holding)
+			if (!holding && IsStateValid())
 			{
 				this.callback = callback;
 				holding = true;
@@ -67,6 +69,23 @@ namespace SpaxUtils
 		private Act<bool> NewAct(bool value, Action<IPerformer> callback = null)
 		{
 			return new Act<bool>(mapping, value, callback);
+		}
+
+		/// <summary>
+		/// Checks whether the mapping's required state is currently active.
+		/// Returns true if no state is required or no state checker is available.
+		/// </summary>
+		private bool IsStateValid()
+		{
+			if (string.IsNullOrEmpty(mapping.State))
+			{
+				return true;
+			}
+			if (stateChecker == null)
+			{
+				return true;
+			}
+			return stateChecker(mapping.State);
 		}
 	}
 }

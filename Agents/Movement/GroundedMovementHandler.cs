@@ -98,6 +98,14 @@ namespace SpaxUtils
 		[SerializeField] protected float slideSteeringSpeed = 4f;
 		[SerializeField, Range(0f, 1f)] protected float slideSpeedSteerDamp = 0.2f;
 
+		[Header("Air Control")]
+		[SerializeField, Tooltip("Maximum air control force. Actual force is scaled by the agent's air control stat.")]
+		protected float airControlForce = 500f;
+		[SerializeField, Tooltip("Air control responsiveness.")]
+		protected float airControlPower = 10f;
+		[SerializeField, ConstDropdown(typeof(IStatIdentifiers)), Tooltip("Stat that scales air control. 0 = no control, 1 = full control.")]
+		protected string airControlStat;
+
 		[Header("Debugging")]
 		[SerializeField] protected bool debug;
 
@@ -110,6 +118,7 @@ namespace SpaxUtils
 		protected MovementInputHelper inputHelper;
 		protected EntityStat moveSpeedStat;
 		protected EntityStat recoveryStat;
+		protected EntityStat airControlStatValue;
 		protected FloatOperationModifier recoveryMod;
 
 		public void InjectDependencies(
@@ -125,6 +134,10 @@ namespace SpaxUtils
 
 			moveSpeedStat = Agent.Stats.GetStat(AgentStatIdentifiers.MOVEMENT_SPEED, true, 1f);
 			recoveryStat = Agent.Stats.GetStat(AgentStatIdentifiers.RECOVERY, true, 1f);
+			if (!string.IsNullOrEmpty(airControlStat))
+			{
+				airControlStatValue = Agent.Stats.GetStat(airControlStat, true, 0f);
+			}
 		}
 
 		protected void OnEnable()
@@ -253,6 +266,18 @@ namespace SpaxUtils
 							ignoreControl);
 					}
 				}
+			}
+			else if (airControlStatValue != null && airControlStatValue > 0.01f && InputSmooth.sqrMagnitude > 0.01f)
+			{
+				// Airborne: apply air control force toward input direction, scaled by stat.
+				Vector3 airTarget = Quaternion.LookRotation(InputAxis) * InputSmooth.ClampMagnitude(1f) * FullSpeed * moveSpeedStat;
+				float control = Mathf.Clamp01(airControlStatValue);
+				rigidbodyWrapper.ApplyMovement(
+					airTarget,
+					airControlForce * control,
+					airControlForce * control * 0.5f,
+					airControlPower * control,
+					true);
 			}
 
 			if (debug)

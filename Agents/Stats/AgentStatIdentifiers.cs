@@ -138,6 +138,8 @@
 		public const string PLIANCY = BODY_AIR + "Pliancy"; // PHYSIC: The ability to roll with hits (crit glancing / impact padding).
 		public const string DASH_SPEED = BODY_AIR + "Dash_Speed"; // Speed of the initial dash burst.
 		public const string GLIDE_SPEED = BODY_AIR + "Glide_Speed"; // Speed of the gliding state (after dashing).
+		public const string JUMP_SPEED = BODY_AIR + "Jump_Speed"; // Speed multiplier of the jump performance.
+		public const string AIR_CONTROL = BODY_AIR + "Air_Control"; // Amount of air-control (0-1).
 
 		// Spirit
 		private const string BODY_SPIRIT = BODY_STAT + "SPIRIT/";

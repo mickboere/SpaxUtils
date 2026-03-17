@@ -60,7 +60,7 @@ namespace SpaxUtils
 		private List<object> blockers = new List<object>();
 
 		public Actor(string identifier, CallbackService callbackService, InputToActMap inputToActMap = null,
-			IEnumerable<IPerformer> performers = null) : base(identifier)
+			IEnumerable<IPerformer> performers = null, Func<string, bool> stateChecker = null) : base(identifier)
 		{
 			this.callbackService = callbackService;
 			callbackService.SubscribeUpdate(UpdateMode.Update, this, OnUpdate);
@@ -70,7 +70,7 @@ namespace SpaxUtils
 			{
 				foreach (InputToActMapping mapping in inputToActMap.Mappings)
 				{
-					inputMappers.Add(mapping.Title, new InputToActMapper(this, mapping));
+					inputMappers.Add(mapping.Title, new InputToActMapper(this, mapping, stateChecker));
 				}
 			}
 

@@ -110,6 +110,13 @@ namespace SpaxUtils
 		public float SlidingAmount { get; private set; }
 
 		/// <summary>
+		/// Whether the agent is in the jump phase (as opposed to falling).
+		/// True from the moment of jump until the jump-to-fall timer expires and velocity is negative.
+		/// Used by PoserNode to blend between jump and flying blend trees.
+		/// </summary>
+		public bool IsJumping { get; private set; }
+
+		/// <summary>
 		/// The configured static friction angle in degrees.
 		/// Exposed for external consumers (e.g. movement handler braking authority).
 		/// </summary>
@@ -205,6 +212,11 @@ namespace SpaxUtils
 		[SerializeField] private bool debug;
 		[SerializeField, Conditional(nameof(debug))] private float debugSize = 0.25f;
 
+		[Header("Jumping")]
+		[SerializeField, Tooltip("Seconds after jumping before the agent transitions from jump to fall state. " +
+			"Prevents short hops from showing the falling animation.")]
+		private float jumpToFallTime = 0.5f;
+
 		private RigidbodyWrapper rigidbodyWrapper;
 		private IAgent agent;
 
@@ -217,6 +229,7 @@ namespace SpaxUtils
 		private float peakFallingSpeed;
 		private bool landedThisFrame;
 		private float airborneDuration;
+		private bool isLandingTransition;
 
 		// Coyote time.
 		private bool groundContact;
@@ -225,6 +238,9 @@ namespace SpaxUtils
 		// Sliding state.
 		private bool isSliding;
 		private bool wasSliding;
+
+		// Jump tracking.
+		private float jumpTimer;
 
 		public void InjectDependencies(RigidbodyWrapper rigidbodyWrapper, IAgent agent)
 		{
@@ -244,11 +260,11 @@ namespace SpaxUtils
 		{
 			GroundCheck();
 			DetectLanding();
+			UpdateJumpState();
 			StepCheck();
 			CalculateSurface();
 			UpdateSlidingState();
 			ApplyForces();
-			BlockActor();
 			CheckIfSafe();
 		}
 
@@ -290,7 +306,9 @@ namespace SpaxUtils
 		/// even if physics collision resolution zeroes out velocity before detection.
 		/// Peak resets when the agent gains upward velocity (double jump, slow-fall ability, etc).
 		/// Impact is scaled by airborne duration to reduce false positives from slope transitions.
-		/// Uses raw ground contact, not coyote-grounded, for accurate landing detection.
+		/// Uses a two-phase landing: ground contact starts the transition, but the agent is not
+		/// truly "landed" until GroundedAmount exceeds 0.9. During the transition, physics handles
+		/// the descent with no snap or velocity zeroing.
 		/// </summary>
 		private void DetectLanding()
 		{
@@ -317,17 +335,24 @@ namespace SpaxUtils
 						peakFallingSpeed = downSpeed;
 					}
 				}
+
+				isLandingTransition = false;
 			}
 			else if (!wasGrounded)
 			{
-				// Just transitioned from airborne to grounded.
-				// Scale impact by surface alignment: flat ground = full impact, steep slope = glancing.
+				// First frame of ground contact after being airborne.
+				// Enter landing transition - don't fire event or snap yet.
+				isLandingTransition = true;
+			}
+
+			// Check if landing transition completes (truly settled on ground).
+			if (isLandingTransition && GroundedAmount > 0.9f)
+			{
+				// Truly landed. Fire event and apply landing effects.
 				float surfaceAlignment = Mathf.Clamp01(Vector3.Dot(groundedHit.normal, rigidbodyWrapper.Up));
 				float effectiveImpact = peakFallingSpeed * surfaceAlignment;
 
 				// Scale impact by airborne duration.
-				// Brief airborne moments (slope transitions, bumps) produce reduced impact.
-				// Real falls accumulate enough airborne time to reach full impact.
 				float airborneFactor = Mathf.Clamp01(airborneDuration / impactFullAirborneTime);
 				effectiveImpact *= airborneFactor;
 
@@ -344,6 +369,9 @@ namespace SpaxUtils
 				LandedEvent?.Invoke(effectiveImpact);
 				peakFallingSpeed = 0f;
 				airborneDuration = 0f;
+				IsJumping = false;
+				jumpTimer = 0f;
+				isLandingTransition = false;
 			}
 
 			wasGrounded = groundContact;
@@ -576,32 +604,34 @@ namespace SpaxUtils
 						rigidbodyWrapper.AddForce(frictionForce, ForceMode.Acceleration);
 					}
 				}
-				else if (!landedThisFrame && !wasSliding)
+				else if (!landedThisFrame && !wasSliding && !isLandingTransition)
 				{
 					// Disperse along terrain normal.
-					// Skipped on landing frame and slide-exit frame to prevent velocity spikes.
+					// Skipped on landing frame, slide-exit frame, and during landing transition.
 					Vector3 movementDispersion = rigidbodyWrapper.Velocity.DisperseOnPlane(TerrainNormal) * Mobility;
 					rigidbodyWrapper.AddForce(movementDispersion, ForceMode.VelocityChange);
 				}
 
-				if (!isSliding)
+				if (!isLandingTransition)
 				{
-					// When not sliding, zero downward vertical velocity proportional to grounded contact.
-					Vector3 vel = rigidbodyWrapper.Velocity;
-					if (vel.y < 0f)
+					// Normal grounded state. Zero downward velocity and snap to ground.
+					if (!isSliding)
 					{
-						rigidbodyWrapper.Velocity = new Vector3(vel.x, vel.y * (1f - GroundedAmount), vel.z);
+						Vector3 vel = rigidbodyWrapper.Velocity;
+						if (vel.y < 0f)
+						{
+							rigidbodyWrapper.Velocity = new Vector3(vel.x, vel.y * (1f - GroundedAmount), vel.z);
+						}
 					}
+
+					float targetY = StepPoint.y + Elevation;
+					float snappedY = Mathf.Lerp(rigidbodyWrapper.Position.y, targetY, GroundedAmount);
+					rigidbodyWrapper.Position = rigidbodyWrapper.Position.SetY(snappedY);
 				}
+				// During landing transition: no snap, no velocity zeroing.
+				// Physics handles the descent until GroundedAmount > 0.9.
 
-				// Glue to ground, scaled by grounded amount.
-				// When barely grounded (edge of cliff), the snap weakens and gravity takes over.
-				// Always active, including while sliding, as the agent has no ground collider.
-				float targetY = StepPoint.y + Elevation;
-				float snappedY = Mathf.Lerp(rigidbodyWrapper.Position.y, targetY, GroundedAmount);
-				rigidbodyWrapper.Position = rigidbodyWrapper.Position.SetY(snappedY);
-
-				// Apply partial gravity when not fully grounded (cliff edges, ledges).
+				// Apply partial gravity when not fully grounded (cliff edges, ledges, landing).
 				if (GroundedAmount < 0.99f)
 				{
 					rigidbodyWrapper.AddForce(Vector3.down * Gravity * (1f - GroundedAmount), ForceMode.Acceleration);
@@ -613,19 +643,6 @@ namespace SpaxUtils
 			}
 		}
 
-		private void BlockActor()
-		{
-			// Block agent from acting while not grounded or sliding.
-			if (!Grounded || Sliding)
-			{
-				agent.Actor.AddBlocker(this);
-			}
-			else
-			{
-				agent.Actor.RemoveBlocker(this);
-			}
-		}
-
 		private void CheckIfSafe()
 		{
 			if (Ground &&
@@ -633,10 +650,44 @@ namespace SpaxUtils
 				rigidbodyWrapper.Control.Value.Approx(1f) &&
 				TerrainSlope < 0.33f &&
 				!Sliding &&
-				GroundedAmount.Approx(1f) &&
-				!agent.Actor.Blocked)
+				GroundedAmount.Approx(1f))
 			{
 				LastSafePosition = rigidbodyWrapper.Position;
+			}
+		}
+
+		/// <summary>
+		/// Initiates a jump by applying an impulse force.
+		/// Direction should include both the surface normal and any input-based steering.
+		/// </summary>
+		/// <param name="force">Jump force vector (direction and magnitude).</param>
+		public void Jump(Vector3 force)
+		{
+			rigidbodyWrapper.AddForce(force, ForceMode.VelocityChange);
+			IsJumping = true;
+			jumpTimer = 0f;
+		}
+
+		/// <summary>
+		/// Tracks the jump-to-fall transition.
+		/// IsJumping stays true for short hops (preventing the flying blend tree from appearing).
+		/// Transitions to false after <see cref="jumpToFallTime"/> has elapsed AND velocity is negative.
+		/// </summary>
+		private void UpdateJumpState()
+		{
+			if (!IsJumping)
+			{
+				return;
+			}
+
+			jumpTimer += Time.fixedDeltaTime;
+
+			// Only transition to falling after both conditions are met:
+			// 1. Timer expired (prevents short hops from showing fall animation).
+			// 2. Actually falling (velocity.y < 0).
+			if (jumpTimer > jumpToFallTime && rigidbodyWrapper.Velocity.y < 0f)
+			{
+				IsJumping = false;
 			}
 		}
 	}

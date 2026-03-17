@@ -83,7 +83,8 @@ namespace SpaxUtils
 			}
 
 			// Initialize all Agent components.
-			Actor = new Actor($"ACTOR_{Identification.ID}", callbackService, inputToActMap, performers);
+			Actor = new Actor($"ACTOR_{Identification.ID}", callbackService, inputToActMap, performers,
+				(state) => Brain != null && Brain.IsStateActive(state));
 			Brain = new Brain(DependencyManager, callbackService, state, null, brainGraphs);
 			// Create new instances of all injected mind behaviours and use them to initialize the Mind.
 			List<IMindBehaviour> mindBehaviours = behaviour.Select(b => (IMindBehaviour)b.CreateInstance()).ToList();
