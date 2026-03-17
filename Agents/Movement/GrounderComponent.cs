@@ -198,6 +198,8 @@ namespace SpaxUtils
 		private float impactAbsorptionMinSpeed = 3f;
 		[SerializeField, Tooltip("Falling speed (m/s) at which all horizontal velocity is absorbed on landing.")]
 		private float impactAbsorptionMaxSpeed = 10f;
+		[SerializeField, Tooltip("Seconds airborne below which impact is scaled down (slope transitions, small bumps).")]
+		private float impactFullAirborneTime = 0.3f;
 
 		[Header("Debug")]
 		[SerializeField] private bool debug;
@@ -214,6 +216,7 @@ namespace SpaxUtils
 		private bool wasGrounded = true;
 		private float peakFallingSpeed;
 		private bool landedThisFrame;
+		private float airborneDuration;
 
 		// Coyote time.
 		private bool groundContact;
@@ -286,6 +289,7 @@ namespace SpaxUtils
 		/// Tracks peak downward speed while airborne to provide reliable impact data
 		/// even if physics collision resolution zeroes out velocity before detection.
 		/// Peak resets when the agent gains upward velocity (double jump, slow-fall ability, etc).
+		/// Impact is scaled by airborne duration to reduce false positives from slope transitions.
 		/// Uses raw ground contact, not coyote-grounded, for accurate landing detection.
 		/// </summary>
 		private void DetectLanding()
@@ -294,6 +298,8 @@ namespace SpaxUtils
 
 			if (!groundContact)
 			{
+				airborneDuration += Time.fixedDeltaTime;
+
 				float verticalSpeed = rigidbodyWrapper.Velocity.y;
 
 				if (verticalSpeed > 0f)
@@ -315,8 +321,18 @@ namespace SpaxUtils
 			else if (!wasGrounded)
 			{
 				// Just transitioned from airborne to grounded.
+				// Scale impact by surface alignment: flat ground = full impact, steep slope = glancing.
+				float surfaceAlignment = Mathf.Clamp01(Vector3.Dot(groundedHit.normal, rigidbodyWrapper.Up));
+				float effectiveImpact = peakFallingSpeed * surfaceAlignment;
+
+				// Scale impact by airborne duration.
+				// Brief airborne moments (slope transitions, bumps) produce reduced impact.
+				// Real falls accumulate enough airborne time to reach full impact.
+				float airborneFactor = Mathf.Clamp01(airborneDuration / impactFullAirborneTime);
+				effectiveImpact *= airborneFactor;
+
 				// Absorb horizontal velocity proportional to impact severity.
-				float severity = Mathf.InverseLerp(impactAbsorptionMinSpeed, impactAbsorptionMaxSpeed, peakFallingSpeed);
+				float severity = Mathf.InverseLerp(impactAbsorptionMinSpeed, impactAbsorptionMaxSpeed, effectiveImpact);
 				if (severity > 0f)
 				{
 					Vector3 vel = rigidbodyWrapper.Velocity;
@@ -325,8 +341,9 @@ namespace SpaxUtils
 				}
 
 				landedThisFrame = true;
-				LandedEvent?.Invoke(peakFallingSpeed);
+				LandedEvent?.Invoke(effectiveImpact);
 				peakFallingSpeed = 0f;
+				airborneDuration = 0f;
 			}
 
 			wasGrounded = groundContact;
@@ -359,24 +376,51 @@ namespace SpaxUtils
 				return;
 			}
 
-			// Calculate surface normals.
-			int hitCount = hits.Count;
-			if (stepNormals == null || stepNormals.Length != hitCount)
+			// Filter out overhang/underside hits. A hit whose normal faces away from up
+			// is a ceiling or cliff underside and should not contribute to surface or terrain data.
+			// This prevents pointed cliff edges from averaging top and bottom surfaces into a false flat.
+			int validCount = 0;
+			for (int i = 0; i < hits.Count; i++)
 			{
-				stepNormals = new Vector3[hitCount];
+				if (Vector3.Dot(hits[i].normal, rigidbodyWrapper.Up) > 0f)
+				{
+					// Swap valid hit to front of list.
+					if (i != validCount)
+					{
+						RaycastHit temp = hits[validCount];
+						hits[validCount] = hits[i];
+						hits[i] = temp;
+					}
+					validCount++;
+				}
 			}
-			for (int i = 0; i < hitCount; i++)
+
+			// If no valid hits remain after filtering, fall back to ground hit data.
+			if (validCount == 0)
+			{
+				SurfaceNormal = Vector3.Slerp(SurfaceNormal, groundedHit.normal, normalSmoothing * Time.fixedDeltaTime);
+				TerrainNormal = Vector3.Slerp(TerrainNormal, rigidbodyWrapper.Up, normalSmoothing * Time.fixedDeltaTime);
+				StepPoint = rigidbodyWrapper.Position;
+				return;
+			}
+
+			// Calculate surface normals from valid hits only.
+			if (stepNormals == null || stepNormals.Length != validCount)
+			{
+				stepNormals = new Vector3[validCount];
+			}
+			for (int i = 0; i < validCount; i++)
 			{
 				stepNormals[i] = hits[i].normal;
 			}
 			SurfaceNormal = Vector3.Slerp(SurfaceNormal, stepNormals.AverageDirection(), normalSmoothing * Time.fixedDeltaTime);
 
-			// Calculate terrain points (mobility).
-			if (stepPoints == null || stepPoints.Length != hitCount)
+			// Calculate terrain points from valid hits only.
+			if (stepPoints == null || stepPoints.Length != validCount)
 			{
-				stepPoints = new Vector3[hitCount];
+				stepPoints = new Vector3[validCount];
 			}
-			for (int i = 0; i < hitCount; i++)
+			for (int i = 0; i < validCount; i++)
 			{
 				stepPoints[i] = hits[i].point;
 			}
@@ -492,18 +536,13 @@ namespace SpaxUtils
 			}
 			else
 			{
-				// Already sliding. Exit if on stairs, or if terrain is flat enough and speed is low.
-				if (isStairs)
+				// Already sliding. Only exit when terrain is flat enough and speed is low.
+				// Stair detection is NOT used for exit - cliff edges and geometry seams
+				// can produce high surface divergence that would falsely exit the slide.
+				float slideSpeed = rigidbodyWrapper.Velocity.ProjectOnPlane(TerrainNormal).magnitude;
+				if (terrainAngle < dynamicFrictionAngle && slideSpeed < slideExitSpeed)
 				{
 					isSliding = false;
-				}
-				else
-				{
-					float slideSpeed = rigidbodyWrapper.Velocity.ProjectOnPlane(TerrainNormal).magnitude;
-					if (terrainAngle < dynamicFrictionAngle && slideSpeed < slideExitSpeed)
-					{
-						isSliding = false;
-					}
 				}
 			}
 
@@ -545,20 +584,28 @@ namespace SpaxUtils
 					rigidbodyWrapper.AddForce(movementDispersion, ForceMode.VelocityChange);
 				}
 
-				// When not sliding, zero downward vertical velocity.
-				// While sliding, the agent needs vertical velocity to move along the slope.
-				// Does not affect jumping because jumps exceed jumpThreshold and skip this block.
 				if (!isSliding)
 				{
+					// When not sliding, zero downward vertical velocity proportional to grounded contact.
 					Vector3 vel = rigidbodyWrapper.Velocity;
 					if (vel.y < 0f)
 					{
-						rigidbodyWrapper.Velocity = new Vector3(vel.x, 0f, vel.z);
+						rigidbodyWrapper.Velocity = new Vector3(vel.x, vel.y * (1f - GroundedAmount), vel.z);
 					}
 				}
 
-				// Glue to ground. Always active while grounded to prevent floating off surfaces.
-				rigidbodyWrapper.Position = rigidbodyWrapper.Position.SetY(StepPoint.y + Elevation);
+				// Glue to ground, scaled by grounded amount.
+				// When barely grounded (edge of cliff), the snap weakens and gravity takes over.
+				// Always active, including while sliding, as the agent has no ground collider.
+				float targetY = StepPoint.y + Elevation;
+				float snappedY = Mathf.Lerp(rigidbodyWrapper.Position.y, targetY, GroundedAmount);
+				rigidbodyWrapper.Position = rigidbodyWrapper.Position.SetY(snappedY);
+
+				// Apply partial gravity when not fully grounded (cliff edges, ledges).
+				if (GroundedAmount < 0.99f)
+				{
+					rigidbodyWrapper.AddForce(Vector3.down * Gravity * (1f - GroundedAmount), ForceMode.Acceleration);
+				}
 			}
 			else
 			{
