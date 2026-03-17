@@ -12,6 +12,12 @@ namespace SpiritAxis
 		[SerializeField, Tooltip("Default moveset. Overridden by an injected AgentMoveset if present.")]
 		private AgentMoveset moveset;
 
+		[Header("Skid (direction-change sliding)")]
+		[SerializeField, Range(0f, 20f), Tooltip("How quickly the skid animation appears on sharp direction changes.")]
+		private float skidRampUp = 15f;
+		[SerializeField, Range(0f, 10f), Tooltip("How slowly the skid animation fades after the direction change.")]
+		private float skidDecay = 2f;
+
 		/// <summary>
 		/// Landing pose priority. Above base moveset (0), above animated actions (5), below combat (10).
 		/// </summary>
@@ -32,6 +38,9 @@ namespace SpiritAxis
 		private float slideWeight;
 		private float flyWeight;
 		private float idleTime;
+
+		// Skid tracking (direction-change sliding, separate from slope sliding).
+		private float skidAmount;
 
 		// Runtime blend maps with idle overrides. Null if no override needed.
 		private PoseBlendMap passiveGroundedTree;
@@ -154,6 +163,22 @@ namespace SpiritAxis
 			flyWeight = flyWeight.FILerp(grounder.Grounded ? 0f : 1f, moveset.PoseTransitionSpeed * delta);
 			targetingTimer.Update(delta);
 
+			// Skid from direction changes: inverted grip gated by speed.
+			// Grip is now directional alignment, so low grip = opposing velocity = skid.
+			float speed = rigidbodyWrapper.Velocity.FlattenY().magnitude;
+			float speedFactor = Mathf.Clamp01(speed / movementHandler.FullSpeed);
+			float skidTarget = rigidbodyWrapper.Grip.InvertClamped() * speedFactor;
+
+			// Fast ramp up, slow decay for visual linger.
+			if (skidTarget > skidAmount)
+			{
+				skidAmount = Mathf.Lerp(skidAmount, skidTarget, skidRampUp * delta);
+			}
+			else
+			{
+				skidAmount = Mathf.MoveTowards(skidAmount, 0f, skidDecay * delta);
+			}
+
 			// Advance idle time for stationary idle animation.
 			idleTime += scaledDelta;
 
@@ -239,7 +264,7 @@ namespace SpiritAxis
 			IPoserInstructions sliding = moveset.SlidingBlendTree.GetInstructions(0f,
 				grounder.Sliding ? blendPosition : -rigidbodyWrapper.RelativeVelocity.normalized);
 			agentPoser.ProvideInstructions(moveset.SlidingBlendTree, PoserLayerConstants.BODY, sliding, 2,
-				Mathf.Max(slideWeight, rigidbodyWrapper.Grip.InvertClamped().InOutQuint()));
+				Mathf.Max(slideWeight, skidAmount));
 
 			IPoserInstructions flying = moveset.FlyingBlendTree.GetInstructions(0f, blendPosition);
 			agentPoser.ProvideInstructions(moveset.FlyingBlendTree, PoserLayerConstants.BODY, flying, 3, flyWeight);

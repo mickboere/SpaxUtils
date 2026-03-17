@@ -323,8 +323,27 @@ namespace SpaxUtils
 		/// <returns>The current grip calculated using the target velocity and current velocity.</returns>
 		public float CalculateGrip()
 		{
-			float grip = Mathf.Clamp01((Velocity.Multiply(ControlAxis) - TargetVelocity * Control).magnitude * (1f / gripScale)).ReverseInOutCubic();
-			return grip;
+			Vector3 vel = Velocity.Multiply(ControlAxis);
+			Vector3 target = TargetVelocity * Control;
+			float velMag = vel.magnitude;
+			float targetMag = target.magnitude;
+
+			// Not moving = full grip.
+			if (velMag < 0.01f)
+			{
+				return 1f;
+			}
+
+			// No target = coasting to stop. Grip decreases with remaining speed.
+			if (targetMag < 0.01f)
+			{
+				return Mathf.Clamp01(1f - velMag * (1f / gripScale));
+			}
+
+			// Directional alignment: dot remapped from [-1, 1] to [0, 1].
+			// Aligned = 1 (full grip), opposed = 0 (no grip).
+			float alignment = (Vector3.Dot(vel.normalized, target.normalized) + 1f) * 0.5f;
+			return alignment;
 		}
 
 		#endregion Movement
