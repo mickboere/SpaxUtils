@@ -4,6 +4,6 @@ namespace SpaxUtils
 {
 	public abstract class PrerequisiteBase : ScriptableObject, IPrerequisite
 	{
-        public abstract bool IsMet(IDependencyManager dependencies);
+		public abstract bool IsMet(IDependencyManager dependencies);
 	}
 }

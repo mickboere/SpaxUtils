@@ -33,12 +33,33 @@ namespace SpiritAxis
 		private float flyWeight;
 		private float idleTime;
 
+		// Runtime blend maps with idle overrides. Null if no override needed.
+		private PoseBlendMap passiveGroundedTree;
+		private PoseBlendMap combatGroundedTree;
+
 		// Landing state.
 		private bool isLanding;
 		private float landingSeverity;
 		private float landingTimer;
 		private float landingWeight;
 		private FloatOperationModifier landingControlMod;
+
+		/// <summary>
+		/// Returns the appropriate grounded blend tree based on the current brain state.
+		/// Combat (untargeted) uses combat idle override, passive uses passive idle override.
+		/// Falls back to the base grounded blend tree if no override exists.
+		/// </summary>
+		private PoseBlendMap ActiveGroundedTree
+		{
+			get
+			{
+				if (agent.Brain.IsStateActive(AgentStateIdentifiers.COMBAT))
+				{
+					return combatGroundedTree != null ? combatGroundedTree : moveset.GroundedBlendTree;
+				}
+				return passiveGroundedTree != null ? passiveGroundedTree : moveset.GroundedBlendTree;
+			}
+		}
 
 		public void InjectDependencies(IAgent agent, RigidbodyWrapper rigidbodyWrapper, AnimatorPoser agentPoser,
 			IAgentMovementHandler movementHandler, GrounderComponent grounder,
@@ -61,6 +82,9 @@ namespace SpiritAxis
 
 			timescale = agent.Stats.GetStat(EntityStatIdentifiers.TIMESCALE);
 			moveSpeedStat = agent.Stats.GetStat(AgentStatIdentifiers.MOVEMENT_SPEED, true, 1f);
+
+			// Build runtime blend maps with idle overrides.
+			BuildIdleOverrides();
 		}
 
 		public override void OnStateEntered()
@@ -101,6 +125,21 @@ namespace SpiritAxis
 			targetingTimer.Dispose();
 
 			isLanding = false;
+		}
+
+		protected void OnDestroy()
+		{
+			// Clean up runtime blend map instances.
+			if (passiveGroundedTree != null)
+			{
+				Destroy(passiveGroundedTree);
+				passiveGroundedTree = null;
+			}
+			if (combatGroundedTree != null)
+			{
+				Destroy(combatGroundedTree);
+				combatGroundedTree = null;
+			}
 		}
 
 		private void OnUpdate(float delta)
@@ -187,7 +226,7 @@ namespace SpiritAxis
 
 		private void UpdateWalkingPose()
 		{
-			IPoserInstructions walking = GetWalkPose(moveset.GroundedBlendTree, blendPosition);
+			IPoserInstructions walking = GetWalkPose(ActiveGroundedTree, blendPosition);
 			Poser.Pose(walking); // A main pose is required.
 
 			IPoserInstructions targeting = GetWalkPose(moveset.TargetingBlendTree, blendPosition);
@@ -218,9 +257,9 @@ namespace SpiritAxis
 			return blendTree.GetInstructions(position, (IPoseSequence sequence) =>
 			{
 				sequence.GlobalData.TryGetFloat(AnimationFloatConstants.CYCLE_OFFSET, 0f, out float cycleOffset);
-				if (surveyorComponent.Influence > 0f)
+				if (position.sqrMagnitude > 0.001f)
 				{
-					// Surveyor active: use walk cycle time.
+					// Moving: use walk cycle time from surveyor.
 					return surveyorComponent.GetProgress(cycleOffset, false) * sequence.TotalDuration;
 				}
 				else
@@ -231,6 +270,16 @@ namespace SpiritAxis
 						: 0f;
 				}
 			});
+		}
+
+		/// <summary>
+		/// Builds runtime copies of the grounded blend tree with idle overrides swapped in.
+		/// Only creates copies when an override exists; otherwise the original blend tree is used.
+		/// </summary>
+		private void BuildIdleOverrides()
+		{
+			passiveGroundedTree = moveset.GroundedBlendTree.CreateWithIdleOverride(moveset.PassiveIdle);
+			combatGroundedTree = moveset.GroundedBlendTree.CreateWithIdleOverride(moveset.CombatIdle);
 		}
 	}
 }

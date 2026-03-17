@@ -16,6 +16,35 @@ namespace SpaxUtils
 		[SerializeField] private PoseBlendMethod blendMethod;
 		[SerializeField, FormerlySerializedAs("blendTree")] private List<PoseBlendMapEntry> blendMap;
 
+		/// <summary>
+		/// Creates a runtime copy of this blend map with the idle entry (at Vector3.zero) replaced.
+		/// Returns null if <paramref name="idleOverride"/> is null.
+		/// The returned instance is a runtime ScriptableObject and should be destroyed when no longer needed.
+		/// </summary>
+		public PoseBlendMap CreateWithIdleOverride(PoseSequence idleOverride)
+		{
+			if (idleOverride == null)
+			{
+				return null;
+			}
+
+			PoseBlendMap copy = CreateInstance<PoseBlendMap>();
+			copy.blendMethod = blendMethod;
+			copy.blendMap = new List<PoseBlendMapEntry>(blendMap.Count);
+			for (int i = 0; i < blendMap.Count; i++)
+			{
+				if (blendMap[i].Position == Vector3.zero)
+				{
+					copy.blendMap.Add(new PoseBlendMapEntry(idleOverride, Vector3.zero));
+				}
+				else
+				{
+					copy.blendMap.Add(blendMap[i]);
+				}
+			}
+			return copy;
+		}
+
 		/// <inheritdoc/>
 		public override IPoserInstructions GetInstructions(float time)
 		{

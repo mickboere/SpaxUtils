@@ -18,5 +18,14 @@ namespace SpaxUtils
 
 		[SerializeField] private PoseSequence sequence;
 		[SerializeField] private Vector3 position;
+
+		/// <summary>
+		/// Runtime constructor for creating override entries.
+		/// </summary>
+		public PoseBlendMapEntry(PoseSequence sequence, Vector3 position)
+		{
+			this.sequence = sequence;
+			this.position = position;
+		}
 	}
 }
