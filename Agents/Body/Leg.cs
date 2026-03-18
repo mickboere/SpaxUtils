@@ -13,12 +13,24 @@ namespace SpaxUtils
 		/// <summary>
 		/// Invoked when the leg's grounded state is updated.
 		/// </summary>
-		public event Action<Leg, bool, Dictionary<SurfaceConfiguration, float>> FootstepEvent;
+		public event Action<FootstepData> FootstepEvent;
 
 		/// <summary>
-		/// Whether the leg is currently grounded.
+		/// Whether the leg is currently grounded by normal surveyor logic.
 		/// </summary>
 		public bool Grounded { get; private set; }
+
+		/// <summary>
+		/// Whether the leg is currently considered in contact for visual/audio FX purposes.
+		/// This includes normal grounding and IK clipping rescue.
+		/// </summary>
+		public bool FXGrounded => Grounded || Clipping;
+
+		/// <summary>
+		/// Whether the IK leg is currently being rescued by clipping contact.
+		/// This must not be treated as a true gait foot plant.
+		/// </summary>
+		public bool Clipping { get; set; }
 
 		/// <summary>
 		/// The grounded amount, 1 being grounded, 0 being lifted.
@@ -86,6 +98,7 @@ namespace SpaxUtils
 		public Vector3 KneePos { get; private set; }
 		[field: SerializeField] public Transform Foot { get; private set; }
 		public Vector3 FootPos { get; private set; }
+
 		/// <summary>
 		/// Helper transform placed at the bottom of the foot, facing towards the toes.
 		/// </summary>
@@ -118,25 +131,11 @@ namespace SpaxUtils
 				{
 					// Collect surface data.
 					SurfaceData.Clear();
-					SurfaceComponent.TryGetSurfaceValues(GroundedHit, out Dictionary<string, float> surfaces);
-					if (surfaces != null && surfaces.Count > 0)
-					{
-						foreach (KeyValuePair<string, float> surface in surfaces)
-						{
-							if (surfaceLibrary.TryGet(surface.Key, out SurfaceConfiguration config))
-							{
-								SurfaceData[config] = surface.Value;
-							}
-						}
-					}
-					else
-					{
-						SurfaceData[surfaceLibrary.Get(DefaultSurfaceTypes.DEFAULT)] = 1f;
-					}
+					surfaceLibrary.BuildSurfaceData(GroundedHit, SurfaceData);
 				}
 
-				// Invoke footstep event with collected data.
-				FootstepEvent?.Invoke(this, Grounded, SurfaceData);
+				// Invoke footstep event with immutable contact data.
+				FootstepEvent?.Invoke(CreateFootstepData(false));
 			}
 		}
 
@@ -161,6 +160,77 @@ namespace SpaxUtils
 			KneePos = Knee.position;
 			FootPos = Foot.position;
 			SolePos = Sole.position;
+		}
+
+		public void InvokeLanding(Dictionary<SurfaceConfiguration, float> surfaceData, Vector3 position, Vector3 normal)
+		{
+			Grounded = true;
+			wasGrounded = true;
+
+			SurfaceData.Clear();
+			if (surfaceData != null)
+			{
+				foreach (KeyValuePair<SurfaceConfiguration, float> pair in surfaceData)
+				{
+					SurfaceData[pair.Key] = pair.Value;
+				}
+			}
+
+			FootstepEvent?.Invoke(CreateFootstepData(true, position, normal, true));
+		}
+
+		private FootstepData CreateFootstepData(bool isLanding, Vector3? overridePosition = null, Vector3? overrideNormal = null, bool forceValidContact = false)
+		{
+			Vector3 position = overridePosition ?? GetBestContactPosition();
+			Vector3 normal = overrideNormal ?? GetBestContactNormal();
+			bool hasValidContact = forceValidContact || HasValidContact(position);
+
+			return new FootstepData(this, Grounded, SurfaceData, position, normal, hasValidContact, isLanding);
+		}
+
+		private Vector3 GetBestContactPosition()
+		{
+			if (ValidGround && GroundedHit.collider != null)
+			{
+				return GroundedHit.point;
+			}
+
+			if (TargetPoint != Vector3.zero)
+			{
+				return TargetPoint;
+			}
+
+			if (Sole != null)
+			{
+				return SolePos;
+			}
+
+			return Foot != null ? FootPos : Vector3.zero;
+		}
+
+		private Vector3 GetBestContactNormal()
+		{
+			if (ValidGround && GroundedHit.collider != null && GroundedHit.normal != Vector3.zero)
+			{
+				return GroundedHit.normal;
+			}
+
+			if (Sole != null)
+			{
+				return Sole.up;
+			}
+
+			if (Foot != null)
+			{
+				return Foot.up;
+			}
+
+			return Vector3.up;
+		}
+
+		private bool HasValidContact(Vector3 position)
+		{
+			return position != Vector3.zero || Sole != null || Foot != null;
 		}
 	}
 }

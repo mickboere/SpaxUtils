@@ -199,7 +199,7 @@ namespace SpiritAxis
 			targetingTimer.Reset();
 		}
 
-		private void OnLanded(float impactSpeed)
+		private void OnLanded(float impactSpeed, RaycastHit hit)
 		{
 			if (moveset.LandingPose == null)
 			{

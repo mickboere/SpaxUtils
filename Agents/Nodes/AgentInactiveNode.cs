@@ -19,13 +19,13 @@ namespace SpaxUtils
 		public override void OnEnteringState(ITransition transition)
 		{
 			base.OnEnteringState(transition);
-			rigidbodyWrapper.IsKinematic = true;
+			rigidbodyWrapper.IsKinematic.AddBool(this, true);
 		}
 
 		public override void OnStateExit()
 		{
 			base.OnStateExit();
-			rigidbodyWrapper.IsKinematic = false;
+			rigidbodyWrapper.IsKinematic.RemoveBool(this);
 		}
 	}
 }

@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
@@ -94,9 +95,9 @@ namespace SpaxUtils
 		public Vector3 AngularVelocity { get => Rigidbody.angularVelocity; set => Rigidbody.angularVelocity = value; }
 
 		/// <summary>
-		/// Whether the rigidbody should be exempt from the effects of the physics simulation.
+		/// Composite kinematic state. The wrapper applies <see cref="Value"/> to the real rigidbody every physics step.
 		/// </summary>
-		public bool IsKinematic { get => Rigidbody.isKinematic; set => Rigidbody.isKinematic = value; }
+		public CompositeBool IsKinematic { get; } = new CompositeBool(false);
 
 		#endregion // Property Wrappers.
 
@@ -144,6 +145,12 @@ namespace SpaxUtils
 		[SerializeField] new private Rigidbody rigidbody;
 		[SerializeField] private int accelerationSmoothing = 3;
 		[SerializeField] private float gripScale = 10f;
+
+		[Header("Startup Physics Delay")]
+		[SerializeField] private bool delayPhysicsOnStart;
+		[SerializeField, Conditional(nameof(delayPhysicsOnStart)), Min(1)] private int startupKinematicFrames = 2;
+		[SerializeField, Conditional(nameof(delayPhysicsOnStart))] private bool resetVelocityOnRelease = true;
+
 		[SerializeField] private bool debug;
 		[SerializeField, Conditional(nameof(debug))] private bool log;
 		[SerializeField, Conditional(nameof(log))] private bool forces;
@@ -154,6 +161,8 @@ namespace SpaxUtils
 		private Vector3 previousVelocity;
 		private SmoothVector3 velocityDelta;
 		private Vector3 previousPosition;
+
+		private Coroutine startupDelayRoutine;
 
 		public void InjectDependencies([Optional] IEntity entity)
 		{
@@ -185,10 +194,46 @@ namespace SpaxUtils
 		protected void Awake()
 		{
 			Initialize();
+
+			if (Application.isPlaying && delayPhysicsOnStart)
+			{
+				IsKinematic.AddBool(this, true);
+				SyncKinematic();
+			}
+		}
+
+		protected void OnEnable()
+		{
+			Rigidbody.position = transform.position;
+			Rigidbody.rotation = transform.rotation;
+			Rigidbody.linearVelocity = Vector3.zero;
+			Rigidbody.angularVelocity = Vector3.zero;
+			previousPosition = Rigidbody.position;
+			previousVelocity = Rigidbody.linearVelocity;
+
+			if (Application.isPlaying && delayPhysicsOnStart)
+			{
+				if (startupDelayRoutine != null)
+				{
+					StopCoroutine(startupDelayRoutine);
+				}
+				startupDelayRoutine = StartCoroutine(ReleaseStartupKinematic());
+			}
+		}
+
+		protected void OnDisable()
+		{
+			if (startupDelayRoutine != null)
+			{
+				StopCoroutine(startupDelayRoutine);
+				startupDelayRoutine = null;
+			}
 		}
 
 		protected void FixedUpdate()
 		{
+			SyncKinematic();
+
 			// Calculate acceleration and grip.
 			Vector3 delta = Velocity - previousVelocity;
 			velocityDelta.Push(delta);
@@ -208,7 +253,7 @@ namespace SpaxUtils
 			{
 				Log($"FixedUpdate:", $"V={Velocity}, pV={previousVelocity}\n" +
 					$"d={delta}, dV={delta / Time.fixedDeltaTime}, P={Position}, pP={previousPosition}\n" +
-					$"A={Acceleration}, G={Grip}");
+					$"A={Acceleration}, G={Grip}, K={Rigidbody.isKinematic}");
 			}
 
 			previousVelocity = Velocity;
@@ -355,6 +400,35 @@ namespace SpaxUtils
 				rigidbody = GetComponentInParent<Rigidbody>();
 			}
 			return rigidbody != null;
+		}
+
+		private void SyncKinematic()
+		{
+			bool target = IsKinematic.Value;
+			if (Rigidbody.isKinematic != target)
+			{
+				Rigidbody.isKinematic = target;
+			}
+		}
+
+		private IEnumerator ReleaseStartupKinematic()
+		{
+			for (int i = 0; i < startupKinematicFrames; i++)
+			{
+				yield return new WaitForFixedUpdate();
+			}
+
+			if (resetVelocityOnRelease)
+			{
+				ResetVelocity();
+			}
+
+			IsKinematic.RemoveBool(this);
+			SyncKinematic();
+
+			previousVelocity = Velocity;
+			previousPosition = Position;
+			startupDelayRoutine = null;
 		}
 
 		private void Log(string a, string b)

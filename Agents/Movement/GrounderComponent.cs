@@ -62,7 +62,7 @@ namespace SpaxUtils
 		/// Parameter is the peak downward speed (m/s) recorded during the current fall phase.
 		/// Peak resets whenever the agent gains upward velocity (double jump, ability, etc).
 		/// </summary>
-		public event Action<float> LandedEvent;
+		public event Action<float, RaycastHit> LandedEvent;
 
 		/// <summary>
 		/// Whether this entity should ground itself.
@@ -365,7 +365,7 @@ namespace SpaxUtils
 				}
 
 				landedThisFrame = true;
-				LandedEvent?.Invoke(effectiveImpact);
+				LandedEvent?.Invoke(effectiveImpact, groundedHit);
 				peakFallingSpeed = 0f;
 				airborneDuration = 0f;
 				IsJumping = false;

@@ -130,7 +130,7 @@ namespace SpaxUtils
 
 			// Make rigidbody kinematic to prevent physics interference during the action.
 			wasKinematic = rigidbodyWrapper.IsKinematic;
-			rigidbodyWrapper.IsKinematic = true;
+			rigidbodyWrapper.IsKinematic.AddBool(this, true);
 
 			// Subscribe to update loop.
 			if (!subscribedToUpdate)
@@ -324,6 +324,7 @@ namespace SpaxUtils
 				subscribedToUpdate = false;
 			}
 
+			// Control mod disabled because it disables head lookat movement.
 			//if (controlMod != null)
 			//{
 			//	rigidbodyWrapper.Control.RemoveModifier(this);
@@ -331,7 +332,7 @@ namespace SpaxUtils
 			//}
 
 			// Restore kinematic state.
-			rigidbodyWrapper.IsKinematic = wasKinematic;
+			rigidbodyWrapper.IsKinematic.RemoveBool(this);
 
 			if (animatorPoser != null)
 			{

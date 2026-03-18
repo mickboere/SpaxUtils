@@ -1,4 +1,3 @@
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -59,7 +58,8 @@ namespace SpaxUtils
 				float slip = grounder.Sliding ?
 					(rigidbodyWrapper.Speed / movementHandler.FullSpeed).Clamp01() :
 					rigidbodyWrapper.Grip.InvertClamped().OutQuad();
-				if (e.Key.Grounded && slip >= slipThreshold)
+
+				if (grounder.Grounded && e.Key.FXGrounded && slip >= slipThreshold)
 				{
 					// Orientation.
 					Orient(e.Key);
@@ -83,23 +83,32 @@ namespace SpaxUtils
 			}
 		}
 
-		private void OnFootstepEvent(Leg leg, bool grounded, Dictionary<SurfaceConfiguration, float> surfaces)
+		private void OnFootstepEvent(FootstepData footstepData)
 		{
-			if (grounded && leg.ValidGround)
+			if (!footstepData.Grounded || !footstepData.HasValidContact)
 			{
-				Orient(leg);
-				ParticleSystem.MainModule main = effects[leg].main;
-				float m = rigidbodyWrapper.Speed / movementHandler.FullSpeed;
-				main.startSpeed = new ParticleSystem.MinMaxCurve(startSpeed.x * m, startSpeed.y * m);
-				effects[leg].Emit(stepEmitAmount);
+				return;
 			}
+
+			ParticleSystem effect = effects[footstepData.Leg];
+			effect.transform.position = footstepData.Position;
+			effect.transform.rotation = Quaternion.LookRotation(-Entity.Transform.forward, footstepData.Normal);
+
+			ParticleSystem.MainModule main = effect.main;
+			float m = rigidbodyWrapper.Speed / movementHandler.FullSpeed;
+			main.startSpeed = new ParticleSystem.MinMaxCurve(startSpeed.x * m, startSpeed.y * m);
+			effect.Emit(stepEmitAmount);
 		}
 
 		private void Orient(Leg leg)
 		{
-			effects[leg].transform.position = leg.TargetPoint;
-			effects[leg].transform.rotation = Quaternion.LookRotation(-Entity.Transform.forward,
-				leg.ValidGround ? leg.GroundedHit.normal : Vector3.up);
+			effects[leg].transform.position = leg.ValidGround && leg.GroundedHit.collider != null ? leg.GroundedHit.point :
+				(leg.TargetPoint != Vector3.zero ? leg.TargetPoint : leg.SolePos);
+
+			Vector3 normal = leg.ValidGround && leg.GroundedHit.collider != null && leg.GroundedHit.normal != Vector3.zero ?
+				leg.GroundedHit.normal : Vector3.up;
+
+			effects[leg].transform.rotation = Quaternion.LookRotation(-Entity.Transform.forward, normal);
 		}
 	}
 }

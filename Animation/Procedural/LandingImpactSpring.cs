@@ -53,7 +53,7 @@ namespace SpaxUtils
 			}
 		}
 
-		private void OnLanded(float impactSpeed)
+		private void OnLanded(float impactSpeed, RaycastHit hit)
 		{
 			// Continue the actual fall velocity into the spring.
 			// The spring + damping + maxDip clamp handle deceleration naturally.

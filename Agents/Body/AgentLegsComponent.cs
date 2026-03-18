@@ -1,5 +1,4 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -8,7 +7,7 @@ namespace SpaxUtils
 	[DefaultExecutionOrder(900)]
 	public class AgentLegsComponent : EntityComponentMono
 	{
-		public event Action<Leg, bool, Dictionary<SurfaceConfiguration, float>> FootstepEvent;
+		public event Action<FootstepData> FootstepEvent;
 
 		public IReadOnlyList<Leg> Legs => legs;
 
@@ -36,8 +35,10 @@ namespace SpaxUtils
 				leg.Initialize(surfaceLibrary);
 				leg.FootstepEvent += OnFootstepEvent;
 			}
+
 			elevationStat.ValueChangedEvent += OnElevationChange;
 			feetSurfaceData.ValueChangedEvent += OnFeetSurfaceChange;
+			grounderComponent.LandedEvent += OnLanded;
 			OnElevationChange();
 		}
 
@@ -47,8 +48,10 @@ namespace SpaxUtils
 			{
 				leg.FootstepEvent -= OnFootstepEvent;
 			}
+
 			elevationStat.ValueChangedEvent -= OnElevationChange;
 			feetSurfaceData.ValueChangedEvent -= OnFeetSurfaceChange;
+			grounderComponent.LandedEvent -= OnLanded;
 		}
 
 		protected void Update()
@@ -59,6 +62,7 @@ namespace SpaxUtils
 				leg.MainCycleOffset = mainCycleOffset;
 				elevation += leg.Elevation;
 			}
+
 			elevation /= legs.Count;
 			grounderComponent.Elevation = elevation;
 		}
@@ -68,7 +72,6 @@ namespace SpaxUtils
 			foreach (Leg leg in legs)
 			{
 				leg.UpdatePositions();
-				//leg.Update();
 			}
 		}
 
@@ -80,9 +83,22 @@ namespace SpaxUtils
 			}
 		}
 
-		private void OnFootstepEvent(Leg leg, bool grounded, Dictionary<SurfaceConfiguration, float> surfaces)
+		private void OnLanded(float impact, RaycastHit hit)
 		{
-			FootstepEvent?.Invoke(leg, grounded, surfaces);
+			Dictionary<SurfaceConfiguration, float> surfaces = surfaceLibrary.BuildSurfaceData(hit);
+
+			Vector3 position = hit.collider != null ? hit.point : Entity.Transform.position;
+			Vector3 normal = hit.collider != null && hit.normal != Vector3.zero ? hit.normal : Vector3.up;
+
+			foreach (Leg leg in legs)
+			{
+				leg.InvokeLanding(surfaces, position, normal);
+			}
+		}
+
+		private void OnFootstepEvent(FootstepData footstepData)
+		{
+			FootstepEvent?.Invoke(footstepData);
 		}
 
 		private void OnElevationChange()

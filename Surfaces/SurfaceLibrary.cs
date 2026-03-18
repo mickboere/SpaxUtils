@@ -36,5 +36,31 @@ namespace SpaxUtils
 			surfaceConfiguration = Get(surface);
 			return surfaceConfiguration != null;
 		}
+
+		public void BuildSurfaceData(RaycastHit hit, Dictionary<SurfaceConfiguration, float> result)
+		{
+			SurfaceComponent.TryGetSurfaceValues(hit, out Dictionary<string, float> surfaces);
+			if (surfaces != null && surfaces.Count > 0)
+			{
+				foreach (KeyValuePair<string, float> surface in surfaces)
+				{
+					if (TryGet(surface.Key, out SurfaceConfiguration config))
+					{
+						result[config] = surface.Value;
+					}
+				}
+			}
+			else
+			{
+				result[Get(DefaultSurfaceTypes.DEFAULT)] = 1f;
+			}
+		}
+
+		public Dictionary<SurfaceConfiguration, float> BuildSurfaceData(RaycastHit hit)
+		{
+			Dictionary<SurfaceConfiguration, float> result = new Dictionary<SurfaceConfiguration, float>();
+			BuildSurfaceData(hit, result);
+			return result;
+		}
 	}
 }

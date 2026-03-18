@@ -48,6 +48,8 @@ namespace SpaxUtils
 
 			public void UpdateIK()
 			{
+				Leg.Clipping = false;
+
 				Vector3 baseNormal = Leg.ValidGround && Leg.GroundedHit.normal != Vector3.zero
 					? Leg.GroundedHit.normal
 					: Leg.Sole.up;
@@ -63,6 +65,7 @@ namespace SpaxUtils
 
 				if (grounder.Grounded && (grounder.Sliding || rigidbodyWrapper.Control < 0.66f || rigidbodyWrapper.Grip < 0.66f || Leg.GroundedAmount < 0.66f))
 				{
+					Leg.Clipping = true;
 					Vector3 dir = Leg.SolePos - Leg.KneePos;
 					float dist = dir.magnitude;
 
