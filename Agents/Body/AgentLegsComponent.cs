@@ -5,6 +5,7 @@ using UnityEngine;
 
 namespace SpaxUtils
 {
+	[DefaultExecutionOrder(900)]
 	public class AgentLegsComponent : EntityComponentMono
 	{
 		public event Action<Leg, bool, Dictionary<SurfaceConfiguration, float>> FootstepEvent;

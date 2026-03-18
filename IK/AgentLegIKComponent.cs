@@ -5,7 +5,7 @@ using RootMotion.FinalIK;
 
 namespace SpaxUtils
 {
-	//[DefaultExecutionOrder(9000)]
+	[DefaultExecutionOrder(901)]
 	public class AgentLegIKComponent : EntityComponentMono
 	{
 		[Serializable]
@@ -25,7 +25,8 @@ namespace SpaxUtils
 			[SerializeField] private int legIndex;
 			[SerializeField] private Transform hint;
 			[SerializeField] private LayerMask clippingMask;
-			[SerializeField] private float clipThreshold = 0.03f;
+			[SerializeField] private float clippingRadius = 0.03f;
+			[SerializeField, Range(0f, 90f)] private float maxClipNormalAngle = 60f;
 			[SerializeField] private bool debug;
 
 			private IIKComponent ikComponent;
@@ -47,25 +48,57 @@ namespace SpaxUtils
 
 			public void UpdateIK()
 			{
-				float weight = Leg.GroundedAmount * rigidbodyWrapper.Grip;
+				Vector3 baseNormal = Leg.ValidGround && Leg.GroundedHit.normal != Vector3.zero
+					? Leg.GroundedHit.normal
+					: Leg.Sole.up;
 
-				if (grounder.Grounded && (grounder.Sliding || rigidbodyWrapper.Control < 0.5f || weight < 0.5f))
+				Quaternion baseRotation = Quaternion.LookRotation(
+					Vector3.Cross(Leg.Sole.right, baseNormal),
+					baseNormal);
+
+				Vector3 targetPosition = Leg.TargetPoint + baseRotation * FootPositionOffset + baseNormal * Leg.Elevation;
+				Quaternion targetRotation = baseRotation * FootRotationOffset;
+				float positionWeight = Leg.GroundedAmount * rigidbodyWrapper.Grip;
+				float rotationWeight = positionWeight;
+
+				if (grounder.Grounded && (grounder.Sliding || rigidbodyWrapper.Control < 0.66f || rigidbodyWrapper.Grip < 0.66f || Leg.GroundedAmount < 0.66f))
 				{
-					// Prevent feet clipping through ground.
 					Vector3 dir = Leg.SolePos - Leg.KneePos;
-					if (Physics.Raycast(Leg.KneePos, dir, out RaycastHit clipHit, dir.magnitude - clipThreshold, clippingMask))
+					float dist = dir.magnitude;
+
+					if (dist > 0.0001f &&
+						Physics.SphereCast(Leg.KneePos, clippingRadius, dir.normalized, out RaycastHit clipHit, dist + Leg.Elevation, clippingMask, QueryTriggerInteraction.Ignore))
 					{
-						Leg.UpdateGround(true, 1f, true, clipHit.point, clipHit);
-						weight = 1f;
+						Vector3 finalNormal = baseNormal;
+
+						if (clipHit.normal != Vector3.zero)
+						{
+							float clipAngle = Vector3.Angle(clipHit.normal, rigidbodyWrapper.Up);
+							if (clipAngle <= maxClipNormalAngle)
+							{
+								finalNormal = clipHit.normal;
+							}
+						}
+
+						Quaternion finalRotation = Quaternion.LookRotation(
+							Vector3.Cross(Leg.Sole.right, finalNormal),
+							finalNormal);
+
+						targetPosition = clipHit.point + finalRotation * FootPositionOffset + finalNormal * Leg.Elevation;
+						targetRotation = finalRotation * FootRotationOffset;
+						positionWeight = 1f;
+						rotationWeight = 1f;
+
 						if (debug)
 						{
-							Debug.DrawRay(Leg.KneePos, dir, Color.red);
-							SpaxDebug.Log($"Clip Leg[{legIndex}]!");
+							Debug.DrawLine(Leg.KneePos, clipHit.point, Color.red);
+							Debug.DrawRay(clipHit.point, clipHit.normal * 0.2f, Color.yellow);
+							Debug.DrawRay(clipHit.point, finalNormal * 0.2f, Color.green);
 						}
 					}
 				}
 
-				ikComponent.AddInfluencer(this, ikChain, 0, TargetPosition, weight, TargetRotation * FootRotationOffset, weight);
+				ikComponent.AddInfluencer(this, ikChain, 0, targetPosition, positionWeight, targetRotation, rotationWeight);
 				hint.position = HintPosition;
 			}
 

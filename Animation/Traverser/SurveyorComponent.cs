@@ -54,7 +54,7 @@ namespace SpaxUtils
 		private IAgentMovementHandler movementHandler;
 		private EntityStat moveSpeedStat;
 
-		public float smoothAccel;
+		private float smoothAccel;
 
 		public void InjectDependencies(RigidbodyWrapper wrapper, AgentLegsComponent legs, IAgentBody body,
 			GrounderComponent grounder, IAgentMovementHandler movementHandler)

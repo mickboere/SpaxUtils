@@ -6,6 +6,7 @@ using System.Linq;
 
 namespace SpaxUtils
 {
+	[DefaultExecutionOrder(9000)]
 	public class FinalIKComponent : IKComponentBase
 	{
 		[Serializable]

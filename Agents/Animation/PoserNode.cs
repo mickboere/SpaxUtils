@@ -211,8 +211,7 @@ namespace SpiritAxis
 				return;
 			}
 
-			landingSeverity = Mathf.InverseLerp(moveset.LandingMinImpact, moveset.LandingMaxImpact, impactSpeed);
-			landingSeverity = Mathf.Clamp01(landingSeverity);
+			landingSeverity = Mathf.InverseLerp(moveset.LandingMinImpact, moveset.LandingMaxImpact, impactSpeed).OutQuad();
 			landingTimer = 0f;
 			isLanding = true;
 		}
