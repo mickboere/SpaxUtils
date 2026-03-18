@@ -160,14 +160,20 @@ namespace SpiritAxis
 			blendPosition = blendPosition.FILerp(velocity / max,
 				moveset.PositionBlendSpeed * delta);
 			slideWeight = grounder.SlidingAmount;
-			flyWeight = flyWeight.FILerp(grounder.Grounded ? 0f : 1f, moveset.PoseTransitionSpeed * delta);
+			// Asymmetric: fast ramp into flying (becoming airborne), slow decay on landing
+			// so the transition from flying pose to grounded pose is gradual.
+			float flyTarget = grounder.Grounded ? 0f : 1f;
+			float flySpeed = flyTarget > flyWeight
+				? moveset.PoseTransitionSpeed
+				: moveset.PoseTransitionSpeed * 0.5f;
+			flyWeight = flyWeight.FILerp(flyTarget, flySpeed * delta);
 			targetingTimer.Update(delta);
 
 			// Skid from direction changes: inverted grip gated by speed.
 			// Grip is now directional alignment, so low grip = opposing velocity = skid.
 			float speed = rigidbodyWrapper.Velocity.FlattenY().magnitude;
 			float speedFactor = Mathf.Clamp01(speed / movementHandler.FullSpeed);
-			float skidTarget = rigidbodyWrapper.Grip.InvertClamped().OutQuad() * speedFactor;
+			float skidTarget = rigidbodyWrapper.Grip.InvertClamped() * speedFactor;
 
 			// Fast ramp up, slow decay for visual linger.
 			if (skidTarget > skidAmount)

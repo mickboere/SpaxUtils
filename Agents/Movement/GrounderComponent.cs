@@ -344,7 +344,8 @@ namespace SpaxUtils
 			}
 
 			// Check if landing transition completes (truly settled on ground).
-			if (isLandingTransition && GroundedAmount > 0.9f)
+			// Cannot complete while IsJumping - wait for vel.y < 0 to clear it first.
+			if (isLandingTransition && !IsJumping && GroundedAmount > 0.9f)
 			{
 				// Truly landed. Fire event and apply landing effects.
 				float surfaceAlignment = Mathf.Clamp01(Vector3.Dot(groundedHit.normal, rigidbodyWrapper.Up));
@@ -684,6 +685,7 @@ namespace SpaxUtils
 			}
 
 			IsJumping = true;
+			isLandingTransition = true;
 		}
 
 		/// <summary>

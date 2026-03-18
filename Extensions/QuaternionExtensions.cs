@@ -1,5 +1,4 @@
-﻿using Codice.CM.Common;
-using UnityEngine;
+﻿using UnityEngine;
 
 namespace SpaxUtils
 {

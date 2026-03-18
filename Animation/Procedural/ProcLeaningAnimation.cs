@@ -9,7 +9,6 @@ namespace SpaxUtils
 		[SerializeField] private float sensitivity = 30f;
 		[SerializeField] private float speed = 6f;
 		[SerializeField] private float maxAngle = 20f;
-		[SerializeField] private int frameRate;
 		[SerializeField] private UpdateMode updateMode;
 
 		private RigidbodyWrapper wrapper;
@@ -25,14 +24,7 @@ namespace SpaxUtils
 
 		protected void OnEnable()
 		{
-			if (frameRate > 0)
-			{
-				callbackService.AddCustom(this, 1f / frameRate, UpdateRotation);
-			}
-			else
-			{
-				callbackService.SubscribeUpdate(updateMode, this, UpdateRotation);
-			}
+			callbackService.SubscribeUpdate(updateMode, this, UpdateRotation);
 		}
 
 		protected void OnDisable()

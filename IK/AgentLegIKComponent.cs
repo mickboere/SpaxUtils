@@ -114,6 +114,15 @@ namespace SpaxUtils
 			grounderFBBIK = gameObject.GetComponentRelative<GrounderFBBIK>();
 		}
 
+		protected void Update()
+		{
+			if (grounderFBBIK != null)
+			{
+				grounderFBBIK.solver.heightOffset = grounderComponent.Elevation;
+				grounderFBBIK.weight = grounderComponent.GroundedAmount > 0.9f ? 1f : 0f;
+			}
+		}
+
 		protected void LateUpdate()
 		{
 			if (!isActiveAndEnabled)
@@ -124,12 +133,6 @@ namespace SpaxUtils
 			foreach (LegIK leg in legs)
 			{
 				leg.UpdateIK();
-			}
-
-			if (grounderFBBIK != null)
-			{
-				grounderFBBIK.solver.heightOffset = grounderComponent.Elevation;
-				grounderFBBIK.weight = grounderComponent.GroundedAmount.InQuad();
 			}
 		}
 
