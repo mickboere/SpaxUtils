@@ -113,6 +113,43 @@ namespace SpaxUtils
 			}
 		}
 
+		public static Dictionary<SurfaceConfiguration, float> BuildSurfaceImpactMix(
+			Dictionary<SurfaceConfiguration, float> surfaces,
+			float intensity,
+			out float weightedHardness)
+		{
+			Dictionary<SurfaceConfiguration, float> mix = new Dictionary<SurfaceConfiguration, float>();
+			weightedHardness = 0f;
+
+			if (surfaces == null || surfaces.Count == 0 || intensity <= 0f)
+			{
+				return mix;
+			}
+
+			float sumSquares = 0f;
+			foreach (KeyValuePair<SurfaceConfiguration, float> config in surfaces)
+			{
+				float weight = Mathf.Max(0f, config.Value);
+				sumSquares += weight * weight;
+				weightedHardness += config.Key.Hardness * weight;
+			}
+
+			float normalization = sumSquares > 0.0001f ? 1f / Mathf.Sqrt(sumSquares) : 1f;
+
+			foreach (KeyValuePair<SurfaceConfiguration, float> config in surfaces)
+			{
+				float weight = Mathf.Max(0f, config.Value);
+				if (weight <= 0f)
+				{
+					continue;
+				}
+
+				mix[config.Key] = weight * intensity * normalization;
+			}
+
+			return mix;
+		}
+
 		#endregion
 
 		/// <summary>
@@ -154,31 +191,79 @@ namespace SpaxUtils
 		public Dictionary<string, float> GetSurfaceValues(Transform transform, Mesh mesh, int triangleIndex, Vector3 point)
 		{
 			Dictionary<string, float> surfaceValues = new Dictionary<string, float>();
-			if (surfaces.Count > 0)
-			{
-				// Collect vertex color at point and create channel ordered blend of it.
-				Color color = GetVertexColorAtPoint(transform, mesh, triangleIndex, point);
-				Color blend = new Color(color.r.OutQuad(), 0f, 0f, 0f)
-					.Lerp(new Color(0f, 1f, 0f, 0f), color.g.OutQuad())
-					.Lerp(new Color(0f, 0f, 1f, 0f), color.b.OutQuad())
-					.Lerp(new Color(0f, 0f, 0f, 1f), color.a.OutQuad());
 
-				// For each surface, add it's color channel value to the surface values.
-				foreach (SurfaceData surface in surfaces)
+			if (surfaces == null || surfaces.Count == 0)
+			{
+				surfaceValues.Add(defaultSurfaceType, 1f);
+				return surfaceValues;
+			}
+
+			Color color = GetVertexColorAtPoint(transform, mesh, triangleIndex, point);
+
+			// Shape the painted overwrite strength to better match the visual dominance
+			// of upper layers in the terrain blend.
+			float r = color.r.OutQuad();
+			float g = color.g.OutQuad();
+			float b = color.b.OutQuad();
+			float a = color.a.OutQuad();
+
+			// Stacked overwrite weights.
+			float weightA = a;
+			float weightB = (1f - a) * b;
+			float weightG = (1f - a) * (1f - b) * g;
+			float weightR = (1f - a) * (1f - b) * (1f - g) * r;
+			float weightBase = (1f - a) * (1f - b) * (1f - g) * (1f - r);
+
+			// Accumulate channel-driven surfaces.
+			foreach (SurfaceData surface in surfaces)
+			{
+				if (!surfaceValues.ContainsKey(surface.surfaceType))
 				{
-					if (!surfaceValues.ContainsKey(surface.surfaceType))
-					{
-						surfaceValues.Add(surface.surfaceType, 0f);
-					}
-					surfaceValues[surface.surfaceType] = (surfaceValues[surface.surfaceType] + GetColorValue(blend, surface.vertexColor)).Clamp01();
+					surfaceValues.Add(surface.surfaceType, 0f);
 				}
 
-				// Add default surface to fill out default audio.
-				if (!surfaceValues.ContainsKey(defaultSurfaceType)) { surfaceValues.Add(defaultSurfaceType, 0f); }
-				surfaceValues[defaultSurfaceType] += blend.Sum().InvertClamped();
+				switch (surface.vertexColor)
+				{
+					case ColorChannel.Red:
+						surfaceValues[surface.surfaceType] += weightR;
+						break;
+					case ColorChannel.Green:
+						surfaceValues[surface.surfaceType] += weightG;
+						break;
+					case ColorChannel.Blue:
+						surfaceValues[surface.surfaceType] += weightB;
+						break;
+					case ColorChannel.Alpha:
+						surfaceValues[surface.surfaceType] += weightA;
+						break;
+				}
+			}
+
+			// Add base/default surface.
+			if (!surfaceValues.ContainsKey(defaultSurfaceType))
+			{
+				surfaceValues.Add(defaultSurfaceType, 0f);
+			}
+			surfaceValues[defaultSurfaceType] += weightBase;
+
+			// Safety normalize in case of tiny floating point drift.
+			float total = 0f;
+			foreach (KeyValuePair<string, float> kvp in surfaceValues)
+			{
+				total += kvp.Value;
+			}
+
+			if (total > 0.0001f)
+			{
+				List<string> keys = new List<string>(surfaceValues.Keys);
+				foreach (string key in keys)
+				{
+					surfaceValues[key] /= total;
+				}
 			}
 			else
 			{
+				surfaceValues.Clear();
 				surfaceValues.Add(defaultSurfaceType, 1f);
 			}
 

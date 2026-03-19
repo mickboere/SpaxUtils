@@ -70,7 +70,7 @@ namespace SpaxUtils
 		public bool Ground { get; set; } = true;
 
 		/// <summary>
-		/// Returns true when the entity is touching the ground or within the coyote grace period.
+		/// Returns true when the entity is currently touching the ground.
 		/// </summary>
 		public bool Grounded { get; private set; }
 
@@ -117,6 +117,11 @@ namespace SpaxUtils
 		public bool IsJumping { get; private set; }
 
 		/// <summary>
+		/// Whether the agent is currently in the process of landing.
+		/// </summary>
+		public bool IsLanding { get; private set; }
+
+		/// <summary>
 		/// The configured static friction angle in degrees.
 		/// Exposed for external consumers (e.g. movement handler braking authority).
 		/// </summary>
@@ -159,16 +164,16 @@ namespace SpaxUtils
 
 		[Header("Grounding")]
 		[SerializeField] private float groundOffset = 1f;
-		[SerializeField] private float groundReach = 0.25f;
+		[SerializeField] private float groundReach = 0.45f;
 		[SerializeField] private float groundRadius = 0.2f;
 		[SerializeField] private float flyThreshold = 2.5f;
-		[SerializeField, Tooltip("Seconds the agent stays grounded after losing ground contact.")]
-		private float coyoteTime = 0.1f;
 
 		[Header("Stepping")]
 		[SerializeField] private float stepHeight = 1f;
 		[SerializeField] private Vector2 stepRadius = new Vector2(0.5f, 0.5f);
 		[SerializeField, Range(0f, 20f)] private float stepSmooth = 20f;
+		[SerializeField, Range(0f, 90f), Tooltip("Ignore valid step hits whose slope angle exceeds the initial average by this many degrees. This helps reject near-wall hits beside cliffs from poisoning the ground average.")]
+		private float steepHitOutlierAngle = 25f;
 
 		[Header("Surface & Mobility")]
 		[SerializeField, Range(0f, 20f)] private float normalSmoothing = 12.5f;
@@ -189,11 +194,9 @@ namespace SpaxUtils
 		private float dynamicFriction = 0.3f;
 		[SerializeField, Tooltip("Slide speed below which the agent can stop sliding (when terrain is below dynamic friction angle).")]
 		private float slideExitSpeed = 0.5f;
-		[SerializeField, Range(0f, 1f), Tooltip("How much horizontal speed (m/s, normalized) contributes to breaking static friction. " +
-			"High speed on a moderate slope can cause a slip.")]
+		[SerializeField, Range(0f, 1f), Tooltip("How much horizontal speed (m/s, normalized) contributes to breaking static friction. High speed on a moderate slope can cause a slip.")]
 		private float speedSlideContribution = 0.1f;
-		[SerializeField, Range(0f, 1f), Tooltip("Minimum divergence between surface and terrain slope to detect stairs. " +
-			"When divergence exceeds this, the terrain is treated as stairs and sliding is suppressed.")]
+		[SerializeField, Range(0f, 1f), Tooltip("Minimum divergence between surface and terrain slope to detect stairs. When divergence exceeds this, the terrain is treated as stairs and sliding is suppressed.")]
 		private float stairDivergenceThreshold = 0.2f;
 		[SerializeField, Range(0f, 20f), Tooltip("How quickly SlidingAmount ramps up when entering a slide.")]
 		private float slidingRampUp = 10f;
@@ -224,11 +227,9 @@ namespace SpaxUtils
 		private float peakFallingSpeed;
 		private bool landedThisFrame;
 		private float airborneDuration;
-		private bool isLandingTransition;
 
-		// Coyote time.
+		// Ground contact.
 		private bool groundContact;
-		private float airborneTimer;
 
 		// Sliding state.
 		private bool isSliding;
@@ -264,6 +265,7 @@ namespace SpaxUtils
 		{
 			groundContact = false;
 			GroundedAmount = 0f;
+
 			Vector3 origin = rigidbodyWrapper.Position + rigidbodyWrapper.Up * groundOffset;
 			if (Physics.SphereCast(origin, groundRadius, -rigidbodyWrapper.Up, out groundedHit, groundOffset + groundReach, layerMask))
 			{
@@ -275,27 +277,9 @@ namespace SpaxUtils
 				}
 			}
 
-			// Coyote time: stay grounded for a short duration after losing ground contact.
-			// IsJumping bypasses grounding so the agent always leaves the ground.
-			// Safe because UpdateJumpState clears IsJumping the moment velocity.y < 0.
-			if (IsJumping)
-			{
-				Grounded = false;
-			}
-			else if (groundContact)
-			{
-				airborneTimer = 0f;
-				Grounded = true;
-			}
-			else if (Grounded)
-			{
-				airborneTimer += Time.fixedDeltaTime;
-				if (airborneTimer > coyoteTime || rigidbodyWrapper.Velocity.y > flyThreshold)
-				{
-					// Grace period expired or moving upward fast enough (external force).
-					Grounded = false;
-				}
-			}
+			// Grounding is purely based on current contact.
+			// Jumping explicitly bypasses grounding so jump leave-off stays clean.
+			Grounded = !IsJumping && groundContact;
 		}
 
 		/// <summary>
@@ -334,18 +318,18 @@ namespace SpaxUtils
 					}
 				}
 
-				isLandingTransition = false;
+				IsLanding = false;
 			}
 			else if (!wasGrounded)
 			{
 				// First frame of ground contact after being airborne.
 				// Enter landing transition - don't fire event or snap yet.
-				isLandingTransition = true;
+				IsLanding = true;
 			}
 
 			// Check if landing transition completes (truly settled on ground).
 			// Cannot complete while IsJumping - wait for vel.y < 0 to clear it first.
-			if (isLandingTransition && !IsJumping && GroundedAmount > 0.9f)
+			if (IsLanding && !IsJumping && GroundedAmount > 0.9f)
 			{
 				// Truly landed. Fire event and apply landing effects.
 				float surfaceAlignment = Mathf.Clamp01(Vector3.Dot(groundedHit.normal, rigidbodyWrapper.Up));
@@ -369,7 +353,7 @@ namespace SpaxUtils
 				peakFallingSpeed = 0f;
 				airborneDuration = 0f;
 				IsJumping = false;
-				isLandingTransition = false;
+				IsLanding = false;
 			}
 
 			wasGrounded = groundContact;
@@ -393,6 +377,7 @@ namespace SpaxUtils
 			Vector2 radius = new Vector2(
 				Mathf.Max(stepRadius.x, rigidbodyWrapper.RelativeVelocity.x * stepRadius.x * 0.5f),
 				Mathf.Max(stepRadius.y, rigidbodyWrapper.RelativeVelocity.z * stepRadius.y * 0.5f));
+
 			if (!PhysicsUtils.TubeCast(origin, radius, -SurfaceNormal, rigidbodyWrapper.Forward, stepHeight * 2f,
 				layerMask, settings.Get(Entity.Priority).RayCount, out List<RaycastHit> hits, true, debug))
 			{
@@ -410,7 +395,6 @@ namespace SpaxUtils
 			{
 				if (Vector3.Dot(hits[i].normal, rigidbodyWrapper.Up) > 0f)
 				{
-					// Swap valid hit to front of list.
 					if (i != validCount)
 					{
 						RaycastHit temp = hits[validCount];
@@ -430,23 +414,55 @@ namespace SpaxUtils
 				return;
 			}
 
-			// Calculate surface normals from valid hits only.
-			if (stepNormals == null || stepNormals.Length != validCount)
-			{
-				stepNormals = new Vector3[validCount];
-			}
+			// Reject steep outlier hits whose slope angle vastly exceeds the initial average.
+			// This prevents near-vertical wall hits beside cliffs from poisoning the ground average.
+			float averageAngle = 0f;
 			for (int i = 0; i < validCount; i++)
+			{
+				averageAngle += Vector3.Angle(rigidbodyWrapper.Up, hits[i].normal);
+			}
+			averageAngle /= validCount;
+
+			int filteredCount = 0;
+			float maxAcceptedAngle = averageAngle + steepHitOutlierAngle;
+			for (int i = 0; i < validCount; i++)
+			{
+				float hitAngle = Vector3.Angle(rigidbodyWrapper.Up, hits[i].normal);
+				if (hitAngle <= maxAcceptedAngle)
+				{
+					if (i != filteredCount)
+					{
+						RaycastHit temp = hits[filteredCount];
+						hits[filteredCount] = hits[i];
+						hits[i] = temp;
+					}
+					filteredCount++;
+				}
+			}
+
+			// Do not allow the filter to wipe out the sample entirely.
+			if (filteredCount == 0)
+			{
+				filteredCount = validCount;
+			}
+
+			// Calculate surface normals from filtered hits only.
+			if (stepNormals == null || stepNormals.Length != filteredCount)
+			{
+				stepNormals = new Vector3[filteredCount];
+			}
+			for (int i = 0; i < filteredCount; i++)
 			{
 				stepNormals[i] = hits[i].normal;
 			}
 			SurfaceNormal = Vector3.Slerp(SurfaceNormal, stepNormals.AverageDirection(), normalSmoothing * Time.fixedDeltaTime);
 
-			// Calculate terrain points from valid hits only.
-			if (stepPoints == null || stepPoints.Length != validCount)
+			// Calculate terrain points from filtered hits only.
+			if (stepPoints == null || stepPoints.Length != filteredCount)
 			{
-				stepPoints = new Vector3[validCount];
+				stepPoints = new Vector3[filteredCount];
 			}
-			for (int i = 0; i < validCount; i++)
+			for (int i = 0; i < filteredCount; i++)
 			{
 				stepPoints[i] = hits[i].point;
 			}
@@ -602,7 +618,7 @@ namespace SpaxUtils
 						rigidbodyWrapper.AddForce(frictionForce, ForceMode.Acceleration);
 					}
 				}
-				else if (!landedThisFrame && !wasSliding && !isLandingTransition)
+				else if (!landedThisFrame && !wasSliding && !IsLanding)
 				{
 					// Disperse along terrain normal.
 					// Skipped on landing frame, slide-exit frame, and during landing transition.
@@ -610,7 +626,7 @@ namespace SpaxUtils
 					rigidbodyWrapper.AddForce(movementDispersion, ForceMode.VelocityChange);
 				}
 
-				if (!isLandingTransition)
+				if (!IsLanding)
 				{
 					// Normal grounded state. Zero downward velocity and snap to ground.
 					if (!isSliding)
@@ -685,7 +701,7 @@ namespace SpaxUtils
 			}
 
 			IsJumping = true;
-			isLandingTransition = true;
+			IsLanding = true;
 		}
 
 		/// <summary>

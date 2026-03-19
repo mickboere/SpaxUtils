@@ -162,7 +162,7 @@ namespace SpiritAxis
 			slideWeight = grounder.SlidingAmount;
 			// Asymmetric: fast ramp into flying (becoming airborne), slow decay on landing
 			// so the transition from flying pose to grounded pose is gradual.
-			float flyTarget = grounder.Grounded ? 0f : 1f;
+			float flyTarget = 1f - grounder.GroundedAmount;
 			float flySpeed = flyTarget > flyWeight
 				? moveset.PoseTransitionSpeed
 				: moveset.PoseTransitionSpeed * 0.5f;
@@ -279,10 +279,24 @@ namespace SpiritAxis
 			agentPoser.ProvideInstructions(moveset.FlyingBlendTree, PoserLayerConstants.BODY, flying, 3, flyWeight);
 
 			// Landing pose overlay. Single pose, weight = severity.
-			if (isLanding && moveset.LandingPose != null)
+			float landingOverlayWeight = landingWeight;
+
+			if (!isLanding && grounder.IsLanding)
+			{
+				float downwardSpeed = Mathf.Max(0f, -rigidbodyWrapper.Velocity.y);
+				float severity = Mathf.InverseLerp(moveset.LandingMinImpact, moveset.LandingMaxImpact, downwardSpeed).OutQuad();
+
+				landingOverlayWeight = severity * grounder.GroundedAmount;
+			}
+
+			if (landingOverlayWeight > 0f && moveset.LandingPose != null)
 			{
 				IPoserInstructions landingInstructions = moveset.LandingPose.GetInstructions(0f);
-				agentPoser.ProvideInstructions(this, PoserLayerConstants.BODY, landingInstructions, LANDING_POSE_PRIORITY, landingWeight);
+				agentPoser.ProvideInstructions(this, PoserLayerConstants.BODY, landingInstructions, LANDING_POSE_PRIORITY, landingOverlayWeight);
+			}
+			else
+			{
+				agentPoser.RevokeInstructions(this);
 			}
 		}
 
