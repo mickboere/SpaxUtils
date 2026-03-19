@@ -30,7 +30,7 @@ namespace SpaxUtils
 				ImpactSFXData match = impactSFX[0];
 				for (int i = 1; i < impactSFX.Length; i++)
 				{
-					if (impactForce > impactSFX[i].Force && impactSFX[i].Force > match.Force)
+					if (impactForce > impactSFX[i].Intensity && impactSFX[i].Intensity > match.Intensity)
 					{
 						match = impactSFX[i];
 					}

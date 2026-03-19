@@ -48,7 +48,8 @@ namespace SpaxUtils
 		protected ICommunicationChannel comms;
 		protected IStunHandler stunHandler;
 		protected AgentStatHandler statHandler;
-		protected AgentImpactHandler agentSenseComponent;
+		protected AgentImpactHandler agentImpactHandler;
+		protected AgentAudioHandler agentAudioHandler;
 
 		private EntityStat timescaleStat;
 		private EntityStat limbMassStat;
@@ -99,7 +100,8 @@ namespace SpaxUtils
 			ICommunicationChannel comms,
 			IStunHandler stunHandler,
 			AgentStatHandler statHandler,
-			AgentImpactHandler agentSenseComponent)
+			AgentImpactHandler agentImpactHandler,
+			AgentAudioHandler agentAudioHandler)
 		{
 			this.move = move;
 			this.callbackService = callbackService;
@@ -113,7 +115,8 @@ namespace SpaxUtils
 			this.comms = comms;
 			this.stunHandler = stunHandler;
 			this.statHandler = statHandler;
-			this.agentSenseComponent = agentSenseComponent;
+			this.agentImpactHandler = agentImpactHandler;
+			this.agentAudioHandler = agentAudioHandler;
 
 			timescaleStat = Agent.Stats.GetStat(EntityStatIdentifiers.TIMESCALE, true, 1f);
 			limbMassStat = Agent.Stats.GetStat(AgentStatIdentifiers.MASS.SubStat(this.move.Limb));
@@ -389,7 +392,7 @@ namespace SpaxUtils
 				if (Agent.Identification.HasAll(EntityLabels.PLAYER))
 				{
 					stormShake = new ContinuousShakeSource(stormShakeMagnitude, -rigidbodyWrapper.TargetVelocity);
-					agentSenseComponent.ReportImpact(new ImpactData
+					agentImpactHandler.ReportImpact(new ImpactData
 					{
 						Source = Agent,
 						Direction = -rigidbodyWrapper.TargetVelocity,
@@ -404,7 +407,10 @@ namespace SpaxUtils
 				inertiaTimer = new TimerClass(move.InertiaDelay, () => timescaleStat, callbackService);
 			}
 
-			statHandler.PointStats.N.Drain(Move.PerformCost.Cost * (limbMassStat / strengthStat) * 100f);
+			// Play exertion audio.
+			float drained = statHandler.PointStats.N.Drain(Move.PerformCost.Cost * (limbMassStat / strengthStat) * 100f);
+			float fraction = drained / statHandler.PointStats.N.Reserve;
+			agentAudioHandler.PlayExertion(fraction);
 		}
 
 		private void OnSwing()
@@ -415,7 +421,7 @@ namespace SpaxUtils
 					new Vector3(0f, 0f, swingShakeMagnitude),
 					rigidbodyWrapper.TargetVelocity);
 
-				agentSenseComponent.ReportImpact(new ImpactData
+				agentImpactHandler.ReportImpact(new ImpactData
 				{
 					Source = Agent,
 					Location = Agent.Transform.position,
@@ -545,7 +551,7 @@ namespace SpaxUtils
 				}
 
 				comms.Send(hitData);
-				agentSenseComponent.ReportImpact(new ImpactData
+				agentImpactHandler.ReportImpact(new ImpactData
 				{
 					Source = Agent,
 					Victim = hitData.Receiver.Entity,

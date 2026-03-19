@@ -35,6 +35,7 @@ namespace SpaxUtils
 		private IAgentMovementHandler movementHandler;
 		private AgentStatHandler statHandler;
 		private Pool<PooledAudioSource> audioPool;
+		private AgentAudioHandler agentAudio;
 
 		private PointsStat staminaStat;
 		private EntityStat massStat;
@@ -53,12 +54,13 @@ namespace SpaxUtils
 		}
 
 		public void InjectDependencies(GrounderComponent grounder, IAgentMovementHandler movementHandler,
-			AgentStatHandler statHandler, Pool<PooledAudioSource> audioPool)
+			AgentStatHandler statHandler, Pool<PooledAudioSource> audioPool, AgentAudioHandler agentAudio)
 		{
 			this.grounder = grounder;
 			this.movementHandler = movementHandler;
 			this.statHandler = statHandler;
 			this.audioPool = audioPool;
+			this.agentAudio = agentAudio;
 
 			statHandler.TryGetPointStat(Move.ChargeCost.Stat, out staminaStat);
 			massStat = Agent.Stats.GetStat(AgentStatIdentifiers.MASS);
@@ -181,6 +183,9 @@ namespace SpaxUtils
 			{
 				jumpSFX.Play(audioPool.Request(Agent.Transform.position, Agent.Transform).AudioSourceWrapper);
 			}
+
+			// Play exertion SFX.
+			agentAudio.PlayExertion(chargeFraction.OutSine());
 		}
 	}
 }

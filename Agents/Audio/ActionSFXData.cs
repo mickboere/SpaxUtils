@@ -1,12 +1,13 @@
 ﻿using System;
 using UnityEngine;
 
+
 namespace SpaxUtils
 {
 	[Serializable]
-	public class ImpactSFXData
+	public class ActionSFXData
 	{
-		[field: SerializeField] public float Force { get; private set; }
+		[field: SerializeField, ConstDropdown(typeof(IActIdentifiers))] public string Act { get; private set; }
 		[field: SerializeField] public SFXData SFX { get; private set; }
 	}
 }
