@@ -180,7 +180,8 @@ namespace SpaxUtils
 					onInputCallback?.Invoke(inputContext);
 					ReceivedInputEvent?.Invoke(inputContext);
 
-					if (pickOnInput && inputContext.canceled)
+					//if (pickOnInput && inputContext.canceled)
+					if (pickOnInput && inputContext.performed)
 					{
 						Pick();
 					}

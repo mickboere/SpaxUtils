@@ -87,7 +87,14 @@ namespace SpaxUtils
 
 		private void OnCurrentDataProfileChangedEvent(RuntimeDataCollection profile)
 		{
-			Cycle = runtimeDataService.CurrentProfile.GetValue<int>(ProfileDataIdentifiers.CYCLE, -1);
+			if (profile != null)
+			{
+				Cycle = profile.GetValue<int>(ProfileDataIdentifiers.CYCLE, -1);
+			}
+			else
+			{
+				Cycle = -1;
+			}
 		}
 
 		private void OnLoadingScreenShownEvent(string targetState, string targetScene, GameStateSwitchReason reason)

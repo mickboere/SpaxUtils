@@ -25,5 +25,13 @@ namespace SpaxUtils.UI
 		[field: SerializeField] public Camera Camera { get; private set; }
 		[field: SerializeField] public CanvasGroup CanvasGroup { get; private set; }
 		[field: SerializeField] public UIGroup UIGroup { get; private set; }
+
+		protected void Awake()
+		{
+			if (UIGroup != null)
+			{
+				UIGroup.ShowImmediately();
+			}
+		}
 	}
 }

@@ -163,7 +163,7 @@ namespace SpaxUtils
 		[SerializeField] private OptimizationSettings settings = new OptimizationSettings(1, 3, 5, 8, 16);
 
 		[Header("Grounding")]
-		[SerializeField] private float groundOffset = 1f;
+		[SerializeField] private float groundHeight = 1f;
 		[SerializeField] private float groundReach = 0.45f;
 		[SerializeField] private float groundRadius = 0.2f;
 		[SerializeField] private float flyThreshold = 2.5f;
@@ -172,8 +172,10 @@ namespace SpaxUtils
 		[SerializeField] private float stepHeight = 1f;
 		[SerializeField] private Vector2 stepRadius = new Vector2(0.5f, 0.5f);
 		[SerializeField, Range(0f, 20f)] private float stepSmooth = 20f;
-		[SerializeField, Range(0f, 90f), Tooltip("Ignore valid step hits whose slope angle exceeds the initial average by this many degrees. This helps reject near-wall hits beside cliffs from poisoning the ground average.")]
+		[SerializeField, Range(0f, 90f), Tooltip("Ignore valid step hits whose slope angle exceeds the median by this many degrees. This helps reject near-wall hits beside cliffs from poisoning the ground average.")]
 		private float steepHitOutlierAngle = 25f;
+		[SerializeField, Tooltip("Maximum distance from the median hit height (along up axis) before a step hit is rejected as an outlier. Helps reject rays that punch through ledge edges to the ground below.")]
+		private float stepHeightOutlierDistance = 0.5f;
 
 		[Header("Surface & Mobility")]
 		[SerializeField, Range(0f, 20f)] private float normalSmoothing = 12.5f;
@@ -235,6 +237,9 @@ namespace SpaxUtils
 		private bool isSliding;
 		private bool wasSliding;
 
+		// Reusable buffer for median computation in outlier filters.
+		private float[] outlierBuffer;
+
 		public void InjectDependencies(RigidbodyWrapper rigidbodyWrapper, IAgent agent)
 		{
 			this.rigidbodyWrapper = rigidbodyWrapper;
@@ -266,11 +271,11 @@ namespace SpaxUtils
 			groundContact = false;
 			GroundedAmount = 0f;
 
-			Vector3 origin = rigidbodyWrapper.Position + rigidbodyWrapper.Up * groundOffset;
-			if (Physics.SphereCast(origin, groundRadius, -rigidbodyWrapper.Up, out groundedHit, groundOffset + groundReach, layerMask))
+			Vector3 origin = rigidbodyWrapper.Position + rigidbodyWrapper.Up * groundHeight;
+			if (Physics.SphereCast(origin, groundRadius, -rigidbodyWrapper.Up, out groundedHit, groundHeight + groundReach, layerMask))
 			{
 				groundContact = true;
-				GroundedAmount = Mathf.Clamp01((groundedHit.distance - groundOffset) / groundReach).Invert();
+				GroundedAmount = Mathf.Clamp01((groundedHit.distance - groundHeight) / groundReach).Invert();
 				if (debug)
 				{
 					Debug.DrawLine(origin, groundedHit.point, Color.red);
@@ -414,17 +419,24 @@ namespace SpaxUtils
 				return;
 			}
 
-			// Reject steep outlier hits whose slope angle vastly exceeds the initial average.
-			// This prevents near-vertical wall hits beside cliffs from poisoning the ground average.
-			float averageAngle = 0f;
+			// Ensure outlier buffer is large enough.
+			if (outlierBuffer == null || outlierBuffer.Length < validCount)
+			{
+				outlierBuffer = new float[validCount];
+			}
+
+			// --- Angle outlier filter (median-based) ---
+			// Reject steep outlier hits whose slope angle vastly exceeds the median.
+			// Median is used instead of mean so that a minority of extreme hits
+			// (e.g. near-vertical wall hits beside cliffs) cannot drag the reference.
 			for (int i = 0; i < validCount; i++)
 			{
-				averageAngle += Vector3.Angle(rigidbodyWrapper.Up, hits[i].normal);
+				outlierBuffer[i] = Vector3.Angle(rigidbodyWrapper.Up, hits[i].normal);
 			}
-			averageAngle /= validCount;
+			float medianAngle = MedianFloat(outlierBuffer, validCount);
 
 			int filteredCount = 0;
-			float maxAcceptedAngle = averageAngle + steepHitOutlierAngle;
+			float maxAcceptedAngle = medianAngle + steepHitOutlierAngle;
 			for (int i = 0; i < validCount; i++)
 			{
 				float hitAngle = Vector3.Angle(rigidbodyWrapper.Up, hits[i].normal);
@@ -445,6 +457,44 @@ namespace SpaxUtils
 			{
 				filteredCount = validCount;
 			}
+
+			// --- Height outlier filter (median-based) ---
+			// Reject hits whose elevation deviates too far from the median hit height.
+			// This discards rays that punch through a ledge edge to the ground far below,
+			// which would otherwise drag the step point and terrain average downward.
+			if (outlierBuffer.Length < filteredCount)
+			{
+				outlierBuffer = new float[filteredCount];
+			}
+			for (int i = 0; i < filteredCount; i++)
+			{
+				outlierBuffer[i] = Vector3.Dot(hits[i].point, rigidbodyWrapper.Up);
+			}
+			float medianHeight = MedianFloat(outlierBuffer, filteredCount);
+
+			int heightFilteredCount = 0;
+			for (int i = 0; i < filteredCount; i++)
+			{
+				float hitHeight = Vector3.Dot(hits[i].point, rigidbodyWrapper.Up);
+				if (Mathf.Abs(hitHeight - medianHeight) <= stepHeightOutlierDistance)
+				{
+					if (i != heightFilteredCount)
+					{
+						RaycastHit temp = hits[heightFilteredCount];
+						hits[heightFilteredCount] = hits[i];
+						hits[i] = temp;
+					}
+					heightFilteredCount++;
+				}
+			}
+
+			// Do not allow the filter to wipe out the sample entirely.
+			if (heightFilteredCount == 0)
+			{
+				heightFilteredCount = filteredCount;
+			}
+
+			filteredCount = heightFilteredCount;
 
 			// Calculate surface normals from filtered hits only.
 			if (stepNormals == null || stepNormals.Length != filteredCount)
@@ -558,13 +608,13 @@ namespace SpaxUtils
 			// the agent is on stairs or detailed geometry and should not slide.
 			// On a real slope, surface and terrain slopes are roughly equal.
 			// On stairs, surface slope is much higher (risers are near vertical).
-			float slopeDivergence = SurfaceSlope - TerrainSlope;
-			bool isStairs = slopeDivergence > stairDivergenceThreshold;
+			float slopeDivergence = Mathf.Abs(SurfaceSlope - TerrainSlope);
+			bool isComplexGeometry = slopeDivergence > stairDivergenceThreshold;
 
 			if (!isSliding)
 			{
-				// Cannot enter sliding on stairs.
-				if (!isStairs)
+				// Cannot enter sliding on complex geometry.
+				if (!isComplexGeometry)
 				{
 					// Check if static friction is overcome.
 					// Horizontal speed contributes: running fast across a steep slope can break traction.
@@ -719,6 +769,32 @@ namespace SpaxUtils
 			{
 				IsJumping = false;
 			}
+		}
+
+		/// <summary>
+		/// Returns the median value from the first <paramref name="count"/> entries of the buffer.
+		/// Sorts the range in-place using insertion sort (counts are small, typically &lt;= 16).
+		/// </summary>
+		private static float MedianFloat(float[] buffer, int count)
+		{
+			// Insertion sort over the relevant range.
+			for (int i = 1; i < count; i++)
+			{
+				float key = buffer[i];
+				int j = i - 1;
+				while (j >= 0 && buffer[j] > key)
+				{
+					buffer[j + 1] = buffer[j];
+					j--;
+				}
+				buffer[j + 1] = key;
+			}
+
+			if (count % 2 == 1)
+			{
+				return buffer[count / 2];
+			}
+			return (buffer[count / 2 - 1] + buffer[count / 2]) * 0.5f;
 		}
 	}
 }

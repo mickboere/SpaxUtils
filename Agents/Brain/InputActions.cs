@@ -5,7 +5,8 @@
 	/// </summary>
 	public class InputActions : IInputActions
 	{
-		public const string CONFIRM = "Confirm";
+		// UI
+		public const string SUBMIT = "Submit";
 		public const string CANCEL = "Cancel";
 	}
 }
