@@ -13,7 +13,7 @@ namespace SpaxUtils
 		private VolumeService volumeService;
 		private VolumeProfile profile;
 
-		private void Awake()
+		private void OnEnable()
 		{
 			Volume volume = GetComponent<Volume>();
 			profile = volume.profile;
@@ -21,7 +21,7 @@ namespace SpaxUtils
 			volumeService.Register(profile);
 		}
 
-		private void OnDestroy()
+		private void OnDisable()
 		{
 			if (volumeService != null && profile != null)
 			{

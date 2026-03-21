@@ -30,6 +30,8 @@ namespace SpaxUtils
 		private const string DATA_QUERY_TIMER = "queryTimer";
 
 		[Header("Timing")]
+		[SerializeField] private float startDelay = 0f;
+
 		[SerializeField, Tooltip("Seconds between activity decisions.")]
 		private float queryInterval = 6f;
 
@@ -118,7 +120,7 @@ namespace SpaxUtils
 				// No persisted state or restoration failed. Start fresh.
 				activity = WanderActivity.Idle;
 				targetPOI = null;
-				queryTimer = 0f;
+				queryTimer = startDelay;
 			}
 
 			// If POIHandler holds a POI that this node isn't dwelling at, vacate it.

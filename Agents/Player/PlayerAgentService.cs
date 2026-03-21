@@ -12,7 +12,7 @@ namespace SpaxUtils
 	public class PlayerAgentService : IService
 	{
 		private const string ID_PLAYER_COLLECTION = "PLAYER_ENTITIES";
-		private const string PLAYER_ID_PREFIX = "PLAYER_";
+		private const string PLAYER_ID = "PLAYER";
 
 		public event Action<IAgent> PlayerRegisteredEvent;
 		public event Action<IAgent> PlayerDeregisteredEvent;
@@ -53,7 +53,12 @@ namespace SpaxUtils
 				return null;
 			}
 
-			return PLAYER_ID_PREFIX + playerIndex.ToString();
+			if (playerIndex == 0)
+			{
+				return PLAYER_ID;
+			}
+
+			return PLAYER_ID + $"_{playerIndex + 1}";
 		}
 
 		/// <summary>
