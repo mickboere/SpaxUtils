@@ -277,7 +277,7 @@ namespace SpaxUtils
 				}
 
 				// Kill residual input and velocity, then lock rotation toward the other entity.
-				if (movementHandler != null)
+				if (movementHandler != null && !rigidbodyWrapper.IsKinematic)
 				{
 					movementHandler.InputRaw = Vector3.zero;
 					movementHandler.InputSmooth = Vector3.zero;
