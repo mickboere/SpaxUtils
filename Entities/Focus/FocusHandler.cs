@@ -27,6 +27,8 @@ namespace SpaxUtils
 			public Func<Vector3?> Provider;
 		}
 
+		[SerializeField] private bool debug;
+
 		private List<FocusEntry> entries = new List<FocusEntry>();
 		private CallbackService callbackService;
 
@@ -94,6 +96,16 @@ namespace SpaxUtils
 					entries.RemoveAt(i);
 					return;
 				}
+			}
+		}
+
+		protected void OnDrawGizmos()
+		{
+			if (debug && CurrentFocusPoint.HasValue)
+			{
+				Gizmos.color = Color.yellow;
+				Gizmos.DrawLine(transform.position, CurrentFocusPoint.Value);
+				Gizmos.DrawSphere(CurrentFocusPoint.Value, 0.1f);
 			}
 		}
 	}

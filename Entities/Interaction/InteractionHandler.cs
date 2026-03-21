@@ -33,11 +33,15 @@ namespace SpaxUtils
 		private ITargeter targeter;
 		private ITargetable targetable;
 		private FocusHandler focusHandler;
+		private RigidbodyWrapper rigidbodyWrapper;
+		private IAgentMovementHandler movementHandler;
 
-		private System.Func<Vector3?> interactionFocusProvider;
+		private Func<Vector3?> interactionFocusProvider;
 
 		public void InjectDependencies(IInteractable[] interactables, IInteractor[] interactors, IInteractionBlocker[] blockers,
-			[Optional] ITargeter targeter, [Optional] ITargetable targetable, [Optional] FocusHandler focusHandler)
+			[Optional] ITargeter targeter, [Optional] ITargetable targetable,
+			[Optional] FocusHandler focusHandler, [Optional] RigidbodyWrapper rigidbodyWrapper,
+			[Optional] IAgentMovementHandler movementHandler)
 		{
 			foreach (IInteractable interactable in interactables)
 			{
@@ -51,6 +55,8 @@ namespace SpaxUtils
 			this.targeter = targeter;
 			this.targetable = targetable;
 			this.focusHandler = focusHandler;
+			this.rigidbodyWrapper = rigidbodyWrapper;
+			this.movementHandler = movementHandler;
 		}
 
 		/// <summary>
@@ -251,14 +257,38 @@ namespace SpaxUtils
 				interactions.Add(interaction);
 				interaction.ConcludedEvent += OnConcludedEvent;
 
-				if (targeter != null)
+				IEntity other = interaction.Interactor == Entity ? interaction.Interactable.Entity : interaction.Interactor;
+
+				// Set targeting if available.
+				if (targeter != null && other.TryGetEntityComponent(out ITargetable otherTargetable))
 				{
-					IEntity other = interaction.Interactor == this ? interaction.Interactable.Entity : interaction.Interactor;
-					if (other.TryGetEntityComponent(out ITargetable otherTargetable))
-					{
-						// Target the interactable.
-						targeter.SetTarget(otherTargetable);
-					}
+					targeter.SetTarget(otherTargetable);
+				}
+
+				// Determine look-at position: prefer targetable point, fall back to entity position.
+				Vector3 lookAtPosition;
+				if (other.TryGetEntityComponent(out ITargetable lookTargetable))
+				{
+					lookAtPosition = lookTargetable.Point;
+				}
+				else
+				{
+					lookAtPosition = other.Transform.position;
+				}
+
+				// Kill residual input and velocity, then lock rotation toward the other entity.
+				if (movementHandler != null)
+				{
+					movementHandler.InputRaw = Vector3.zero;
+					movementHandler.InputSmooth = Vector3.zero;
+					movementHandler.TargetDirection = (lookAtPosition - Entity.Transform.position).FlattenY();
+					movementHandler.LockRotation = true;
+				}
+
+				if (rigidbodyWrapper != null)
+				{
+					rigidbodyWrapper.ResetVelocity();
+					rigidbodyWrapper.IsKinematic.AddBool(interaction, true);
 				}
 
 				if (Entity is IAgent agent)
@@ -285,9 +315,19 @@ namespace SpaxUtils
 				interactions.Remove(interaction);
 				targeter?.SetTarget(null);
 
+				if (rigidbodyWrapper != null)
+				{
+					rigidbodyWrapper.IsKinematic.RemoveBool(interaction);
+				}
+
 				// Only leave INTERACTING state and unregister focus once all interactions have concluded.
 				if (interactions.Count == 0)
 				{
+					if (movementHandler != null)
+					{
+						movementHandler.LockRotation = false;
+					}
+
 					if (Entity is IAgent agent)
 					{
 						agent.Brain.TryTransition(AgentStateIdentifiers.IDLE);
@@ -311,7 +351,7 @@ namespace SpaxUtils
 
 			// Use the most recent active interaction as focus source.
 			IInteraction interaction = interactions[interactions.Count - 1];
-			IEntity other = interaction.Interactor == this ? interaction.Interactable.Entity : interaction.Interactor;
+			IEntity other = interaction.Interactor == Entity ? interaction.Interactable.Entity : interaction.Interactor;
 
 			// Prefer ITargetable.Point if the other entity has one, otherwise fall back to interaction point.
 			if (other != null && other.TryGetEntityComponent(out ITargetable otherTargetable))

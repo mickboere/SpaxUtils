@@ -1,4 +1,3 @@
-//using System.Linq;
 using UnityEngine;
 
 namespace SpaxUtils
@@ -6,8 +5,11 @@ namespace SpaxUtils
 	/// <summary>
 	/// A point of interest that wandering agents can navigate to and perform an action at.
 	/// Only one agent may occupy a POI at a time.
+	/// POI filtering uses <see cref="IIdentification.Labels"/> on the parent <see cref="Entity"/>
+	/// instead of dedicated tags.
 	/// </summary>
-	public class PointOfInterest : MonoBehaviour
+	[RequireComponent(typeof(Entity))]
+	public class PointOfInterest : EntityComponentMono
 	{
 		/// <summary>Whether an agent is currently occupying this POI.</summary>
 		public bool IsOccupied => occupant != null;
@@ -15,10 +17,6 @@ namespace SpaxUtils
 		/// <summary>The action key passed to the agent's Actor when they arrive. Stub for AnimatedBehaviour system.</summary>
 		public string ActionKey => actionKey;
 
-		/// <summary>Tags used by WanderNode to filter which POIs this agent type will visit.</summary>
-		public string[] Tags => tags;
-
-		[SerializeField, ConstDropdown(typeof(IPOITags))] private string[] tags;
 		[SerializeField, ConstDropdown(typeof(IActIdentifiers), true)] private string actionKey;
 		[SerializeField] private float dwellTimeMin = 5f;
 		[SerializeField] private float dwellTimeMax = 15f;
@@ -58,31 +56,9 @@ namespace SpaxUtils
 			return Random.Range(dwellTimeMin, dwellTimeMax);
 		}
 
-		/// <summary>
-		/// Returns whether this POI has all of the requested tags.
-		/// Passing null or empty matches any POI.
-		/// </summary>
-		public bool HasTags(string[] required)
-		{
-			if (required == null || required.Length == 0)
-				return true;
-
-			foreach (string req in required)
-			{
-				bool found = false;
-				foreach (string tag in tags)
-				{
-					if (tag == req) { found = true; break; }
-				}
-				if (!found) return false;
-			}
-
-			return true;
-		}
-
 		public string GetString()
 		{
-			return $"POI \"{gameObject.name}\", tags=[{tags.Join()}], actionKey={actionKey}, occupied={IsOccupied}, occupant={occupant.ID}";
+			return $"POI \"{Entity.ID}\", labels=[{string.Join(", ", Entity.Identification.Labels)}], actionKey={actionKey}, occupied={IsOccupied}, occupant={(occupant != null ? occupant.ID : "none")}";
 		}
 
 		protected virtual void OnDrawGizmos()

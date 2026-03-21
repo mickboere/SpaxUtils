@@ -138,14 +138,18 @@ namespace SpaxUtils
 			return SampleRegion(selectedIndex);
 		}
 
-		/// <inheritdoc/>
-		public List<PointOfInterest> GetAvailablePOIs(string[] requiredTags = null)
+		/// <summary>
+		/// Returns all unoccupied POIs in this region whose parent entity has all of the given labels.
+		/// Passing null or empty <paramref name="requiredLabels"/> matches any POI.
+		/// </summary>
+		public List<PointOfInterest> GetAvailablePOIs(string[] requiredLabels = null)
 		{
 			List<PointOfInterest> result = new List<PointOfInterest>();
+			bool filterByLabels = requiredLabels != null && requiredLabels.Length > 0;
 
 			foreach (PointOfInterest poi in pois)
 			{
-				if (!poi.IsOccupied && poi.HasTags(requiredTags))
+				if (!poi.IsOccupied && (!filterByLabels || poi.Entity.Identification.HasAll(requiredLabels)))
 				{
 					result.Add(poi);
 				}

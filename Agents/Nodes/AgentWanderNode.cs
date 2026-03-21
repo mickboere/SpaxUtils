@@ -10,6 +10,8 @@ namespace SpaxUtils
 	/// Supports three activity modes: navigate to a random point within a WorldRegion,
 	/// navigate to a random point within a radius, or navigate to a PointOfInterest.
 	/// Rolls against configurable weights each query interval to decide what to do next.
+	/// Persists its task state in the agent's <see cref="RuntimeDataCollection"/> so that
+	/// wandering survives flow destruction (e.g. entering dialogue) and save/load cycles.
 	/// </summary>
 	[NodeWidth(280)]
 	public class AgentWanderNode : StateComponentNodeBase
@@ -19,6 +21,13 @@ namespace SpaxUtils
 
 		// Maximum weighted selection attempts before giving up and reverting to Idle.
 		private const int MAX_SELECTION_ATTEMPTS = 5;
+
+		private const string DATA_WANDER = "wander";
+		private const string DATA_ACTIVITY = "activity";
+		private const string DATA_DESTINATION = "destination";
+		private const string DATA_TARGET_POI_ID = "targetPOIId";
+		private const string DATA_DWELL_TIMER = "dwellTimer";
+		private const string DATA_QUERY_TIMER = "queryTimer";
 
 		[Header("Timing")]
 		[SerializeField, Tooltip("Seconds between activity decisions.")]
@@ -49,8 +58,8 @@ namespace SpaxUtils
 		[SerializeField] private float dwellTimeMax = 12f;
 
 		[Header("Points of Interest")]
-		[SerializeField, Tooltip("Only visit POIs with all of these tags. Leave empty to visit any.")]
-		private string[] poiTags;
+		[SerializeField, ConstDropdown(typeof(IIdentificationLabels)), Tooltip("Only visit POIs whose entity has all of these labels. Leave empty to visit any.")]
+		private string[] poiLabels;
 
 		[SerializeField, Range(0f, 1f), Tooltip("How strongly proximity biases POI selection. " +
 			"0 = uniform, 1 = strongly prefer nearby. Kept soft by default to avoid always picking the same two nearby POIs.")]
@@ -62,11 +71,11 @@ namespace SpaxUtils
 		private ISpawnpoint spawnpoint;
 		private WorldRegionService worldRegionService;
 		private POIHandler poiHandler;
+		private EntityService entityService;
 
-		private enum WanderActivity { Idle, Moving, MovingRaw, Dwelling }
+		private enum WanderActivity { Idle = 0, Moving = 1, MovingRaw = 2, Dwelling = 3 }
 		private enum ActivityOption { Region = 0, Radius = 1, POI = 2 }
 
-		private bool initialized;
 		private WanderActivity activity;
 		private Vector3 currentDestination;
 		private PointOfInterest targetPOI;
@@ -82,6 +91,7 @@ namespace SpaxUtils
 			CallbackService callbackService,
 			WorldRegionService worldRegionService,
 			POIHandler poiHandler,
+			EntityService entityService,
 			[Optional] ISpawnpoint spawnpoint)
 		{
 			this.agent = agent;
@@ -89,6 +99,7 @@ namespace SpaxUtils
 			this.callbackService = callbackService;
 			this.worldRegionService = worldRegionService;
 			this.poiHandler = poiHandler;
+			this.entityService = entityService;
 			this.spawnpoint = spawnpoint;
 		}
 
@@ -96,28 +107,26 @@ namespace SpaxUtils
 		{
 			base.OnStateEntered();
 
-			if (!initialized)
+			agent.OnSaveEvent += OnSave;
+
+			if (TryRestoreFromData())
 			{
-				initialized = true;
-				activity = WanderActivity.Idle;
-				targetPOI = null;
-				queryTimer = 0f;
-			}
-			else if (poiHandler.IsOccupying)
-			{
-				// We were dwelling at a POI when Idle was exited (e.g. entered Interacting).
-				// POIHandler still holds the reference (Passive scope kept it alive).
-				// Resume dwelling with a fresh dwell time.
-				targetPOI = poiHandler.CurrentPOI;
-				activity = WanderActivity.Dwelling;
-				dwellTimer = Random.Range(dwellTimeMin, dwellTimeMax);
+				// Successfully resumed from persisted state.
 			}
 			else
 			{
-				// No POI occupation. Normal requery.
-				targetPOI = null;
+				// No persisted state or restoration failed. Start fresh.
 				activity = WanderActivity.Idle;
+				targetPOI = null;
 				queryTimer = 0f;
+			}
+
+			// If POIHandler holds a POI that this node isn't dwelling at, vacate it.
+			// Handles handoff from VisitPOINode or a previous session whose
+			// occupation is no longer relevant to this wander.
+			if (poiHandler.IsOccupying && poiHandler.CurrentPOI != targetPOI)
+			{
+				poiHandler.Vacate();
 			}
 
 			callbackService.SubscribeUpdate(UpdateMode.Update, this, OnUpdate);
@@ -126,6 +135,10 @@ namespace SpaxUtils
 		public override void OnStateExit()
 		{
 			base.OnStateExit();
+
+			SaveToData();
+
+			agent.OnSaveEvent -= OnSave;
 			callbackService.UnsubscribeUpdate(UpdateMode.Update, this);
 			navigation.ResetInput();
 
@@ -158,7 +171,6 @@ namespace SpaxUtils
 							// Arrived at POI. Try to occupy now.
 							if (targetPOI.TryOccupy(agent))
 							{
-								AlignToPOI(targetPOI);
 								poiHandler.Occupy(targetPOI);
 								BeginDwell(targetPOI.SampleDwellTime());
 							}
@@ -262,7 +274,7 @@ namespace SpaxUtils
 
 		private bool TrySelectPOI()
 		{
-			List<PointOfInterest> available = spawnpoint.Region.GetAvailablePOIs(poiTags);
+			List<PointOfInterest> available = spawnpoint.Region.GetAvailablePOIs(poiLabels);
 
 			if (available.Count == 0)
 			{
@@ -395,10 +407,100 @@ namespace SpaxUtils
 			}
 		}
 
-		private void AlignToPOI(PointOfInterest poi)
+		#region Data Persistence
+
+		private void OnSave(RuntimeDataCollection data)
 		{
-			agent.Transform.position = poi.transform.position;
-			agent.Transform.rotation = poi.transform.rotation;
+			SaveToData();
 		}
+
+		private void SaveToData()
+		{
+			RuntimeDataCollection wander = new RuntimeDataCollection(DATA_WANDER);
+			wander.SetValue(DATA_ACTIVITY, (int)activity);
+			wander.SetValue(DATA_DESTINATION, currentDestination);
+			wander.SetValue(DATA_TARGET_POI_ID, targetPOI != null ? targetPOI.Entity.ID : "");
+			wander.SetValue(DATA_DWELL_TIMER, dwellTimer);
+			wander.SetValue(DATA_QUERY_TIMER, queryTimer);
+			agent.RuntimeData.TryAdd(wander, true);
+		}
+
+		/// <summary>
+		/// Attempts to restore wander state from the agent's persisted <see cref="RuntimeDataCollection"/>.
+		/// Returns true if state was successfully restored, false if no saved state exists or restoration failed.
+		/// </summary>
+		private bool TryRestoreFromData()
+		{
+			if (!agent.RuntimeData.TryGetEntry<RuntimeDataCollection>(DATA_WANDER, out RuntimeDataCollection wander))
+			{
+				return false;
+			}
+
+			if (!wander.TryGetValue<int>(DATA_ACTIVITY, out int savedActivity))
+			{
+				return false;
+			}
+
+			activity = (WanderActivity)savedActivity;
+			currentDestination = wander.GetValue<Vector3>(DATA_DESTINATION);
+			queryTimer = wander.GetValue<float>(DATA_QUERY_TIMER);
+			dwellTimer = wander.GetValue<float>(DATA_DWELL_TIMER);
+
+			// Resolve target POI if one was saved.
+			targetPOI = null;
+			string poiId = null;
+			if (wander.TryGetValue<string>(DATA_TARGET_POI_ID, out poiId)
+				&& !string.IsNullOrEmpty(poiId))
+			{
+				if (entityService.TryGet<IEntity>(poiId, out IEntity poiEntity)
+					&& poiEntity.TryGetEntityComponent<PointOfInterest>(out PointOfInterest poi))
+				{
+					targetPOI = poi;
+				}
+			}
+
+			// Validate restored state.
+			switch (activity)
+			{
+				case WanderActivity.Dwelling:
+					if (targetPOI != null)
+					{
+						// Verify we're still occupying this POI through the handler.
+						if (poiHandler.IsOccupying && poiHandler.CurrentPOI == targetPOI)
+						{
+							// All good, resume dwelling with remaining time.
+						}
+						else
+						{
+							// POI occupation was lost. Fall back to idle.
+							targetPOI = null;
+							activity = WanderActivity.Idle;
+							queryTimer = 0f;
+						}
+					}
+					// Dwelling without a POI (regular dwell at a wander point) is valid.
+					break;
+
+				case WanderActivity.Moving:
+				case WanderActivity.MovingRaw:
+					// Resume moving toward destination. If POI was resolved, we'll
+					// attempt occupation on arrival. If it wasn't (destroyed/occupied),
+					// we still move to the destination and dwell there instead.
+					if (targetPOI == null && !string.IsNullOrEmpty(poiId))
+					{
+						// Had a POI target but it's gone. Navigate to destination anyway
+						// and treat as a regular wander point.
+					}
+					break;
+
+				case WanderActivity.Idle:
+					// Nothing special to validate.
+					break;
+			}
+
+			return true;
+		}
+
+		#endregion
 	}
 }

@@ -50,5 +50,10 @@ namespace SpaxUtils
 			}
 			return value;
 		}
+
+		public override string ToString()
+		{
+			return Value.ToString();
+		}
 	}
 }

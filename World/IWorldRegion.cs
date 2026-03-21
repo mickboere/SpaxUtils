@@ -22,8 +22,8 @@ namespace SpaxUtils
 		Vector3 SamplePoint();
 
 		/// <summary>
-		/// Returns all unoccupied points of interest belonging to this region that match the required tags.
+		/// Returns all unoccupied points of interest belonging to this region that match the required labels.
 		/// </summary>
-		List<PointOfInterest> GetAvailablePOIs(string[] requiredTags = null);
+		List<PointOfInterest> GetAvailablePOIs(string[] requiredLabels = null);
 	}
 }

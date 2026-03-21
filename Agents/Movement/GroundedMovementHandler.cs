@@ -289,6 +289,11 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public virtual void UpdateRotation(float delta, Vector3? targetDirection = null, bool ignoreControl = false)
 		{
+			if (debug)
+			{
+				SpaxDebug.Log($"[{Agent.ID}]", $"UpdateRotation: LockRotation={LockRotation}, TargetDirection={TargetDirection}, Sliding={grounder.Sliding}, Control={rigidbodyWrapper.Control}, delta={delta}");
+			}
+
 			float time = delta * (ignoreControl ? 1f : rigidbodyWrapper.Control);
 
 			if (!targetDirection.HasValue)

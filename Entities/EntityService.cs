@@ -148,6 +148,35 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
+		/// Returns all entities whose <see cref="IIdentification"/> contains ALL of the given <paramref name="labels"/>.
+		/// Returns an empty list if <paramref name="labels"/> is null or empty.
+		/// </summary>
+		public List<IEntity> GetByLabels(params string[] labels)
+		{
+			List<IEntity> result = new List<IEntity>();
+
+			if (labels == null || labels.Length == 0)
+			{
+				return result;
+			}
+
+			foreach (IEntity entity in entities.Values)
+			{
+				if (IsDestroyedUnityObject(entity))
+				{
+					continue;
+				}
+
+				if (entity.Identification.HasAll(labels))
+				{
+					result.Add(entity);
+				}
+			}
+
+			return result;
+		}
+
+		/// <summary>
 		/// Returns all <see cref="IEntityComponent"/>s implementing <typeparamref name="T"/> of all tracked <see cref="IEntity"/>s.
 		/// </summary>
 		public List<T> GetComponents<T>(Func<IEntity, bool> entityEvaluation, Func<T, bool> componentEvaluation, params IEntity[] exclude) where T : class, IEntityComponent

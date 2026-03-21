@@ -9,13 +9,15 @@ namespace SpaxUtils
 	/// and occupies it indefinitely via <see cref="POIHandler"/>.
 	/// Unlike <see cref="AgentWanderNode"/>, this node targets one POI and stays.
 	/// Intended for NPCs like Brother who wait at a specific location.
+	/// On re-entry after an interruption (e.g. dialogue), verifies that the currently
+	/// occupied POI matches this node's label criteria. If not, vacates and reselects.
 	/// </summary>
 	[NodeWidth(280)]
 	public class VisitPOINode : StateComponentNodeBase
 	{
 		[Header("Target")]
-		[SerializeField, ConstDropdown(typeof(IPOITags)), Tooltip("Only visit POIs with all of these tags.")]
-		private string[] poiTags;
+		[SerializeField, ConstDropdown(typeof(IIdentificationLabels)), Tooltip("Only visit POIs whose entity has all of these labels.")]
+		private string[] poiLabels;
 
 		[Header("Navigation")]
 		[SerializeField, Tooltip("Movement speed passed to navigation.")]
@@ -33,7 +35,6 @@ namespace SpaxUtils
 		private POIHandler poiHandler;
 		private ISpawnpoint spawnpoint;
 
-		private bool initialized;
 		private VisitActivity activity;
 		private PointOfInterest currentPOI;
 		private Vector3 currentDestination;
@@ -58,22 +59,30 @@ namespace SpaxUtils
 		{
 			base.OnStateEntered();
 
-			if (!initialized)
+			if (poiHandler.IsOccupying)
 			{
-				initialized = true;
-				currentPOI = null;
-				activity = VisitActivity.Selecting;
-			}
-			else if (poiHandler.IsOccupying && poiHandler.CurrentPOI == currentPOI)
-			{
-				// POIHandler still holds our POI (Passive scope kept it alive
-				// through Idle/Interacting transition). Resume occupied.
-				activity = VisitActivity.Occupied;
+				PointOfInterest occupiedPOI = poiHandler.CurrentPOI;
+				bool labelsMatch = poiLabels == null
+					|| poiLabels.Length == 0
+					|| occupiedPOI.Entity.Identification.HasAll(poiLabels);
+
+				if (labelsMatch)
+				{
+					// Currently occupied POI matches our criteria. Resume occupied.
+					currentPOI = occupiedPOI;
+					activity = VisitActivity.Occupied;
+				}
+				else
+				{
+					// Occupied POI does not match this node's labels. Vacate and reselect.
+					poiHandler.Vacate();
+					currentPOI = null;
+					activity = VisitActivity.Selecting;
+				}
 			}
 			else
 			{
-				// POI was vacated (e.g. Combat ended, Passive exit cleared it).
-				// Or first entry after initialization. Navigate to it again.
+				// Not occupying anything. Select a POI.
 				currentPOI = null;
 				activity = VisitActivity.Selecting;
 			}
@@ -132,8 +141,8 @@ namespace SpaxUtils
 				return false;
 			}
 
-			// Search by tags within the agent's region.
-			List<PointOfInterest> available = region.GetAvailablePOIs(poiTags);
+			// Search by labels within the agent's region.
+			List<PointOfInterest> available = region.GetAvailablePOIs(poiLabels);
 			if (available.Count > 0)
 			{
 				// Pick the closest available POI.
@@ -171,11 +180,7 @@ namespace SpaxUtils
 
 			if (currentPOI != null && currentPOI.TryOccupy(agent))
 			{
-				// Align agent with POI transform.
-				agent.Transform.position = currentPOI.transform.position;
-				agent.Transform.rotation = currentPOI.transform.rotation;
-
-				// Write to POIHandler so AnimatedActionsNode can pick up the action.
+				// POIHandler handles alignment and kinematic state.
 				poiHandler.Occupy(currentPOI);
 				activity = VisitActivity.Occupied;
 			}

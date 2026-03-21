@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Linq;
+using System.Security.Authentication;
 using UnityEngine;
 
 namespace SpaxUtils
@@ -44,6 +45,8 @@ namespace SpaxUtils
 
 		#endregion Properties
 
+		[SerializeField] private bool debug;
+
 		private EntityComponentFilter<ITargetable> enemies;
 		private EntityComponentFilter<ITargetable> allies;
 
@@ -81,6 +84,16 @@ namespace SpaxUtils
 			enemies.Dispose();
 			allies.Dispose();
 			agent.Relations.RelationsUpdatedEvent -= OnRelationsUpdatedEvent;
+		}
+
+		protected void OnDrawGizmos()
+		{
+			if (debug && Target != null)
+			{
+				Gizmos.color = Color.red;
+				Gizmos.DrawLine(transform.position, Target.Point);
+				Gizmos.DrawSphere(Target.Point, 0.1f);
+			}
 		}
 
 		/// <inheritdoc/>
