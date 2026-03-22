@@ -10,10 +10,11 @@ namespace SpaxUtils
 	[NodeWidth(300)]
 	public class SetFlagNode : StateComponentNodeBase
 	{
-		[SerializeField, ConstDropdown(typeof(IFlags))] private string[] flags;
-		[SerializeField] private bool setID;
-		[SerializeField] private bool complete;
-		[SerializeField] private bool overwrite;
+		[SerializeField, ConstDropdown(typeof(IFlags), inputField: true)] private string[] flags;
+		[SerializeField, Tooltip("Clears the flag data from the profile.")] private bool clear;
+		[SerializeField, Conditional(nameof(clear), true), Tooltip("Mark the flag as being set by this Entity.")] private bool setID;
+		[SerializeField, Conditional(nameof(clear), true), Tooltip("Mark the flag as being completed.")] private bool complete;
+		[SerializeField, Conditional(nameof(clear), true), Tooltip("Overwrites any existing flag data.")] private bool overwrite;
 
 		private FlagService flagsService;
 
@@ -32,7 +33,9 @@ namespace SpaxUtils
 		public override void OnEnteringState(ITransition transition)
 		{
 			base.OnEnteringState(transition);
-			flagsService.SetFlags(flags, setID ? entity.ID : "", complete, overwrite);
+
+			if (clear) flagsService.ClearFlags(flags);
+			else flagsService.SetFlags(flags, setID ? entity.ID : "", complete, overwrite);
 		}
 	}
 }

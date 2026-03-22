@@ -8,12 +8,36 @@ using UnityEngine.AI;
 namespace SpaxUtils
 {
 	/// <summary>
+	/// Result of a one-shot path query. Does not affect the handler's cached navigation path.
+	/// </summary>
+	public struct PathQueryResult
+	{
+		/// <summary>Whether a path was found at all (not <see cref="NavMeshPathStatus.PathInvalid"/>).</summary>
+		public bool Valid;
+
+		/// <summary>Whether the path reaches the destination exactly (<see cref="NavMeshPathStatus.PathComplete"/>).</summary>
+		public bool Complete;
+
+		/// <summary>Total path length in world units.</summary>
+		public float Length;
+
+		/// <summary>Estimated traversal time based on <see cref="Length"/> and the queried speed.</summary>
+		public float EstimatedTime;
+	}
+
+	/// <summary>
 	/// Agent component that handles NPC movement and navigation.
 	/// </summary>
 	[DefaultExecutionOrder(29)]
 	public class AgentNavigationHandler : EntityComponentMono, IDependency
 	{
 		private const float DEFAULT_ACCURACY = 0.1f;
+
+		/// <summary>
+		/// Range used when snapping arbitrary world positions onto the NavMesh
+		/// for path queries that originate from positions not guaranteed to be on the mesh.
+		/// </summary>
+		private const float QUERY_SAMPLE_RANGE = 5f;
 
 		[Header("NavMesh")]
 		[SerializeField, Tooltip("How far the target must drift from its last-calculated position before the path is recalculated.")]
@@ -102,6 +126,50 @@ namespace SpaxUtils
 				agent.Body.RigidbodyWrapper.Velocity = Vector3.zero;
 			}
 		}
+
+		#region Path Query
+
+		/// <summary>
+		/// Performs a one-shot NavMesh path query from the agent's current position to <paramref name="destination"/>.
+		/// Snaps the agent position onto the NavMesh first so the query works even when
+		/// the agent stands slightly above or beside the mesh surface.
+		/// Does not affect the cached navigation path used by <see cref="FollowNavMeshPath"/>.
+		/// </summary>
+		/// <param name="destination">World-space target position (should already be on or near the NavMesh).</param>
+		/// <param name="speed">Movement speed used to estimate traversal time via <see cref="IAgentMovementHandler.CalculateSpeed"/>.</param>
+		public PathQueryResult QueryPath(Vector3 destination, float speed)
+		{
+			PathQueryResult result = new PathQueryResult();
+
+			// Snap agent position onto the NavMesh to get a valid start point.
+			Vector3 origin = agent.Transform.position;
+			if (NavMesh.SamplePosition(origin, out NavMeshHit originHit, QUERY_SAMPLE_RANGE, NavMesh.AllAreas))
+			{
+				origin = originHit.position;
+			}
+			else
+			{
+				// Agent is nowhere near any NavMesh. Cannot query.
+				return result;
+			}
+
+			NavMeshPath tempPath = new NavMeshPath();
+			bool found = NavMesh.CalculatePath(origin, destination, NavMesh.AllAreas, tempPath);
+
+			result.Valid = found && tempPath.status != NavMeshPathStatus.PathInvalid;
+			result.Complete = found && tempPath.status == NavMeshPathStatus.PathComplete;
+
+			if (result.Valid)
+			{
+				result.Length = CalculatePathLength(tempPath.corners, 0);
+				float worldSpeed = movementHandler.CalculateSpeed(speed);
+				result.EstimatedTime = worldSpeed > 0.001f ? result.Length / worldSpeed : float.MaxValue;
+			}
+
+			return result;
+		}
+
+		#endregion
 
 		#region Targeting
 

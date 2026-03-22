@@ -22,5 +22,13 @@ namespace SpaxUtils
 				AudioSourceWrapper = GetComponent<AudioSourceWrapper>();
 			}
 		}
+
+		protected void OnDisable()
+		{
+			if(AudioSourceWrapper != null)
+			{
+				AudioSourceWrapper.Reset();
+			}
+		}
 	}
 }

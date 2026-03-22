@@ -14,7 +14,7 @@ namespace SpaxUtils
 		public override float Validity => flags.Length;
 
 		[SerializeField, Input(backingValue = ShowBackingValue.Never)] protected Connections.Rule inConnection;
-		[SerializeField, ConstDropdown(typeof(IFlags))] private string[] flags;
+		[SerializeField, ConstDropdown(typeof(IFlags), inputField: true)] private string[] flags;
 		[SerializeField] private bool requireCompletion;
 		[SerializeField] private bool invert;
 

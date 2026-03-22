@@ -28,6 +28,7 @@ namespace SpaxUtils
 		private const string DATA_TARGET_POI_ID = "targetPOIId";
 		private const string DATA_DWELL_TIMER = "dwellTimer";
 		private const string DATA_QUERY_TIMER = "queryTimer";
+		private const string DATA_MOVE_TIMER = "moveTimer";
 
 		[Header("Timing")]
 		[SerializeField] private float startDelay = 0f;
@@ -40,6 +41,14 @@ namespace SpaxUtils
 
 		[SerializeField, Tooltip("Arrival distance to consider a destination reached.")]
 		private float arrivalRange = 0.25f;
+
+		[Header("Movement Timeout")]
+		[SerializeField, Tooltip("Multiplier applied to the estimated travel time to produce the movement timeout. " +
+			"Accounts for deflection, corner-rounding, and crowding.")]
+		private float moveTimeoutMultiplier = 2f;
+
+		[SerializeField, Tooltip("Minimum movement timeout in seconds, prevents trivially short timeouts on nearby points.")]
+		private float moveTimeoutFloor = 5f;
 
 		[Header("Activity Weights")]
 		[SerializeField, Range(0f, 1f), Tooltip("Weight for picking a random point within the assigned WorldRegion.")]
@@ -69,6 +78,7 @@ namespace SpaxUtils
 
 		private IAgent agent;
 		private AgentNavigationHandler navigation;
+		private IAgentMovementHandler movementHandler;
 		private CallbackService callbackService;
 		private ISpawnpoint spawnpoint;
 		private WorldRegionService worldRegionService;
@@ -83,6 +93,7 @@ namespace SpaxUtils
 		private PointOfInterest targetPOI;
 		private float queryTimer;
 		private float dwellTimer;
+		private float moveTimer;
 
 		// Reused per query to avoid allocation.
 		private readonly List<float> activityWeights = new List<float>(3) { 0f, 0f, 0f };
@@ -90,6 +101,7 @@ namespace SpaxUtils
 		public void InjectDependencies(
 			IAgent agent,
 			AgentNavigationHandler navigation,
+			IAgentMovementHandler movementHandler,
 			CallbackService callbackService,
 			WorldRegionService worldRegionService,
 			POIHandler poiHandler,
@@ -98,6 +110,7 @@ namespace SpaxUtils
 		{
 			this.agent = agent;
 			this.navigation = navigation;
+			this.movementHandler = movementHandler;
 			this.callbackService = callbackService;
 			this.worldRegionService = worldRegionService;
 			this.poiHandler = poiHandler;
@@ -166,6 +179,14 @@ namespace SpaxUtils
 					break;
 
 				case WanderActivity.Moving:
+					moveTimer -= delta;
+					if (moveTimer <= 0f)
+					{
+						// Movement timeout expired. Destination is unreachable or agent is stuck.
+						HandleMoveTimeout();
+						break;
+					}
+
 					if (navigation.MoveInRange(arrivalRange, moveSpeed, true, currentDestination))
 					{
 						if (targetPOI != null)
@@ -192,6 +213,14 @@ namespace SpaxUtils
 					break;
 
 				case WanderActivity.MovingRaw:
+					moveTimer -= delta;
+					if (moveTimer <= 0f)
+					{
+						// Movement timeout expired.
+						HandleMoveTimeout();
+						break;
+					}
+
 					// Non-NavMesh radius wander. TrySteerWorld handles wall/cliff safety.
 					Vector3 toDestination = currentDestination - agent.Transform.position;
 					toDestination.y = 0f;
@@ -223,6 +252,19 @@ namespace SpaxUtils
 					}
 					break;
 			}
+		}
+
+		/// <summary>
+		/// Called when the movement timeout expires during <see cref="WanderActivity.Moving"/>
+		/// or <see cref="WanderActivity.MovingRaw"/>. Cleans up any POI target and requeries immediately.
+		/// </summary>
+		private void HandleMoveTimeout()
+		{
+			navigation.ResetInput();
+			targetPOI = null;
+			activity = WanderActivity.Idle;
+			queryTimer = 0f;
+			SpaxDebug.Warning($"[{agent.ID}] movement timed out, could not reach target at.", $"destination; {currentDestination}");
 		}
 
 		private void SelectActivity()
@@ -316,6 +358,20 @@ namespace SpaxUtils
 			targetPOI = chosen;
 			currentDestination = chosen.transform.position;
 			activity = WanderActivity.Moving;
+
+			// POI paths may be partial (POI sits just off the NavMesh), so we query the path
+			// but accept both complete and partial results for the time estimate.
+			PathQueryResult pathQuery = navigation.QueryPath(currentDestination, moveSpeed);
+			if (pathQuery.Valid)
+			{
+				moveTimer = Mathf.Max(pathQuery.EstimatedTime * moveTimeoutMultiplier, moveTimeoutFloor);
+			}
+			else
+			{
+				// No path at all. Use straight-line distance as fallback estimate.
+				moveTimer = CalculateFallbackTimeout(currentDestination);
+			}
+
 			return true;
 		}
 
@@ -339,9 +395,17 @@ namespace SpaxUtils
 						continue;
 					}
 
+					// Reject destinations that are not fully reachable via the NavMesh.
+					PathQueryResult pathQuery = navigation.QueryPath(hit.position, moveSpeed);
+					if (!pathQuery.Complete)
+					{
+						continue;
+					}
+
 					targetPOI = null;
 					currentDestination = hit.position;
 					activity = WanderActivity.Moving;
+					moveTimer = Mathf.Max(pathQuery.EstimatedTime * moveTimeoutMultiplier, moveTimeoutFloor);
 					return true;
 				}
 			}
@@ -378,18 +442,39 @@ namespace SpaxUtils
 						continue;
 					}
 
+					// Reject destinations that are not fully reachable via the NavMesh.
+					PathQueryResult pathQuery = navigation.QueryPath(hit.position, moveSpeed);
+					if (!pathQuery.Complete)
+					{
+						continue;
+					}
+
 					currentDestination = hit.position;
 					activity = WanderActivity.Moving;
+					moveTimer = Mathf.Max(pathQuery.EstimatedTime * moveTimeoutMultiplier, moveTimeoutFloor);
 					return true;
 				}
 
 				// No NavMesh available - use raw steering toward the sampled point.
 				currentDestination = sample;
 				activity = WanderActivity.MovingRaw;
+				moveTimer = CalculateFallbackTimeout(currentDestination);
 				return true;
 			}
 
 			return false;
+		}
+
+		/// <summary>
+		/// Calculates a movement timeout from straight-line distance when no NavMesh path is available.
+		/// Used for <see cref="WanderActivity.MovingRaw"/> and as a fallback for POI paths that fail entirely.
+		/// </summary>
+		private float CalculateFallbackTimeout(Vector3 destination)
+		{
+			float distance = Vector3.Distance(agent.Transform.position, destination);
+			float worldSpeed = movementHandler.CalculateSpeed(moveSpeed);
+			float estimatedTime = distance / Mathf.Max(worldSpeed, 0.01f);
+			return Mathf.Max(estimatedTime * moveTimeoutMultiplier, moveTimeoutFloor);
 		}
 
 		private void BeginDwell(float duration)
@@ -424,6 +509,7 @@ namespace SpaxUtils
 			wander.SetValue(DATA_TARGET_POI_ID, targetPOI != null ? targetPOI.Entity.ID : "");
 			wander.SetValue(DATA_DWELL_TIMER, dwellTimer);
 			wander.SetValue(DATA_QUERY_TIMER, queryTimer);
+			wander.SetValue(DATA_MOVE_TIMER, moveTimer);
 			agent.RuntimeData.TryAdd(wander, true);
 		}
 
@@ -447,6 +533,13 @@ namespace SpaxUtils
 			currentDestination = wander.GetValue<Vector3>(DATA_DESTINATION);
 			queryTimer = wander.GetValue<float>(DATA_QUERY_TIMER);
 			dwellTimer = wander.GetValue<float>(DATA_DWELL_TIMER);
+
+			// Restore moveTimer. If the key doesn't exist (save from before this feature), default to floor.
+			if (!wander.TryGetValue<float>(DATA_MOVE_TIMER, out float savedMoveTimer))
+			{
+				savedMoveTimer = moveTimeoutFloor;
+			}
+			moveTimer = savedMoveTimer;
 
 			// Resolve target POI if one was saved.
 			targetPOI = null;

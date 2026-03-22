@@ -176,6 +176,28 @@ namespace SpaxUtils
 			}
 		}
 
+		/// <summary>
+		/// Clears flag data from profile.
+		/// </summary>
+		public void ClearFlag(string flag)
+		{
+			if (flags.ContainsKey(flag))
+			{
+				flags.Remove(flag);
+			}
+		}
+
+		/// <summary>
+		/// Clears flag data from profile.
+		/// </summary>
+		public void ClearFlags(string[] flags)
+		{
+			foreach (string flag in flags)
+			{
+				ClearFlag(flag);
+			}
+		}
+
 		private void OnProfileChangedEvent(RuntimeDataCollection profile)
 		{
 			Load();
