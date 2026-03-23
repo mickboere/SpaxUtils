@@ -10,7 +10,9 @@ namespace SpaxUtils
 		private AgentStatHandler agentStatHandler;
 		private Pool<PooledAudioSource> audioPool;
 
+		private float pitch;
 		private float lastHealth;
+		private PooledAudioSource audioSource;
 
 		public void InjectDependencies(AgentStatHandler agentStatHandler, Pool<PooledAudioSource> audioPool, [Optional] AgentAudioProfile audioProfile)
 		{
@@ -27,6 +29,7 @@ namespace SpaxUtils
 		{
 			if (profile != null)
 			{
+				pitch = Agent.RuntimeData.GetValue(EntityDataIdentifiers.AUDIO_PITCH, 1f);
 				lastHealth = agentStatHandler.PointStats.SW.Current;
 				agentStatHandler.PointStats.SW.Current.ValueChangedEvent += OnHealthChangedEvent;
 				Agent.DiedEvent += OnDiedEvent;
@@ -41,6 +44,24 @@ namespace SpaxUtils
 
 		#region Public Methods
 
+		public void Play(SFXData sfx, float volume = 1f, float distance = 1f)
+		{
+			if (sfx == null)
+			{
+				return;
+			}
+
+			// Permit only 1 sound to play at a time.
+			if (audioSource == null)
+			{
+				audioSource = audioPool.Request(Agent.Targetable.Point, Agent.Transform);
+				audioSource.AudioSourceWrapper.SetEntityTimeScale(EntityTimeScale);
+				audioSource.OnDisableEvent += OnASWDisabled;
+			}
+
+			sfx.Play(audioSource.AudioSourceWrapper, volume, pitch, distance * distanceMultiplier);
+		}
+
 		public void PlayExertion(float intensity, float volume = 1f, float distance = 1f)
 		{
 			if (profile == null)
@@ -49,7 +70,7 @@ namespace SpaxUtils
 			}
 
 			SFXData sfx = profile.GetExertionSFX(intensity);
-			sfx?.Play(audioPool.Request(Agent.Targetable.Point, Agent.Transform).AudioSourceWrapper, volume, distance * distanceMultiplier);
+			Play(sfx, volume, distance);
 		}
 
 		public void PlayDamage(float intensity, float volume = 1f, float distance = 1f)
@@ -60,7 +81,7 @@ namespace SpaxUtils
 			}
 
 			SFXData sfx = profile.GetDamageSFX(intensity);
-			sfx?.Play(audioPool.Request(Agent.Targetable.Point, Agent.Transform).AudioSourceWrapper, volume, distance * distanceMultiplier);
+			Play(sfx, volume, distance);
 		}
 
 		public void PlayDeath(float volume = 1f, float distance = 1f)
@@ -71,7 +92,7 @@ namespace SpaxUtils
 			}
 
 			SFXData sfx = profile.GetDeathSFX();
-			sfx?.Play(audioPool.Request(Agent.Targetable.Point, Agent.Transform).AudioSourceWrapper, volume, distance * distanceMultiplier);
+			Play(sfx, volume, distance);
 		}
 
 		public void PlaySatisfy(float volume = 1f, float distance = 1f)
@@ -82,7 +103,7 @@ namespace SpaxUtils
 			}
 
 			SFXData sfx = profile.GetSatisfySFX();
-			sfx?.Play(audioPool.Request(Agent.Targetable.Point, Agent.Transform).AudioSourceWrapper, volume, distance * distanceMultiplier);
+			Play(sfx, volume, distance);
 		}
 
 		public void PlayAction(string act, float volume = 1f, float distance = 1f)
@@ -93,12 +114,18 @@ namespace SpaxUtils
 			}
 
 			SFXData sfx = profile.GetActionSFX(act);
-			sfx?.Play(audioPool.Request(Agent.Targetable.Point, Agent.Transform).AudioSourceWrapper, volume, distance * distanceMultiplier);
+			Play(sfx, volume, distance);
 		}
 
 		#endregion Public Methods
 
 		#region Private Methods
+
+		private void OnASWDisabled()
+		{
+			audioSource.OnDisableEvent -= OnASWDisabled;
+			audioSource = null;
+		}
 
 		private void OnHealthChangedEvent()
 		{

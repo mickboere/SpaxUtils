@@ -4,7 +4,8 @@ namespace SpaxUtils
 	{
 		// AGENT DATA
 		private const string AGENT = "AGENT/";
-		public const string INVULNERABLE = AGENT + "Invulnerable"; // Bool
+		public const string INVULNERABLE = AGENT + "Invulnerable"; // Bool: invulnerable to all damage.
+		//public const string IMMORTAL = AGENT + "Immortal"; // Bool: health will never drop below 0.
 		public const string RELATIONS = AGENT + "Relations"; // Collection
 		public const string ELEVATION = AGENT + "Elevation"; // Float
 		public const string FEET_SURFACE = AGENT + "FeetSurface"; // String

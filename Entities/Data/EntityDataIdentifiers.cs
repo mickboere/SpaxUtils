@@ -48,5 +48,9 @@ namespace SpaxUtils
 		/// Bool defining whether the entity should run in debug mode.
 		/// </summary>
 		public const string DEBUG = ENTITY + "Debug";
+
+		private const string AUDIO = ENTITY + "Audio/";
+		public const string AUDIO_PITCH = AUDIO + "Pitch";
+		public const string AUDIO_SPEED = AUDIO + "Speed";
 	}
 }

@@ -124,7 +124,7 @@ namespace SpaxUtils
 				else
 				{
 					// Tank/snail: rotate towards desired input direction.
-					if (InputSmooth != Vector3.zero)
+					if (InputAxis != Vector3.zero && InputSmooth != Vector3.zero)
 					{
 						// Desired direction in world space from camera/enemy framing.
 						Vector3 desiredDir = (Quaternion.LookRotation(InputAxis) * InputSmooth).FlattenY().normalized;

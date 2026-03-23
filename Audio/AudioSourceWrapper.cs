@@ -57,17 +57,56 @@ namespace SpaxUtils
 		public AudioVelocityUpdateMode VelocityUpdateMode { get { return AudioSource.velocityUpdateMode; } set { audioSource.velocityUpdateMode = value; } }
 		public AudioMixerGroup OutputAudioMixerGroup { get { return AudioSource.outputAudioMixerGroup; } set { audioSource.outputAudioMixerGroup = value; } }
 
+		// Time Scale
+		public bool UseScaledTime
+		{
+			get { return useScaledTime; }
+			set
+			{
+				useScaledTime = value;
+				UpdateTimeScaleModifier();
+			}
+		}
+
+		/// <summary>
+		/// The effective time scale applied to pitch. Combines global <see cref="UnityEngine.Time.timeScale"/>
+		/// (when <see cref="UseScaledTime"/> is enabled) with the entity time scale (when set via <see cref="SetEntityTimeScale"/>).
+		/// </summary>
+		public float EffectiveTimeScale
+		{
+			get
+			{
+				float scale = 1f;
+				if (useScaledTime)
+				{
+					scale *= UnityEngine.Time.timeScale;
+				}
+				if (entityTimeScale != null)
+				{
+					scale *= entityTimeScale.Value;
+				}
+				return scale;
+			}
+		}
+
 		#endregion Property Wrappers
 
 		[SerializeField] private AudioSource audioSource;
+		[SerializeField] private bool useScaledTime;
 
+		// Fade state
 		private TimerClass timer;
 		private FloatFuncModifier mod;
 		private bool fadingOut;
 
+		// Time scale state
+		private EntityStat entityTimeScale;
+		private FloatFuncModifier timeScaleMod;
+
 		protected void Awake()
 		{
 			EnsureAudioSource();
+			UpdateTimeScaleModifier();
 		}
 
 		protected void Update()
@@ -152,14 +191,61 @@ namespace SpaxUtils
 
 		#endregion Fading Methods
 
+		#region Time Scale
+
+		/// <summary>
+		/// Sets an <see cref="EntityStat"/> to use as entity-level time scale modifier on pitch.
+		/// Combined with global <see cref="UnityEngine.Time.timeScale"/> when <see cref="UseScaledTime"/> is enabled.
+		/// </summary>
+		public void SetEntityTimeScale(EntityStat stat)
+		{
+			entityTimeScale = stat;
+			UpdateTimeScaleModifier();
+		}
+
+		/// <summary>
+		/// Clears the entity-level time scale reference.
+		/// </summary>
+		public void ClearEntityTimeScale()
+		{
+			entityTimeScale = null;
+			UpdateTimeScaleModifier();
+		}
+
+		private void UpdateTimeScaleModifier()
+		{
+			bool needsMod = useScaledTime || entityTimeScale != null;
+
+			if (needsMod && timeScaleMod == null)
+			{
+				timeScaleMod = new FloatFuncModifier(ModMethod.Absolute, (float v) => v * EffectiveTimeScale);
+				Pitch.AddModifier(timeScaleMod);
+			}
+			else if (!needsMod && timeScaleMod != null)
+			{
+				Pitch.RemoveModifier(timeScaleMod);
+				timeScaleMod.Dispose();
+				timeScaleMod = null;
+			}
+		}
+
+		#endregion Time Scale
+
 		#region Copy Settings
 
 		/// <summary>
-		/// Copies all settings (except clip and playback state) from another <see cref="AudioSourceWrapper"/>.
+		/// Copies all settings (except clip, playback state, and entity time scale) from another <see cref="AudioSourceWrapper"/>.
 		/// </summary>
 		public void CopySettings(AudioSourceWrapper source)
 		{
-			CopySettings(source.audioSource);
+			// Time scale (before other settings so modifier is in place).
+			UseScaledTime = source.useScaledTime;
+
+			// Volume & Pitch (base values)
+			Volume.BaseValue = source.Volume.BaseValue;
+			Pitch.BaseValue = source.Pitch.BaseValue;
+
+			CopySharedSettings(source.audioSource);
 		}
 
 		/// <summary>
@@ -171,6 +257,11 @@ namespace SpaxUtils
 			Volume.BaseValue = source.volume;
 			Pitch.BaseValue = source.pitch;
 
+			CopySharedSettings(source);
+		}
+
+		private void CopySharedSettings(AudioSource source)
+		{
 			// General
 			Mute = source.mute;
 			Loop = source.loop;
@@ -223,6 +314,14 @@ namespace SpaxUtils
 		{
 			Stop();
 
+			Pitch.ClearModifiers();
+			Volume.ClearModifiers();
+
+			// Clear time scale references (modifiers already removed by ClearModifiers).
+			timeScaleMod = null;
+			entityTimeScale = null;
+			useScaledTime = false;
+
 			// Clip
 			Clip = null;
 
@@ -261,8 +360,8 @@ namespace SpaxUtils
 			VelocityUpdateMode = AudioVelocityUpdateMode.Auto;
 			OutputAudioMixerGroup = null;
 
-			// Playback
-			Time = 0f;
+			// Playback (resets on clip reset)
+			//Time = 0f;
 		}
 
 		private AudioSource EnsureAudioSource()

@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using System;
+using UnityEngine;
 
 namespace SpaxUtils
 {
@@ -8,6 +9,8 @@ namespace SpaxUtils
 	[RequireComponent(typeof(AudioSourceWrapper))]
 	public class PooledAudioSource : PooledItemBase
 	{
+		public event Action OnDisableEvent;
+
 		public override bool Finished => !AudioSourceWrapper.IsPlaying;
 		public override int DefaultPoolSize => defaultPoolSize;
 		public AudioSource AudioSource => AudioSourceWrapper.AudioSource;
@@ -25,10 +28,13 @@ namespace SpaxUtils
 
 		protected void OnDisable()
 		{
-			if(AudioSourceWrapper != null)
+			// Reset the audio source to default settings upon returning to pool.
+			if (AudioSourceWrapper != null)
 			{
 				AudioSourceWrapper.Reset();
 			}
+
+			OnDisableEvent?.Invoke();
 		}
 	}
 }
