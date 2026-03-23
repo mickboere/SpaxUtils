@@ -17,7 +17,8 @@ namespace SpaxUtils
 	public class AgentWanderNode : StateComponentNodeBase
 	{
 		// Large sample range so NavMesh.SamplePosition succeeds across big flat regions.
-		private const float NAVMESH_SAMPLE_RANGE = 25f;
+		private const float NAVMESH_REGION_SAMPLE = 10f;
+		private const float NAVMESH_RADIUS_SAMPLE = 5f;
 
 		// Maximum weighted selection attempts before giving up and reverting to Idle.
 		private const int MAX_SELECTION_ATTEMPTS = 5;
@@ -387,7 +388,7 @@ namespace SpaxUtils
 					continue;
 				}
 
-				if (NavMesh.SamplePosition(sample, out NavMeshHit hit, NAVMESH_SAMPLE_RANGE, NavMesh.AllAreas))
+				if (NavMesh.SamplePosition(sample, out NavMeshHit hit, NAVMESH_REGION_SAMPLE, NavMesh.AllAreas))
 				{
 					// Validate the snapped NavMesh point too, in case it landed outside the region.
 					if (worldRegionService.GetRegion(hit.position) != spawnpoint.Region)
@@ -434,7 +435,7 @@ namespace SpaxUtils
 				targetPOI = null;
 
 				// Always try NavMesh first regardless of region; only fall back to raw steering if it fails.
-				if (NavMesh.SamplePosition(sample, out NavMeshHit hit, NAVMESH_SAMPLE_RANGE, NavMesh.AllAreas))
+				if (NavMesh.SamplePosition(sample, out NavMeshHit hit, NAVMESH_RADIUS_SAMPLE, NavMesh.AllAreas))
 				{
 					// If there is a region, reject points that snap into a different one (e.g. underground overlap).
 					if (hasRegion && worldRegionService.GetRegion(hit.position) != spawnpoint.Region)

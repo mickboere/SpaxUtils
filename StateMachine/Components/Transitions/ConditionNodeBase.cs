@@ -135,7 +135,7 @@ namespace SpaxUtils.StateMachines
 			bool valid = IsValid();
 			if (_valid != valid || RunComponents != componentCallbacks.Active)
 			{
-				if (_valid && RunComponents)
+				if (valid && RunComponents)
 				{
 					// Became valid, activate subcomponents.
 					componentCallbacks.QuickEnter();

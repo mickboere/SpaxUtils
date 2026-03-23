@@ -57,6 +57,10 @@ namespace SpaxUtils
 			}
 		}
 
+		private const float MIN_STEP_SUPPORT_TO_GROUND = 0.35f;
+		private const float STEP_SUPPORT_MIN = 0.25f;
+		private const float STEP_SUPPORT_MAX = 0.75f;
+
 		/// <summary>
 		/// Invoked when the agent transitions from airborne to grounded.
 		/// Parameter is the peak downward speed (m/s) recorded during the current fall phase.
@@ -78,6 +82,12 @@ namespace SpaxUtils
 		/// Grounded percentage: 1 = fully grounded, 0 = ground exceeds reach.
 		/// </summary>
 		public float GroundedAmount { get; private set; }
+
+		/// <summary>
+		/// 0-1 estimate of how much of the intended step sample footprint is actually supported.
+		/// Useful near ledges where only a minority of rays still hit valid ground.
+		/// </summary>
+		public float StepSupport { get; private set; }
 
 		/// <summary>
 		/// The amount of gravitational force applied to the agent.
@@ -252,14 +262,16 @@ namespace SpaxUtils
 			SurfaceNormal = rigidbodyWrapper.Up;
 			TerrainNormal = rigidbodyWrapper.Up;
 			LastSafePosition = rigidbodyWrapper.Position;
+			StepSupport = 1f;
 		}
 
 		protected void FixedUpdate()
 		{
 			GroundCheck();
-			DetectLanding();
 			UpdateJumpState();
 			StepCheck();
+			UpdateGroundedState();
+			DetectLanding();
 			CalculateSurface();
 			UpdateSlidingState();
 			ApplyForces();
@@ -281,10 +293,17 @@ namespace SpaxUtils
 					Debug.DrawLine(origin, groundedHit.point, Color.red);
 				}
 			}
+		}
 
-			// Grounding is purely based on current contact.
-			// Jumping explicitly bypasses grounding so jump leave-off stays clean.
-			Grounded = !IsJumping && groundContact;
+		private void UpdateGroundedState()
+		{
+			if (IsJumping || !groundContact)
+			{
+				Grounded = false;
+				return;
+			}
+
+			Grounded = StepSupport >= MIN_STEP_SUPPORT_TO_GROUND;
 		}
 
 		/// <summary>
@@ -366,8 +385,9 @@ namespace SpaxUtils
 
 		private void StepCheck()
 		{
-			if (!Grounded)
+			if (IsJumping || !groundContact)
 			{
+				StepSupport = 0f;
 				StepPoint = rigidbodyWrapper.Position + rigidbodyWrapper.Velocity.ClampMagnitude(stepHeight * 0.9f);
 				return;
 			}
@@ -377,6 +397,9 @@ namespace SpaxUtils
 				StepPoint = rigidbodyWrapper.Position;
 			}
 
+			OptimizationSettings.Settings optimization = settings.Get(Entity.Priority);
+			int rayCount = optimization.RayCount;
+
 			// Map ground surface.
 			Vector3 origin = rigidbodyWrapper.Position + SurfaceNormal * stepHeight;
 			Vector2 radius = new Vector2(
@@ -384,8 +407,9 @@ namespace SpaxUtils
 				Mathf.Max(stepRadius.y, rigidbodyWrapper.RelativeVelocity.z * stepRadius.y * 0.5f));
 
 			if (!PhysicsUtils.TubeCast(origin, radius, -SurfaceNormal, rigidbodyWrapper.Forward, stepHeight * 2f,
-				layerMask, settings.Get(Entity.Priority).RayCount, out List<RaycastHit> hits, true, debug))
+				layerMask, rayCount, out List<RaycastHit> hits, true, debug))
 			{
+				StepSupport = 0f;
 				SurfaceNormal = Vector3.Slerp(SurfaceNormal, groundedHit.normal, normalSmoothing * Time.fixedDeltaTime);
 				TerrainNormal = Vector3.Slerp(TerrainNormal, rigidbodyWrapper.Up, normalSmoothing * Time.fixedDeltaTime);
 				StepPoint = rigidbodyWrapper.Position;
@@ -413,6 +437,7 @@ namespace SpaxUtils
 			// If no valid hits remain after filtering, fall back to ground hit data.
 			if (validCount == 0)
 			{
+				StepSupport = 0f;
 				SurfaceNormal = Vector3.Slerp(SurfaceNormal, groundedHit.normal, normalSmoothing * Time.fixedDeltaTime);
 				TerrainNormal = Vector3.Slerp(TerrainNormal, rigidbodyWrapper.Up, normalSmoothing * Time.fixedDeltaTime);
 				StepPoint = rigidbodyWrapper.Position;
@@ -496,6 +521,12 @@ namespace SpaxUtils
 
 			filteredCount = heightFilteredCount;
 
+			// Estimate footprint support from surviving filtered hits vs intended ray count.
+			// This prevents a tiny rear sliver of valid hits from fully supporting the whole body at a ledge.
+			StepSupport = rayCount > 0 ? (float)filteredCount / rayCount : 0f;
+			StepSupport = Mathf.Clamp01(StepSupport);
+			StepSupport = Mathf.InverseLerp(STEP_SUPPORT_MIN, STEP_SUPPORT_MAX, StepSupport);
+
 			// Calculate surface normals from filtered hits only.
 			if (stepNormals == null || stepNormals.Length != filteredCount)
 			{
@@ -519,10 +550,13 @@ namespace SpaxUtils
 			TerrainNormal = Vector3.Slerp(TerrainNormal, stepPoints.ApproxNormalFromPoints(rigidbodyWrapper.Up,
 				out Vector3 center, debug, debugSize), normalSmoothing * Time.fixedDeltaTime);
 
+			// Weaken the support center when only a small portion of the footprint is valid.
+			Vector3 supportedCenter = Vector3.Lerp(rigidbodyWrapper.Position, center, StepSupport);
+
 			// Calculate desired step-position.
 			StepPoint = rigidbodyWrapper.Position +
 				Vector3.Lerp(StepPoint - rigidbodyWrapper.Position,
-				center - rigidbodyWrapper.Position,
+				supportedCenter - rigidbodyWrapper.Position,
 				stepSmooth * rigidbodyWrapper.Velocity.y.Abs().Clamp(1f, 10f) * Time.fixedDeltaTime);
 
 			if (debug)
@@ -653,6 +687,8 @@ namespace SpaxUtils
 
 			if (Grounded && !IsJumping && rigidbodyWrapper.Velocity.y < flyThreshold)
 			{
+				bool suspendGroundCorrection = IsJumping || IsLanding;
+
 				if (isSliding)
 				{
 					// Gravity projected along slope surface (downslope acceleration).
@@ -668,15 +704,15 @@ namespace SpaxUtils
 						rigidbodyWrapper.AddForce(frictionForce, ForceMode.Acceleration);
 					}
 				}
-				else if (!landedThisFrame && !wasSliding && !IsLanding)
+				else if (!landedThisFrame && !wasSliding && !suspendGroundCorrection)
 				{
 					// Disperse along terrain normal.
-					// Skipped on landing frame, slide-exit frame, and during landing transition.
+					// Skipped on landing frame, slide-exit frame, and during ground transition.
 					Vector3 movementDispersion = rigidbodyWrapper.Velocity.DisperseOnPlane(TerrainNormal) * Mobility;
 					rigidbodyWrapper.AddForce(movementDispersion, ForceMode.VelocityChange);
 				}
 
-				if (!IsLanding)
+				if (!suspendGroundCorrection)
 				{
 					// Normal grounded state. Zero downward velocity and snap to ground.
 					if (!isSliding)
@@ -689,11 +725,12 @@ namespace SpaxUtils
 					}
 
 					float targetY = StepPoint.y + Elevation;
-					float snappedY = Mathf.Lerp(rigidbodyWrapper.Position.y, targetY, GroundedAmount);
+					float snapWeight = GroundedAmount * StepSupport;
+					float snappedY = Mathf.Lerp(rigidbodyWrapper.Position.y, targetY, snapWeight);
 					rigidbodyWrapper.Position = rigidbodyWrapper.Position.SetY(snappedY);
 				}
-				// During landing transition: no snap, no velocity zeroing.
-				// Physics handles the descent until GroundedAmount > 0.9.
+				// During ground transition: no snap, no velocity zeroing.
+				// Physics handles the descent until fully settled.
 
 				// Apply partial gravity when not fully grounded (cliff edges, ledges, landing).
 				if (GroundedAmount < 0.99f)
@@ -773,7 +810,7 @@ namespace SpaxUtils
 
 		/// <summary>
 		/// Returns the median value from the first <paramref name="count"/> entries of the buffer.
-		/// Sorts the range in-place using insertion sort (counts are small, typically &lt;= 16).
+		/// Sorts the range in-place using insertion sort (counts are small, typically <= 16).
 		/// </summary>
 		private static float MedianFloat(float[] buffer, int count)
 		{
