@@ -7,6 +7,16 @@ namespace SpaxUtils
 	[RequireComponent(typeof(Entity))]
 	public abstract class AgentSpawnerBase : EntityComponentMono
 	{
+		private const string REQ_MET_KEY = "ReqMet";
+
+		[Header("Flag Requirements")]
+		[SerializeField, Tooltip("All requirements must be met before agents are spawned. Evaluated on first session and on each new cycle.")]
+		private FlagRequirement[] spawnRequirements;
+
+		[Header("Flag Setters")]
+		[SerializeField, Tooltip("Applied once all agents belonging to this spawner are dead.")]
+		private FlagSetting[] deathFlags;
+
 		[Header("Spawner")]
 		[SerializeField] protected AgentSetupAsset agentSetup;
 		[SerializeField] protected AgentSpawnData spawnData;
@@ -17,6 +27,10 @@ namespace SpaxUtils
 		private IDependencyManager dependencyManager;
 		private RuntimeDataService runtimeDataService;
 		private WorldService worldService;
+		private FlagService flagService;
+
+		private bool requirementsMet;
+		private bool deathFlagsApplied;
 
 		// Owned instances by slot id.
 		protected Dictionary<string, Agent> spawned = new Dictionary<string, Agent>();
@@ -24,11 +38,13 @@ namespace SpaxUtils
 		public void InjectDependencies(
 			IDependencyManager dependencyManager,
 			RuntimeDataService runtimeDataService,
-			WorldService worldService)
+			WorldService worldService,
+			FlagService flagService)
 		{
 			this.dependencyManager = dependencyManager;
 			this.runtimeDataService = runtimeDataService;
 			this.worldService = worldService;
+			this.flagService = flagService;
 		}
 
 		protected virtual void Start()
@@ -43,6 +59,21 @@ namespace SpaxUtils
 
 			worldService.WorldActiveChangedEvent += OnWorldActiveChangedEvent;
 			worldService.NewCycleEvent += OnNewCycleEvent;
+
+			// Determine requirements-met state.
+			// On first session (no stored value): evaluate and store.
+			// On reload (stored value exists): use stored value.
+			if (TryGetStoredRequirementsMet(out bool storedMet))
+			{
+				requirementsMet = storedMet;
+			}
+			else
+			{
+				requirementsMet = FlagRequirement.EvaluateAll(spawnRequirements, flagService);
+				StoreRequirementsMet(requirementsMet);
+			}
+
+			deathFlagsApplied = false;
 
 			// Initial state.
 			if (worldService.WorldActive)
@@ -67,6 +98,8 @@ namespace SpaxUtils
 				worldService.WorldActiveChangedEvent -= OnWorldActiveChangedEvent;
 				worldService.NewCycleEvent -= OnNewCycleEvent;
 			}
+
+			UnsubscribeAllDeathEvents();
 		}
 
 		private void OnWorldActiveChangedEvent(bool active)
@@ -92,6 +125,11 @@ namespace SpaxUtils
 				ClearSlotRuntimeDataFromProfile();
 			}
 
+			// Re-evaluate requirements on each new cycle.
+			requirementsMet = FlagRequirement.EvaluateAll(spawnRequirements, flagService);
+			StoreRequirementsMet(requirementsMet);
+			deathFlagsApplied = false;
+
 			// If the world is active right now, respawn immediately.
 			if (worldService.WorldActive)
 			{
@@ -114,6 +152,11 @@ namespace SpaxUtils
 
 		private void EnsureSpawnedOrActivated()
 		{
+			if (!requirementsMet)
+			{
+				return;
+			}
+
 			int slots = GetSlotCount();
 			for (int i = 0; i < slots; i++)
 			{
@@ -143,6 +186,7 @@ namespace SpaxUtils
 					if (agent != null)
 					{
 						spawned[slotId] = agent;
+						agent.DiedEvent += OnAgentDied;
 					}
 				}
 				else
@@ -173,6 +217,7 @@ namespace SpaxUtils
 				Agent a = spawned[slotId];
 				if (a != null)
 				{
+					a.DiedEvent -= OnAgentDied;
 					UnityEngine.Object.Destroy(a.gameObject);
 				}
 				spawned[slotId] = null;
@@ -229,6 +274,116 @@ namespace SpaxUtils
 			agent.Brain.TryTransition(AgentStateIdentifiers.ACTIVE);
 			return agent;
 		}
+
+		#region Flag Requirements
+
+		private bool TryGetStoredRequirementsMet(out bool value)
+		{
+			value = false;
+
+			if (runtimeDataService == null || runtimeDataService.CurrentProfile == null)
+			{
+				return false;
+			}
+
+			if (!runtimeDataService.CurrentProfile.TryGetEntry(Entity.ID, out RuntimeDataCollection data))
+			{
+				return false;
+			}
+
+			if (!data.ContainsEntry(REQ_MET_KEY))
+			{
+				return false;
+			}
+
+			value = data.GetValue<bool>(REQ_MET_KEY, false);
+			return true;
+		}
+
+		private void StoreRequirementsMet(bool value)
+		{
+			if (runtimeDataService == null || runtimeDataService.CurrentProfile == null)
+			{
+				return;
+			}
+
+			if (!runtimeDataService.CurrentProfile.TryGetEntry(Entity.ID, out RuntimeDataCollection data))
+			{
+				data = new RuntimeDataCollection(Entity.ID);
+				runtimeDataService.CurrentProfile.TryAdd(data);
+			}
+
+			data.SetValue(REQ_MET_KEY, value);
+		}
+
+		#endregion Flag Requirements
+
+		#region Death Flags
+
+		private void OnAgentDied(DeathContext context)
+		{
+			if (deathFlagsApplied)
+			{
+				return;
+			}
+
+			if (deathFlags == null || deathFlags.Length == 0)
+			{
+				return;
+			}
+
+			if (AreAllSlotsDead())
+			{
+				deathFlagsApplied = true;
+				FlagSetting.ApplyAll(deathFlags, flagService);
+			}
+		}
+
+		private bool AreAllSlotsDead()
+		{
+			int slots = GetSlotCount();
+			if (slots == 0)
+			{
+				return false;
+			}
+
+			for (int i = 0; i < slots; i++)
+			{
+				string slotId = GetSlotId(i);
+
+				// Check live instance first.
+				if (spawned.TryGetValue(slotId, out Agent agent) && agent != null)
+				{
+					if (agent.Alive)
+					{
+						return false;
+					}
+					continue; // Dead in play.
+				}
+
+				// No live instance - check profile.
+				if (!IsSlotDeadInProfile(slotId))
+				{
+					return false; // Not confirmed dead anywhere.
+				}
+			}
+
+			return true;
+		}
+
+		private void UnsubscribeAllDeathEvents()
+		{
+			foreach (KeyValuePair<string, Agent> kvp in spawned)
+			{
+				Agent a = kvp.Value;
+				if (a != null)
+				{
+					a.DiedEvent -= OnAgentDied;
+				}
+			}
+		}
+
+		#endregion Death Flags
 
 		protected string GetSlotId(int slotIndex)
 		{

@@ -87,6 +87,15 @@ namespace SpaxUtils
 				activity = VisitActivity.Selecting;
 			}
 
+			if (agent.Age <= 1f || agent.Priority == PriorityLevel.Culled)
+			{
+				// Try to immediately occupy if just spawned or if culled.
+				if (TrySelectPOI())
+				{
+					TryOccupyOnArrival();
+				}
+			}
+
 			callbackService.SubscribeUpdate(UpdateMode.Update, this, OnUpdate);
 		}
 

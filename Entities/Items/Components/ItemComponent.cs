@@ -16,6 +16,7 @@ namespace SpaxUtils
 		public override string InteractableType => InteractionTypes.ITEM;
 
 		[SerializeField] private SerializedItemData item;
+		[SerializeField, HideInInspector] private int lastItemDataHash;
 
 		protected virtual void OnValidate()
 		{
@@ -51,10 +52,17 @@ namespace SpaxUtils
 			// Only allow ID resets in the editor, not during play.
 			if (!Application.isPlaying)
 			{
-				if (Entity.Identification.Name != item.Asset.Identification.Name)
+				int currentHash = JsonUtility.ToJson(item).GetHashCode();
+				if (lastItemDataHash != currentHash)
 				{
+					lastItemDataHash = currentHash;
 					Entity.Identification.Name = item.Asset.Identification.Name;
 					Entity.Identification.ID = Guid.NewGuid().ToString();
+				}
+				else if (Entity.Identification.Name != item.Asset.Identification.Name)
+				{
+					// Item data didn't change but the asset's name was updated; sync name without resetting ID.
+					Entity.Identification.Name = item.Asset.Identification.Name;
 				}
 			}
 #else

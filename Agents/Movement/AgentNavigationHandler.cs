@@ -367,7 +367,7 @@ namespace SpaxUtils
 
 		public void ForceAlign(Vector3 position, Vector3 direction)
 		{
-			agent.Transform.position = position;
+			agent.Body.RigidbodyWrapper.Position = position;
 			agent.Transform.forward = direction;
 			movementHandler.TargetDirection = direction;
 			ResetInput(true);
