@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -18,9 +19,20 @@ namespace SpaxUtils
 		/// </summary>
 		public ItemInventory Inventory { get; private set; }
 
+		/// <summary>
+		/// Invoked when one or more item notifications have been enqueued.
+		/// </summary>
+		public event Action NotificationsChangedEvent;
+
+		/// <summary>
+		/// The number of pending item notifications in the queue.
+		/// </summary>
+		public int PendingNotificationCount => notifications.Count;
+
 		private IDependencyManager dependencies;
 		private IItemDatabase itemDatabase;
 		private IItemData[] injectedItems;
+		private Queue<ItemNotification> notifications = new Queue<ItemNotification>();
 
 		public void InjectDependencies(IDependencyManager dependencies, IItemDatabase itemDatabase,
 			IItemData[] injectedItems)
@@ -38,6 +50,8 @@ namespace SpaxUtils
 				Entity.RuntimeData.GetEntry(INVENTORY_DATA_ID, new RuntimeDataCollection(INVENTORY_DATA_ID)),
 				Entity is IAgent); // Only run behaviours if the entity is an agent.
 
+			Inventory.QuantityChangedEvent += OnQuantityChanged;
+
 			// Ensure injected item data is present.
 			foreach (IItemData item in injectedItems)
 			{
@@ -50,7 +64,45 @@ namespace SpaxUtils
 
 		protected void OnDestroy()
 		{
+			Inventory.QuantityChangedEvent -= OnQuantityChanged;
 			Inventory.Dispose();
+		}
+
+		/// <summary>
+		/// Tries to dequeue the next item notification.
+		/// If the queue exceeds <paramref name="overflowThreshold"/>, collapses all pending notifications
+		/// into a single summary entry and clears the queue.
+		/// </summary>
+		/// <param name="overflowThreshold">Maximum queue size before collapsing into a summary.</param>
+		/// <param name="notification">The dequeued notification.</param>
+		/// <returns>True if a notification was dequeued, false if the queue was empty.</returns>
+		public bool TryDequeueNotification(int overflowThreshold, out ItemNotification notification)
+		{
+			if (notifications.Count == 0)
+			{
+				notification = default;
+				return false;
+			}
+
+			if (notifications.Count > overflowThreshold)
+			{
+				int count = notifications.Count;
+				notifications.Clear();
+				notification = new ItemNotification($"{count} New Items", null, count);
+				return true;
+			}
+
+			notification = notifications.Dequeue();
+			return true;
+		}
+
+		private void OnQuantityChanged(RuntimeItemData runtimeItemData, int delta)
+		{
+			notifications.Enqueue(new ItemNotification(
+				runtimeItemData.Name,
+				runtimeItemData.ItemData.Icon,
+				delta));
+			NotificationsChangedEvent?.Invoke();
 		}
 
 		#region Interactor
@@ -62,7 +114,6 @@ namespace SpaxUtils
 			{
 				return new List<string>() { InteractionTypes.ITEM_TAKE };
 			}
-
 			return new List<string>();
 		}
 
@@ -73,7 +124,7 @@ namespace SpaxUtils
 				action == InteractionTypes.ITEM_TAKE)
 			{
 				interaction = new Interaction(Entity, interactable, action);
-				interaction.InitiatedEvent += ExtractItem;
+				interaction.InitiatedEvent += ExtractItemFromInteraction;
 				return true;
 			}
 
@@ -81,7 +132,7 @@ namespace SpaxUtils
 			return false;
 		}
 
-		private void ExtractItem(IInteraction interaction)
+		private void ExtractItemFromInteraction(IInteraction interaction)
 		{
 			if (Inventory.TryAddItem(interaction.Data))
 			{
@@ -112,7 +163,6 @@ namespace SpaxUtils
 		//		ExtractItem(interaction);
 		//		return true;
 		//	}
-
 		//	return false;
 		//}
 

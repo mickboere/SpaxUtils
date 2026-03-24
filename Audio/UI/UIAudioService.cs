@@ -8,7 +8,7 @@ namespace SpaxUtils
 	{
 		[SerializeField] private AudioSourceWrapper audioSourceWrapperPrefab;
 
-		[Header("UI SFX")]
+		[Header("Navigation SFX")]
 		[SerializeField] private SFXData navigationSFX;
 		[SerializeField] private SFXData selectionSFX;
 		[SerializeField] private SFXData confirmationSFX;
@@ -36,44 +36,34 @@ namespace SpaxUtils
 			DisposeService();
 		}
 
-		public void PlayNavigation()
+		public void Play(SFXData sfx)
 		{
 			if (isDisposed || !CanPlay())
 			{
 				return;
 			}
 
-			navigationSFX?.PlayOneShot(audioSourceWrapperInstance);
+			sfx?.PlayOneShot(audioSourceWrapperInstance);
+		}
+
+		public void PlayNavigation()
+		{
+			Play(navigationSFX);
 		}
 
 		public void PlaySelection()
 		{
-			if (isDisposed || !CanPlay())
-			{
-				return;
-			}
-
-			selectionSFX?.PlayOneShot(audioSourceWrapperInstance);
+			Play(selectionSFX);
 		}
 
 		public void PlayConfirmation()
 		{
-			if (isDisposed || !CanPlay())
-			{
-				return;
-			}
-
-			confirmationSFX?.PlayOneShot(audioSourceWrapperInstance);
+			Play(confirmationSFX);
 		}
 
 		public void PlayCancel()
 		{
-			if (isDisposed || !CanPlay())
-			{
-				return;
-			}
-
-			cancelSFX?.PlayOneShot(audioSourceWrapperInstance);
+			Play(cancelSFX);
 		}
 
 		private bool CanPlay()

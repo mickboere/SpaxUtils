@@ -15,6 +15,12 @@ namespace SpaxUtils
 		public event Action<RuntimeDataEntry> DataEntryUpdatedEvent;
 
 		/// <summary>
+		/// Invoked when an item's quantity changes within the inventory.
+		/// Positive delta for additions (stacking), negative delta for removals.
+		/// </summary>
+		public event Action<RuntimeItemData, int> QuantityChangedEvent;
+
+		/// <summary>
 		/// The inventory data collection. (<see cref="RuntimeDataCollection.ID"/>, <see cref="RuntimeItemData"/>)
 		/// </summary>
 		public IReadOnlyDictionary<string, RuntimeItemData> Entries => entries;
@@ -121,7 +127,7 @@ namespace SpaxUtils
 			}
 
 			IItemData itemData = itemDatabase.GetItem(itemID);
-			if(itemData == null)
+			if (itemData == null)
 			{
 				SpaxDebug.Error("Item ID does not exist in database!", runtimeData.ToString());
 				return null;
@@ -153,10 +159,14 @@ namespace SpaxUtils
 				if (!runtimeItemData.Unique && itemStack != null)
 				{
 					// Non-unique (stacking) item of which we already have an instance, increase the quantity of the existing one.
-					itemStack.RuntimeData.SetValue(ItemDataIdentifiers.QUANTITY, itemStack.Quantity + runtimeItemData.Quantity);
+					int addedQuantity = runtimeItemData.Quantity;
+					itemStack.RuntimeData.SetValue(ItemDataIdentifiers.QUANTITY, itemStack.Quantity + addedQuantity);
+
 					runtimeData.Dispose();
 					runtimeItemData.Dispose();
 					dependencyManager.Dispose();
+
+					QuantityChangedEvent?.Invoke(itemStack, addedQuantity);
 					return itemStack;
 				}
 				else
@@ -170,6 +180,7 @@ namespace SpaxUtils
 						runtimeItemData.InitializeBehaviour();
 					}
 					AddedItemEvent?.Invoke(runtimeItemData);
+					QuantityChangedEvent?.Invoke(runtimeItemData, runtimeItemData.Quantity);
 					return runtimeItemData;
 				}
 			}
@@ -256,9 +267,11 @@ namespace SpaxUtils
 			if (quantity < 1 || quantity >= runtimeItemData.Quantity)
 			{
 				// Delete item from inventory.
+				int removedQuantity = runtimeItemData.Quantity;
 				inventoryData.TryRemove(runtimeItemData.RuntimeID, true);
 				entries.Remove(runtimeItemData.RuntimeID);
 				RemovedItemEvent?.Invoke(runtimeItemData);
+				QuantityChangedEvent?.Invoke(runtimeItemData, -removedQuantity);
 				runtimeItemData.DisposeEvent -= OnDisposingRuntimeItemDataEvent;
 				runtimeItemData.Dispose();
 			}
@@ -266,6 +279,7 @@ namespace SpaxUtils
 			{
 				// Substract quantity from item data.
 				runtimeItemData.RuntimeData.SetValue(ItemDataIdentifiers.QUANTITY, runtimeItemData.Quantity - quantity);
+				QuantityChangedEvent?.Invoke(runtimeItemData, -quantity);
 			}
 		}
 
