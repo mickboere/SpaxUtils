@@ -36,14 +36,14 @@ namespace SpaxUtils
 			DisposeService();
 		}
 
-		public void Play(SFXData sfx)
+		public void Play(SFXData sfx, float volume = 1f)
 		{
 			if (isDisposed || !CanPlay())
 			{
 				return;
 			}
 
-			sfx?.PlayOneShot(audioSourceWrapperInstance);
+			sfx?.PlayOneShot(audioSourceWrapperInstance, volume);
 		}
 
 		public void PlayNavigation()

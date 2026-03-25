@@ -123,7 +123,7 @@ namespace SpaxUtils
 			if (resetSmoothInput)
 			{
 				movementHandler.InputSmooth = Vector3.zero;
-				agent.Body.RigidbodyWrapper.Velocity = Vector3.zero;
+				agent.Body.RigidbodyWrapper.ResetVelocity();
 			}
 		}
 
@@ -367,8 +367,10 @@ namespace SpaxUtils
 
 		public void ForceAlign(Vector3 position, Vector3 direction)
 		{
-			agent.Body.RigidbodyWrapper.Position = position;
+			agent.Transform.position = position;
 			agent.Transform.forward = direction;
+			agent.Body.RigidbodyWrapper.Position = position;
+			agent.Body.RigidbodyWrapper.Rotation = agent.Transform.rotation;
 			movementHandler.TargetDirection = direction;
 			ResetInput(true);
 		}

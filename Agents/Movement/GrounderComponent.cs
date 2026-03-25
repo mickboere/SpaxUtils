@@ -228,7 +228,6 @@ namespace SpaxUtils
 		[SerializeField, Conditional(nameof(debug))] private float debugSize = 0.25f;
 
 		private RigidbodyWrapper rigidbodyWrapper;
-		private IAgent agent;
 
 		private RaycastHit groundedHit;
 		private Vector3[] stepPoints;
@@ -250,10 +249,9 @@ namespace SpaxUtils
 		// Reusable buffer for median computation in outlier filters.
 		private float[] outlierBuffer;
 
-		public void InjectDependencies(RigidbodyWrapper rigidbodyWrapper, IAgent agent)
+		public void InjectDependencies(RigidbodyWrapper rigidbodyWrapper)
 		{
 			this.rigidbodyWrapper = rigidbodyWrapper;
-			this.agent = agent;
 		}
 
 		protected void Awake()
@@ -727,7 +725,10 @@ namespace SpaxUtils
 					float targetY = StepPoint.y + Elevation;
 					float snapWeight = GroundedAmount * StepSupport;
 					float snappedY = Mathf.Lerp(rigidbodyWrapper.Position.y, targetY, snapWeight);
-					rigidbodyWrapper.Position = rigidbodyWrapper.Position.SetY(snappedY);
+					if (!rigidbodyWrapper.IsKinematic)
+					{
+						rigidbodyWrapper.Position = rigidbodyWrapper.Position.SetY(snappedY);
+					}
 				}
 				// During ground transition: no snap, no velocity zeroing.
 				// Physics handles the descent until fully settled.

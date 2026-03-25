@@ -87,9 +87,9 @@ namespace SpaxUtils
 				activity = VisitActivity.Selecting;
 			}
 
-			if (agent.Age <= 1f || agent.Priority == PriorityLevel.Culled)
+			if (activity == VisitActivity.Selecting && (agent.Age < 5f || agent.Priority == PriorityLevel.Culled))
 			{
-				// Try to immediately occupy if just spawned or if culled.
+				// Try to immediately occupy if just freshly spawned or if culled.
 				if (TrySelectPOI())
 				{
 					TryOccupyOnArrival();

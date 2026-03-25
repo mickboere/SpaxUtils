@@ -30,10 +30,8 @@ namespace SpaxUtils
 			{
 				Vector3 p = Rigidbody.position;
 				Rigidbody.position = value;
-				if (debug && log)
-				{
-					Log("SET Position", $"p={Position}, pP={p}");
-				}
+				previousPosition = value;
+				if (debug && log) Log("SET Position", $"p={Position}, pP={p}");
 			}
 		}
 		public Quaternion Rotation { get => Rigidbody.rotation; set => Rigidbody.rotation = value; }
@@ -72,6 +70,7 @@ namespace SpaxUtils
 			{
 				Vector3 p = Velocity;
 				Rigidbody.linearVelocity = value;
+				previousVelocity = value;
 				if (debug && log)
 				{
 					Log("SET Velocity", $"v={Velocity}, pV={p}");
@@ -143,6 +142,7 @@ namespace SpaxUtils
 		#endregion Custom Properties
 
 		[SerializeField] new private Rigidbody rigidbody;
+		[Header("Physics")]
 		[SerializeField] private int accelerationSmoothing = 3;
 		[SerializeField] private float gripScale = 10f;
 
@@ -151,6 +151,7 @@ namespace SpaxUtils
 		[SerializeField, Conditional(nameof(delayPhysicsOnStart)), Min(1)] private int startupKinematicFrames = 2;
 		[SerializeField, Conditional(nameof(delayPhysicsOnStart))] private bool resetVelocityOnRelease = true;
 
+		[Header("Debugging")]
 		[SerializeField] private bool debug;
 		[SerializeField, Conditional(nameof(debug))] private bool log;
 		[SerializeField, Conditional(nameof(log))] private bool forces;
@@ -204,12 +205,10 @@ namespace SpaxUtils
 
 		protected void OnEnable()
 		{
-			Rigidbody.position = transform.position;
-			Rigidbody.rotation = transform.rotation;
-			Rigidbody.linearVelocity = Vector3.zero;
-			Rigidbody.angularVelocity = Vector3.zero;
-			previousPosition = Rigidbody.position;
-			previousVelocity = Rigidbody.linearVelocity;
+			Position = transform.position;
+			Rotation = transform.rotation;
+			Velocity = Vector3.zero;
+			AngularVelocity = Vector3.zero;
 
 			if (Application.isPlaying && delayPhysicsOnStart)
 			{
