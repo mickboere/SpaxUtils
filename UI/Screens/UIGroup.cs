@@ -31,7 +31,9 @@ namespace SpaxUtils.UI
 		}
 		private CanvasGroup _canvasGroup;
 		public TransitionSettings TransitionSettings => transitionSettings;
-		public Selectable FirstSelectable => firstSelectable == null ? null : firstSelectable.GetComponentInChildren<Selectable>();
+		public Selectable FirstSelectable => firstSelectable == null ?
+			gameObject.GetComponentInChildren<Selectable>() :
+			firstSelectable.GetComponentInChildren<Selectable>();
 
 		public CanvasGroupTransitionHelper Transition
 		{

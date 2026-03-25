@@ -230,7 +230,7 @@ namespace SpaxUtils.UI
 			}
 
 			// Prefer configured FirstSelectable.
-			Selectable first = UIGroup.FirstSelectable;
+			Selectable first = UIGroup?.FirstSelectable;
 			if (first == null || !first.gameObject.activeInHierarchy || !first.IsInteractable())
 			{
 				first = GetComponentsInChildren<Selectable>(true)

@@ -3,8 +3,8 @@ using UnityEngine;
 
 namespace SpaxUtils
 {
-	[CreateAssetMenu(fileName = nameof(UIAudioService), menuName = "ScriptableObjects/Audio/" + nameof(UIAudioService))]
-	public class UIAudioService : ScriptableObject, IService
+	[CreateAssetMenu(fileName = nameof(UIAudioManager), menuName = "ScriptableObjects/Audio/" + nameof(UIAudioManager))]
+	public class UIAudioManager : ScriptableObject, IService
 	{
 		[SerializeField] private AudioSourceWrapper audioSourceWrapperPrefab;
 
@@ -82,7 +82,7 @@ namespace SpaxUtils
 		{
 			if (prefab == null)
 			{
-				Debug.LogError($"{nameof(UIAudioService)} requires an {nameof(AudioSourceWrapper)} prefab.");
+				Debug.LogError($"{nameof(UIAudioManager)} requires an {nameof(AudioSourceWrapper)} prefab.");
 				return null;
 			}
 

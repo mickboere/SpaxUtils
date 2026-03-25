@@ -17,10 +17,10 @@ namespace SpaxUtils
 
 		[SerializeField] private UIAudioElementType elementType = UIAudioElementType.Default;
 
-		private UIAudioService uiAudioService;
+		private UIAudioManager uiAudioService;
 		private bool isDisposed;
 
-		public void InjectDependencies(UIAudioService uiAudioService)
+		public void InjectDependencies(UIAudioManager uiAudioService)
 		{
 			this.uiAudioService = uiAudioService;
 		}
@@ -30,7 +30,7 @@ namespace SpaxUtils
 			if (uiAudioService == null)
 			{
 				// Ensure we have service.
-				uiAudioService = GlobalDependencyManager.Instance.Get<UIAudioService>();
+				uiAudioService = GlobalDependencyManager.Instance.Get<UIAudioManager>();
 			}
 		}
 

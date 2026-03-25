@@ -33,10 +33,13 @@ namespace SpaxUtils.UI
 
 		protected override void OnProgressed()
 		{
-			canvasGroup.alpha = Evaluation;
-			canvasGroup.interactable = IsFull;
-			canvasGroup.blocksRaycasts = IsFull;
-			canvasGroup.gameObject.SetActive(!IsEmpty);
+			if (canvasGroup != null)
+			{
+				canvasGroup.alpha = Evaluation;
+				canvasGroup.interactable = IsFull;
+				canvasGroup.blocksRaycasts = IsFull;
+				canvasGroup.gameObject.SetActive(!IsEmpty);
+			}
 
 			base.OnProgressed();
 		}
