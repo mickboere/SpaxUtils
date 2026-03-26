@@ -30,8 +30,7 @@ namespace SpaxUtils
 
 		private EntityStat aggroStat;
 		private bool inCombat;
-
-		private System.Func<Vector3?> combatFocusProvider;
+		private ITargetable lastTarget;
 
 		public void InjectDependencies(IVisionComponent vision,
 			IHittable hittable, [Optional] ISpawnpoint spawnpoint,
@@ -74,8 +73,7 @@ namespace SpaxUtils
 
 			if (focusHandler != null)
 			{
-				combatFocusProvider = GetCombatFocusPoint;
-				focusHandler.Register(FocusHandler.PRIORITY_COMBAT, combatFocusProvider);
+				focusHandler.Register(FocusHandler.PRIORITY_COMBAT, GetCombatFocusPoint);
 			}
 		}
 
@@ -89,10 +87,9 @@ namespace SpaxUtils
 			EnemySense.Dispose();
 			ProjectileSense.Dispose();
 
-			if (focusHandler != null && combatFocusProvider != null)
+			if (focusHandler != null)
 			{
-				focusHandler.Unregister(combatFocusProvider);
-				combatFocusProvider = null;
+				focusHandler.Unregister(GetCombatFocusPoint);
 			}
 		}
 
@@ -111,32 +108,36 @@ namespace SpaxUtils
 			// Invoked when the mind's motivation has settled.
 			if (Agent.Mind.Motivation.target != null)
 			{
-				if (Agent.Targeter.Target == null || Agent.Targeter.Target.Entity != Agent.Mind.Motivation.target)
+				ITargetable target = Agent.Mind.Motivation.target.GetEntityComponent<ITargetable>();
+				if (Agent.Targeter.Target == null || Agent.Targeter.Target != target)
 				{
 					// Set target to the entity responsible for the mind's motivation.
-					Agent.Targeter.SetTarget(Agent.Mind.Motivation.target.GetEntityComponent<ITargetable>());
+					Agent.Targeter.SetTarget(target);
+					lastTarget = target;
 				}
 			}
-			// Dont set target to NULL, because another system may require a target (friendly).
+			else if (lastTarget != null && Agent.Targeter.Target != lastTarget)
+			{
+				Agent.Targeter.SetTarget(null);
+				lastTarget = null;
+			}
 
 			// Aggro = sum of all threat-relevant emotion axes (all except SE).
 			Vector8 emotion = Agent.Mind.Motivation.emotion;
-			float rawAggro = emotion.Sum() - emotion.SE;
-			aggroStat.BaseValue = rawAggro;
-			float effectiveAggro = aggroStat.Value;
+			aggroStat.BaseValue = emotion.Sum() - emotion.SE;
 
-			if (!inCombat && effectiveAggro >= aggroEnterThreshold)
+			if (!inCombat && aggroStat >= aggroEnterThreshold)
 			{
 				inCombat = true;
 				Agent.Brain.TryTransition(AgentStateIdentifiers.COMBAT);
 			}
-			else if (inCombat && effectiveAggro <= aggroExitThreshold)
+			else if (inCombat && aggroStat <= aggroExitThreshold)
 			{
 				inCombat = false;
 				Agent.Brain.TryTransition(AgentStateIdentifiers.PASSIVE);
 			}
 
-			//SpaxDebug.Log($"[{Agent.Identification.Name}] rawAggro={rawAggro}, effectiveAggro={effectiveAggro}, inCombat={inCombat}, enterThreshold={aggroEnterThreshold}");
+			//SpaxDebug.Log($"[{Agent.Identification.Name}] rawAggro={rawAggro}, effectiveAggro={aggroStat}, inCombat={inCombat}, enterThreshold={aggroEnterThreshold}");
 		}
 
 		private void OnMindUpdating(float delta)
