@@ -6,6 +6,8 @@ using UnityEngine;
 using UnityEditor;
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Reflection;
 
 public class HumanoidPoseEditor : EditorWindow
@@ -18,12 +20,17 @@ public class HumanoidPoseEditor : EditorWindow
 	Animator _animator;
 	HumanPoseHandler _poseHandler;
 	HumanBodyBones? _selectedBone = null;
+	bool _rootSelected;
+	Vector3 _rootDragHipPos;
+	Quaternion _rootDragHipRot;
+	Vector3 _rootDragHandlePos;
+	bool _rootRotDragging;
+	bool _rootPosDragging;
 	Vector2 _scrollPos;
 
 	// Settings
 	bool _settingsFoldout;
 	bool _showFingers;
-	bool _showPositionHandle = true;
 	float _handleSize = 0.035f;
 	float _selectedHandleSize = 0.06f;
 
@@ -217,15 +224,15 @@ public class HumanoidPoseEditor : EditorWindow
 			_handleSize = EditorGUILayout.Slider("Handle Size", _handleSize, 0.01f, 0.15f);
 			_selectedHandleSize = EditorGUILayout.Slider("Selected Handle Size", _selectedHandleSize, 0.02f, 0.2f);
 			_showFingers = EditorGUILayout.Toggle("Show Finger Handles", _showFingers);
-			_showPositionHandle = EditorGUILayout.Toggle("Hips Position Handle", _showPositionHandle);
 			EditorGUI.indentLevel--;
 		}
 
 		EditorGUILayout.Space(4);
 
 		// --- Selected bone info ---
-		string boneName = _selectedBone.HasValue ? _selectedBone.Value.ToString() : "None";
-		EditorGUILayout.LabelField("Selected Bone", boneName, EditorStyles.boldLabel);
+		string boneName = _rootSelected ? "Root" :
+			_selectedBone.HasValue ? _selectedBone.Value.ToString() : "None";
+		EditorGUILayout.LabelField("Selected", boneName, EditorStyles.boldLabel);
 
 		// Show muscle sliders for selected bone
 		if (_selectedBone.HasValue)
@@ -243,6 +250,14 @@ public class HumanoidPoseEditor : EditorWindow
 
 			if (GUILayout.Button("Snap Full Pose to Clip"))
 				SnapFullPoseToClip(clip, time);
+
+			EditorGUILayout.Space(2);
+
+			int poseCount = GetUniqueKeyframeTimes(clip).Count;
+			EditorGUI.BeginDisabledGroup(poseCount < 2);
+			if (GUILayout.Button($"Extract Poses ({poseCount})"))
+				ExtractPosesToClips(clip);
+			EditorGUI.EndDisabledGroup();
 		}
 	}
 
@@ -301,15 +316,20 @@ public class HumanoidPoseEditor : EditorWindow
 		if (!_active || _animator == null || _poseHandler == null) return;
 
 		DrawSkeleton();
+		DrawRootHandle();
 		DrawBoneButtons();
 		DrawSelectedBoneHandle();
+		DrawSelectedRootHandle();
 
-		// Deselect when clicking empty space
+		// Deselect when clicking empty space (no handle claimed the click)
 		Event e = Event.current;
 		if (e.type == EventType.MouseDown && e.button == 0
-			&& HandleUtility.nearestControl == 0)
+			&& GUIUtility.hotControl == 0
+			&& !e.alt
+			&& (_selectedBone.HasValue || _rootSelected))
 		{
 			_selectedBone = null;
+			_rootSelected = false;
 			Repaint();
 			e.Use();
 		}
@@ -373,8 +393,30 @@ public class HumanoidPoseEditor : EditorWindow
 					Handles.SphereHandleCap))
 			{
 				_selectedBone = bone;
+				_rootSelected = false;
 				Repaint();
 			}
+		}
+	}
+
+	void DrawRootHandle()
+	{
+		Vector3 pos = _animator.transform.position;
+		float baseSize = HandleUtility.GetHandleSize(pos);
+
+		Handles.color = _rootSelected
+			? new Color(1f, 0.2f, 0.2f, 1f)    // red for selected
+			: new Color(1f, 0.4f, 0.4f, 0.7f);  // dim red for unselected
+
+		float sphereSize = _rootSelected ? _selectedHandleSize : _handleSize;
+
+		if (Handles.Button(pos, Quaternion.identity,
+				baseSize * sphereSize, baseSize * sphereSize,
+				Handles.SphereHandleCap))
+		{
+			_rootSelected = true;
+			_selectedBone = null;
+			Repaint();
 		}
 	}
 
@@ -386,33 +428,129 @@ public class HumanoidPoseEditor : EditorWindow
 
 		GetAnimationWindowState(out AnimationClip clip, out float time);
 
-		// Rotation handle
-		EditorGUI.BeginChangeCheck();
-		Quaternion newRot = Handles.RotationHandle(bone.rotation, bone.position);
-		if (EditorGUI.EndChangeCheck())
+		if (Tools.current == Tool.Rotate)
 		{
-			Undo.RecordObject(bone, "Pose Bone Rotation");
-			bone.rotation = newRot;
-			ReadAndWritePose(clip, time);
+			EditorGUI.BeginChangeCheck();
+			Quaternion newRot = Handles.RotationHandle(bone.rotation, bone.position);
+			if (EditorGUI.EndChangeCheck())
+			{
+				bone.rotation = newRot;
+				ReadAndWritePose(clip, time);
+			}
 		}
-
-		// Position handle for Hips
-		if (_selectedBone.Value == HumanBodyBones.Hips && _showPositionHandle)
+		else if (Tools.current == Tool.Move && _selectedBone.Value == HumanBodyBones.Hips)
 		{
 			EditorGUI.BeginChangeCheck();
 			Vector3 newPos = Handles.PositionHandle(bone.position, bone.rotation);
 			if (EditorGUI.EndChangeCheck())
 			{
-				Undo.RecordObject(bone, "Pose Body Position");
 				bone.position = newPos;
 				ReadAndWritePose(clip, time);
 			}
 		}
 	}
 
+	void DrawSelectedRootHandle()
+	{
+		if (!_rootSelected) return;
+
+		Transform hipBone = _animator.GetBoneTransform(HumanBodyBones.Hips);
+		if (hipBone == null) return;
+
+		GetAnimationWindowState(out AnimationClip clip, out float time);
+
+		// Handle is drawn at the animator transform (feet), but moves the hip bone
+		Vector3 handlePos = _animator.transform.position;
+
+		if (Tools.current == Tool.Move)
+		{
+			if (GUIUtility.hotControl == 0)
+				_rootPosDragging = false;
+			if (!_rootPosDragging)
+			{
+				_rootDragHipPos = hipBone.position;
+				_rootDragHandlePos = handlePos;
+			}
+
+			EditorGUI.BeginChangeCheck();
+			Vector3 newPos = Handles.PositionHandle(handlePos, Quaternion.identity);
+			if (EditorGUI.EndChangeCheck())
+			{
+				_rootPosDragging = true;
+				Vector3 delta = newPos - _rootDragHandlePos;
+				hipBone.position = _rootDragHipPos + delta;
+				ReadAndWriteRoot(clip, time);
+			}
+		}
+		else if (Tools.current == Tool.Rotate)
+		{
+			if (GUIUtility.hotControl == 0)
+				_rootRotDragging = false;
+			if (!_rootRotDragging)
+			{
+				_rootDragHipPos = hipBone.position;
+				_rootDragHipRot = hipBone.rotation;
+				_rootDragHandlePos = handlePos;
+			}
+
+			EditorGUI.BeginChangeCheck();
+			Quaternion newRot = Handles.RotationHandle(Quaternion.identity, handlePos);
+			if (EditorGUI.EndChangeCheck())
+			{
+				_rootRotDragging = true;
+				// Apply cumulative rotation to cached start values
+				hipBone.position = newRot * (_rootDragHipPos - _rootDragHandlePos) + _rootDragHandlePos;
+				hipBone.rotation = newRot * _rootDragHipRot;
+				ReadAndWriteRoot(clip, time);
+			}
+		}
+	}
+
+	void ReadAndWriteRoot(AnimationClip clip, float time)
+	{
+		if (_poseHandler == null) return;
+
+		HumanPose pose = new HumanPose();
+		_poseHandler.GetHumanPose(ref pose);
+
+		if (clip != null)
+		{
+			WriteRootPositionToClip(pose, clip, time);
+			WriteRootRotationToClip(pose, clip, time);
+		}
+
+		Repaint();
+	}
+
 	// ---------------------------------------------
 	//  POSE <-> CLIP
 	// ---------------------------------------------
+
+	void WriteRootPositionToClip(HumanPose pose, AnimationClip clip, float time)
+	{
+		WriteCurveValue(clip, "RootT.x", time, pose.bodyPosition.x);
+		WriteCurveValue(clip, "RootT.y", time, pose.bodyPosition.y);
+		WriteCurveValue(clip, "RootT.z", time, pose.bodyPosition.z);
+		EditorUtility.SetDirty(clip);
+		ResampleClip(clip, time);
+	}
+
+	void WriteRootRotationToClip(HumanPose pose, AnimationClip clip, float time)
+	{
+		WriteCurveValue(clip, "RootQ.x", time, pose.bodyRotation.x);
+		WriteCurveValue(clip, "RootQ.y", time, pose.bodyRotation.y);
+		WriteCurveValue(clip, "RootQ.z", time, pose.bodyRotation.z);
+		WriteCurveValue(clip, "RootQ.w", time, pose.bodyRotation.w);
+		EditorUtility.SetDirty(clip);
+		ResampleClip(clip, time);
+	}
+
+	void ResampleClip(AnimationClip clip, float time)
+	{
+		if (_animator == null || clip == null) return;
+		if (AnimationMode.InAnimationMode())
+			AnimationMode.SampleAnimationClip(_animator.gameObject, clip, time);
+	}
 
 	void ReadAndWritePose(AnimationClip clip, float time)
 	{
@@ -546,6 +684,81 @@ public class HumanoidPoseEditor : EditorWindow
 		HumanPose pose = new HumanPose();
 		_poseHandler.GetHumanPose(ref pose);
 		WriteAllMusclesToClip(pose, clip, time);
+	}
+
+	List<float> GetUniqueKeyframeTimes(AnimationClip clip)
+	{
+		var times = new HashSet<float>();
+		var bindings = AnimationUtility.GetCurveBindings(clip);
+		foreach (var binding in bindings)
+		{
+			AnimationCurve curve = AnimationUtility.GetEditorCurve(clip, binding);
+			if (curve == null) continue;
+			foreach (var key in curve.keys)
+				times.Add(Mathf.Round(key.time * 10000f) / 10000f);
+		}
+		var sorted = times.ToList();
+		sorted.Sort();
+		return sorted;
+	}
+
+	void ExtractPosesToClips(AnimationClip sourceClip)
+	{
+		if (_animator == null || _poseHandler == null) return;
+
+		string sourcePath = AssetDatabase.GetAssetPath(sourceClip);
+		if (string.IsNullOrEmpty(sourcePath)) return;
+
+		string directory = Path.GetDirectoryName(sourcePath);
+		string baseName = Path.GetFileNameWithoutExtension(sourcePath);
+
+		var times = GetUniqueKeyframeTimes(sourceClip);
+		if (times.Count < 2) return;
+
+		var bindings = AnimationUtility.GetCurveBindings(sourceClip);
+
+		for (int i = 0; i < times.Count; i++)
+		{
+			float t = times[i];
+			string clipName = baseName + (i + 1);
+			string clipPath = Path.Combine(directory, clipName + ".anim").Replace("\\", "/");
+
+			// Load existing or create new
+			AnimationClip targetClip = AssetDatabase.LoadAssetAtPath<AnimationClip>(clipPath);
+			if (targetClip == null)
+			{
+				targetClip = new AnimationClip();
+				AssetDatabase.CreateAsset(targetClip, clipPath);
+			}
+
+			// Clear existing curves
+			targetClip.ClearCurves();
+
+			// Copy each curve's value at this time into a single keyframe at time 0
+			foreach (var binding in bindings)
+			{
+				AnimationCurve sourceCurve = AnimationUtility.GetEditorCurve(sourceClip, binding);
+				if (sourceCurve == null) continue;
+
+				float value = sourceCurve.Evaluate(t);
+				AnimationCurve targetCurve = new AnimationCurve(new Keyframe(0f, value));
+				AnimationUtility.SetEditorCurve(targetClip, binding, targetCurve);
+			}
+
+			// Apply clip settings
+			AnimationClipSettings settings = AnimationUtility.GetAnimationClipSettings(targetClip);
+			settings.loopTime = false;
+			settings.loopBlend = false;
+			settings.keepOriginalOrientation = true;
+			settings.keepOriginalPositionY = true;
+			settings.keepOriginalPositionXZ = true;
+			AnimationUtility.SetAnimationClipSettings(targetClip, settings);
+
+			EditorUtility.SetDirty(targetClip);
+		}
+
+		AssetDatabase.SaveAssets();
+		Debug.Log($"[Pose Editor] Extracted {times.Count} poses from '{sourceClip.name}'");
 	}
 
 	HumanBodyBones[] CombineBones()
