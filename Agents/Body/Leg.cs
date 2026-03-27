@@ -94,8 +94,10 @@ namespace SpaxUtils
 
 		[field: SerializeField] public Transform Thigh { get; private set; }
 		public Vector3 ThighPos { get; private set; }
+
 		[field: SerializeField] public Transform Knee { get; private set; }
 		public Vector3 KneePos { get; private set; }
+
 		[field: SerializeField] public Transform Foot { get; private set; }
 		public Vector3 FootPos { get; private set; }
 
@@ -103,7 +105,26 @@ namespace SpaxUtils
 		/// Helper transform placed at the bottom of the foot, facing towards the toes.
 		/// </summary>
 		[field: SerializeField] public Transform Sole { get; private set; }
+
+		/// <summary>
+		/// Position of the helper transform placed at the bottom of the foot, facing towards the toes.
+		/// </summary>
 		public Vector3 SolePos { get; private set; }
+
+		/// <summary>
+		/// Cached animated sole forward direction before IK adjusts the chain.
+		/// </summary>
+		public Vector3 AnimatedSoleForward { get; private set; }
+
+		/// <summary>
+		/// Cached normal of the animated leg bend plane before IK adjusts the chain.
+		/// </summary>
+		public Vector3 AnimatedLegPlaneNormal { get; private set; }
+
+		/// <summary>
+		/// Cached hint direction derived from the actual animated knee bend direction.
+		/// </summary>
+		public Vector3 AnimatedKneeHintDirection { get; private set; }
 
 		[SerializeField, Range(-1f, 1f)] private float walkCycleOffset;
 		[SerializeField] private float elevation;
@@ -125,16 +146,13 @@ namespace SpaxUtils
 		{
 			if ((ValidGround || !Grounded) && wasGrounded != Grounded)
 			{
-				// Foot was either grounded or lifted.
 				wasGrounded = Grounded;
 				if (Grounded)
 				{
-					// Collect surface data.
 					SurfaceData.Clear();
 					surfaceLibrary.BuildSurfaceData(GroundedHit, SurfaceData);
 				}
 
-				// Invoke footstep event with immutable contact data.
 				FootstepEvent?.Invoke(CreateFootstepData(false));
 			}
 		}
@@ -160,6 +178,45 @@ namespace SpaxUtils
 			KneePos = Knee.position;
 			FootPos = Foot.position;
 			SolePos = Sole.position;
+
+			AnimatedSoleForward = Sole.forward;
+
+			Vector3 upper = KneePos - ThighPos;
+			Vector3 lower = FootPos - KneePos;
+			Vector3 thighToFoot = FootPos - ThighPos;
+
+			if (upper.sqrMagnitude > 0.0001f && lower.sqrMagnitude > 0.0001f)
+			{
+				AnimatedLegPlaneNormal = Vector3.Cross(upper, lower).normalized;
+			}
+			else
+			{
+				AnimatedLegPlaneNormal = Vector3.zero;
+			}
+
+			if (thighToFoot.sqrMagnitude > 0.0001f)
+			{
+				Vector3 thighToFootDir = thighToFoot.normalized;
+				Vector3 projectedPointOnLine = ThighPos + Vector3.Dot(KneePos - ThighPos, thighToFootDir) * thighToFootDir;
+				Vector3 kneeOut = KneePos - projectedPointOnLine;
+
+				if (kneeOut.sqrMagnitude > 0.0001f)
+				{
+					AnimatedKneeHintDirection = kneeOut.normalized;
+				}
+				else if (AnimatedLegPlaneNormal.sqrMagnitude > 0.0001f && lower.sqrMagnitude > 0.0001f)
+				{
+					AnimatedKneeHintDirection = Vector3.Cross(lower.normalized, AnimatedLegPlaneNormal).normalized;
+				}
+				else
+				{
+					AnimatedKneeHintDirection = Sole.forward;
+				}
+			}
+			else
+			{
+				AnimatedKneeHintDirection = Sole.forward;
+			}
 		}
 
 		public void InvokeLanding(Dictionary<SurfaceConfiguration, float> surfaceData, Vector3 position, Vector3 normal)

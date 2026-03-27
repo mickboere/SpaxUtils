@@ -40,7 +40,7 @@ namespace SpaxUtils.UI
 		[SerializeField, ConstDropdown(typeof(IInputActionMaps))] private string uiActionMap;
 		[SerializeField, ConstDropdown(typeof(IInputActionMaps))] private string navigationActionMap;
 
-		private DialogueBoxService dialogueBoxService;
+		private DialogueBoxService manager;
 		private PlayerInputWrapper playerInputWrapper;
 		private CursorService cursorService;
 		private TimeService timeService;
@@ -73,19 +73,18 @@ namespace SpaxUtils.UI
 
 		private BoxContent? pending;
 
-		public void InjectDependencies(DialogueBoxService dialogueBoxService, PlayerInputWrapper playerInputWrapper, CursorService cursorService, TimeService timeService)
+		public void InjectDependencies(DialogueBoxService manager, PlayerInputWrapper playerInputWrapper, CursorService cursorService, TimeService timeService)
 		{
-			this.dialogueBoxService = dialogueBoxService;
+			this.manager = manager;
 			this.playerInputWrapper = playerInputWrapper;
 			this.cursorService = cursorService;
 			this.timeService = timeService;
 
-			dialogueBoxService.Register(this);
+			manager.Register(this);
 		}
 
 		protected void Awake()
 		{
-			uiGroup.HideImmediately();
 			uiGroup.gameObject.SetActive(false);
 			horizontalOptionsMenu.SelectedOptionEvent += OnOptionSelected;
 			verticalOptionsMenu.SelectedOptionEvent += OnOptionSelected;
@@ -97,9 +96,9 @@ namespace SpaxUtils.UI
 			verticalOptionsMenu.SelectedOptionEvent -= OnOptionSelected;
 			ReleaseServices();
 
-			if (dialogueBoxService != null)
+			if (manager != null)
 			{
-				dialogueBoxService.Unregister(this);
+				manager.Unregister(this);
 			}
 		}
 
@@ -208,8 +207,34 @@ namespace SpaxUtils.UI
 			// Populate options.
 			activeOptionsMenu.Initialize(content.Options, null, false);
 
+			// Restrict controller navigation to only the dialogue box buttons.
+			RestrictNavigation(content.Horizontal);
+
 			// Input, cursor, pause.
 			UpdateServices(content.Options.Count, content.Pause);
+		}
+
+		private void RestrictNavigation(bool horizontal)
+		{
+			Selectable[] selectables = activeOptionsMenu.GetComponentsInChildren<Selectable>(false);
+			for (int i = 0; i < selectables.Length; i++)
+			{
+				Navigation nav = new Navigation();
+				nav.mode = Navigation.Mode.Explicit;
+
+				if (horizontal)
+				{
+					nav.selectOnLeft = selectables[(i - 1 + selectables.Length) % selectables.Length];
+					nav.selectOnRight = selectables[(i + 1) % selectables.Length];
+				}
+				else
+				{
+					nav.selectOnUp = selectables[(i - 1 + selectables.Length) % selectables.Length];
+					nav.selectOnDown = selectables[(i + 1) % selectables.Length];
+				}
+
+				selectables[i].navigation = nav;
+			}
 		}
 
 		private void UpdateServices(int optionCount, bool pause)

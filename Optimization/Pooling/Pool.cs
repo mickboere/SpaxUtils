@@ -1,5 +1,4 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -22,11 +21,12 @@ namespace SpaxUtils
 		public const int DEFAULT_SIZE = 15;
 		public const bool DEFAULT_DYNAMIC = true;
 
-		private T prefab;
-		private bool dynamic;
+		private readonly T prefab;
+		private readonly bool dynamic;
 		private Transform collectionParent;
-		private List<T> inactive;
-		private List<T> active;
+		private readonly List<T> inactive;
+		private readonly List<T> active;
+		private readonly int initialSize;
 
 		public Pool() : this(GlobalDependencyManager.Instance.Get<PooledItemDatabase>(), GlobalDependencyManager.Instance.Get<CallbackService>()) { }
 
@@ -37,27 +37,33 @@ namespace SpaxUtils
 			if (prefab == null)
 			{
 				SpaxDebug.Error("Pool could be created:", $"No prefab for type \"{typeof(T).FullName}\" was given.");
+				return;
 			}
 
 			Prefab = prefab.gameObject;
 			this.prefab = prefab;
 			this.dynamic = dynamic;
-			collectionParent = new GameObject($"Pool<{typeof(T).FullName}>({Prefab.name})").transform;
+			initialSize = Mathf.Max(0, size);
 
-			inactive = new List<T>();
-			active = new List<T>();
+			inactive = new List<T>(initialSize);
+			active = new List<T>(initialSize);
 
-			// Populate pool.
-			for (int i = 0; i < size; i++)
-			{
-				Instantiate();
-			}
+			EnsureValidPool(warmToInitialSize: true);
 
 			// Subscribe to updates for pinging whether items are finished.
 			if (callbackService != null)
 			{
 				callbackService.UpdateCallback += OnUpdate;
 			}
+		}
+
+		/// <summary>
+		/// Ensures the pool root exists, removes dead references and repopulates up to the initial size.
+		/// Useful to call proactively after scene load.
+		/// </summary>
+		public void Warm()
+		{
+			EnsureValidPool(warmToInitialSize: true);
 		}
 
 		public T Request(Transform parent = null, Action<T> onWillActivate = null)
@@ -79,6 +85,8 @@ namespace SpaxUtils
 		/// <returns>An active instance of type <typeparamref name="T"/>.</returns>
 		public T Request(Vector3 position, Quaternion rotation, Transform parent = null, Action<T> onWillActivate = null)
 		{
+			EnsureValidPool(warmToInitialSize: true);
+
 			if (inactive.Count > 0)
 			{
 				// Item(s) are available, return the first.
@@ -105,21 +113,65 @@ namespace SpaxUtils
 		/// <param name="item">The item to return.</param>
 		public void Return(T item)
 		{
+			if (item == null)
+			{
+				return;
+			}
+
+			EnsureValidPool(warmToInitialSize: false);
+
+			if (!active.Remove(item))
+			{
+				if (inactive.Contains(item))
+				{
+					return;
+				}
+			}
+
 			inactive.Add(item);
-			active.Remove(item);
 			item.transform.SetParent(collectionParent);
 			item.gameObject.SetActive(false);
 		}
 
 		private void OnUpdate()
 		{
-			// Pol all active items to see if they are finished. If they are, return them.
+			// Poll all active items to see if they are finished. If they are, return them.
 			for (int i = 0; i < active.Count; i++)
 			{
-				if (active[i].Finished)
+				T item = active[i];
+
+				if (item == null)
 				{
-					Return(active[i]);
+					active.RemoveAt(i);
 					i--;
+					continue;
+				}
+
+				if (item.Finished)
+				{
+					Return(item);
+					i--;
+				}
+			}
+		}
+
+		private void EnsureValidPool(bool warmToInitialSize)
+		{
+			if (collectionParent == null)
+			{
+				collectionParent = new GameObject($"Pool<{typeof(T).FullName}>({Prefab.name})").transform;
+			}
+
+			inactive.RemoveAll(item => item == null);
+			active.RemoveAll(item => item == null);
+
+			if (warmToInitialSize)
+			{
+				int missing = initialSize - (inactive.Count + active.Count);
+
+				for (int i = 0; i < missing; i++)
+				{
+					Instantiate();
 				}
 			}
 		}
@@ -138,8 +190,7 @@ namespace SpaxUtils
 			// Claim an inactive item and make it active.
 			active.Add(item);
 			inactive.Remove(item);
-			item.transform.position = position;
-			item.transform.rotation = rotation;
+			item.transform.SetPositionAndRotation(position, rotation);
 			item.transform.SetParent(parent);
 			onWillActivate?.Invoke(item);
 			item.gameObject.SetActive(true);

@@ -243,6 +243,10 @@ namespace SpaxUtils
 				player = null;
 				worldService.Unsubscribe(p.Transform, OnRegionChange);
 				playerAgentService.PlayerDeregisteredEvent -= OnPlayerDeregistered;
+
+				currentSettings = null;
+				ambience.ClearBase();
+				music.ClearBase();
 			}
 		}
 

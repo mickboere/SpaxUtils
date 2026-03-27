@@ -198,6 +198,27 @@ namespace SpaxUtils
 			}
 		}
 
+		/// <summary>
+		/// Fades out and removes the current base layer without creating a replacement.
+		/// </summary>
+		public void ClearBase()
+		{
+			if (isDisposed)
+			{
+				return;
+			}
+
+			LayerState baseLayer = FindBaseLayer();
+			if (baseLayer == null)
+			{
+				return;
+			}
+
+			TransitionSettings settings = baseLayer.MaskSettings ?? baseLayer.IntrinsicSettings;
+			FadeMaskOut(baseLayer, settings);
+			baseLayer.RemoveWhenMaskSilent = true;
+		}
+
 		public void PushOverride(object key, AudioClip clip, TransitionSettings settings, float clipDelay = 0f, bool loop = true, float startTime = 0f)
 		{
 			if (isDisposed)
