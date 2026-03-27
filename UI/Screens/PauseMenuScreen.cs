@@ -13,13 +13,18 @@ namespace SpaxUtils.UI
 		private ICommunicationChannel comms;
 		private RuntimeDataService runtimeDataService;
 		private UIScreenManager screenManager;
+		private GameService gameService;
+		private DialogueBoxService dialogueBoxService;
 
-		public void InjectDependencies(IAgent agent, ICommunicationChannel comms, RuntimeDataService runtimeDataService, UIScreenManager screenManager)
+		public void InjectDependencies(IAgent agent, ICommunicationChannel comms, RuntimeDataService runtimeDataService,
+			UIScreenManager screenManager, GameService gameService, DialogueBoxService dialogueBoxService)
 		{
 			this.screenManager = screenManager;
 			this.agent = agent;
 			this.comms = comms;
 			this.runtimeDataService = runtimeDataService;
+			this.gameService = gameService;
+			this.dialogueBoxService = dialogueBoxService;
 		}
 
 		protected void Awake()
@@ -45,9 +50,13 @@ namespace SpaxUtils.UI
 				// Add saving option.
 				msg.AddOption(new Option("Save", "", (option) =>
 				{
-					agent.SaveData();
-					runtimeDataService.SaveProfileToDisk();
-					screenManager.SwitchContext(null);
+					dialogueBoxService.ShowConfirmCancel("Save Data", null, "All existing data will be overwritten.\n\nContinue?",
+						() =>
+						{
+							agent.SaveData();
+							runtimeDataService.SaveProfileToDisk();
+							screenManager.SwitchContext(null);
+						});
 				}));
 
 				// Add all other options.
@@ -56,14 +65,26 @@ namespace SpaxUtils.UI
 					msg.AddOption(new Option(option, "", (_) => screenManager.SwitchContext(option)));
 				}
 
+				// Add Main Menu option.
+				msg.AddOption(new Option("Main Menu", "", (option) =>
+				{
+					dialogueBoxService.ShowConfirmCancel("Return to Main Menu", null, "Warning; all unsaved progress will be lost.\n\nContinue?",
+						() => { gameService.SwitchState(GameStateIdentifiers.MAIN_MENU, reason: GameStateSwitchReason.UserRequest); });
+				}));
+
 				// Add Quit option.
 				msg.AddOption(new Option("Quit", "", (option) =>
 				{
+					dialogueBoxService.ShowConfirmCancel("Quit Game", null, "Warning; all unsaved progress will be lost.\n\nAre you sure you want to quit?",
+						() =>
+						{
 #if UNITY_EDITOR
-					UnityEditor.EditorApplication.isPlaying = false;
+							UnityEditor.EditorApplication.isPlaying = false;
 #else
 					Application.Quit();
 #endif
+						});
+
 				}));
 			}
 		}
