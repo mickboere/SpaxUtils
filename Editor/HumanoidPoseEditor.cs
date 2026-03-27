@@ -515,6 +515,7 @@ public class HumanoidPoseEditor : EditorWindow
 
 		if (clip != null)
 		{
+			Undo.RecordObject(clip, "Pose Editor: Write Root");
 			WriteRootPositionToClip(pose, clip, time);
 			WriteRootRotationToClip(pose, clip, time);
 		}
@@ -749,6 +750,9 @@ public class HumanoidPoseEditor : EditorWindow
 			AnimationClipSettings settings = AnimationUtility.GetAnimationClipSettings(targetClip);
 			settings.loopTime = false;
 			settings.loopBlend = false;
+			settings.loopBlendOrientation = true;
+			settings.loopBlendPositionY = true;
+			settings.loopBlendPositionXZ = true;
 			settings.keepOriginalOrientation = true;
 			settings.keepOriginalPositionY = true;
 			settings.keepOriginalPositionXZ = true;
