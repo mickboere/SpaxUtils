@@ -8,6 +8,17 @@ namespace SpaxUtils
 	public abstract class AgentSpawnerBase : EntityComponentMono
 	{
 		private const string REQ_MET_KEY = "ReqMet";
+		private const string DEATH_CYCLE_KEY = "DeathCycle";
+
+		private static readonly string[] LifecycleKeys = new string[]
+		{
+			EntityDataIdentifiers.ALIVE,
+			EntityDataIdentifiers.AGE,
+			EntityDataIdentifiers.POSITION,
+			EntityDataIdentifiers.ROTATION,
+			EntityDataIdentifiers.SCENE,
+			DEATH_CYCLE_KEY
+		};
 
 		[Header("Flag Requirements")]
 		[SerializeField, Tooltip("All requirements must be met before agents are spawned. Evaluated on first session and on each new cycle.")]
@@ -23,6 +34,8 @@ namespace SpaxUtils
 
 		[Header("Cycle Policy")]
 		[SerializeField] private bool dataPersists;
+		[SerializeField, Tooltip("Cycles before a dead agent may respawn. 0 = immediate, -1 = never.")]
+		private int respawnCooldown;
 
 		private IDependencyManager dependencyManager;
 		private RuntimeDataService runtimeDataService;
@@ -119,10 +132,41 @@ namespace SpaxUtils
 			// Destroy all owned agent instances (regardless of alive/dead) behind loading screen.
 			DestroyAllOwnedAgents();
 
-			// Optionally wipe their saved runtime data so they reroll on next spawn.
-			if (!dataPersists)
+			// Per-slot cycle reset.
+			if (runtimeDataService != null && runtimeDataService.CurrentProfile != null)
 			{
-				ClearSlotRuntimeDataFromProfile();
+				int slots = GetSlotCount();
+				for (int i = 0; i < slots; i++)
+				{
+					string slotId = GetSlotId(i);
+					bool dead = IsSlotDeadInProfile(slotId);
+
+					// If dead, check cooldown policy.
+					if (dead)
+					{
+						// Negative cooldown means permanent death.
+						if (respawnCooldown < 0)
+						{
+							continue;
+						}
+
+						// Positive cooldown means wait N cycles before respawn.
+						if (respawnCooldown > 0 && !HasCooldownElapsed(slotId, cycle))
+						{
+							continue;
+						}
+					}
+
+					// Slot is either alive or eligible for respawn.
+					if (!dataPersists)
+					{
+						runtimeDataService.CurrentProfile.TryRemove(slotId, dispose: true);
+					}
+					else
+					{
+						ResetSlotLifecycleData(slotId);
+					}
+				}
 			}
 
 			// Re-evaluate requirements on each new cycle.
@@ -224,21 +268,6 @@ namespace SpaxUtils
 			}
 		}
 
-		private void ClearSlotRuntimeDataFromProfile()
-		{
-			if (runtimeDataService == null || runtimeDataService.CurrentProfile == null)
-			{
-				return;
-			}
-
-			int slots = GetSlotCount();
-			for (int i = 0; i < slots; i++)
-			{
-				string slotId = GetSlotId(i);
-				runtimeDataService.CurrentProfile.TryRemove(slotId, dispose: true);
-			}
-		}
-
 		private bool IsSlotDeadInProfile(string slotId)
 		{
 			if (runtimeDataService == null || runtimeDataService.CurrentProfile == null)
@@ -254,6 +283,36 @@ namespace SpaxUtils
 
 			return false;
 		}
+
+		#region Lifecycle Data
+
+		private void ResetSlotLifecycleData(string slotId)
+		{
+			if (runtimeDataService.CurrentProfile.TryGetEntry(slotId, out RuntimeDataCollection data))
+			{
+				for (int i = 0; i < LifecycleKeys.Length; i++)
+				{
+					data.TryRemove(LifecycleKeys[i], dispose: true);
+				}
+			}
+		}
+
+		private bool HasCooldownElapsed(string slotId, int currentCycle)
+		{
+			if (!runtimeDataService.CurrentProfile.TryGetEntry(slotId, out RuntimeDataCollection data))
+			{
+				return false;
+			}
+
+			if (!data.TryGetValue(DEATH_CYCLE_KEY, out int deathCycle))
+			{
+				return false;
+			}
+
+			return (currentCycle - deathCycle) > respawnCooldown;
+		}
+
+		#endregion Lifecycle Data
 
 		private Agent SpawnSlot(string slotId, ISpawnpoint spawnpoint)
 		{
@@ -322,6 +381,12 @@ namespace SpaxUtils
 
 		private void OnAgentDied(DeathContext context)
 		{
+			string slotId = context.Died.ID;
+			if (spawned.TryGetValue(slotId, out Agent agent) && agent != null)
+			{
+				agent.RuntimeData.SetValue(DEATH_CYCLE_KEY, worldService.Cycle);
+			}
+
 			if (deathFlagsApplied)
 			{
 				return;

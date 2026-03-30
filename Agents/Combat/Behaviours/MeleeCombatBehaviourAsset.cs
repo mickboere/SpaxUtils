@@ -160,15 +160,15 @@ namespace SpaxUtils
 				ModMethod.Absolute,
 				f => f * baseStrengthSpeedFactor
 			);
-			chargeSpeedStat?.AddModifier(this, speedMod);
-			performSpeedStat?.AddModifier(this, speedMod);
+			chargeSpeedStat?.AddModifier(speedMod);
+			performSpeedStat?.AddModifier(speedMod);
 
 			// Phase-based inertia modifier (varies during swing).
 			swingPhaseSpeedMod = new FloatOperationModifier(ModMethod.Absolute, Operation.Multiply, 1f);
-			performSpeedStat?.AddModifier(this, swingPhaseSpeedMod);
+			performSpeedStat?.AddModifier(swingPhaseSpeedMod);
 
 			enduranceCostMod = new FloatOperationModifier(ModMethod.Absolute, Operation.Multiply, 1f);
-			enduranceCostStat?.AddModifier(this, enduranceCostMod);
+			enduranceCostStat?.AddModifier(enduranceCostMod);
 		}
 
 		public override void Stop()
@@ -178,12 +178,14 @@ namespace SpaxUtils
 			hitDetector.Dispose();
 			Performer.StartedPerformingEvent -= OnStartedPerformingEvent;
 
-			chargeSpeedStat?.RemoveModifier(this);
-			performSpeedStat?.RemoveModifier(this);
+			chargeSpeedStat?.RemoveModifier(speedMod);
+			performSpeedStat?.RemoveModifier(speedMod);
 			speedMod.Dispose();
+
+			performSpeedStat?.RemoveModifier(swingPhaseSpeedMod);
 			swingPhaseSpeedMod?.Dispose();
 
-			enduranceCostStat?.RemoveModifier(this);
+			enduranceCostStat?.RemoveModifier(enduranceCostMod);
 			enduranceCostMod.Dispose();
 
 			movementHandler.AutoUpdateMovement = true;

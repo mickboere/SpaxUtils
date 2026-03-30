@@ -19,7 +19,12 @@ namespace SpaxUtils.StateMachines
 		protected bool _valid;
 		public override float Validity => _rules.Sum((r) => r.Validity);
 
-		protected virtual bool RunComponents => true;
+		/// <summary>
+		/// Whether linked components should be active.
+		/// By default mirrors <see cref="_valid"/> so existing subclasses keep their behaviour.
+		/// Subclasses can override to decouple component lifetime from rule validity.
+		/// </summary>
+		protected virtual bool RunComponents => _valid;
 
 		[SerializeField, Output(backingValue = ShowBackingValue.Never, typeConstraint = TypeConstraint.Inherited)] protected Connections.Rule rules;
 		[SerializeField, Output(backingValue = ShowBackingValue.Never, typeConstraint = TypeConstraint.Inherited), Tooltip(TT_COMPONENTS)] private Connections.StateComponent components;
@@ -44,7 +49,7 @@ namespace SpaxUtils.StateMachines
 
 			_valid = IsValid();
 
-			if (_valid && RunComponents)
+			if (RunComponents)
 			{
 				componentCallbacks.Inject();
 			}
@@ -60,7 +65,7 @@ namespace SpaxUtils.StateMachines
 			callbackService.SubscribeUpdate(UpdateMode.Update, this, OnUpdate, 99998);
 
 			ruleCallbacks.OnEnteringState(transition);
-			if (_valid && RunComponents)
+			if (RunComponents)
 			{
 				componentCallbacks.OnEnteringState(transition);
 			}
@@ -72,7 +77,7 @@ namespace SpaxUtils.StateMachines
 			base.WhileEnteringState(transition);
 
 			ruleCallbacks.WhileEnteringState(transition);
-			if (_valid && RunComponents)
+			if (RunComponents)
 			{
 				componentCallbacks.WhileEnteringState(transition);
 			}
@@ -84,7 +89,7 @@ namespace SpaxUtils.StateMachines
 			base.OnStateEntered();
 
 			ruleCallbacks.OnStateEntered();
-			if (_valid && RunComponents)
+			if (RunComponents)
 			{
 				componentCallbacks.OnStateEntered();
 			}
@@ -98,7 +103,7 @@ namespace SpaxUtils.StateMachines
 			callbackService.UnsubscribeUpdate(UpdateMode.Update, this);
 
 			ruleCallbacks.OnExitingState(transition);
-			if (_valid && RunComponents)
+			if (RunComponents)
 			{
 				componentCallbacks.OnExitingState(transition);
 			}
@@ -110,7 +115,7 @@ namespace SpaxUtils.StateMachines
 			base.WhileExitingState(transition);
 
 			ruleCallbacks.WhileExitingState(transition);
-			if (_valid && RunComponents)
+			if (RunComponents)
 			{
 				componentCallbacks.WhileExitingState(transition);
 			}
@@ -122,7 +127,7 @@ namespace SpaxUtils.StateMachines
 			base.OnStateExit();
 
 			ruleCallbacks.OnStateExit();
-			if (_valid && RunComponents)
+			if (RunComponents)
 			{
 				componentCallbacks.OnStateExit();
 			}
@@ -135,14 +140,14 @@ namespace SpaxUtils.StateMachines
 			bool valid = IsValid();
 			if (_valid != valid || RunComponents != componentCallbacks.Active)
 			{
-				if (valid && RunComponents)
+				if (RunComponents)
 				{
-					// Became valid, activate subcomponents.
+					// Components should be active, activate subcomponents.
 					componentCallbacks.QuickEnter();
 				}
 				else
 				{
-					// Became invalid, deactivate subcomponents.
+					// Components should not be active, deactivate subcomponents.
 					componentCallbacks.QuickExit();
 				}
 			}

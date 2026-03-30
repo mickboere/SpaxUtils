@@ -68,6 +68,11 @@ namespace SpaxUtils
 			get => Rigidbody.linearVelocity;
 			set
 			{
+				if (IsKinematic)
+				{
+					return;
+				}
+
 				Vector3 p = Velocity;
 				Rigidbody.linearVelocity = value;
 				previousVelocity = value;
@@ -91,7 +96,17 @@ namespace SpaxUtils
 		/// <summary>
 		/// Angular velocity of the rigidbody in world space.
 		/// </summary>
-		public Vector3 AngularVelocity { get => Rigidbody.angularVelocity; set => Rigidbody.angularVelocity = value; }
+		public Vector3 AngularVelocity
+		{
+			get { return Rigidbody.angularVelocity; }
+			set
+			{
+				if (!IsKinematic)
+				{
+					Rigidbody.angularVelocity = value;
+				}
+			}
+		}
 
 		/// <summary>
 		/// Composite kinematic state. The wrapper applies <see cref="Value"/> to the real rigidbody every physics step.

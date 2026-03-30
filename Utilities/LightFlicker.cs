@@ -1,8 +1,10 @@
 using SpaxUtils;
 using System.Collections;
 using System.Collections.Generic;
-using UnityEditor;
 using UnityEngine;
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 
 namespace SpaxUtils
 {
@@ -48,6 +50,7 @@ namespace SpaxUtils
 			_light.range = range.Lerp(x) * Multiplier;
 		}
 
+#if UNITY_EDITOR
 		protected void OnDrawGizmosSelected()
 		{
 			if (Selection.activeGameObject != gameObject)
@@ -60,15 +63,14 @@ namespace SpaxUtils
 			Gizmos.color = new Color(intensity.y, intensity.y, intensity.y, 1f);
 			Gizmos.DrawWireSphere(transform.position, range.y * Multiplier);
 
-#if UNITY_EDITOR
 			// Ensure continuous Update calls.
 			if (executeInEditMode && !Application.isPlaying)
 			{
 				UnityEditor.EditorApplication.QueuePlayerLoopUpdate();
 				UnityEditor.SceneView.RepaintAll();
 			}
-#endif
 		}
+#endif
 
 		private void Initialize()
 		{

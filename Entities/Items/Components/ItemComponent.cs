@@ -1,6 +1,10 @@
 ﻿using System;
-using System.Collections.Generic;
 using UnityEngine;
+
+#if UNITY_EDITOR
+using UnityEditor;
+using UnityEditor.SceneManagement;
+#endif
 
 namespace SpaxUtils
 {
@@ -15,8 +19,12 @@ namespace SpaxUtils
 
 		public override string InteractableType => InteractionTypes.ITEM;
 
+		[SerializeField] private bool autoUpdateID;
 		[SerializeField] private SerializedItemData item;
+
+#if UNITY_EDITOR
 		[SerializeField, HideInInspector] private int lastItemDataHash;
+#endif
 
 		protected virtual void OnValidate()
 		{
@@ -49,20 +57,47 @@ namespace SpaxUtils
 			Entity.Identification.Add(EntityLabels.ITEM);
 
 #if UNITY_EDITOR
-			// Only allow ID resets in the editor, not during play.
+			// Only allow editor-side identification sync when not playing.
 			if (!Application.isPlaying)
 			{
-				int currentHash = JsonUtility.ToJson(item).GetHashCode();
+				Entity entityComponent = GetEntityComponent();
+				if (entityComponent == null)
+				{
+					return;
+				}
+
+				bool changed = false;
+
+				// Keep the stored hash in sync so re-enabling auto update does not immediately reroll
+				// from stale comparison data.
+				int currentHash = GetEditorItemHash();
+
 				if (lastItemDataHash != currentHash)
 				{
+					RecordEditorObjects(entityComponent);
 					lastItemDataHash = currentHash;
-					Entity.Identification.Name = item.Asset.Identification.Name;
-					Entity.Identification.ID = Guid.NewGuid().ToString();
+					changed = true;
+
+					if (autoUpdateID)
+					{
+						Entity.Identification.Name = item.Asset.Identification.Name;
+						Entity.Identification.ID = Guid.NewGuid().ToString();
+					}
 				}
 				else if (Entity.Identification.Name != item.Asset.Identification.Name)
 				{
-					// Item data didn't change but the asset's name was updated; sync name without resetting ID.
-					Entity.Identification.Name = item.Asset.Identification.Name;
+					// Name sync is also considered part of auto update behavior.
+					if (autoUpdateID)
+					{
+						RecordEditorObjects(entityComponent);
+						Entity.Identification.Name = item.Asset.Identification.Name;
+						changed = true;
+					}
+				}
+
+				if (changed)
+				{
+					PersistEditorObjects(entityComponent);
 				}
 			}
 #else
@@ -78,5 +113,54 @@ namespace SpaxUtils
 		{
 			RuntimeItemData = item.ToRuntimeItemData();
 		}
+
+#if UNITY_EDITOR
+		private Entity GetEntityComponent()
+		{
+			return gameObject.GetComponentInParent<Entity>();
+		}
+
+		private int GetEditorItemHash()
+		{
+			string assetKey = GetEditorAssetKey();
+			string dataJson = item.Data == null ? string.Empty : JsonUtility.ToJson(item.Data);
+			return (assetKey + "|" + dataJson).GetDeterministicHashCode();
+		}
+
+		private string GetEditorAssetKey()
+		{
+			string path = AssetDatabase.GetAssetPath(item.Asset);
+			if (!string.IsNullOrEmpty(path))
+			{
+				string guid = AssetDatabase.AssetPathToGUID(path);
+				if (!string.IsNullOrEmpty(guid))
+				{
+					return guid;
+				}
+			}
+
+			return item.Asset.ID ?? item.Asset.name;
+		}
+
+		private void RecordEditorObjects(Entity entityComponent)
+		{
+			Undo.RecordObject(this, "Update Item Identification");
+			Undo.RecordObject(entityComponent, "Update Item Identification");
+		}
+
+		private void PersistEditorObjects(Entity entityComponent)
+		{
+			EditorUtility.SetDirty(this);
+			EditorUtility.SetDirty(entityComponent);
+
+			PrefabUtility.RecordPrefabInstancePropertyModifications(this);
+			PrefabUtility.RecordPrefabInstancePropertyModifications(entityComponent);
+
+			if (gameObject.scene.IsValid())
+			{
+				EditorSceneManager.MarkSceneDirty(gameObject.scene);
+			}
+		}
+#endif
 	}
 }
