@@ -5,6 +5,7 @@
 		// Main
 		public const string HOME = "Home";
 		public const string LOAD_GAME = "Load Game";
+		public const string NEW_GAME = "New Game";
 		public const string SETTINGS = "Settings";
 
 		// Game

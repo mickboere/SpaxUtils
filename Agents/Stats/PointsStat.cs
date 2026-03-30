@@ -147,15 +147,11 @@ namespace SpaxUtils
 
 			if (HasRecovery && (recoveryTimer == null || recoveryTimer.Expired))
 			{
-				if (HasReserve)
+				float cap = HasReserve ? (float)Reserve : (float)Max;
+				float target = Mathf.Min(cap, Current.BaseValue + Recovery * delta * timescale);
+				if (target > Current.BaseValue)
 				{
-					// Recover Current towards Recoverable.
-					Set(Mathf.Min(Reserve, Current.BaseValue + Recovery * delta * timescale), true);
-				}
-				else
-				{
-					// Recover Current towards Max.
-					Set(Mathf.Min(Max, Current.BaseValue + Recovery * delta * timescale), true);
+					Set(target, true);
 				}
 			}
 		}
