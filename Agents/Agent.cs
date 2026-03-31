@@ -147,7 +147,7 @@ namespace SpaxUtils
 			_age = RuntimeData.GetValue(EntityDataIdentifiers.AGE, 0d);
 			if (Alive && RuntimeData.GetValue<string>(EntityDataIdentifiers.SCENE) == sceneService.CurrentScene)
 			{
-				Transform.position = RuntimeData.GetValue(EntityDataIdentifiers.POSITION, transform.position) + Vector3.up * 0.5f; // hack
+				Transform.position = RuntimeData.GetValue(EntityDataIdentifiers.POSITION, transform.position);
 				Transform.eulerAngles = RuntimeData.GetValue(EntityDataIdentifiers.ROTATION, transform.eulerAngles);
 			}
 			Alive = true; // Entity is being initialized so it is now definitely alive.

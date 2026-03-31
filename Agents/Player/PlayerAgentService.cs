@@ -207,8 +207,7 @@ namespace SpaxUtils
 			AgentSpawnData spawnData,
 			Transform spawnpoint,
 			out List<GameObject> instances,
-			Camera inputCamOverride = null,
-			bool activate = true)
+			Camera inputCamOverride = null)
 		{
 			instances = new List<GameObject>();
 
@@ -296,7 +295,7 @@ namespace SpaxUtils
 			AgentSetup setup = new AgentSetup(config.AgentSetup, identification, data: entityData);
 
 			// Create player agent.
-			Agent playerAgent = spawnData.Spawn(setup, playerDependencies, spawnpoint.position, spawnpoint.rotation, activate);
+			Agent playerAgent = spawnData.Spawn(setup, playerDependencies, spawnpoint.position, spawnpoint.rotation);
 			instances.Add(playerAgent.gameObject);
 
 			// Set up player camera.

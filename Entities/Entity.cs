@@ -186,16 +186,6 @@ namespace SpaxUtils
 			Initialize();
 		}
 
-		protected void Start()
-		{
-#if UNITY_EDITOR
-			if (!Application.isPlaying)
-			{
-				return;
-			}
-#endif
-		}
-
 		protected virtual void OnEnable()
 		{
 #if UNITY_EDITOR
@@ -407,10 +397,14 @@ namespace SpaxUtils
 				return;
 			}
 
-			// Load entity name from data.
+			// Load entity name from data, or set it.
 			if (RuntimeData.ContainsEntry(EntityDataIdentifiers.NAME))
 			{
 				Identification.Name = RuntimeData.GetValue<string>(EntityDataIdentifiers.NAME);
+			}
+			else
+			{
+				RuntimeData.SetValue(EntityDataIdentifiers.NAME, Identification.Name, true, false);
 			}
 
 			// Retrieve pre-set priority level to override dynamic priority, if any.
