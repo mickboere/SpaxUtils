@@ -11,6 +11,7 @@ namespace SpaxUtils
 	/// Intended for NPCs like Brother who wait at a specific location.
 	/// On re-entry after an interruption (e.g. dialogue), verifies that the currently
 	/// occupied POI matches this node's label criteria. If not, vacates and reselects.
+	/// Delegates navigation and occupation to <see cref="POIVisitHelper"/>.
 	/// </summary>
 	[NodeWidth(280)]
 	public class VisitPOINode : StateComponentNodeBase
@@ -26,24 +27,26 @@ namespace SpaxUtils
 		[SerializeField, Tooltip("Arrival distance to consider the POI reached.")]
 		private float arrivalRange = 0.25f;
 
-		private enum VisitActivity { Selecting, Moving, Occupied }
+		[SerializeField, Tooltip("Arrival distance to consider the POI reached.")]
+		private bool navMesh;
 
 		private IAgent agent;
 		private AgentNavigationHandler navigation;
 		private CallbackService callbackService;
 		private WorldRegionService worldRegionService;
+		private EntityService entityService;
 		private POIHandler poiHandler;
 		private ISpawnpoint spawnpoint;
 
-		private VisitActivity activity;
-		private PointOfInterest currentPOI;
-		private Vector3 currentDestination;
+		private POIVisitHelper visitHelper;
+		private bool needsSelection;
 
 		public void InjectDependencies(
 			IAgent agent,
 			AgentNavigationHandler navigation,
 			CallbackService callbackService,
 			WorldRegionService worldRegionService,
+			EntityService entityService,
 			POIHandler poiHandler,
 			[Optional] ISpawnpoint spawnpoint)
 		{
@@ -51,6 +54,7 @@ namespace SpaxUtils
 			this.navigation = navigation;
 			this.callbackService = callbackService;
 			this.worldRegionService = worldRegionService;
+			this.entityService = entityService;
 			this.poiHandler = poiHandler;
 			this.spawnpoint = spawnpoint;
 		}
@@ -69,31 +73,24 @@ namespace SpaxUtils
 				if (labelsMatch)
 				{
 					// Currently occupied POI matches our criteria. Resume occupied.
-					currentPOI = occupiedPOI;
-					activity = VisitActivity.Occupied;
+					needsSelection = false;
 				}
 				else
 				{
 					// Occupied POI does not match this node's labels. Vacate and reselect.
 					poiHandler.Vacate();
-					currentPOI = null;
-					activity = VisitActivity.Selecting;
+					needsSelection = true;
 				}
 			}
 			else
 			{
-				// Not occupying anything. Select a POI.
-				currentPOI = null;
-				activity = VisitActivity.Selecting;
+				needsSelection = true;
 			}
 
-			if (activity == VisitActivity.Selecting && (agent.Age < 5f || agent.Priority == PriorityLevel.Culled))
+			if (needsSelection && (agent.Age < 5f || agent.Priority == PriorityLevel.Culled))
 			{
 				// Try to immediately occupy if just freshly spawned or if culled.
-				if (TrySelectPOI())
-				{
-					TryOccupyOnArrival();
-				}
+				TrySelectAndVisit(true);
 			}
 
 			callbackService.SubscribeUpdate(UpdateMode.Update, this, OnUpdate);
@@ -105,36 +102,61 @@ namespace SpaxUtils
 			callbackService.UnsubscribeUpdate(UpdateMode.Update, this);
 			navigation.ResetInput();
 
-			// Do NOT vacate. POIHandler persists in Passive scope.
+			// Stop navigation but do NOT vacate. POIHandler persists in Passive scope.
 			// AnimatedActionsNode handles vacating on Passive exit.
+			if (visitHelper != null)
+			{
+				visitHelper.Dispose();
+				visitHelper = null;
+			}
 		}
 
 		private void OnUpdate(float delta)
 		{
-			switch (activity)
+			// If the helper failed (POI taken by someone else), discard and reselect.
+			if (visitHelper != null && visitHelper.HasFailed)
 			{
-				case VisitActivity.Selecting:
-					TrySelectPOI();
-					break;
+				visitHelper.Dispose();
+				visitHelper = null;
+				needsSelection = true;
+			}
 
-				case VisitActivity.Moving:
-					if (navigation.MoveInRange(arrivalRange, moveSpeed, true, currentDestination))
-					{
-						TryOccupyOnArrival();
-					}
-					break;
-
-				case VisitActivity.Occupied:
-					// Do nothing. Agent stays at POI.
-					// AnimatedActionsNode in Passive handles the action.
-					break;
+			// If not occupying and no helper active, try to select a POI.
+			if (needsSelection && visitHelper == null && !poiHandler.IsOccupying)
+			{
+				TrySelectAndVisit(false);
 			}
 		}
 
-		private bool TrySelectPOI()
+		private bool TrySelectAndVisit(bool immediate)
+		{
+			PointOfInterest poi = SelectPOI();
+			if (poi == null)
+			{
+				return false;
+			}
+
+			if (visitHelper != null)
+			{
+				visitHelper.Dispose();
+			}
+
+			visitHelper = new POIVisitHelper(agent, navigation, entityService, poiHandler, callbackService);
+			if (visitHelper.Visit(poi, immediate, moveSpeed, arrivalRange))
+			{
+				needsSelection = false;
+				return true;
+			}
+
+			// Visit failed immediately (e.g. POI occupied).
+			visitHelper.Dispose();
+			visitHelper = null;
+			return false;
+		}
+
+		private PointOfInterest SelectPOI()
 		{
 			IWorldRegion region = null;
-			PointOfInterest poi = null;
 
 			if (spawnpoint != null && spawnpoint.Region != null)
 			{
@@ -147,58 +169,31 @@ namespace SpaxUtils
 
 			if (region == null)
 			{
-				return false;
+				return null;
 			}
 
 			// Search by labels within the agent's region.
 			List<PointOfInterest> available = region.GetAvailablePOIs(poiLabels);
-			if (available.Count > 0)
+			if (available.Count == 0)
 			{
-				// Pick the closest available POI.
-				float bestDist = float.MaxValue;
-				Vector3 agentPos = agent.Transform.position;
-				for (int i = 0; i < available.Count; i++)
+				return null;
+			}
+
+			// Pick the closest available POI.
+			PointOfInterest best = null;
+			float bestDist = float.MaxValue;
+			Vector3 agentPos = agent.Transform.position;
+			for (int i = 0; i < available.Count; i++)
+			{
+				float dist = Vector3.Distance(agentPos, available[i].transform.position);
+				if (dist < bestDist)
 				{
-					float dist = Vector3.Distance(agentPos, available[i].transform.position);
-					if (dist < bestDist)
-					{
-						bestDist = dist;
-						poi = available[i];
-					}
+					bestDist = dist;
+					best = available[i];
 				}
 			}
 
-			if (poi == null)
-			{
-				return false;
-			}
-
-			// No reservation. Just navigate toward it. Occupation happens on arrival.
-			// Navigate directly to the POI's position; the navigation system will
-			// pathfind to the nearest reachable point on the NavMesh.
-			currentPOI = poi;
-			currentDestination = poi.transform.position;
-			activity = VisitActivity.Moving;
-
-			return true;
-		}
-
-		private void TryOccupyOnArrival()
-		{
-			navigation.ResetInput();
-
-			if (currentPOI != null && currentPOI.TryOccupy(agent))
-			{
-				// POIHandler handles alignment and kinematic state.
-				poiHandler.Occupy(currentPOI);
-				activity = VisitActivity.Occupied;
-			}
-			else
-			{
-				// Someone else got there first. Reselect.
-				currentPOI = null;
-				activity = VisitActivity.Selecting;
-			}
+			return best;
 		}
 	}
 }

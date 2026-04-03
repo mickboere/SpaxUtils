@@ -35,6 +35,7 @@ namespace SpaxUtils
 		public EventSystem EventSystem => eventSystem;
 		public BrainGraph GameBrainGraph => gameBrainGraph;
 		public UIRoot LoadingScreenPrefab => loadingScreenPrefab;
+		public UIRoot ScreenFadePrefab => screenFadePrefab;
 		public IReadOnlyDictionary<string, GameState> StateData
 		{
 			get
@@ -71,6 +72,7 @@ namespace SpaxUtils
 		[SerializeField] private EventSystem eventSystem;
 		[SerializeField] private BrainGraph gameBrainGraph;
 		[SerializeField] private UIRoot loadingScreenPrefab;
+		[SerializeField] private UIRoot screenFadePrefab;
 		[SerializeField] private List<GameState> stateData;
 		[SerializeField] private List<LevelData> levels;
 	}

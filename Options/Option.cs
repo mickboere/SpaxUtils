@@ -167,7 +167,7 @@ namespace SpaxUtils
 
 			if (playerInputWrapper == null)
 			{
-				SpaxDebug.Error("Option could not be activated: has an input action but no PlayerInputWrapper.", ToString());
+				SpaxDebug.Warning("Option could not be activated: has an input action but no PlayerInputWrapper.", ToString());
 				return;
 			}
 

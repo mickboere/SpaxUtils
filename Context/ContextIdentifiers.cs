@@ -9,6 +9,7 @@
 		public const string SETTINGS = "Settings";
 
 		// Game
+		public const string CUTSCENE = "Cutscene";
 		public const string PAUSE = "Pause";
 		public const string INVENTORY = "Inventory";
 		public const string STATUS = "Status";

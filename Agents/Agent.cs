@@ -45,6 +45,9 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public ITargeter Targeter { get; private set; }
 
+		/// <inheritdoc/>
+		public ICommunicationChannel Comms { get; private set; }
+
 		#endregion Properties
 
 		protected override string GameObjectNamePrefix => "[Agent]";
@@ -56,7 +59,7 @@ namespace SpaxUtils
 		private IRelationData[] relationData;
 
 		public void InjectDependencies(
-			IAgentBody body, ITargetable targetableComponent, ITargeter targeterComponent,
+			IAgentBody body, ITargetable targetableComponent, ITargeter targeterComponent, ICommunicationChannel comms,
 			CallbackService callbackService, AEMOISettings aemoiSettings, InputToActMap inputToActMap,
 			IPerformer[] performers, IRelationData[] relationData, BrainGraph[] brainGraphs, AEMOIBehaviourAsset[] behaviour,
 			[Optional, BindingIdentifier(MindDataIdentifiers.INCLINATION)] Vector8 inclination,
@@ -65,6 +68,7 @@ namespace SpaxUtils
 			Body = body;
 			Targetable = targetableComponent;
 			Targeter = targeterComponent;
+			Comms = comms;
 
 			this.relationData = relationData;
 

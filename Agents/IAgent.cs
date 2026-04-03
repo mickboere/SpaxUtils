@@ -71,6 +71,11 @@ namespace SpaxUtils
 		/// </summary>
 		ITargeter Targeter { get; }
 
+		/// <summary>
+		/// The (private) communication channel of this agent.
+		/// </summary>
+		ICommunicationChannel Comms { get; }
+
 		#endregion
 
 		/// <summary>
