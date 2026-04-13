@@ -9,6 +9,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using Object = UnityEngine.Object;
 
 public class HumanoidPoseEditor : EditorWindow
 {
@@ -17,6 +18,7 @@ public class HumanoidPoseEditor : EditorWindow
 	// ---------------------------------------------
 
 	bool _active;
+	bool _poseMode;
 	Animator _animator;
 	HumanPoseHandler _poseHandler;
 	HumanBodyBones? _selectedBone = null;
@@ -31,8 +33,8 @@ public class HumanoidPoseEditor : EditorWindow
 	// Settings
 	bool _settingsFoldout;
 	bool _showFingers;
-	float _handleSize = 0.035f;
-	float _selectedHandleSize = 0.06f;
+	float _handleSize = 0.1f;
+	float _selectedHandleSize = 0.15f;
 
 	// Cached reflection for Animation Window
 	static Type s_AnimWindowType;
@@ -198,20 +200,37 @@ public class HumanoidPoseEditor : EditorWindow
 
 		if (!_active) return;
 
+		// --- Pose Mode toggle ---
+		bool newPoseMode = EditorGUILayout.Toggle("Pose Mode (no clip)", _poseMode);
+		if (newPoseMode != _poseMode)
+		{
+			_poseMode = newPoseMode;
+			SceneView.RepaintAll();
+		}
+
 		EditorGUILayout.Space(4);
 
 		// --- Animation Window status ---
 		GetAnimationWindowState(out AnimationClip clip, out float time);
-		if (clip != null)
+		if (!_poseMode)
 		{
-			EditorGUILayout.LabelField("Clip", clip.name);
-			EditorGUILayout.LabelField("Time", $"{time:F3}s");
+			if (clip != null)
+			{
+				EditorGUILayout.LabelField("Clip", clip.name);
+				EditorGUILayout.LabelField("Time", $"{time:F3}s");
+			}
+			else
+			{
+				EditorGUILayout.HelpBox(
+					"No AnimationClip detected. Open the Animation Window and select a clip, or enable Pose Mode.",
+					MessageType.Warning);
+			}
 		}
 		else
 		{
 			EditorGUILayout.HelpBox(
-				"No AnimationClip detected. Open the Animation Window and select a clip.",
-				MessageType.Warning);
+				"Pose Mode: scene edits only, no clip writes.",
+				MessageType.Info);
 		}
 
 		EditorGUILayout.Space(4);
@@ -221,8 +240,8 @@ public class HumanoidPoseEditor : EditorWindow
 		if (_settingsFoldout)
 		{
 			EditorGUI.indentLevel++;
-			_handleSize = EditorGUILayout.Slider("Handle Size", _handleSize, 0.01f, 0.15f);
-			_selectedHandleSize = EditorGUILayout.Slider("Selected Handle Size", _selectedHandleSize, 0.02f, 0.2f);
+			_handleSize = EditorGUILayout.Slider("Handle Size", _handleSize, 0.01f, 0.3f);
+			_selectedHandleSize = EditorGUILayout.Slider("Selected Handle Size", _selectedHandleSize, 0.02f, 0.4f);
 			_showFingers = EditorGUILayout.Toggle("Show Finger Handles", _showFingers);
 			EditorGUI.indentLevel--;
 		}
@@ -241,7 +260,7 @@ public class HumanoidPoseEditor : EditorWindow
 		EditorGUILayout.Space(8);
 
 		// --- Utility buttons ---
-		if (clip != null)
+		if (!_poseMode && clip != null)
 		{
 			if (GUILayout.Button("Reset Pose to T-Pose"))
 				ResetToTPose(clip, time);
@@ -300,8 +319,21 @@ public class HumanoidPoseEditor : EditorWindow
 
 		if (changed)
 		{
+			if (_poseMode)
+			{
+				// Record all bone transforms for undo since SetHumanPose cascades
+				var bones = new List<Object>();
+				foreach (HumanBodyBones b in System.Enum.GetValues(typeof(HumanBodyBones)))
+				{
+					if (b == HumanBodyBones.LastBone) continue;
+					Transform t = _animator.GetBoneTransform(b);
+					if (t != null) bones.Add(t);
+				}
+				Undo.RecordObjects(bones.ToArray(), "Pose Muscle Change");
+			}
+
 			_poseHandler.SetHumanPose(ref pose);
-			if (clip != null)
+			if (!_poseMode && clip != null)
 				WritePoseToClip(pose, clip, time, _selectedBone.Value);
 			SceneView.RepaintAll();
 		}
@@ -434,6 +466,7 @@ public class HumanoidPoseEditor : EditorWindow
 			Quaternion newRot = Handles.RotationHandle(bone.rotation, bone.position);
 			if (EditorGUI.EndChangeCheck())
 			{
+				if (_poseMode) Undo.RecordObject(bone, "Pose Bone Rotation");
 				bone.rotation = newRot;
 				ReadAndWritePose(clip, time);
 			}
@@ -444,6 +477,7 @@ public class HumanoidPoseEditor : EditorWindow
 			Vector3 newPos = Handles.PositionHandle(bone.position, bone.rotation);
 			if (EditorGUI.EndChangeCheck())
 			{
+				if (_poseMode) Undo.RecordObject(bone, "Pose Hips Position");
 				bone.position = newPos;
 				ReadAndWritePose(clip, time);
 			}
@@ -478,6 +512,7 @@ public class HumanoidPoseEditor : EditorWindow
 			{
 				_rootPosDragging = true;
 				Vector3 delta = newPos - _rootDragHandlePos;
+				if (_poseMode) Undo.RecordObject(hipBone, "Pose Root Position");
 				hipBone.position = _rootDragHipPos + delta;
 				ReadAndWriteRoot(clip, time);
 			}
@@ -498,6 +533,7 @@ public class HumanoidPoseEditor : EditorWindow
 			if (EditorGUI.EndChangeCheck())
 			{
 				_rootRotDragging = true;
+				if (_poseMode) Undo.RecordObject(hipBone, "Pose Root Rotation");
 				// Apply cumulative rotation to cached start values
 				hipBone.position = newRot * (_rootDragHipPos - _rootDragHandlePos) + _rootDragHandlePos;
 				hipBone.rotation = newRot * _rootDragHipRot;
@@ -509,6 +545,12 @@ public class HumanoidPoseEditor : EditorWindow
 	void ReadAndWriteRoot(AnimationClip clip, float time)
 	{
 		if (_poseHandler == null) return;
+
+		if (_poseMode)
+		{
+			Repaint();
+			return;
+		}
 
 		HumanPose pose = new HumanPose();
 		_poseHandler.GetHumanPose(ref pose);
@@ -556,6 +598,12 @@ public class HumanoidPoseEditor : EditorWindow
 	void ReadAndWritePose(AnimationClip clip, float time)
 	{
 		if (_poseHandler == null) return;
+
+		if (_poseMode)
+		{
+			Repaint();
+			return;
+		}
 
 		HumanPose pose = new HumanPose();
 		_poseHandler.GetHumanPose(ref pose);

@@ -1,4 +1,3 @@
-#if UNITY_EDITOR
 using System;
 using UnityEngine;
 
@@ -12,6 +11,7 @@ namespace SpaxUtils
 	[RequireComponent(typeof(Camera))]
 	public class CompositionHelper : MonoBehaviour
 	{
+#if UNITY_EDITOR
 		[Flags]
 		public enum Guide
 		{
@@ -185,6 +185,6 @@ namespace SpaxUtils
 				lineTex = new Texture2D(1, 1);
 			}
 		}
+#endif
 	}
 }
-#endif
