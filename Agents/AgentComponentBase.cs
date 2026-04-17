@@ -1,28 +1,27 @@
 namespace SpaxUtils
 {
 	/// <summary>
-	/// Base class for components attached to an <see cref="IAgent"/>. Implements <see cref="EntityComponentBase"/>.
+	/// Base class for components attached to an <see cref="IAgent"/>. Implements <see cref="EntityComponentMono"/>.
 	/// </summary>
-	public abstract class AgentComponentBase : EntityComponentBase
+	public abstract class AgentComponentBase : EntityComponentMono
 	{
 		public IAgent Agent
 		{
 			get
 			{
-				if (agent == null)
+				if (_agent == null)
 				{
-					agent = gameObject.GetComponentInParent<IAgent>();
+					_agent = gameObject.GetComponentInParent<IAgent>();
 				}
 
-				return agent;
+				return _agent;
 			}
 		}
-
-		private IAgent agent;
+		private IAgent _agent;
 
 		public virtual void InjectDependencies(IAgent agent)
 		{
-			this.agent = agent;
+			_agent = agent;
 		}
 	}
 }

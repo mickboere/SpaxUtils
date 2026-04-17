@@ -4,65 +4,196 @@ using UnityEngine;
 
 namespace SpaxUtils
 {
-	[CreateAssetMenu(fileName = "Behaviour_Maneuver_Dash", menuName = "ScriptableObjects/Combat/DashManeuverBehaviourAsset")]
+	[CreateAssetMenu(fileName = nameof(DashManeuverBehaviourAsset), menuName = "Performance/Behaviour/" + nameof(DashManeuverBehaviourAsset))]
 	public class DashManeuverBehaviourAsset : CorePerformanceMoveBehaviourAsset
 	{
-		[SerializeField] private float dashSpeed = 10f;
-		[SerializeField] private float glideSpeed = 5f;
-		[SerializeField] private float controlForce = 1800f;
-		[SerializeField] private float brakeForce = 900f;
-		[SerializeField] private float power = 40f;
+		protected float DashSpeed => dashSpeed * (dashSpeedStat ?? 1f);
+		protected float DashDuration => dashDistance / DashSpeed;
+		protected float GlideSpeed => dashSpeed * (glideSpeedStat ?? 1f);
 
+		[Header("Control")]
+		[SerializeField] private float maxAcceleration = 20000f;
+		[SerializeField] private float maxDeceleration = 2000f;
+		[SerializeField] private float power = 50f;
+		[Header("Dashing")]
+		[SerializeField] private float dashDistance = 5f;
+		[SerializeField] private float dashSpeed = 10f;
+		[Header("Gliding")]
+		//[SerializeField] private float glideDelay = 0.25f;
+		[SerializeField] private float glideSpeed = 5f;
+		[SerializeField] private Vector3 shakeMagnitude = Vector3.one;
+		[Header("SFX")]
+		[SerializeField] private SFXData dashSFX;
+		[SerializeField] private SFXData glideSFX;
+		[SerializeField] private float glideFadeout = 0.2f;
+
+		private AgentStatHandler statHandler;
 		private CallbackService callbackService;
 		private IAgentMovementHandler movementHandler;
+		private AgentImpactHandler senseComponent;
+		private Pool<PooledAudioSource> audioPool;
+		private AgentTrailEffect agentTrailEffect;
 
+		private PointsStat pointStat;
 		private EntityStat massStat;
+		private EntityStat dashSpeedStat;
+		private EntityStat glideSpeedStat;
+		private AudioSourceWrapper glideAudio;
+		private Vector3 direction;
+		private ContinuousShakeSource shakeSource;
 
-		public void InjectDependencies(CallbackService callbackService, IAgentMovementHandler movementHandler)
+		public override bool IsMet(IDependencyManager dependencies)
 		{
+			if (!base.IsMet(dependencies))
+			{
+				return false;
+			}
+
+			return dependencies.TryGet(out AgentStatHandler statHandler) &&
+				!statHandler.PointStats.E.IsRecoveringFromZero;
+		}
+
+		public void InjectDependencies(AgentStatHandler statHandler, CallbackService callbackService, IAgentMovementHandler movementHandler,
+			AgentImpactHandler senseComponent, Pool<PooledAudioSource> audioPool, AgentTrailEffect agentTrailEffect)
+		{
+			this.statHandler = statHandler;
 			this.callbackService = callbackService;
 			this.movementHandler = movementHandler;
+			this.senseComponent = senseComponent;
+			this.audioPool = audioPool;
+			this.agentTrailEffect = agentTrailEffect;
 
-			massStat = Agent.GetStat(AgentStatIdentifiers.MASS);
+			statHandler.TryGetPointStat(Move.ChargeCost.Stat, out pointStat);
+			massStat = Agent.Stats.GetStat(AgentStatIdentifiers.MASS);
+			dashSpeedStat = Agent.Stats.GetStat(AgentStatIdentifiers.DASH_SPEED);
+			glideSpeedStat = Agent.Stats.GetStat(AgentStatIdentifiers.GLIDE_SPEED);
 		}
 
 		public override void Start()
 		{
 			base.Start();
-			callbackService.SubscribeUpdate(UpdateMode.FixedUpdate, this, OnUpdate);
+			callbackService.SubscribeUpdate(UpdateMode.FixedUpdate, this, OnFixedUpdate);
 
-			Vector3 startVelocity = movementHandler.MovementInputRaw == Vector3.zero ?
-				RigidbodyWrapper.Forward * dashSpeed :
-				Quaternion.LookRotation(movementHandler.InputAxis) * movementHandler.MovementInputRaw.normalized * dashSpeed;
-			RigidbodyWrapper.Push(startVelocity);
+			InitiateDash();
 		}
 
 		public override void Stop()
 		{
 			base.Stop();
 			callbackService.UnsubscribeUpdate(UpdateMode.FixedUpdate, this);
+			glideAudio.FadeOut(glideFadeout, EasingMethod.InOutSine);
+			movementHandler.AutoUpdateMovement = true;
+			shakeSource?.Dispose();
+
+			// VFX
+			agentTrailEffect.End();
+		}
+
+		private void InitiateDash()
+		{
+			SetDirection(movementHandler.InputRaw);
+
+			// Disable default movement application from interfering.
+			movementHandler.AutoUpdateMovement = false;
+
+			// Drain stat.
+			if (pointStat != null)
+			{
+				float cost = massStat * DashSpeed * Move.ChargeCost.Cost * 0.1f;
+				pointStat.Drain(cost);
+			}
+
+			// Report impact for senses / shaking.
+			if (Agent.Identification.HasAll(EntityLabels.PLAYER))
+			{
+				shakeSource = new ContinuousShakeSource(shakeMagnitude, direction);
+			}
+			senseComponent.ReportImpact(new ImpactData()
+			{
+				Source = Agent,
+				Direction = direction,
+				Location = Agent.Transform.position,
+				Force = 10f, // Overcome Log10
+				ShakeSource = shakeSource
+			});
+
+			// Play dash SFX.
+			dashSFX.Play(audioPool.Request(Agent.Transform.position, Agent.Transform).AudioSourceWrapper);
+
+			// Start glide SFX.
+			glideAudio = audioPool.Request(Agent.Transform.position, Agent.Transform).AudioSourceWrapper;
+			glideSFX.PlayLoop(glideAudio, true);
+
+			// VFX
+			agentTrailEffect.Begin();
+		}
+
+		// Applies physics.
+		private void OnFixedUpdate(float delta)
+		{
+			if (Performer.ChargeTime < DashDuration)
+			{
+				// Apply dash control.
+				RigidbodyWrapper.ApplyMovement(direction * DashSpeed, maxAcceleration, maxDeceleration, power, true);
+				movementHandler.UpdateRotation(delta, null, true);
+			}
+			else
+			{
+				if (RigidbodyWrapper.Speed < 0.1f)
+				{
+					// Exit dash.
+					Exit();
+					return;
+				}
+
+				// Apply glide control.
+				Vector3 velocity = Quaternion.LookRotation(movementHandler.InputAxis) * movementHandler.InputSmooth.ClampMagnitude(1f) * GlideSpeed;
+				RigidbodyWrapper.ApplyMovement(velocity, maxAcceleration, maxDeceleration, power, true);
+				movementHandler.UpdateRotation(delta, null, true);
+			}
 		}
 
 		public override void ExternalUpdate(float delta)
 		{
 			base.ExternalUpdate(delta);
 
-			if (State == PerformanceState.Preparing)
+			if (Performer.ChargeTime < DashDuration)
 			{
-				// Drain charge stat.
-				Agent.TryApplyStatCost(Move.ChargeCost, (massStat * RigidbodyWrapper.Speed + massStat * RigidbodyWrapper.Acceleration.magnitude) * delta, out bool drained);
+				SetDirection(movementHandler.InputSmooth);
+			}
+
+			if (State == PerformanceState.Preparing && Performer.ChargeTime > DashDuration && pointStat != null)
+			{
+				// Gliding, drain stat.
+				float cost = massStat * GlideSpeed * Move.ChargeCost.Cost * delta * 0.1f;
+				pointStat.Drain(cost, out bool drained);
 				if (drained)
 				{
 					// Exit dash.
-					Performer.TryPerform();
+					Exit();
 				}
 			}
+
+			// > UPDATE FX:
+
+			// Update shake.
+			if (shakeSource != null)
+			{
+				shakeSource.Direction = direction;
+				shakeSource.Frequency = IShakeSource.DEFAULT_FREQUENCY * RigidbodyWrapper.Acceleration.magnitude.InvertClamped();
+				shakeSource.Intensity = RigidbodyWrapper.Speed.InverseLerp(movementHandler.FullSpeed, glideSpeed);
+			}
+
+			// Update glide SFX.
+			float intensity = Mathf.Clamp01(RigidbodyWrapper.Speed / glideSpeed);
+			glideAudio.Pitch.BaseValue = glideSFX.PitchRange.Lerp(intensity);
+			glideAudio.Volume.BaseValue = (Performer.ChargeTime / DashDuration).Clamp01() * glideSFX.VolumeRange.Lerp(intensity);
 		}
 
 		protected override IPoserInstructions Evaluate(out float weight)
 		{
 			Vector3 input = RigidbodyWrapper.RelativeVelocity;
-			IPoserInstructions instructions = Move.PosingData.GetInstructions(Performer.Charge, input);
+			IPoserInstructions instructions = Move.PosingData.GetInstructions(Performer.ChargeTime, input);
 
 			weight = ((Performer.RunTime - Move.MinDuration) / Move.Release).InvertClamped().InOutSine();
 			weight *= (Performer.CancelTime / Move.CancelDuration).InvertClamped();
@@ -70,18 +201,22 @@ namespace SpaxUtils
 			return instructions;
 		}
 
-		private void OnUpdate(float delta)
+		private void SetDirection(Vector3 input)
 		{
-			if (RigidbodyWrapper.Speed < 0.1f)
-			{
-				// Exit dash.
-				Performer.TryPerform();
-				return;
-			}
+			// Set initial direction.
+			direction = input == Vector3.zero ?
+				RigidbodyWrapper.Forward :
+				Quaternion.LookRotation(movementHandler.InputAxis) * input.normalized;
 
-			Vector3 velocity = Quaternion.LookRotation(movementHandler.InputAxis) * movementHandler.MovementInputRaw * glideSpeed;
-			RigidbodyWrapper.ApplyMovement(velocity, controlForce, brakeForce, power, true);
-			movementHandler.UpdateRotation(delta, null, true);
+			// Override smooth input to match dash direction, preventing sudden brake when stopping.
+			Vector3 inputOverride = (Quaternion.LookRotation(movementHandler.InputAxis).Inverse() * direction).normalized;
+			movementHandler.InputSmooth = inputOverride;
+		}
+
+		private void Exit()
+		{
+			movementHandler.AutoUpdateMovement = true;
+			Performer.TryPerform();
 		}
 	}
 }

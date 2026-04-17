@@ -5,8 +5,8 @@
 	/// </summary>
 	public interface IStatLibrary
 	{
-		bool TryGet(string identifier, out IStatConfiguration configuration);
-
 		IStatConfiguration Get(string identifier);
+
+		bool TryGet(string identifier, out IStatConfiguration configuration);
 	}
 }

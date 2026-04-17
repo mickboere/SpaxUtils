@@ -37,11 +37,12 @@ namespace SpaxUtils
 			this.ik = ik;
 			this.rigidbodyWrapper = rigidbodyWrapper;
 
-			entityTimeScale = entity.GetStat(EntityStatIdentifiers.TIMESCALE, false);
+			entityTimeScale = entity.Stats.GetStat(EntityStatIdentifiers.TIMESCALE, false);
 		}
 
-		public override void OnEnteringState()
+		public override void OnEnteringState(ITransition transition)
 		{
+			base.OnEnteringState(transition);
 			if (animateControl)
 			{
 				controlMod = new FloatOperationModifier(ModMethod.Absolute, Operation.Multiply, 1f);
@@ -53,34 +54,43 @@ namespace SpaxUtils
 		{
 			base.OnStateEntered();
 
-			if (sheathe != arms.Sheathed)
+			if (animateIK)
 			{
-				// Move hand IK target towards sheathe, use Recover() as callback.
-				coroutine = callbackService.StartCoroutine(Animate(reachDuration, false, Recover));
+				if (sheathe != arms.Sheathed)
+				{
+					// Move hand IK target towards sheathe, use Recover() as callback.
+					coroutine = callbackService.StartCoroutine(Animate(reachDuration, false,
+						() =>
+						{
+							// Apply parenting.
+							arms.SheatheArms(sheathe);
+							// Recover IK from sheathing point.
+							coroutine = callbackService.StartCoroutine(Animate(recoverDuration, true, () => coroutine = null));
+						}));
+				}
 			}
-
-			void Recover()
+			else
 			{
-				// Apply parenting.
 				arms.SheatheArms(sheathe);
-
-				// Recover IK from sheathing point.
-				coroutine = callbackService.StartCoroutine(Animate(recoverDuration, true, () => coroutine = null));
 			}
 		}
 
-		public override void OnStateExit()
+		public override void OnExitingState(ITransition transition)
 		{
-			base.OnStateExit();
+			base.OnExitingState(transition);
 
-			// Clean up
-			if (coroutine != null)
+			if (animateIK)
 			{
-				callbackService.StopCoroutine(coroutine);
-				coroutine = null;
+				// Clean up
+				if (coroutine != null)
+				{
+					callbackService.StopCoroutine(coroutine);
+					coroutine = null;
+				}
+				ik.RemoveInfluencer(this, IKChainConstants.LEFT_ARM);
+				ik.RemoveInfluencer(this, IKChainConstants.RIGHT_ARM);
+				arms.SheatheArms(sheathe);
 			}
-			ik.RemoveInfluencer(this, IKChainConstants.LEFT_ARM);
-			ik.RemoveInfluencer(this, IKChainConstants.RIGHT_ARM);
 
 			if (animateControl)
 			{
@@ -126,6 +136,7 @@ namespace SpaxUtils
 			orientation.rot = sheathe.rotation * orientation.rot;
 			orientation.pos = sheathe.position - orientation.rot * orientation.pos;
 
+			Debug.DrawLine(hand.position, sheathe.position, Color.yellow);
 			Debug.DrawRay(orientation.pos, orientation.rot * Vector3.right * 0.2f, Color.red);
 			Debug.DrawRay(orientation.pos, orientation.rot * Vector3.up * 0.2f, Color.green);
 			Debug.DrawRay(orientation.pos, orientation.rot * Vector3.forward * 0.2f, Color.blue);

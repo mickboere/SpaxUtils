@@ -29,6 +29,12 @@ namespace SpaxUtils
 			return component != null;
 		}
 
+		public static bool TryGetComponentInParent<T>(this GameObject gameObject, out T component)
+		{
+			component = gameObject.GetComponentInParent<T>();
+			return component != null;
+		}
+
 		public static bool TryGetComponentInChildren<T>(this GameObject gameObject, out T component)
 		{
 			component = gameObject.GetComponentInChildren<T>();

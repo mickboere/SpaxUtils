@@ -4,13 +4,44 @@ namespace SpaxUtils
 {
 	public static class FloatExtensions
 	{
+		#region Interpolation
+
 		/// <summary>
 		/// In-line version of <see cref="Mathf.Lerp(float, float, float)"/>.
 		/// </summary>
-		public static float LerpTo(this float a, float b, float t)
+		public static float Lerp(this float a, float b, float t)
 		{
 			return Mathf.Lerp(a, b, t);
 		}
+
+		/// <summary>
+		/// In-line version of <see cref="Mathf.InverseLerp(float, float, float)(float, float, float)"/>.
+		/// </summary>
+		public static float InverseLerp(this float t, float a, float b)
+		{
+			return Mathf.InverseLerp(a, b, t);
+		}
+
+		/// <summary>
+		/// Lerps from <paramref name="v2"/>.x to <paramref name="v2"/>.y by <paramref name="t"/>.
+		/// </summary>
+		public static float Lerp(this Vector2 v2, float t)
+		{
+			return v2.x.Lerp(v2.y, t);
+		}
+
+		/// <summary>
+		/// Frame-rate independent implementation of <see cref="Lerp(float, float, float)"/>.
+		/// Only works if <paramref name="t"/> is multiplied by deltaTime.
+		/// </summary>
+		public static float FILerp(this float a, float b, float t)
+		{
+			return Mathf.Lerp(a, b, 1f - Mathf.Exp(-t));
+		}
+
+		#endregion Interpolation
+
+		#region Math
 
 		/// <summary>
 		/// In-line version of <see cref="Mathf.Approximately(float, float)"/>.
@@ -80,6 +111,14 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
+		/// Clamps the float to 0 or above.
+		/// </summary>
+		public static float Pos(this float f)
+		{
+			return f < 0f ? 0f : f;
+		}
+
+		/// <summary>
 		/// Returns the lowest value between <paramref name="f"/> and <paramref name="values"/>.
 		/// </summary>
 		public static float Min(this float f, params float[] values)
@@ -109,150 +148,126 @@ namespace SpaxUtils
 			return Mathf.Lerp(a, b, Mathf.InverseLerp(fromA, fromB, f));
 		}
 
+		public static float Sqrt(this float f)
+		{
+			return Mathf.Sqrt(f);
+		}
+
+		public static float Pow(this float f, float p = 2f)
+		{
+			return Mathf.Pow(f, p);
+		}
+
+		public static float Sign(this float f)
+		{
+			return Mathf.Sign(f);
+		}
+
+		#endregion Math
+
+		#region Rounding
+
 		public static float Round(this float f)
 		{
 			return Mathf.Round(f);
 		}
 
+		public static int RoundToInt(this float f)
+		{
+			return Mathf.RoundToInt(f);
+		}
+
+		public static float Floor(this float f)
+		{
+			return Mathf.Floor(f);
+		}
+
+		public static int FloorToInt(this float f)
+		{
+			return Mathf.FloorToInt(f);
+		}
+
+		public static float Ceil(this float f)
+		{
+			return Mathf.Ceil(f);
+		}
+
+		public static int CeilToInt(this float f)
+		{
+			return Mathf.CeilToInt(f);
+		}
+
+		public static float Decimal(this float f, DecimalMethod method)
+		{
+			switch (method)
+			{
+				case DecimalMethod.Floor:
+					return Mathf.Floor(f);
+				case DecimalMethod.Round:
+					return Mathf.Round(f);
+				case DecimalMethod.Ceil:
+					return Mathf.Ceil(f);
+				case DecimalMethod.Decimal:
+				default:
+					return f;
+			}
+		}
+
+		#endregion Rounding
+
+		#region Physics
+
+		/// <summary>
+		/// Calculates the force required to go from <paramref name="current"/>(this) to <paramref name="target"/> velocity.
+		/// </summary>
+		/// <param name="current">Current velocity.</param>
+		/// <param name="target">Target velocity.</param>
+		/// <param name="power">The amount of power we are allowed to use to reach the target velocity, a higher power will feel more immediate but has the possibility to overshoot.</param>
+		/// <returns>The force required to go from <paramref name="current"/>(this) to <paramref name="target"/> velocity.</returns>
+		public static float CalculateForce(this float current, float target, float power = 1f)
+		{
+			return (target - current) / Time.fixedDeltaTime * power;
+		}
+
+		/// <summary>
+		/// Calculates the force required to go from <paramref name="current"/>(this) to <paramref name="target"/> velocity,
+		/// clamping the result to <paramref name="maxForce"/>.
+		/// </summary>
+		/// <param name="current">Current velocity.</param>
+		/// <param name="target">Target velocity.</param>
+		/// <param name="power">The amount of power we are allowed to use to reach the target velocity, a higher power will feel more immediate but has the possibility to overshoot.</param>
+		/// <param name="maxForce">The value to clamp the force magnitude to.</param>
+		public static float CalculateForce(this float current, float target, float power, float maxForce)
+		{
+			return current.CalculateForce(target, power).Clamp(-maxForce, maxForce);
+		}
+
+		#endregion Physics
+
+		/// <summary>
+		/// Uses this float to evaluate <see cref="AnimationCurve"/> <paramref name="curve"/>.
+		/// </summary>
 		public static float Evaluate(this float f, AnimationCurve curve)
 		{
 			return curve.Evaluate(f);
 		}
 
-		#region Easing functions
-
-		#region Sine
-
 		/// <summary>
-		/// https://easings.net/#easeInOutSine
+		/// Converts seconds in float value to milliseconds in integer value.
 		/// </summary>
-		public static float InOutSine(this float x)
+		public static int ToMilliseconds(this float seconds)
 		{
-			return -(Mathf.Cos(Mathf.PI * x) - 1) / 2;
+			return Mathf.RoundToInt(seconds * 1000f);
 		}
 
 		/// <summary>
-		/// https://easings.net/#easeInOutSine
+		/// Converts <paramref name="f"/> into a percentage.
 		/// </summary>
-		public static float ReverseInOutSine(this float x)
+		/// <param name="f"></param>
+		/// <returns></returns>
+		public static int ToPercentage(this float f)
 		{
-			return InOutSine(1f - x);
+			return Mathf.RoundToInt(f * 100f);
 		}
-
-		#endregion Sine
-
-		#region Quad
-
-		/// <summary>
-		/// https://easings.net/#easeInQuad
-		/// </summary>
-		public static float InQuad(this float x)
-		{
-			return x * x;
-		}
-
-		/// <summary>
-		/// https://easings.net/#easeOutQuad
-		/// </summary>
-		public static float OutQuad(this float x)
-		{
-			return 1f - (1f - x) * (1f - x);
-		}
-
-		/// <summary>
-		/// https://easings.net/#easeInOutQuad
-		/// </summary>
-		public static float InOutQuad(this float x)
-		{
-			return x < 0.5f ? 2f * x * x : 1f - Mathf.Pow(-2f * x + 2f, 2f) / 2f;
-		}
-
-		#endregion Quad
-
-		#region Cubic
-
-		/// <summary>
-		/// https://easings.net/#easeInCubic
-		/// </summary>
-		public static float InCubic(this float x)
-		{
-			return x * x * x;
-		}
-
-		/// <summary>
-		/// https://easings.net/#easeOutCubic
-		/// </summary>
-		public static float OutCubic(this float x)
-		{
-			return 1f - Mathf.Pow(1f - x, 3f);
-		}
-
-		/// <summary>
-		/// https://easings.net/#easeInOutCubic
-		/// </summary>
-		public static float InOutCubic(this float x)
-		{
-			return x < 0.5f ? 4f * x * x * x : 1f - Mathf.Pow(-2f * x + 2f, 3f) / 2f;
-		}
-
-		/// <summary>
-		/// 1f - https://easings.net/#easeInOutCubic
-		/// </summary>
-		public static float ReverseInOutCubic(this float x)
-		{
-			return InOutCubic(1f - x);
-		}
-
-		#endregion Cubic
-
-		#region Quart
-
-		/// <summary>
-		/// https://easings.net/#easeInQuart
-		/// </summary>
-		public static float InQuart(this float x)
-		{
-			return x * x * x * x;
-		}
-
-		/// <summary>
-		/// https://easings.net/#easeOutQuart
-		/// </summary>
-		public static float OutQuart(this float x)
-		{
-			return 1f - Mathf.Pow(1f - x, 4f);
-		}
-
-		/// <summary>
-		/// https://easings.net/#easeInOutQuart
-		/// </summary>
-		public static float InOutQuart(this float x)
-		{
-			return x < 0.5f ? 8f * x * x * x * x : 1f - Mathf.Pow(-2f * x + 2f, 4f) / 2f;
-		}
-
-		#endregion Quart
-
-		#region Expo
-
-		/// <summary>
-		/// https://easings.net/#easeInExpo
-		/// </summary>
-		public static float InExpo(this float x)
-		{
-			return x == 0f ? 0f : Mathf.Pow(2f, 10f * x - 10f);
-		}
-
-		/// <summary>
-		/// https://easings.net/#easeOutExpo
-		/// </summary>
-		public static float OutExpo(this float x)
-		{
-			return x == 1f ? 1f : 1f - Mathf.Pow(2f, -10f * x);
-		}
-
-		#endregion Expo
-
-		#endregion Easing Functions
 	}
 }

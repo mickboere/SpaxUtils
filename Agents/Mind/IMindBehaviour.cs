@@ -20,9 +20,9 @@
 		/// </summary>
 		bool Interuptable { get; }
 
-		/// <summary>
-		/// The minimum required motivation for this behaviour to be triggered / considered valid.
-		/// </summary>
+		///// <summary>
+		///// The minimum required motivation for this behaviour to be triggered / considered valid.
+		///// </summary>
 		//Vector8 Trigger { get; }
 
 		/// <summary>

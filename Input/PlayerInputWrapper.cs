@@ -76,7 +76,7 @@ namespace SpaxUtils
 		/// <summary>
 		/// The currently enabled <see cref="InputActionMap"/>s.
 		/// </summary>
-		public string[] ActiveActionMaps => actionMapsCache.Where((m) => m.Value.enabled).Select((n) => n.Key).ToArray();
+		public string[] ActiveActionMaps { get; private set; }
 
 		#endregion
 
@@ -90,25 +90,39 @@ namespace SpaxUtils
 		private bool switchingActionMaps;
 		private bool ateInput;
 
-		public static PlayerInputWrapper Create(InputActionAsset inputActionAsset, IDependencyManager dependencies, Camera camera = null)
+		public static PlayerInputWrapper Create(InputActionAsset inputActionAsset, Camera camera = null)
 		{
-			GameObject go = new GameObject($"PlayerInput ({inputActionAsset.name})");
-			go.SetActive(false);
+			GameObject go = new GameObject();
+//			GameObject.DontDestroyOnLoad(go);
 
 			PlayerInput playerInput = go.AddComponent<PlayerInput>();
 			playerInput.camera = camera;
 			playerInput.notificationBehavior = PlayerNotifications.InvokeCSharpEvents;
 			playerInput.actions = inputActionAsset;
-			dependencies.Bind(playerInput);
 
 			PlayerInputWrapper wrapper = go.AddComponent<PlayerInputWrapper>();
-			dependencies.Bind(wrapper);
-
-			DependencyUtils.Inject(go, dependencies, true, true);
-
-			go.SetActive(true);
-
+			go.name = $"PlayerInput ({inputActionAsset.name})[{wrapper.PlayerIndex}]";
 			return wrapper;
+		}
+
+		public void SetCamera(Camera camera)
+		{
+			if (PlayerInput != null)
+			{
+				PlayerInput.camera = camera;
+			}
+		}
+
+		/// <summary>
+		/// Keeps the wrapper clean between states.
+		/// </summary>
+		public void ResetInputState()
+		{
+			actionSubscriptions.Clear();
+			actionMapRequests.Clear();
+			switchingActionMaps = false;
+			ateInput = false;
+			// ActiveActionMaps can be left as-is or cleared.
 		}
 
 		protected void OnEnable()
@@ -192,7 +206,9 @@ namespace SpaxUtils
 		/// </summary>
 		/// <param name="listener">The subscriber object, used for unsubscribing.</param>
 		/// <param name="inputAction">The name of the <see cref="InputAction"/> you want to subscribe to.</param>
-		/// <param name="callback">The callback that gets invoked when the input action is triggered.</param>
+		/// <param name="callback">The callback that gets invoked when the input action is triggered.
+		/// The bool return type should specify whether the input was eaten up (TRUE) or if other listeners should still be allowed to receive the callback.</param>
+		/// <param name="prio">Callback priority, higher priority is invoked first.</param>
 		public void Subscribe(object listener, string inputAction, Func<CallbackContext, bool> callback, int prio = 0)
 		{
 			SpaxDebug.Log($"P{PlayerIndex} Subscribed: ", $"[{inputAction}], {listener}", LogType.Notify, Color.blue, gameObject, 2);
@@ -329,7 +345,7 @@ namespace SpaxUtils
 				actionMapRequests.Remove(context);
 			}
 
-			if (actionMaps == null || actionMaps.Length < 1)
+			if (actionMaps == null || actionMaps.Length == 0)
 			{
 				return;
 			}
@@ -353,26 +369,27 @@ namespace SpaxUtils
 		{
 			int highestPrio = actionMapRequests.Count > 0 ? actionMapRequests.Max((h) => h.Value.prio) : 0;
 
-			if (highestPrio == 0)
+			HashSet<string> actionMaps = new HashSet<string>();
+			foreach (KeyValuePair<object, (int prio, string[] maps)> request in actionMapRequests)
 			{
-				HashSet<string> actionMaps = new HashSet<string>();
-				foreach (KeyValuePair<object, (int prio, string[] maps)> request in actionMapRequests)
+				if (request.Value.prio == highestPrio)
 				{
 					foreach (string map in request.Value.maps)
 					{
 						actionMaps.Add(map);
 					}
 				}
-				SwitchActionMaps(actionMaps.ToArray());
 			}
-			else
-			{
-				SwitchActionMaps(actionMapRequests.LastOrDefault((r) => r.Value.prio == highestPrio).Value.maps);
-			}
+			SwitchActionMaps(actionMaps.ToArray());
 		}
 
 		private void SwitchActionMaps(params string[] actionMaps)
 		{
+			if (PlayerIndex == -1)
+			{
+				return;
+			}
+
 			switchingActionMaps = true;
 			foreach (KeyValuePair<string, InputActionMap> map in actionMapsCache)
 			{
@@ -385,12 +402,14 @@ namespace SpaxUtils
 					map.Value.Disable();
 				}
 			}
+			ActiveActionMaps = actionMaps;
 			switchingActionMaps = false;
 			SwitchedActionMapsEvent?.Invoke();
-			if (PlayerInput != null)
-			{
-				//SpaxDebug.Log($"P{PlayerIndex} InputActionMaps changed. ", $"Enabled maps: ({string.Join(", ", ActiveActionMaps)}).");
-			}
+			//if (PlayerInput != null)
+			//{
+			//	SpaxDebug.Log($"P{PlayerIndex} InputActionMaps changed. ", $"Active: [{string.Join(", ", ActiveActionMaps)})].\n" +
+			//		$"Requests: [\n\t{string.Join("\n\t", actionMapRequests.Select((r) => $"({r.Key}{r.Value.prio}:{(string.Join(",", r.Value.maps))})"))}\n]");
+			//}
 		}
 
 		private void CollectActionMaps()
@@ -402,6 +421,5 @@ namespace SpaxUtils
 		}
 
 		#endregion
-
 	}
 }

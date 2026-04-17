@@ -25,11 +25,10 @@ namespace SpaxUtils
 		AgentBodyComponent Body { get; }
 
 		/// <summary>
-		/// The <see cref="StateMachineGraph"/>s to append to the brain.
-		/// The Brain decides an Agent's behavior.
-		/// By linking states and adding specific components to them, a refined behavioral tree can be created.
+		/// All additional dependencies that should be added to the dependency injector.
+		/// Used to define loaded data or configurations for components.
 		/// </summary>
-		IList<StateMachineGraph> BrainGraphs { get; }
+		IList<object> Dependencies { get; }
 
 		/// <summary>
 		/// All objects that should be instantiated as a child of the agent.
@@ -38,14 +37,13 @@ namespace SpaxUtils
 		IList<GameObject> Children { get; }
 
 		/// <summary>
-		/// All additional dependencies that should be added to the dependency injector.
-		/// Used to define loaded data or configurations for components.
+		/// Whether this agent setup contains any data.
 		/// </summary>
-		IList<object> Dependencies { get; }
+		bool ContainsData { get; }
 
 		/// <summary>
-		/// Pre-configured data to be used by the agent during runtime.
+		/// Retrieves a new clone of the pre-configured data to be used by the agent during runtime.
 		/// </summary>
-		RuntimeDataCollection Data { get; }
+		RuntimeDataCollection RetrieveDataClone();
 	}
 }

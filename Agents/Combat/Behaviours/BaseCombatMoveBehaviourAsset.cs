@@ -13,17 +13,18 @@ namespace SpaxUtils
 			{
 				// Charging.
 				IPose chargePose = sequence.Get(0);
-				float chargeWeight = chargePose.EvaluateTransition(Mathf.Clamp01(Performer.Charge / Move.MaxCharge));
+				float chargeWeight = chargePose.EvaluateTransition(Mathf.Clamp01(Performer.ChargeTime / Move.MaxCharge));
 
 				// Performing.
 				if (Move.HasPerformance)
 				{
-					float performanceWeight = (Performer.RunTime / (Move.MinDuration * Move.ChargeFadeout)).Clamp01().InOutSine();
-					weight = Mathf.Lerp(chargeWeight, Mathf.Clamp01((Performer.RunTime - Move.MinDuration) / Move.Release).Invert().InOutSine(), performanceWeight).LerpTo(0f, Performer.CancelTime / Move.CancelDuration);
+					float chargeToPerformanceTransition = (Performer.RunTime / (Move.MinDuration * Move.ChargeFadeout)).Clamp01().InOutSine();
+					float performanceWeight = ((Performer.RunTime - Move.MinDuration) / Move.Release).InvertClamped().InOutSine();
+					weight = Mathf.Lerp(chargeWeight, performanceWeight, chargeToPerformanceTransition).Lerp(0f, Mathf.Clamp01(Performer.CancelTime / Move.CancelDuration));
 				}
 				else
 				{
-					weight = chargeWeight.LerpTo(0f, Performer.CancelTime / Move.CancelDuration);
+					weight = chargeWeight * Performer.Weight;
 				}
 
 				return new PoserInstructions(sequence.Evaluate(Move.HasPerformance ? Performer.RunTime : 0f));

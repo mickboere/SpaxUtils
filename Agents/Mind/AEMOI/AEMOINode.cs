@@ -4,21 +4,21 @@ using UnityEngine;
 
 namespace SpaxUtils
 {
+	/// <summary>
+	/// Activates the artificial emotional intelligence system with specified behaviours.
+	/// </summary>
 	[NodeWidth(300)]
 	public class AEMOINode : StateComponentNodeBase
 	{
-		[SerializeField, Tooltip("Update rate in milliseconds.")] private int updateRate = 100;
 		[SerializeField] private List<AEMOIBehaviourAsset> behaviours;
 
 		private IAgent agent;
-		private CallbackService callbackService;
 
 		private List<AEMOIBehaviourAsset> behaviourInstances;
 
-		public void InjectDependencies(IAgent agent, CallbackService callbackService, ITargeter targeter)
+		public void InjectDependencies(IAgent agent)
 		{
 			this.agent = agent;
-			this.callbackService = callbackService;
 		}
 
 		public override void OnStateEntered()
@@ -36,7 +36,7 @@ namespace SpaxUtils
 
 			agent.Mind.AddBehaviours(behaviourInstances);
 			agent.Mind.Activate(true);
-			callbackService.AddCustom(this, updateRate, OnUpdate);
+			agent.SubscribeOptimizedUpdate(OnUpdate);
 		}
 
 		public override void OnStateExit()
@@ -45,15 +45,10 @@ namespace SpaxUtils
 
 			agent.Mind.Deactivate();
 			agent.Mind.RemoveBehaviours(behaviourInstances);
-			callbackService.RemoveCustom(this);
+			agent.UnsubscribeOptimizedUpdate(OnUpdate);
 		}
 
 		private void OnUpdate(float delta)
-		{
-			UpdateMind(delta);
-		}
-
-		private void UpdateMind(float delta)
 		{
 			agent.Mind.Update(delta);
 		}

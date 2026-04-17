@@ -18,6 +18,7 @@ namespace SpaxUtils
 
 		/// <summary>
 		/// Composite weight float for both arms that can be influenced by external modifiers.
+		/// Is read by IK system controlling arms, this class does not use it itself!
 		/// </summary>
 		public CompositeFloat Weight { get; set; } = new CompositeFloat(1f);
 
@@ -26,7 +27,7 @@ namespace SpaxUtils
 		public Transform LeftSheathe => lookup.Lookup(TransformLookupIdentifiers.LEFT_SHEATHE);
 		public Transform RightSheathe => lookup.Lookup(TransformLookupIdentifiers.RIGHT_SHEATHE);
 
-		public bool Sheathed { get; private set; }
+		public bool Sheathed { get; private set; } = true;
 		public RuntimeEquipedData LeftEquip => leftEquip;
 		public RuntimeEquipedData RightEquip => rightEquip;
 		public GameObject LeftVisual => LeftEquip == null ? null : LeftEquip.EquipedInstance;
@@ -60,12 +61,12 @@ namespace SpaxUtils
 		[SerializeField] private bool testRight;
 
 		private TransformLookup lookup;
-		private IEquipmentComponent equipment;
+		private EquipmentComponent equipment;
 
 		private RuntimeEquipedData leftEquip;
 		private RuntimeEquipedData rightEquip;
 
-		public void InjectDependencies(IEquipmentComponent equipment, TransformLookup lookup)
+		public void InjectDependencies(EquipmentComponent equipment, TransformLookup lookup)
 		{
 			this.equipment = equipment;
 			this.lookup = lookup;

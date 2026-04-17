@@ -14,21 +14,24 @@ namespace SpaxUtils.StateMachines
 		public virtual string ID => id;
 		public bool Active { get; private set; }
 
-		public IState Parent => _parent ?? GetInputNode<IState>(nameof(inConnection));
+		public IState ParentState => _parent ?? GetInputNode<IState>(nameof(inConnection));
 		private IState _parent;
 
-		public IState DefaultChild => string.IsNullOrEmpty(_defaultChild) ? null : Children[_defaultChild];
+		public string DefaultChild => _defaultChild;
+		public IState DefaultChildState => string.IsNullOrEmpty(_defaultChild) ? null : Children[_defaultChild];
 		protected virtual string _defaultChild { get; private set; }
 
 		public IReadOnlyDictionary<string, IState> Children => _children ?? GetAllChildStates().ToDictionary((s) => s.ID);
 		private Dictionary<string, IState> _children;
 
-		public IReadOnlyCollection<IStateComponent> Components => _components ?? GetComponents();
-		private IReadOnlyCollection<IStateComponent> _components;
+		public IReadOnlyCollection<IStateListener> Components => _components ?? GetComponents();
+		private IReadOnlyCollection<IStateListener> _components;
 
 		[SerializeField, ReadOnly] private string id;
 		[SerializeField, Input(backingValue = ShowBackingValue.Never)] private Connections.State inConnection;
 		[SerializeField, Output(backingValue = ShowBackingValue.Never, typeConstraint = TypeConstraint.Inherited)] private Connections.StateComponent components;
+
+		private StateCallbackHelper callbackHelper;
 
 		protected override void Init()
 		{
@@ -41,33 +44,24 @@ namespace SpaxUtils.StateMachines
 			_parent = GetInputNode<IState>(nameof(inConnection));
 			_children = GetAllChildStates().ToDictionary((s) => s.ID);
 			_components = GetComponents().ToList();
-
-			foreach (IStateComponent component in _components)
-			{
-				dependencyManager.Inject(component);
-			}
+			callbackHelper = new StateCallbackHelper(dependencyManager, this, _components);
+			callbackHelper.Inject();
 		}
 
 		#region Callbacks
 
 		/// <inheritdoc/>
-		public override void OnEnteringState()
+		public override void OnEnteringState(ITransition transition)
 		{
-			base.OnEnteringState();
-			foreach (IStateComponent component in _components)
-			{
-				component.OnEnteringState();
-			}
+			base.OnEnteringState(transition);
+			callbackHelper.OnEnteringState(transition);
 		}
 
 		/// <inheritdoc/>
 		public override void WhileEnteringState(ITransition transition)
 		{
 			base.WhileEnteringState(transition);
-			foreach (IStateComponent component in _components)
-			{
-				component.WhileEnteringState(transition);
-			}
+			callbackHelper.WhileEnteringState(transition);
 		}
 
 		/// <inheritdoc/>
@@ -75,30 +69,21 @@ namespace SpaxUtils.StateMachines
 		{
 			base.OnStateEntered();
 			Active = true;
-			foreach (IStateComponent component in _components)
-			{
-				component.OnStateEntered();
-			}
+			callbackHelper.OnStateEntered();
 		}
 
 		/// <inheritdoc/>
-		public override void OnExitingState()
+		public override void OnExitingState(ITransition transition)
 		{
-			base.OnExitingState();
-			foreach (IStateComponent component in _components)
-			{
-				component.OnExitingState();
-			}
+			base.OnExitingState(transition);
+			callbackHelper.OnExitingState(transition);
 		}
 
 		/// <inheritdoc/>
 		public override void WhileExitingState(ITransition transition)
 		{
 			base.WhileExitingState(transition);
-			foreach (IStateComponent component in _components)
-			{
-				component.WhileExitingState(transition);
-			}
+			callbackHelper.WhileExitingState(transition);
 		}
 
 		/// <inheritdoc/>
@@ -106,13 +91,12 @@ namespace SpaxUtils.StateMachines
 		{
 			base.OnStateExit();
 			Active = false;
-			foreach (IStateComponent component in _components)
-			{
-				component.OnStateExit();
-			}
+			callbackHelper.OnStateExit();
 		}
 
-		#endregion
+		#endregion Callbacks
+
+		#region IState implementation
 
 		public void SetParent(IState parent)
 		{
@@ -126,7 +110,7 @@ namespace SpaxUtils.StateMachines
 
 		public void AddChild(IState child)
 		{
-			SpaxDebug.Error("Nodes are not dynamic.", "Could not set add child.");
+			SpaxDebug.Error("Nodes are not dynamic.", "Could not add child.");
 		}
 
 		public void RemoveChild(string id)
@@ -134,20 +118,19 @@ namespace SpaxUtils.StateMachines
 			SpaxDebug.Error("Nodes are not dynamic.", "Could not remove child.");
 		}
 
+		#endregion IState implementation
+
 		private void EnsureUniqueId()
 		{
 			if (!Application.isPlaying)
 			{
-				if (id == null)
+				if (string.IsNullOrEmpty(id))
 				{
 					id = Guid.NewGuid().ToString();
 				}
-				else
+				else if (graph.nodes.Any((node) => node is StateNodeBase state && state != this && state.id == id))
 				{
-					if (graph.nodes.Any((node) => node is IState state && state != this && state.ID == id))
-					{
-						id = Guid.NewGuid().ToString();
-					}
+					id = Guid.NewGuid().ToString();
 				}
 			}
 		}

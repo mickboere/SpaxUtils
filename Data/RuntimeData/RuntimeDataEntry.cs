@@ -26,7 +26,11 @@ namespace SpaxUtils
 		public virtual object Value
 		{
 			get { return _value; }
-			set { _value = value; ValueChangedEvent?.Invoke(_value); }
+			set
+			{
+				_value = value;
+				OnValueChange();
+			}
 		}
 		protected object _value;
 
@@ -64,28 +68,46 @@ namespace SpaxUtils
 		}
 		private RuntimeDataCollection _parent;
 
+		/// <summary>
+		/// Whether this data entry is dirty and should be saved to disk.
+		/// Data that is not dirty is considered default and is therefore not saved to save storage space.
+		/// </summary>
+		[JsonIgnore]
+		public virtual bool Dirty { get; set; }
+
 		[JsonConstructor]
-		public RuntimeDataEntry(string id, object value)
+		public RuntimeDataEntry(string id, object value, bool dirty = false)
 		{
 			ID = id;
 			_value = value;
+			Dirty = dirty;
 		}
 
-		public RuntimeDataEntry(string id, object value, RuntimeDataCollection parent = null)
+		public RuntimeDataEntry(string id, object value, RuntimeDataCollection parent, bool dirty = false)
 		{
 			ID = id;
 			_value = value;
-			_parent = parent;
+			Parent = parent;
+			Dirty = dirty;
 		}
 
-		public RuntimeDataEntry(ILabeledData labeledData, RuntimeDataCollection parent = null)
+		public RuntimeDataEntry(ILabeledData labeledData, RuntimeDataCollection parent = null, bool dirty = false)
 		{
 			ID = labeledData.ID;
 			Value = labeledData.Value;
-			_parent = parent;
+			Parent = parent;
+			Dirty = dirty;
 		}
 
 		public virtual void Dispose() { }
+
+		/// <summary>
+		/// Creates a new parent-less clone of this data entry with the same ID and value, optionally with a new ID.
+		/// </summary>
+		public virtual RuntimeDataEntry Clone(string id = null)
+		{
+			return new RuntimeDataEntry(id ?? ID, Value, null, Dirty);
+		}
 
 		public override string ToString()
 		{
@@ -95,6 +117,12 @@ namespace SpaxUtils
 		public virtual string ToStringExplicit()
 		{
 			return $"{{ ID={ID}, Value={Value}, Type={ValueType.FullName} }}";
+		}
+
+		protected void OnValueChange()
+		{
+			Dirty = true;
+			ValueChangedEvent?.Invoke(Value);
 		}
 	}
 }

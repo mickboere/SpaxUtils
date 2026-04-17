@@ -13,7 +13,7 @@ namespace SpaxUtils
 		public PerformanceMove Move => move;
 		public int Prio => prio;
 
-		[SerializeField, ConstDropdown(typeof(IActTitles))] private string act;
+		[SerializeField, ConstDropdown(typeof(IActIdentifiers))] private string act;
 		[SerializeField] private PerformanceMove move;
 		[SerializeField] private int prio;
 	}

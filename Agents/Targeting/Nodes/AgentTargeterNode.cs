@@ -8,30 +8,28 @@ namespace SpaxUtils
 	public class AgentTargeterNode : StateMachineNodeBase
 	{
 		[SerializeField, Input(backingValue = ShowBackingValue.Never)] protected Connections.StateComponent inConnection;
-		[SerializeField] private float maxDistance;
 
 		private IAgent agent;
-		private IEntityCollection entityCollection;
 		private AgentNavigationHandler navigationHandler;
-		private CallbackService callbackService;
 		private IAgentMovementHandler movementHandler;
 		private IVisionComponent visionComponent;
+		private IEntityCollection entityCollection;
 
 		public void InjectDependencies(IAgent agent, AgentNavigationHandler navigationHandler,
-			CallbackService callbackService, IAgentMovementHandler movementHandler, IVisionComponent visionComponent)
+			IAgentMovementHandler movementHandler, IVisionComponent visionComponent, IEntityCollection entityCollection)
 		{
 			this.agent = agent;
 			this.navigationHandler = navigationHandler;
-			this.callbackService = callbackService;
 			this.movementHandler = movementHandler;
 			this.visionComponent = visionComponent;
+			this.entityCollection = entityCollection;
 		}
 
 		public override void OnStateEntered()
 		{
 			base.OnStateEntered();
 			agent.Actor.Listen<Act<bool>>(this, ActorActs.TARGET, OnTargetAct);
-			callbackService.SubscribeUpdate(UpdateMode.Update, this, OnUpdate);
+			agent.SubscribeOptimizedUpdate(OnUpdate);
 		}
 
 		public override void OnStateExit()
@@ -39,13 +37,15 @@ namespace SpaxUtils
 			base.OnStateExit();
 			agent.Actor.StopListening(this);
 			agent.Targeter.SetTarget(null);
-			callbackService.UnsubscribeUpdate(UpdateMode.Update, this);
+			agent.UnsubscribeOptimizedUpdate(OnUpdate);
 			movementHandler.LockRotation = false;
 		}
 
 		private void OnUpdate(float delta)
 		{
-			if (agent.Targeter.Target != null && navigationHandler.Distance() > maxDistance)
+			if (agent.Targeter.Target != null &&
+				(navigationHandler.Distance() > visionComponent.Range ||
+					!agent.Targeter.Target.Entity.GameObject.activeInHierarchy))
 			{
 				agent.Targeter.SetTarget(null);
 			}
@@ -61,7 +61,7 @@ namespace SpaxUtils
 				}
 				else
 				{
-					ITargetable best = visionComponent.GetMostLikelyTarget(agent.Targeter.Enemies.Components);
+					ITargetable best = visionComponent.GetMostLikelyTarget(entityCollection.GetComponents<ITargetable>(agent), true);
 					if (best != null)
 					{
 						agent.Targeter.SetTarget(best);

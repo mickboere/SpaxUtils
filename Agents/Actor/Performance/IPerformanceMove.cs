@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 
 namespace SpaxUtils
 {
@@ -7,6 +8,8 @@ namespace SpaxUtils
 	/// </summary>
 	public interface IPerformanceMove
 	{
+		#region Metadata
+
 		/// <summary>
 		/// Player facing name of this combat move.
 		/// </summary>
@@ -17,10 +20,26 @@ namespace SpaxUtils
 		/// </summary>
 		string Description { get; }
 
+		#endregion Metadata
+
+		#region Animation
+
+		/// <summary>
+		/// The type of animation applied to the performer during performance.
+		/// </summary>
+		PerformanceAnimationType AnimationType { get; }
+
+		/// <summary>
+		/// The animation index corresponding to this move, to pass into the animator.
+		/// </summary>
+		int AnimationIndex { get; }
+
 		/// <summary>
 		/// Asset containing evaluatable pose data to be utilized by the lead-behaviour.
 		/// </summary>
 		PosingData PosingData { get; }
+
+		#endregion Animation
 
 		/// <summary>
 		/// <see cref="BehaviourAsset"/>s to instantiate during performance.
@@ -33,7 +52,7 @@ namespace SpaxUtils
 		/// </summary>
 		IReadOnlyList<MoveFollowUp> FollowUps { get; }
 
-		#region Charge
+		#region Charging
 
 		/// <summary>
 		/// Whether the move can be charged or automatically performs.
@@ -67,7 +86,7 @@ namespace SpaxUtils
 		/// </summary>
 		StatCost ChargeCost { get; }
 
-		#endregion Charge
+		#endregion Charging
 
 		#region Performance
 

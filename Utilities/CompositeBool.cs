@@ -34,9 +34,31 @@ namespace SpaxUtils
 			bools[owner] = func;
 		}
 
+		public void AddBool(object owner, bool value)
+		{
+			bools[owner] = () => value;
+		}
+
+		public void AddBool(object owner)
+		{
+			bools[owner] = () => !defaultValue;
+		}
+
 		public void RemoveBool(object owner)
 		{
 			bools.Remove(owner);
+		}
+
+		/// <summary>
+		/// Implicit float cast so that you don't have to call <see cref="GetValue"/> all the time.
+		/// </summary>
+		public static implicit operator bool(CompositeBool composite)
+		{
+			if (composite == null)
+			{
+				throw new ArgumentNullException("", "Composite is null and could therefore not be converted to a bool.");
+			}
+			return composite.Value;
 		}
 	}
 }

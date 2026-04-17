@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 
 namespace SpaxUtils
 {
@@ -11,12 +12,27 @@ namespace SpaxUtils
 
 		public CommunicationChannel() : base(DEFAULT_COMMS_IDENTIFIER) { }
 
-		public CommunicationChannel(string identifier = DEFAULT_COMMS_IDENTIFIER) : base(identifier) { }
+		public CommunicationChannel(string identifier = DEFAULT_COMMS_IDENTIFIER, bool debug = false) : base(identifier, debug) { }
 
 		/// <inheritdoc/>
 		public void Send<T>(T message, TimerStruct timer = default)
 		{
-			base.Send<T>(typeof(T), message, timer);
+			Type key = typeof(T);
+			history[key] = (message, timer);
+			OnReceived(key, message);
+
+			var subscriptionsCopy = new Dictionary<Type, Dictionary<object, Action<object>>>(subscriptions);
+			foreach (KeyValuePair<Type, Dictionary<object, Action<object>>> subscription in subscriptionsCopy)
+			{
+				if (subscription.Key.IsAssignableFrom(key))
+				{
+					var listeners = new Dictionary<object, Action<object>>(subscription.Value);
+					foreach (KeyValuePair<object, Action<object>> listener in listeners)
+					{
+						listener.Value(message);
+					}
+				}
+			}
 		}
 
 		/// <inheritdoc/>

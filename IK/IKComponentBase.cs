@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace SpaxUtils
 {
-	public abstract class IKComponentBase : EntityComponentBase, IIKComponent
+	public abstract class IKComponentBase : EntityComponentMono, IIKComponent
 	{
 		/// <summary>
 		/// Dictionary where the Key is string IK chain identifier and Value is <see cref="UpdateMode"/> defining the settings for the chain.

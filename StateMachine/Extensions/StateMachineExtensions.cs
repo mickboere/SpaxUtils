@@ -24,19 +24,19 @@ namespace SpaxUtils.StateMachines
 				list.Insert(0, state);
 			}
 
-			if (state.Parent != null)
+			if (state.ParentState != null)
 			{
-				return CollectActiveHierarchyRecursively(state.Parent, list);
+				return CollectActiveHierarchyRecursively(state.ParentState, list);
 			}
 			return list;
 		}
 
 		/// <summary>
-		/// Beginning at <paramref name="state"/>, go down the path of <see cref="IState.DefaultChild"/>(ren) to collect the head-state.
+		/// Beginning at <paramref name="state"/>, go down the path of <see cref="IState.DefaultChildState"/>(ren) to collect the head-state.
 		/// </summary>
 		/// <param name="state">The state from which to collect de default-head (returns itself if childless).</param>
 		/// <param name="list">The insofar recursively collected states.</param>
-		/// <returns>A list of states beginning with <paramref name="state"/> and ending at the deepest <see cref="IState.DefaultChild"/> layer.</returns>
+		/// <returns>A list of states beginning with <paramref name="state"/> and ending at the deepest <see cref="IState.DefaultChildState"/> layer.</returns>
 		public static List<IState> CollectHeadRecursively(this IState state, List<IState> list = null)
 		{
 			if (list == null)
@@ -44,12 +44,40 @@ namespace SpaxUtils.StateMachines
 				list = new List<IState>();
 			}
 
-			if (state.DefaultChild != null)
+			if (state.DefaultChildState != null)
 			{
-				list.Add(state.DefaultChild);
-				return CollectHeadRecursively(state.DefaultChild, list);
+				list.Add(state.DefaultChildState);
+				return CollectHeadRecursively(state.DefaultChildState, list);
 			}
 			return list;
+		}
+
+		public static void Invoke(this IStateListener listener, IStateListener.Callback method, ITransition transition = null)
+		{
+			switch (method)
+			{
+				case IStateListener.Callback.OnEnteringState:
+					listener.OnEnteringState(transition);
+					break;
+				case IStateListener.Callback.WhileEnteringState:
+					listener.WhileEnteringState(transition);
+					break;
+				case IStateListener.Callback.OnStateEntered:
+					listener.OnStateEntered();
+					break;
+				case IStateListener.Callback.OnExitingState:
+					listener.OnExitingState(transition);
+					break;
+				case IStateListener.Callback.WhileExitingState:
+					listener.WhileExitingState(transition);
+					break;
+				case IStateListener.Callback.OnStateExit:
+					listener.OnStateExit();
+					break;
+				default:
+					SpaxDebug.Error("Callback method extension is not implemented for:", method.ToString());
+					return;
+			}
 		}
 	}
 }

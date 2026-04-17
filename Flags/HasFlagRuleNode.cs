@@ -1,40 +1,61 @@
 ﻿using UnityEngine;
 using SpaxUtils.StateMachines;
-using System.Linq;
 
 namespace SpaxUtils
 {
 	/// <summary>
-	/// <see cref="IRule"/> <see cref="RuleNodeBase"/> implementation that is valid when the configured flags are set.
+	/// <see cref="IRule"/> <see cref="RuleNodeBase"/> implementation that is valid when the configured flag requirements are met.
 	/// </summary>
-	[NodeWidth(400)]
+	[NodeWidth(300)]
 	public class HasFlagRuleNode : RuleNodeBase
 	{
-		public override bool Valid => valid;
-		public override float Validity => flags.Length;
+		public override string UserFacingName
+		{
+			get
+			{
+				if (requirements == null || requirements.Length == 0)
+				{
+					return "Has Flag Rule";
+				}
+
+				if (requirements.Length > 1)
+				{
+					return $"Has Flags[{requirements.Length}] Rule";
+				}
+
+				FlagRequirement req = requirements[0];
+				if (req.completed)
+				{
+					return $"Is flag \"{req.flag}\"{(req.invert ? " NOT " : " ")}Completed?";
+				}
+
+				return $"{(req.invert ? "Does NOT have" : "Has")} flag \"{req.flag}\"?";
+			}
+		}
+
+		public override bool Valid => _valid;
+		public override float Validity => requirements == null ? 0f : requirements.Length;
 
 		[SerializeField, Input(backingValue = ShowBackingValue.Never)] protected Connections.Rule inConnection;
-		[SerializeField, ConstDropdown(typeof(IGameFlagConstants))] private string[] flags;
-		[SerializeField] private bool invert;
+		[SerializeField] private FlagRequirement[] requirements;
 
 		private FlagService flagsService;
-		private bool valid;
+		private bool _valid;
 
 		public void InjectDependencies(FlagService flagsService)
 		{
 			this.flagsService = flagsService;
 		}
 
-		public override void OnEnteringState()
+		public override void OnEnteringState(ITransition transition)
 		{
-			base.OnEnteringState();
-			valid = false;
+			base.OnEnteringState(transition);
+			_valid = false;
 		}
 
 		public override void OnStateEntered()
 		{
 			base.OnStateEntered();
-
 			flagsService.SetFlagEvent += OnSetFlagEvent;
 			UpdateValidity();
 		}
@@ -42,21 +63,29 @@ namespace SpaxUtils
 		public override void OnStateExit()
 		{
 			base.OnStateExit();
-
 			flagsService.SetFlagEvent -= OnSetFlagEvent;
 		}
 
 		private void OnSetFlagEvent(string flag, FlagData flagData)
 		{
-			if (flags.Contains(flag))
+			if (requirements == null)
 			{
-				UpdateValidity();
+				return;
+			}
+
+			for (int i = 0; i < requirements.Length; i++)
+			{
+				if (requirements[i].flag == flag)
+				{
+					UpdateValidity();
+					return;
+				}
 			}
 		}
 
 		private void UpdateValidity()
 		{
-			valid = flagsService.HasFlags(flags) != invert;
+			_valid = FlagRequirement.EvaluateAll(requirements, flagsService);
 		}
 	}
 }

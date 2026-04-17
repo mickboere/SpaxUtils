@@ -1,6 +1,10 @@
 ﻿using System;
-using System.Collections.Generic;
 using UnityEngine;
+
+#if UNITY_EDITOR
+using UnityEditor;
+using UnityEditor.SceneManagement;
+#endif
 
 namespace SpaxUtils
 {
@@ -8,85 +12,155 @@ namespace SpaxUtils
 	/// <see cref="IRuntimeItemDataComponent"/> implementation, containing a reference to an <see cref="IRuntimeItemData"/>.
 	/// Component implements <see cref="IInteractable"/>, once sucessfully interacted with the Entity will be destroyed.
 	/// </summary>
-	public class ItemComponent : InteractableBase, IRuntimeItemDataComponent
+	public class ItemComponent : InteractableComponentBase, IRuntimeItemDataComponent
 	{
 		/// <inheritdoc/>
-		public IRuntimeItemData RuntimeItemData { get; private set; }
+		public RuntimeItemData RuntimeItemData { get; private set; }
 
-		/// <inheritdoc/>
-		public override string[] InteractableTypes { get; protected set; } = new string[]
-		{
-			BaseInteractionTypes.INVENTORY,
-			BaseInteractionTypes.EQUIP
-		};
+		public override string InteractableType => InteractionTypes.ITEM;
 
-		[SerializeField, Expandable] private ItemDataAsset itemDataAsset;
+		[SerializeField] private bool autoUpdateID;
+		[SerializeField] private SerializedItemData item;
 
-		[NonSerialized] private IItemData itemData;
-		[NonSerialized] private RuntimeDataCollection runtimeData;
+#if UNITY_EDITOR
+		[SerializeField, HideInInspector] private int lastItemDataHash;
+#endif
 
-		protected void OnValidate()
+		protected virtual void OnValidate()
 		{
 			UpdateIdentification();
 		}
 
-		protected void Start()
+		protected virtual void Awake()
 		{
 			UpdateIdentification();
 			RefreshRuntimeItemData();
 		}
 
 		/// <inheritdoc/>
-		public void SetItemData(IItemData itemData)
-		{
-			this.itemData = itemData;
-			RefreshRuntimeItemData();
-		}
-
-		/// <inheritdoc/>
-		public void SetRuntimeData(RuntimeDataCollection runtimeData)
-		{
-			this.runtimeData = runtimeData;
-			RefreshRuntimeItemData();
-		}
-
-		/// <inheritdoc/>
-		public override bool Supports(string interactionType)
-		{
-			switch (interactionType)
-			{
-				case BaseInteractionTypes.INVENTORY:
-				case BaseInteractionTypes.EQUIP:
-					return true;
-				default:
-					return false;
-			}
-		}
-
-		/// <inheritdoc/>
-		protected override bool OnInteract(IInteraction interaction)
+		public override bool TryInteract(IInteraction interaction)
 		{
 			interaction.Data = RuntimeItemData;
-			interaction.Conclude(true);
-			Destroy(Entity.GameObject);
+			gameObject.SetActive(false);
+			Entity.RuntimeData.SetValue(EntityDataIdentifiers.OFF, true);
 			return true;
 		}
 
 		private void UpdateIdentification()
 		{
-			if (itemDataAsset != null && Entity != null)
+			if (item == null || item.Asset == null || Entity == null)
 			{
-				Entity.Identification.Name = itemDataAsset.Name;
-				Entity.Identification.Add(EntityLabels.ITEM);
+				return;
 			}
+
+			// Always keep label.
+			Entity.Identification.Add(EntityLabels.ITEM);
+
+#if UNITY_EDITOR
+			// Only allow editor-side identification sync when not playing.
+			if (!Application.isPlaying)
+			{
+				Entity entityComponent = GetEntityComponent();
+				if (entityComponent == null)
+				{
+					return;
+				}
+
+				bool changed = false;
+
+				// Keep the stored hash in sync so re-enabling auto update does not immediately reroll
+				// from stale comparison data.
+				int currentHash = GetEditorItemHash();
+
+				if (lastItemDataHash != currentHash)
+				{
+					RecordEditorObjects(entityComponent);
+					lastItemDataHash = currentHash;
+					changed = true;
+
+					if (autoUpdateID)
+					{
+						Entity.Identification.Name = item.Asset.Identification.Name;
+						Entity.Identification.ID = Guid.NewGuid().ToString();
+					}
+				}
+				else if (Entity.Identification.Name != item.Asset.Identification.Name)
+				{
+					// Name sync is also considered part of auto update behavior.
+					if (autoUpdateID)
+					{
+						RecordEditorObjects(entityComponent);
+						Entity.Identification.Name = item.Asset.Identification.Name;
+						changed = true;
+					}
+				}
+
+				if (changed)
+				{
+					PersistEditorObjects(entityComponent);
+				}
+			}
+#else
+			// In builds/play mode: never touch ID. Optionally sync name only.
+			if (Entity.Identification.Name != item.Asset.Identification.Name)
+			{
+				Entity.Identification.Name = item.Asset.Identification.Name;
+			}
+#endif
 		}
 
 		private void RefreshRuntimeItemData()
 		{
-			RuntimeItemData = new RuntimeItemData(
-				itemData ?? itemDataAsset,
-				runtimeData ?? new RuntimeDataCollection(Guid.NewGuid().ToString()),
-				null);
+			RuntimeItemData = item.ToRuntimeItemData();
 		}
+
+#if UNITY_EDITOR
+		private Entity GetEntityComponent()
+		{
+			return gameObject.GetComponentInParent<Entity>();
+		}
+
+		private int GetEditorItemHash()
+		{
+			string assetKey = GetEditorAssetKey();
+			string dataJson = item.Data == null ? string.Empty : JsonUtility.ToJson(item.Data);
+			return (assetKey + "|" + dataJson).GetDeterministicHashCode();
+		}
+
+		private string GetEditorAssetKey()
+		{
+			string path = AssetDatabase.GetAssetPath(item.Asset);
+			if (!string.IsNullOrEmpty(path))
+			{
+				string guid = AssetDatabase.AssetPathToGUID(path);
+				if (!string.IsNullOrEmpty(guid))
+				{
+					return guid;
+				}
+			}
+
+			return item.Asset.ID ?? item.Asset.name;
+		}
+
+		private void RecordEditorObjects(Entity entityComponent)
+		{
+			Undo.RecordObject(this, "Update Item Identification");
+			Undo.RecordObject(entityComponent, "Update Item Identification");
+		}
+
+		private void PersistEditorObjects(Entity entityComponent)
+		{
+			EditorUtility.SetDirty(this);
+			EditorUtility.SetDirty(entityComponent);
+
+			PrefabUtility.RecordPrefabInstancePropertyModifications(this);
+			PrefabUtility.RecordPrefabInstancePropertyModifications(entityComponent);
+
+			if (gameObject.scene.IsValid())
+			{
+				EditorSceneManager.MarkSceneDirty(gameObject.scene);
+			}
+		}
+#endif
 	}
 }

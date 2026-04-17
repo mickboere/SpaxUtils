@@ -44,19 +44,25 @@ namespace SpaxUtils
 		public readonly bool ForceOption;
 
 		/// <summary>
+		/// Will draw an editable input field with a tiny dropdown next to it, instead of only a dropdown.
+		/// </summary>
+		public readonly bool InputField;
+
+		/// <summary>
 		/// The option that will be shown when <see cref="IncludeEmpty"/> is set to TRUE.
 		/// </summary>
 		public readonly string EmptyOption;
 
 		public readonly string Filter;
 
-		public ConstDropdownAttribute(bool includeEmpty, bool showAdress, bool storeAdress, bool forceOption, string emptyOption, string filter, params Type[] collections)
+		public ConstDropdownAttribute(bool includeEmpty, bool showAdress, bool storeAdress, bool forceOption, bool inputField, string emptyOption, string filter, params Type[] collections)
 		{
 			Collections = collections;
 			IncludeEmpty = includeEmpty;
 			ShowAdress = showAdress;
 			StoreAdress = storeAdress;
 			ForceOption = forceOption;
+			InputField = inputField;
 			EmptyOption = emptyOption;
 			Filter = filter;
 		}
@@ -67,6 +73,7 @@ namespace SpaxUtils
 			bool showAdress = false,
 			bool storeAdress = false,
 			bool forceOption = false,
+			bool inputField = false,
 			string emptyOption = EMPTY_OPTION,
 			string filter = null)
 		{
@@ -75,6 +82,7 @@ namespace SpaxUtils
 			ShowAdress = showAdress;
 			StoreAdress = storeAdress;
 			ForceOption = forceOption;
+			InputField = inputField;
 			EmptyOption = emptyOption;
 			Filter = filter;
 		}

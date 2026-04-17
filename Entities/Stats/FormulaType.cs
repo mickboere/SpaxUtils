@@ -9,6 +9,8 @@
 		Exp = 1,
 		InvExp = 2,
 		Log = 3,
-		Curve = 4
+		Curve = 4,
+		Interpolate = 5,
+		Extrapolate = 6
 	}
 }

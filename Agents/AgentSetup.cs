@@ -20,33 +20,30 @@ namespace SpaxUtils
 		public AgentBodyComponent Body { get; set; }
 
 		/// <inheritdoc/>
-		public IList<StateMachineGraph> BrainGraphs { get; set; }
-
-		/// <inheritdoc/>
 		public IList<GameObject> Children { get; set; }
 
 		/// <inheritdoc/>
 		public IList<object> Dependencies { get; set; }
 
 		/// <inheritdoc/>
-		public RuntimeDataCollection Data { get; set; }
+		public bool ContainsData => data != null;
+
+		private RuntimeDataCollection data;
 
 		public AgentSetup(
 			IIdentification identification,
 			Agent frame,
 			AgentBodyComponent body,
-			IList<StateMachineGraph> brainGraphs,
 			IList<GameObject> children,
 			IList<object> dependencies,
 			RuntimeDataCollection data)
 		{
 			Identification = identification;
 			Frame = frame;
-			BrainGraphs = brainGraphs;
 			Body = body;
 			Children = new List<GameObject>(children);
 			Dependencies = new List<object>(dependencies);
-			Data = data;
+			this.data = data;
 		}
 
 		public AgentSetup(
@@ -62,10 +59,29 @@ namespace SpaxUtils
 			Identification = identification ?? template.Identification;
 			Frame = frame ?? template.Frame;
 			Body = body ?? template.Body;
-			BrainGraphs = brainGraphs == null ? new List<StateMachineGraph>(template.BrainGraphs) : new List<StateMachineGraph>().Concat(template.BrainGraphs).Concat(brainGraphs).ToList();
-			Children = children == null ? new List<GameObject>(template.Children) : new List<GameObject>().Concat(template.Children).Concat(children).ToList();
-			Dependencies = dependencies == null ? new List<object>(template.Dependencies) : new List<object>().Concat(template.Dependencies).Concat(dependencies).ToList();
-			Data = template != null && template.Data != null ? template.Data.Append(data) : data;
+			Children = children == null ? new List<GameObject>(template.Children) : template.Children.Union(children).ToList();
+			Dependencies = dependencies == null ? new List<object>(template.Dependencies) : template.Dependencies.Union(dependencies).ToList();
+
+			if (template.ContainsData)
+			{
+				this.data = template.RetrieveDataClone();
+				this.data.ID = Identification.ID;
+			}
+			else
+			{
+				this.data = new RuntimeDataCollection(Identification.ID);
+			}
+
+			if (data != null)
+			{
+				this.data.AppendCollection(data, true);
+			}
+		}
+
+		/// <inheritdoc/>
+		public RuntimeDataCollection RetrieveDataClone()
+		{
+			return data.CloneCollection();
 		}
 	}
 }

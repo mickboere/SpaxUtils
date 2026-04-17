@@ -8,7 +8,6 @@ namespace SpaxUtils
 	/// Component responsible for applying posing instructions to the <see cref="Animator"/>.
 	/// Posing instructions allow for pose-to-pose animation through clever use of blend trees and animation overrides.
 	/// </summary>
-	/// https://github.com/mickboere/SpaxUtils/blob/master/Animation/Posing/Poser/AnimatorPoser.cs
 	public class AnimatorPoser : MonoBehaviour, IDependency
 	{
 		public IPoserInstructions Control { get; private set; }
@@ -16,7 +15,9 @@ namespace SpaxUtils
 		[SerializeField] private PoserComponentSettings settings;
 		[SerializeField] private RuntimeAnimatorController animatorController;
 		[SerializeField] private int frameRate;
+		[SerializeField] private bool debug;
 
+		private bool initialized;
 		private AnimatorWrapper animatorWrapper;
 		private CallbackService callbackService;
 		private Dictionary<string, (Poser main, Dictionary<object, (IPoserInstructions instructions, int prio, float weight)> providers)> layers;
@@ -31,18 +32,13 @@ namespace SpaxUtils
 			Initialize();
 		}
 
-		protected void OnEnable()
+		protected void Start()
 		{
 			Initialize();
 		}
 
-		protected void OnDisable()
+		protected void OnDestroy()
 		{
-			foreach (var layer in layers.Values)
-			{
-				layer.main.Stop();
-			}
-
 			Cleanup();
 		}
 
@@ -149,6 +145,11 @@ namespace SpaxUtils
 		/// <param name="provider">The object the instructions were provided with.</param>
 		public void RevokeInstructions(object provider)
 		{
+			if (layers == null)
+			{
+				return;
+			}
+
 			foreach ((Poser main, Dictionary<object, (IPoserInstructions instructions, int prio, float weight)> providers) layer in layers.Values)
 			{
 				if (layer.providers.ContainsKey(provider))
@@ -163,7 +164,7 @@ namespace SpaxUtils
 			foreach ((Poser main, Dictionary<object, (IPoserInstructions instructions, int prio, float weight)> providers) layer in layers.Values)
 			{
 				PoserSettings settings = layer.main.Settings;
-				Control = GetControl(layer.main, layer.providers.Values);
+				Control = CalculateInstructions(layer.main, layer.providers.Values);
 				posers[layer.main.Settings.Layer] = Control;
 
 				// Collect and override all pose clips and apply mirroring.
@@ -180,7 +181,19 @@ namespace SpaxUtils
 					int toPoseIndex = (i + 1) * 2 - 1;
 					animatorWrapper.SetFloat(settings.GetInterpolationParam(toPoseIndex - 1, toPoseIndex), Control.Instructions[i].Transition.Transition);
 					animatorWrapper.SetFloat(settings.GetWeightParam(toPoseIndex - 1, toPoseIndex), Control.Instructions[i].Weight);
-					//SpaxDebug.Log("Apply Instruction", $"({settings.GetInterpolationParam(toPoseIndex - 1, toPoseIndex)} = {control.Instructions[i].Transition.Transition}, {settings.GetWeightParam(toPoseIndex - 1, toPoseIndex)} = {control.Instructions[i].Weight})");
+					if (debug)
+					{
+						SpaxDebug.Log("Apply Instruction", $"({settings.GetInterpolationParam(toPoseIndex - 1, toPoseIndex)} = {Control.Instructions[i].Transition.Transition}, {settings.GetWeightParam(toPoseIndex - 1, toPoseIndex)} = {Control.Instructions[i].Weight})");
+					}
+				}
+				if (Control.Instructions.Length < settings.MaxInstructions)
+				{
+					// Reset the unused pose weights to prevent "ghost-poses".
+					for (int i = Control.Instructions.Length; i < settings.MaxInstructions; i++)
+					{
+						int toPoseIndex = (i + 1) * 2 - 1;
+						animatorWrapper.SetFloat(settings.GetWeightParam(toPoseIndex - 1, toPoseIndex), 0f);
+					}
 				}
 			}
 
@@ -191,13 +204,16 @@ namespace SpaxUtils
 					return;
 				}
 
-				//SpaxDebug.Log($"Apply Pose [{index}]", $"{poseName} = {pose.Clip.name}. {mirroringParam} = {pose.Mirror}");
+				if (debug)
+				{
+					SpaxDebug.Log($"Apply Pose [{index}]", $"{poseName} = {pose.Clip.name}. {mirroringParam} = {pose.Mirror}");
+				}
 				overrides[poseName] = pose.Clip;
 				animatorWrapper.SetFloat(mirroringParam, pose.Mirror ? 1f : 0f);
 			}
 		}
 
-		private IPoserInstructions GetControl(Poser main, IEnumerable<(IPoserInstructions poser, int prio, float weight)> posers)
+		private IPoserInstructions CalculateInstructions(Poser main, IEnumerable<(IPoserInstructions poser, int prio, float weight)> posers)
 		{
 			List<(IPoserInstructions poser, int prio, float weight)> collection = new List<(IPoserInstructions poser, int prio, float weight)>();
 			collection.Add((main, 0, 1f));
@@ -213,9 +229,9 @@ namespace SpaxUtils
 				{
 					float weight = collection[i].weight * collection[i].poser.Instructions[j].Weight;
 
-					if (weight < Mathf.Epsilon)
+					if (weight < 0.01f)
 					{
-						// No weight is no use, continue.
+						// Skip invisible weight, continue.
 						continue;
 					}
 
@@ -225,8 +241,11 @@ namespace SpaxUtils
 						weight *= totalWeight < 1f ? 1f - totalWeight : 0f;
 					}
 
-					//SpaxDebug.Log($"Add Instruction", $"prio={collection[i].prio}, weight={weight}, oldTotal={totalWeight}, newTotal={totalWeight + weight}\n" +
-					//	$"({collection[i].poser.Instructions[j].Transition.FromPose.Clip.name} <{collection[i].poser.Instructions[j].Weight}> {collection[i].poser.Instructions[j].Transition.ToPose.Clip.name})");
+					if (debug)
+					{
+						SpaxDebug.Log($"Add Instruction", $"prio={collection[i].prio}, weight={weight}, oldTotal={totalWeight}, newTotal={totalWeight + weight}\n" +
+							$"({collection[i].poser.Instructions[j].Transition.FromPose.Clip.name} <{collection[i].poser.Instructions[j].Weight}> {collection[i].poser.Instructions[j].Transition.ToPose.Clip.name})");
+					}
 
 					totalWeight += weight;
 
@@ -253,24 +272,21 @@ namespace SpaxUtils
 
 		private void Initialize()
 		{
+			if (initialized)
+			{
+				return;
+			}
+
 			if (animatorWrapper == null)
 			{
-				animatorWrapper = GetComponentInParent<AnimatorWrapper>();
+				animatorWrapper = gameObject.GetComponentRelative<AnimatorWrapper>();
 
 				if (animatorWrapper == null)
 				{
-					animatorWrapper = GetComponentInChildren<AnimatorWrapper>();
-
-					if (animatorWrapper == null)
-					{
-						SpaxDebug.Error("AnimatorPoser requires an AnimatorWrapper.");
-						return;
-					}
+					SpaxDebug.Error("AnimatorPoser requires an AnimatorWrapper.");
+					return;
 				}
 			}
-
-			// Clean up in unlikely case of double init.
-			Cleanup();
 
 			// Set up posers.
 			layers = new Dictionary<string, (Poser main, Dictionary<object, (IPoserInstructions instructions, int prio, float weight)> providers)>();
@@ -291,10 +307,17 @@ namespace SpaxUtils
 			{
 				callbackService.AddCustom(this, 1f / frameRate, UpdateAnimatorPose);
 			}
+
+			initialized = true;
 		}
 
 		private void Cleanup()
 		{
+			if (!initialized)
+			{
+				return;
+			}
+
 			if (layers != null)
 			{
 				foreach (var layer in layers.Values)
@@ -314,15 +337,11 @@ namespace SpaxUtils
 			{
 				callbackService.RemoveCustom(this);
 			}
+			initialized = false;
 		}
 
 		private bool ValidateRequest(string layer)
 		{
-			if (!isActiveAndEnabled)
-			{
-				return false;
-			}
-
 			if (!layers.ContainsKey(layer))
 			{
 				SpaxDebug.Error($"Poser '{layer}' not configured.", "", this);

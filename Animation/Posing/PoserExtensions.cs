@@ -29,6 +29,11 @@ namespace SpaxUtils
 
 		public static PoseInstruction GetDominantInstructions(this IPoserInstructions poser)
 		{
+			if (poser == null)
+			{
+				return default;
+			}
+
 			PoseInstruction highest = poser.Instructions[0];
 			for (int i = 0; i < poser.Instructions.Length; i++)
 			{

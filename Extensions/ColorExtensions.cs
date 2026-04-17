@@ -13,22 +13,44 @@ namespace SpaxUtils
 		public static Color Lerp(this Color from, Color to, float t)
 		{
 			return Color.Lerp(from, to, t);
-
-			//return new Color(
-			//	Mathf.Lerp(from.r, to.r, t),
-			//	Mathf.Lerp(from.g, to.g, t),
-			//	Mathf.Lerp(from.b, to.b, t),
-			//	Mathf.Lerp(from.a, to.a, t));
 		}
 
+		/// <summary>
+		/// Sums the values of all channels.
+		/// </summary>
+		/// <param name="c"></param>
+		/// <returns></returns>
 		public static float Sum(this Color c)
 		{
 			return c.r + c.g + c.b + c.a;
 		}
 
+		/// <summary>
+		/// Normalizes the color so that the sum of all channels equals 1.
+		/// </summary>
+		public static Color Normalize(this Color c)
+		{
+			if (c == Color.clear)
+			{
+				return c;
+			}
+			return c / c.Sum();
+		}
+
+		public static float Luminance(this Color c)
+		{
+			return 0.2126f * c.r + 0.7152f * c.g + 0.0722f * c.b;
+		}
+
 		public static string RichWrap(this Color color, string wrap)
 		{
 			return $"<color=#{ColorUtility.ToHtmlStringRGB(color)}>{wrap}</color>";
+		}
+
+		public static Color SetA(this Color color, float a)
+		{
+			color.a = a;
+			return color;
 		}
 	}
 }

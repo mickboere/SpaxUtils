@@ -14,6 +14,12 @@ namespace SpaxUtils
 		GameObject EquipedPrefab { get; }
 
 		/// <summary>
+		/// Material override mappings applied to the equiped prefab instance.
+		/// If an entry has Source == null, it acts as a wildcard for all non-matching materials.
+		/// </summary>
+		IReadOnlyList<MaterialOverride> MaterialOverrides { get; }
+
+		/// <summary>
 		/// The type of slot this equipment is able to be equiped in.
 		/// </summary>
 		string SlotType { get; }
@@ -29,8 +35,18 @@ namespace SpaxUtils
 		IReadOnlyList<BehaviourAsset> EquipedBehaviour { get; }
 
 		/// <summary>
-		/// <see cref="StatMappingSheet"/>s which map <see cref="IItemData.FloatStats"/> to the entity upon equiping.
+		/// <see cref="StatMap"/>s which map <see cref="IItemData.FloatStats"/> to the entity upon equiping.
 		/// </summary>
-		IReadOnlyList<StatMappingSheet> EquipedStatMappings { get; }
+		IReadOnlyList<StatMap> EquipedStatMappings { get; }
+
+		/// <summary>
+		/// Scaler for the final physics rating, can be used as "coverage" for apparel.
+		/// </summary>
+		float PhysicsScaling { get; }
+
+		/// <summary>
+		/// The normal distribution of this equipment's physics effects.
+		/// </summary>
+		Vector8 PhysicsDistribution { get; }
 	}
 }

@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace SpaxUtils
 {
-	[CreateAssetMenu(fileName = "CombatBehaviour_Ranged", menuName = "ScriptableObjects/Combat/RangedCombatBehaviourAsset")]
+	[CreateAssetMenu(fileName = nameof(RangedCombatBehaviourAsset), menuName = "ScriptableObjects/Combat/" + nameof(RangedCombatBehaviourAsset))]
 	public class RangedCombatBehaviourAsset : BaseCombatMoveBehaviourAsset
 	{
 		private IRangedCombatMove move;
@@ -22,19 +22,19 @@ namespace SpaxUtils
 			this.callbackService = callbackService;
 			this.transformLookup = transformLookup;
 
-			timescaleStat = Agent.GetStat(EntityStatIdentifiers.TIMESCALE, true, 1f);
+			timescaleStat = Agent.Stats.GetStat(EntityStatIdentifiers.TIMESCALE, true, 1f);
 		}
 
 		public override void Start()
 		{
 			base.Start();
-			Performer.PerformanceStartedEvent += OnPerformanceStartedEvent;
+			Performer.StartedPerformingEvent += OnPerformanceStartedEvent;
 		}
 
 		public override void Stop()
 		{
 			base.Stop();
-			Performer.PerformanceStartedEvent -= OnPerformanceStartedEvent;
+			Performer.StartedPerformingEvent -= OnPerformanceStartedEvent;
 		}
 
 		private void OnPerformanceStartedEvent(IPerformer performer)

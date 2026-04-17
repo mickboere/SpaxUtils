@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using System.Linq;
 using System.Text;
+using Object = UnityEngine.Object;
 
 namespace SpaxUtils
 {
@@ -19,16 +20,18 @@ namespace SpaxUtils
 		/// </summary>
 		public const string DEPENDENCY_OBJECT_PREFIX = "[Dependency] ";
 
+		public string ID => $"{GlobalIndex}_{name}";
+
 		/// <summary>
 		/// The index of this dependency manager, in order of creation with global being 0.
 		/// Used in the <see cref="IdentifierPrefix"/>, which is used for debugging.
 		/// </summary>
-		public int GlobalIndex => GlobalDependencyManager.AllLocators.IndexOf(this);
+		public int GlobalIndex => GlobalDependencyManager.AllManagers.IndexOf(this);
 
 		/// <summary>
 		/// Prefix used in all the debug logs.
 		/// </summary>
-		protected string IdentifierPrefix => $"[{GlobalIndex}_{name}] ";
+		protected string IdentifierPrefix => $"[{ID}] ";
 
 		/// <summary>
 		/// The list of bindings belonging to this <see cref="IDependencyManager"/>.
@@ -56,13 +59,24 @@ namespace SpaxUtils
 		protected object context;
 
 		/// <summary>
+		/// List of instances to be destroyed upon disposal of manager.
+		/// </summary>
+		protected List<Object> instances = new List<Object>();
+
+		/// <summary>
+		/// Tracks which created instances have been initialized.
+		/// Prevents Initialize() from being called more than once.
+		/// </summary>
+		protected HashSet<object> initialized = new HashSet<object>();
+
+		/// <summary>
 		/// Creates a new DependencyManager.
 		/// </summary>
 		/// <param name="parent">If a dependency can not be found using this locator, we will be able to search in the parent.</param>
 		/// <param name="name">The name of this manager, used for debugging.</param>
 		public DependencyManager(IDependencyManager parent = null, string name = "")
 		{
-			GlobalDependencyManager.AllLocators.Add(this);
+			GlobalDependencyManager.AllManagers.Add(this);
 
 			this.parent = parent;
 			this.name = name;
@@ -76,7 +90,26 @@ namespace SpaxUtils
 
 		public virtual void Dispose()
 		{
+			// Dispose of all disposable services.
+			foreach (object binding in bindings.Values)
+			{
+				if (binding is IService && binding is IDisposable disposable)
+				{
+					disposable.Dispose();
+				}
+			}
 			bindings.Clear();
+
+			// Dispose of all instances.
+			foreach (Object instance in instances)
+			{
+				Object.Destroy(instance);
+			}
+			instances.Clear();
+
+			initialized.Clear();
+
+			GlobalDependencyManager.AllManagers.Remove(this);
 		}
 
 		#region Public Methods
@@ -85,6 +118,13 @@ namespace SpaxUtils
 		public virtual T Get<T>(bool includeParents = true, bool createIfNull = true)
 		{
 			return (T)Get(typeof(T), typeof(T), includeParents, createIfNull);
+		}
+
+		/// <inheritdoc/>
+		public bool TryGet<T>(out T result, bool includeParents = true)
+		{
+			result = Get<T>(includeParents, false);
+			return result != null;
 		}
 
 		/// <inheritdoc/>
@@ -122,8 +162,13 @@ namespace SpaxUtils
 			// Try to return new instance of requested type.
 			if (createIfNull && TryInstantiateDependency(valueType, out object instance))
 			{
+				// IMPORTANT:
+				// Bind FIRST, then Initialize.
+				// This prevents circular dependencies where Initialize() triggers injection
+				// that requests this same dependency during its own construction path.
 				if (Bind(key, instance))
 				{
+					TryInitialize(instance);
 					return instance;
 				}
 			}
@@ -131,7 +176,8 @@ namespace SpaxUtils
 			// Unable to find or create dependency.
 			if (createIfNull)
 			{
-				SpaxDebug.Error(IdentifierPrefix + "The requested dependency could both not be found and not be created.", $"Regarding Key: '{key}' and Type: '{valueType}'.");
+				SpaxDebug.Error(IdentifierPrefix + "The requested dependency could both not be found and not be created.", $"Regarding Key: '{key}' and Type: '{valueType}'." +
+					$"\nWhile resolving:\n\t-{string.Join("\n\t-", currentlyResolving)}");
 			}
 
 			return null;
@@ -209,6 +255,12 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public virtual bool Bind(object value)
 		{
+			if (value == null)
+			{
+				SpaxDebug.Error(IdentifierPrefix + "Cannot bind null value.");
+				return false;
+			}
+
 			return Bind(value.GetType(), value);
 		}
 
@@ -248,6 +300,13 @@ namespace SpaxUtils
 		}
 
 		/// <inheritdoc/>
+		public virtual void BindUnchecked(object key, object value)
+		{
+			bindings[key] = value;
+			//SpaxDebug.Log(IdentifierPrefix + "Bind: ", $"({key}, {value})", LogType.Notify, new Color(0.4f, 1f, 0.9f));
+		}
+
+		/// <inheritdoc/>
 		public virtual void UnbindKey(object key)
 		{
 			bindings.Remove(key);
@@ -261,6 +320,8 @@ namespace SpaxUtils
 			{
 				bindings.Remove(item.Key);
 			}
+
+			initialized.Remove(value);
 		}
 
 		/// <inheritdoc/>
@@ -288,6 +349,29 @@ namespace SpaxUtils
 		#region Private Methods
 
 		/// <summary>
+		/// Runs IInitializable.Initialize exactly once per created instance.
+		/// Called after the instance has been bound.
+		/// </summary>
+		protected virtual void TryInitialize(object instance)
+		{
+			if (instance == null)
+			{
+				return;
+			}
+
+			if (initialized.Contains(instance))
+			{
+				return;
+			}
+
+			if (instance is IInitializable initializable)
+			{
+				initialized.Add(instance);
+				initializable.Initialize();
+			}
+		}
+
+		/// <summary>
 		/// Will try to create a new instance of <see cref="Type"/> <paramref name="type"/>, injecting all its dependencies.
 		/// For regular classes the dependencies are injected in the constructor.
 		/// For <see cref="Component"/>s the dependencies are injected in the <see cref="IDependencyManager.INJECT_DEPENDENCIES_METHOD"/> by default.
@@ -302,7 +386,10 @@ namespace SpaxUtils
 				if (typeof(IServiceComponent).IsAssignableFrom(type))
 				{
 					GameObject dependencyObject = new GameObject(DEPENDENCY_OBJECT_PREFIX + type.Name);
-					GameObject.DontDestroyOnLoad(dependencyObject);
+					if (Application.isPlaying)
+					{
+						GameObject.DontDestroyOnLoad(dependencyObject);
+					}
 					// Deactivate and later reactivate the gameobject so that we can inject the dependencies before Awake is called.
 					dependencyObject.SetActive(false);
 					dependency = dependencyObject.AddComponent(type);
@@ -321,8 +408,17 @@ namespace SpaxUtils
 			else if (typeof(ScriptableObject).IsAssignableFrom(type))
 			{
 				// Try to load the scriptable object from resources.
-				dependency = Resources.Load(type.Name, type);
-				return dependency != null;
+				Object asset = Resources.Load(type.Name, type);
+				if (asset != null)
+				{
+					Object instance = Object.Instantiate(asset);
+					instances.Add(instance);
+					dependency = instance;
+					Inject(dependency);
+					return true;
+				}
+				dependency = null;
+				return false;
 			}
 			// Regular dependency
 			else
@@ -362,7 +458,8 @@ namespace SpaxUtils
 					}
 				}
 
-				SpaxDebug.Error("Unable to instantiate class");
+				SpaxDebug.Error(IdentifierPrefix + "Unable to instantiate class", $"of type: \"{type}\"" +
+					$"\nWhile resolving:\n\t-{string.Join("\n\t-", currentlyResolving)}");
 				return false;
 			}
 
@@ -394,7 +491,8 @@ namespace SpaxUtils
 			// Try to resolve the constructor arguments.
 			if (!TryResolveArguments(constructor, out object[] arguments))
 			{
-				SpaxDebug.Error(IdentifierPrefix + "Could not resolve arguments ", $"for {type}");
+				SpaxDebug.Error(IdentifierPrefix + "Could not resolve arguments ", $"for \"{type}\"." +
+					$"\nWhile resolving:\n\t-{string.Join("\n\t-", currentlyResolving)}");
 				instance = null;
 				return false;
 			}
@@ -433,7 +531,7 @@ namespace SpaxUtils
 				// Prevent circular dependencies.
 				if (currentlyResolving.Contains(key))
 				{
-					SpaxDebug.Error(IdentifierPrefix + "Circular Dependency detected!", $"Method={method.Name}, Dependency={key.GetType()}");
+					SpaxDebug.Error(IdentifierPrefix + "Circular Dependency detected!", $"Method={method.Name}, Dependency={key}");
 					return false;
 				}
 
@@ -467,15 +565,6 @@ namespace SpaxUtils
 			}
 
 			return true;
-		}
-
-		/// <summary>
-		/// Binds the given data without checking if the same key is already bound.
-		/// </summary>
-		protected virtual void BindUnchecked(object key, object value)
-		{
-			bindings[key] = value;
-			SpaxDebug.Log(IdentifierPrefix + "Bind: ", $"({key}, {value})", LogType.Notify, new Color(0.4f, 1f, 0.9f));
 		}
 
 		#endregion // Private methods

@@ -11,11 +11,13 @@ namespace SpaxUtils
 		public IStatModConfig Config { get; private set; }
 
 		private CompositeFloatBase modifierStat;
+		private bool sourceBase;
 
-		public StatModifier(IStatModConfig config, CompositeFloatBase modifierStat)
+		public StatModifier(IStatModConfig config, CompositeFloatBase modifierStat, bool sourceBase)
 		{
 			this.Config = config;
 			this.modifierStat = modifierStat;
+			this.sourceBase = sourceBase;
 
 			modifierStat.CompositeChangedEvent += OnInputStatChanged;
 		}
@@ -31,7 +33,7 @@ namespace SpaxUtils
 
 		public override float Modify(float input)
 		{
-			return FloatOperationModifier.Operate(input, Config.Operation, Config.GetModifierValue(modifierStat.Value));
+			return FloatOperationModifier.Operate(input, Config.Operation, Config.GetModifierValue(sourceBase ? modifierStat.ModdedBaseValue : modifierStat.Value));
 		}
 
 		private void OnInputStatChanged(CompositeFloatBase composite)

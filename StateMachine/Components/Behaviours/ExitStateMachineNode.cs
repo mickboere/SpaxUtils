@@ -1,24 +1,33 @@
-﻿using UnityEngine;
+﻿using System.Collections;
+using UnityEngine;
 
 namespace SpaxUtils.StateMachines
 {
 	[NodeTint("#FD383D"), NodeWidth(130)]
-	public class ExitStateMachineNode : StateMachineNodeBase
+	public class ExitStateMachineNode : StateComponentNodeBase
 	{
 		public override string UserFacingName => "Exit";
 
-		[SerializeField, Input(backingValue = ShowBackingValue.Never)] protected Connections.StateComponent inConnection;
-
+		private CallbackService callbackService;
 		private Flow flow;
 
-		public void InjectDependencies(Flow flow)
+		public void InjectDependencies(CallbackService callbackService, Flow flow)
 		{
+			this.callbackService = callbackService;
 			this.flow = flow;
 		}
 
 		public override void OnStateEntered()
 		{
 			base.OnStateEntered();
+
+			callbackService.StartCoroutine(Stop());
+		}
+
+		private IEnumerator Stop()
+		{
+			// Allow all other components to at least start before exiting.
+			yield return null;
 			flow.StopFlow();
 		}
 	}

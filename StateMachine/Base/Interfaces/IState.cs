@@ -5,19 +5,24 @@ namespace SpaxUtils.StateMachines
 	/// <summary>
 	/// Interface for a single state within a state machine.
 	/// </summary>
-	public interface IState : IStateComponent, IIdentifiable
+	public interface IState : IStateListener, IIdentifiable
 	{
 		bool Active { get; }
 
 		/// <summary>
-		/// The parent state of this state.
+		/// The parent state to this state.
 		/// </summary>
-		IState Parent { get; }
+		IState ParentState { get; }
+
+		/// <summary>
+		/// The id of the default child state to transition to when entering this state.
+		/// </summary>
+		string DefaultChild { get; }
 
 		/// <summary>
 		/// The default child state to transition to when entering this state.
 		/// </summary>
-		IState DefaultChild { get; }
+		IState DefaultChildState { get; }
 
 		/// <summary>
 		/// All direct child states of this state.
@@ -27,7 +32,7 @@ namespace SpaxUtils.StateMachines
 		/// <summary>
 		/// All direct child components of this state.
 		/// </summary>
-		IReadOnlyCollection<IStateComponent> Components { get; }
+		IReadOnlyCollection<IStateListener> Components { get; }
 
 		#region Hierarchy Management
 

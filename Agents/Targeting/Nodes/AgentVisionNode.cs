@@ -11,18 +11,16 @@ namespace SpaxUtils
 		[SerializeField, Tooltip("Spotting interval in seconds.")] private float interval = 1f;
 
 		private IVisionComponent spottingComponent;
-		private CallbackService callbackService;
 		private IEntityCollection entityCollection;
 		private IEntity entity;
 		private ITargeter targeter;
 
 		private EntityComponentFilter<ITargetable> targetables;
 
-		public void InjectDependencies(IVisionComponent spottingComponent, CallbackService callbackService,
+		public void InjectDependencies(IVisionComponent spottingComponent,
 			IEntityCollection entityCollection, IEntity entity, ITargeter targeter)
 		{
 			this.spottingComponent = spottingComponent;
-			this.callbackService = callbackService;
 			this.entityCollection = entityCollection;
 			this.entity = entity;
 			this.targeter = targeter;
@@ -33,18 +31,18 @@ namespace SpaxUtils
 			base.OnStateEntered();
 
 			targetables = new EntityComponentFilter<ITargetable>(entityCollection, entity);
-			callbackService.AddCustom(this, interval, OnUpdateCallback);
+			entity.SubscribeOptimizedUpdate(OnUpdate);
 		}
 
 		public override void OnStateExit()
 		{
 			base.OnStateExit();
 
-			callbackService.RemoveCustom(this);
+			entity.UnsubscribeOptimizedUpdate(OnUpdate);
 			targetables.Dispose();
 		}
 
-		private void OnUpdateCallback(float delta)
+		private void OnUpdate(float delta)
 		{
 			// TODO: Create separate component which keeps track of all things an agent has in view, instead of adding them as targetables.
 			//List<ITargetable> spotted = spottingComponent.Spot(targetables.Components);

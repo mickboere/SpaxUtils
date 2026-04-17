@@ -9,20 +9,26 @@ namespace SpaxUtils
 	/// <see cref="IEntityComponent"/> that handles equipment data and visuals.
 	/// </summary>
 	[DefaultExecutionOrder(100)]
-	public class EquipmentComponent : InteractorBase, IEquipmentComponent
+	public class EquipmentComponent : InteractorComponentBase
 	{
 		public const string EQUIPMENT_DATA_ID = "Equipment";
 
 		public event Action<RuntimeEquipedData> EquipedEvent;
 		public event Action<RuntimeEquipedData> UnequipingEvent;
 
-		/// <inheritdoc/>
+		/// <summary>
+		/// All registered <see cref="IEquipmentSlot"/>s.
+		/// </summary>
 		public IReadOnlyCollection<IEquipmentSlot> Slots => slots.Values;
 
-		/// <inheritdoc/>
+		/// <summary>
+		/// All equiped <see cref="RuntimeEquipedData"/>.
+		/// </summary>
 		public IReadOnlyCollection<RuntimeEquipedData> EquipedItems => equipedItems.Values;
 
-		private EntityAppearanceHandler sharedRigHandler;
+		[SerializeField, ConstDropdown(typeof(IEquipmentSlotTypeConstants))] private string[] defaultSlots;
+
+		private EntityAppearanceHandler appearanceHandler;
 		private ICommunicationChannel comms;
 		private InventoryComponent inventoryComponent;
 		private IEquipmentData[] injectedEquipment;
@@ -31,14 +37,26 @@ namespace SpaxUtils
 		private Dictionary<string, IEquipmentSlot> slots = new Dictionary<string, IEquipmentSlot>();
 		private Dictionary<string, RuntimeEquipedData> equipedItems = new Dictionary<string, RuntimeEquipedData>(); // string = slot.UID
 
+		// Fast lookup for "was this removed inventory item currently equiped?"
+		// Key is RuntimeItemData.RuntimeID.
+		private Dictionary<string, RuntimeEquipedData> equipedByRuntimeId = new Dictionary<string, RuntimeEquipedData>();
+
 		public void InjectDependencies(EntityAppearanceHandler sharedRigHandler,
 			ICommunicationChannel comms, InventoryComponent inventoryComponent,
 			IEquipmentData[] injectedEquipment)
 		{
-			this.sharedRigHandler = sharedRigHandler;
+			this.appearanceHandler = sharedRigHandler;
 			this.comms = comms;
 			this.inventoryComponent = inventoryComponent;
 			this.injectedEquipment = injectedEquipment;
+		}
+
+		protected void Awake()
+		{
+			for (int i = 0; i < defaultSlots.Length; i++)
+			{
+				AddSlot(new EquipmentSlot(i.ToString(), defaultSlots[i]));
+			}
 		}
 
 		protected void Start()
@@ -49,7 +67,10 @@ namespace SpaxUtils
 				equipmentData = Entity.RuntimeData.GetEntry<RuntimeDataCollection>(EQUIPMENT_DATA_ID);
 				foreach (RuntimeDataEntry entry in equipmentData.Data)
 				{
-					TryEquip(inventoryComponent.Inventory.Get((string)entry.Value), out _, entry.ID);
+					if (!TryEquip(inventoryComponent.Inventory.Get((string)entry.Value), out _, entry.ID))
+					{
+						SpaxDebug.Warning($"Failed to equip item from runtime data on slot '{entry.ID}'.", $"Item RuntimeID='{entry.Value}'");
+					}
 				}
 			}
 			else
@@ -62,7 +83,10 @@ namespace SpaxUtils
 					RuntimeItemData itemData = inventoryComponent.Inventory.Get(equipment);
 					if (itemData != null)
 					{
-						TryEquip(itemData, out _);
+						if (!TryEquip(itemData, out _))
+						{
+							SpaxDebug.Warning($"Failed to equip injected equipment data on start.", $"Equipment='{equipment.ID}'");
+						}
 					}
 				}
 			}
@@ -72,16 +96,37 @@ namespace SpaxUtils
 		{
 			comms.Listen<RequestOptionsMsg<RuntimeItemData>>(this, OnRequestInventoryItemOptionsMsg);
 			comms.Listen<RequestOptionsMsg<RuntimeEquipedData>>(this, OnRequestEquipedItemOptionsMsg);
+			inventoryComponent.Inventory.RemovedItemEvent += OnRemovedItemEvent;
 		}
 
 		protected void OnDisable()
 		{
 			comms.StopListening(this);
+			inventoryComponent.Inventory.RemovedItemEvent -= OnRemovedItemEvent;
+		}
+
+		private void OnRemovedItemEvent(RuntimeItemData runtimeItemData)
+		{
+			// Inventory may remove many items in a burst. This must be O(1) per removal.
+			if (runtimeItemData == null)
+			{
+				return;
+			}
+
+			string runtimeId = runtimeItemData.RuntimeID;
+			if (string.IsNullOrEmpty(runtimeId))
+			{
+				return;
+			}
+
+			if (equipedByRuntimeId.TryGetValue(runtimeId, out RuntimeEquipedData equipedData) && equipedData != null)
+			{
+				Unequip(equipedData);
+			}
 		}
 
 		#region Slot Management
 
-		/// <inheritdoc/>
 		public bool TryGetSlotFromID(string id, out IEquipmentSlot slot)
 		{
 			slot = null;
@@ -93,7 +138,6 @@ namespace SpaxUtils
 			return slot != null;
 		}
 
-		/// <inheritdoc/>
 		public bool TryGetSlotFromType(string type, out IEquipmentSlot slot, Func<IEquipmentSlot, bool> predicate = null)
 		{
 			foreach (IEquipmentSlot s in Slots)
@@ -109,7 +153,6 @@ namespace SpaxUtils
 			return false;
 		}
 
-		/// <inheritdoc/>
 		public IEquipmentSlot AddNewSlot(string type, string id = null)
 		{
 			if (string.IsNullOrEmpty(id))
@@ -125,7 +168,6 @@ namespace SpaxUtils
 			return slots[id];
 		}
 
-		/// <inheritdoc/>
 		public bool AddSlot(IEquipmentSlot slot)
 		{
 			if (string.IsNullOrEmpty(slot.ID))
@@ -144,7 +186,6 @@ namespace SpaxUtils
 			return true;
 		}
 
-		/// <inheritdoc/>
 		public bool RemoveSlot(string id)
 		{
 			if (TryGetSlotFromID(id, out IEquipmentSlot slot))
@@ -164,17 +205,52 @@ namespace SpaxUtils
 
 		#region Equipment
 
-		/// <inheritdoc/>
+		/// <summary>
+		/// Returns whether the given <paramref name="runtimeItemData"/> can be equiped on a free spot.
+		/// </summary>
+		/// <param name="runtimeItemData">The <see cref="RuntimeItemData"/> to check.</param>
+		/// <param name="slot">The free equipment slot in which the equipment can be equiped.</param>
+		/// <param name="overlap">The currently equiped data with which there is location overlap.
+		/// Overlaps do no block equiping and will automatically be unblocked .</param>
+		/// <param name="slotId">Optional specific slot ID, leave null to check all slots.</param>
+		/// <param name="overwrite">Will allow one to equip on occupied slots.</param>
+		/// <returns>Whether the given <paramref name="runtimeItemData"/> can be equiped on a free spot.</returns>
 		public bool CanEquip(RuntimeItemData runtimeItemData,
 			out IEquipmentSlot slot, out List<RuntimeEquipedData> overlap,
-			string slotId = null, bool overwriting = false)
+			string slotId = null, bool overwrite = false)
+		{
+			return CanEquip(runtimeItemData, out slot, out overlap, out _, slotId, overwrite);
+		}
+
+		/// <summary>
+		/// Returns whether the given <paramref name="runtimeItemData"/> can be equiped on a free spot.
+		/// </summary>
+		/// <param name="runtimeItemData">The <see cref="RuntimeItemData"/> to check.</param>
+		/// <param name="slot">The free equipment slot in which the equipment can be equiped.</param>
+		/// <param name="overlap">The currently equiped data with which there is location overlap.
+		/// Overlaps do no block equiping and will automatically be unblocked .</param>
+		/// <param name="reason">The reason the equipment cannot be equiped, if any.</param>
+		/// <param name="slotId">Optional specific slot ID, leave null to check all slots.</param>
+		/// <param name="overwrite">Will allow one to equip on occupied slots.</param>
+		/// <returns>Whether the given <paramref name="runtimeItemData"/> can be equiped on a free spot.</returns>
+		public bool CanEquip(RuntimeItemData runtimeItemData,
+			out IEquipmentSlot slot, out List<RuntimeEquipedData> overlap, out string reason,
+			string slotId = null, bool overwrite = false)
 		{
 			slot = null;
+			overlap = new List<RuntimeEquipedData>();
 
-			// Make sure item data is equipment to begin with.
+			// Ensure item data validity.
+			if (runtimeItemData == null || runtimeItemData.ItemData == null)
+			{
+				reason = "Data is null.";
+				return false;
+			}
+
+			// Ensure item data is actually equipment.
 			if (runtimeItemData.ItemData is not IEquipmentData equipmentData)
 			{
-				overlap = new List<RuntimeEquipedData>();
+				reason = "Item data does not implement IEquipmentData.";
 				return false;
 			}
 
@@ -187,23 +263,39 @@ namespace SpaxUtils
 				if (slots.ContainsKey(slotId))
 				{
 					slot = slots[slotId];
-					return !equipedItems.ContainsKey(slotId) || overwriting;
+					reason = $"Couldn't overwrite item in slot '{slotId}'";
+					return !equipedItems.ContainsKey(slotId) || overwrite;
 				}
 				else
 				{
+					reason = $"No slot exists for '{slotId}'";
 					return false;
 				}
 			}
 
-			return TryGetSlotFromType(equipmentData.SlotType, out slot, overwriting ? null : (s) => !equipedItems.ContainsKey(s.ID));
+			reason = $"Slot could not be retrieved for type: {equipmentData.SlotType}";
+			bool foundSlot = TryGetSlotFromType(equipmentData.SlotType, out slot, (s) => !equipedItems.ContainsKey(s.ID));
+			if (!foundSlot && overwrite)
+			{
+				return TryGetSlotFromType(equipmentData.SlotType, out slot, null);
+			}
+			return foundSlot;
 		}
 
-		/// <inheritdoc/>
+		/// <summary>
+		/// Tries to equip the given <paramref name="runtimeItemData"/>.
+		/// </summary>
 		public bool TryEquip(RuntimeItemData runtimeItemData, out RuntimeEquipedData equipedData, string slotId = null)
 		{
 			// First make sure we can equip this item.
-			if (CanEquip(runtimeItemData, out IEquipmentSlot slot, out List<RuntimeEquipedData> overlap, slotId, true))
+			if (CanEquip(runtimeItemData, out IEquipmentSlot slot, out List<RuntimeEquipedData> overlap, out string reason, slotId, true))
 			{
+				// Ensure the item is present within the entity's inventory.
+				if (!inventoryComponent.Inventory.Contains(runtimeItemData))
+				{
+					runtimeItemData = inventoryComponent.Inventory.AddItem(runtimeItemData);
+				}
+
 				IEquipmentData itemData = runtimeItemData.ItemData as IEquipmentData;
 
 				// If slot is occupied, unequip it first.
@@ -225,7 +317,7 @@ namespace SpaxUtils
 				GameObject visual = InstantiateEquipmentDeactivated(itemData, slot);
 
 				// Create and bind equiped data.
-				equipedData = new RuntimeEquipedData(runtimeItemData, slot, dependencyManager, visual);
+				equipedData = new RuntimeEquipedData(runtimeItemData, slot, dependencyManager, Entity, visual);
 				dependencyManager.Bind(equipedData);
 
 				if (visual != null)
@@ -240,6 +332,8 @@ namespace SpaxUtils
 
 				// Occupy the slot, apply data and invoke equiped event.
 				equipedItems[slot.ID] = equipedData;
+				equipedByRuntimeId[equipedData.RuntimeItemData.RuntimeID] = equipedData;
+
 				equipmentData.SetValue(slot.ID, equipedData.RuntimeItemData.RuntimeID);
 				slot.Equip(equipedData);
 				EquipedEvent?.Invoke(equipedData);
@@ -247,14 +341,21 @@ namespace SpaxUtils
 				return true;
 			}
 
-			SpaxDebug.Error("Couldn't equip item.", $"Item=({runtimeItemData})");
+			SpaxDebug.Error("Couldn't equip item.", $"Reason: {reason}\nItem=({runtimeItemData})");
 			equipedData = null;
 			return false;
 		}
 
-		/// <inheritdoc/>
+		/// <summary>
+		/// Unequips the given <see cref="RuntimeEquipedData"/>.
+		/// </summary>
 		public void Unequip(RuntimeEquipedData equipedData)
 		{
+			if (equipedData == null)
+			{
+				return;
+			}
+
 			if (equipedItems.ContainsKey(equipedData.Slot.ID))
 			{
 				// Stop all running equiped behaviour.
@@ -263,12 +364,19 @@ namespace SpaxUtils
 				if (equipedData.EquipedInstance != null)
 				{
 					// Destroy the equiped object.
-					sharedRigHandler.Remove(equipedData.EquipedInstance);
+					appearanceHandler.Remove(equipedData.EquipedInstance);
 					Destroy(equipedData.EquipedInstance);
 				}
 
 				// Clear equiped slot, apply data and invoke unequiping event.
 				equipedItems.Remove(equipedData.Slot.ID);
+
+				string runtimeId = equipedData.RuntimeItemData != null ? equipedData.RuntimeItemData.RuntimeID : null;
+				if (!string.IsNullOrEmpty(runtimeId))
+				{
+					equipedByRuntimeId.Remove(runtimeId);
+				}
+
 				equipmentData.TryRemove(equipedData.Slot.ID, true);
 				equipedData.Slot.Unequip(equipedData);
 				UnequipingEvent?.Invoke(equipedData);
@@ -280,13 +388,21 @@ namespace SpaxUtils
 			}
 		}
 
-		/// <inheritdoc/>
+		/// <summary>
+		/// Returns all items equiped on a slot of type <paramref name="slotType"/>
+		/// </summary>
+		/// <param name="slotType">The type of slot to retrieve the equiped items from.</param>
+		/// <returns>All items equiped on a slot of type <paramref name="slotType"/></returns>
 		public List<RuntimeEquipedData> GetEquipedFromSlotType(string slotType)
 		{
 			return EquipedItems.Where(e => e.Slot.Type == slotType).ToList();
 		}
 
-		/// <inheritdoc/>
+		/// <summary>
+		/// Returns the <see cref="RuntimeEquipedData"/> stored in <paramref name="slot"/>, if any.
+		/// </summary>
+		/// <param name="slot">The UID of the <see cref="IEquipmentSlot"/> to retrieve the <see cref="RuntimeEquipedData"/> from.</param>
+		/// <returns>The <see cref="RuntimeEquipedData"/> stored in <paramref name="slot"/>, if any.</returns>
 		public RuntimeEquipedData GetEquipedFromSlotID(string slot)
 		{
 			return EquipedItems.FirstOrDefault(e => e.Slot.ID == slot);
@@ -296,30 +412,47 @@ namespace SpaxUtils
 
 		#region IInteractor
 
-		/// <inheritdoc/>
-		public override bool Able(string interactionType)
+		public override List<string> GetInteractions(IInteractable interactable)
 		{
-			return interactionType == BaseInteractionTypes.EQUIP;
+			if (interactable.InteractableType == InteractionTypes.ITEM &&
+				interactable is IRuntimeItemDataComponent ridc &&
+				ridc.RuntimeItemData.ItemData is IEquipmentData)
+			{
+				return new List<string>() { InteractionTypes.ITEM_EQUIP };
+			}
+
+			return new List<string>();
 		}
 
-		/// <inheritdoc/>
-		protected override bool Attempt(string interactionType, IInteractable interactable, object data, out IInteraction interaction)
+		public override bool TryCreateInteraction(IInteractable interactable, string action, out IInteraction interaction)
 		{
-			// Create and execute interaction.
-			interaction = new Interaction(interactionType, this, interactable, null,
-				(IInteraction i, bool success) =>
-				{
-					if (success &&
-						i.Data is IRuntimeItemData itemData &&
-						itemData.ItemData is IEquipmentData equipmentData)
-					{
-						RuntimeItemData runtimeItemData = inventoryComponent.Inventory.AddItem(itemData);
-						TryEquip(runtimeItemData, out _);
-					}
-					i.Dispose();
-				});
+			if (interactable.InteractableType == InteractionTypes.ITEM &&
+				action == InteractionTypes.ITEM_EQUIP)
+			{
+				interaction = new Interaction(Entity, interactable, action);
+				interaction.InitiatedEvent += ExtractItem;
+				return true;
+			}
 
-			return interactable.TryInteract(interaction);
+			interaction = null;
+			return false;
+		}
+
+		private void ExtractItem(IInteraction interaction)
+		{
+			if (interaction.Data is RuntimeItemData itemData &&
+				itemData.ItemData is IEquipmentData)
+			{
+				RuntimeItemData runtimeItemData = inventoryComponent.Inventory.AddItem(itemData);
+				if (TryEquip(runtimeItemData, out _))
+				{
+					interaction.Conclude(true);
+					return;
+				}
+			}
+
+			SpaxDebug.Error("Unable to extract or equip item data from interaction.", interaction.ToString());
+			interaction.Conclude(false);
 		}
 
 		#endregion
@@ -352,7 +485,7 @@ namespace SpaxUtils
 			}
 
 			// Apply the agent's rig when possible.
-			sharedRigHandler.Add(instance);
+			appearanceHandler.Add(instance);
 
 			return instance;
 		}
@@ -368,7 +501,12 @@ namespace SpaxUtils
 					$"Equips this item on an (available) '{equipmentData.SlotType}' slot.",
 					(option) =>
 					{
-						TryEquip(msg.Target, out _);
+						if (TryEquip(msg.Target, out _) &&
+							msg.Context == ContextIdentifiers.ITEM_CONTAINER)
+						{
+							// Item belongs to a container, dispose it to remove it.
+							msg.Target.Dispose();
+						}
 					});
 
 				msg.AddOption(equipOption);

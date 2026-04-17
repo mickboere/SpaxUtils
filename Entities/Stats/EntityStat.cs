@@ -12,32 +12,36 @@ namespace SpaxUtils
 		/// <summary>
 		/// Links to the identifier of the attached <see cref="RuntimeDataEntry"/>.
 		/// </summary>
-		public string Identifier => data.ID;
+		public string Identifier => Data.ID;
+
+		public RuntimeDataEntry Data { get; private set; }
 
 		public override float BaseValue
 		{
 			get
 			{
-				return (float)data.Value;
+				return (float)Data.Value;
 			}
 			set
 			{
-				if (!data.Value.Equals(value))
+				float clamp = ClampValue(value);
+				if (!Data.Value.Equals(clamp))
 				{
-					data.Value = value;
+					Data.Value = clamp;
 					// No need to call ValueChanged() here as that will happen automatically after the data's ValueChangedEvent.
 				}
 			}
 		}
 
-		private IEntity entity;
-		private RuntimeDataEntry data;
+		public override float ModdedBaseValue => ClampValue(base.ModdedBaseValue);
 
+		private IEntity entity;
 		private float? minValue;
 		private float? maxValue;
 		private DecimalMethod decimals;
 
-		private EntityStat damageMultiplier;
+		private EntityStat drainMultiplier;
+		private EntityStat gainMultiplier;
 
 		public EntityStat(IEntity entity, RuntimeDataEntry data,
 			Dictionary<object, IModifier<float>> modifiers = null,
@@ -45,7 +49,7 @@ namespace SpaxUtils
 			DecimalMethod decimals = DecimalMethod.Decimal) : base(modifiers)
 		{
 			this.entity = entity;
-			this.data = data;
+			this.Data = data;
 
 			this.minValue = minValue;
 			this.maxValue = maxValue;
@@ -56,70 +60,27 @@ namespace SpaxUtils
 
 		public override float GetValue()
 		{
-			float value = base.GetValue();
-			if (minValue.HasValue && value < minValue.Value)
-			{
-				value = minValue.Value;
-			}
-			if (maxValue.HasValue && value > maxValue.Value)
-			{
-				value = maxValue.Value;
-			}
-
-			switch (decimals)
-			{
-				case DecimalMethod.Floor:
-					return Mathf.Floor(value);
-				case DecimalMethod.Round:
-					return Mathf.Round(value);
-				case DecimalMethod.Ceil:
-					return Mathf.Ceil(value);
-				case DecimalMethod.Decimal:
-				default:
-					return value;
-			}
+			return ClampValue(base.GetValue()).Decimal(decimals);
 		}
 
 		public override void Dispose()
 		{
-			data.ValueChangedEvent -= OnDataValueChanged;
+			Data.ValueChangedEvent -= OnDataValueChanged;
 			base.Dispose();
 		}
 
-		#region Damage
-
-		public float Damage(float damage, bool clamp = true, bool applyMultiplier = true)
+		private float ClampValue(float value)
 		{
-			CalculateDamage(ref damage, applyMultiplier);
-			BaseValue = clamp ? Mathf.Max(0f, BaseValue - damage) : BaseValue - damage;
-			return damage;
-		}
-
-		public float Damage(float damage, bool clamp, out bool drained, bool applyMultiplier = true)
-		{
-			CalculateDamage(ref damage, applyMultiplier);
-			drained = damage > BaseValue;
-			return Damage(damage, clamp, false);
-		}
-
-		public float Damage(float damage, bool clamp, out bool drained, out float excess, bool applyMultiplier = true)
-		{
-			CalculateDamage(ref damage, applyMultiplier);
-			excess = Mathf.Abs(Mathf.Min(0, BaseValue - damage));
-			drained = excess > 0;
-			return Damage(damage, clamp, false);
-		}
-
-		private void CalculateDamage(ref float damage, bool applyMultiplier)
-		{
-			if (applyMultiplier)
+			if (minValue.HasValue && value < minValue.Value)
 			{
-				damageMultiplier = damageMultiplier ?? entity?.GetStat(Identifier.SubStat(AgentStatIdentifiers.SUB_COST));
-				damage *= damageMultiplier ?? 1f;
+				value = minValue.Value;
 			}
+			else if (maxValue.HasValue && value > maxValue.Value)
+			{
+				value = maxValue.Value;
+			}
+			return value;
 		}
-
-		#endregion Damage
 
 		private void OnDataValueChanged(object newValue)
 		{

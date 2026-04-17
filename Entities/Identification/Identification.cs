@@ -30,8 +30,7 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public virtual IEntity Entity { get; private set; }
 
-		//[SerializeField, Randomizable, ReadOnly] private int seed;
-		[SerializeField, ConstDropdown(typeof(IIdentificationIdentifiers), includeEmpty: true)] private string id;
+		[SerializeField, ConstDropdown(typeof(IIdentificationIdentifiers), includeEmpty: true, inputField: true)] private string id;
 		[SerializeField] private string name;
 		[SerializeField, ConstDropdown(typeof(IIdentificationLabels))] private List<string> labels;
 
@@ -43,7 +42,7 @@ namespace SpaxUtils
 				id = Guid.NewGuid().ToString();
 			}
 			name = identification.Name;
-			labels = new List<string>(identification.Labels);
+			labels = identification.Labels == null ? new List<string>() : new List<string>(identification.Labels);
 			Entity = entity;
 		}
 
@@ -147,5 +146,10 @@ namespace SpaxUtils
 		}
 
 		#endregion
+
+		public override string ToString()
+		{
+			return this.TagFull();
+		}
 	}
 }

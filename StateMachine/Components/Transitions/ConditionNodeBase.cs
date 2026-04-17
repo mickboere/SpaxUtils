@@ -4,6 +4,7 @@ using UnityEngine;
 
 namespace SpaxUtils.StateMachines
 {
+
 	/// <summary>
 	/// <see cref="IStateTransition"/> that utilizes <see cref="IRule"/> nodes to determine whether the transition is valid.
 	/// Requires all connected <see cref="RuleNodeBase"/> implementations to be valid in order to pass as valid itself.
@@ -15,43 +16,58 @@ namespace SpaxUtils.StateMachines
 		private const string TT_COMPONENTS = "Linked components will be activated while the condition is valid.\nThis allows you to run condition consequences without transitioning to another state node.";
 
 		public override bool Valid => _valid;
+		protected bool _valid;
 		public override float Validity => _rules.Sum((r) => r.Validity);
 
-		[SerializeField, Output(backingValue = ShowBackingValue.Never, typeConstraint = TypeConstraint.Inherited), Tooltip(TT_COMPONENTS)] private Connections.StateComponent components;
-		[SerializeField, Output(backingValue = ShowBackingValue.Never, typeConstraint = TypeConstraint.Inherited)] protected Connections.Rule rules;
+		/// <summary>
+		/// Whether linked components should be active.
+		/// By default mirrors <see cref="_valid"/> so existing subclasses keep their behaviour.
+		/// Subclasses can override to decouple component lifetime from rule validity.
+		/// </summary>
+		protected virtual bool RunComponents => _valid;
 
-		private IDependencyManager dependencyManager;
+		[SerializeField, Output(backingValue = ShowBackingValue.Never, typeConstraint = TypeConstraint.Inherited)] protected Connections.Rule rules;
+		[SerializeField, Output(backingValue = ShowBackingValue.Never, typeConstraint = TypeConstraint.Inherited), Tooltip(TT_COMPONENTS)] private Connections.StateComponent components;
+
 		private CallbackService callbackService;
 
-		private bool _valid;
-		private List<IStateComponent> _components;
-		private List<RuleNodeBase> _rules;
+		private List<IRule> _rules;
+		private StateCallbackHelper ruleCallbacks;
+		private List<IStateListener> _components;
+		private StateCallbackHelper componentCallbacks;
 
 		public void InjectDependencies(IDependencyManager dependencyManager, CallbackService callbackService)
 		{
-			this.dependencyManager = dependencyManager;
 			this.callbackService = callbackService;
 
-			_components = GetOutputNodes<IStateComponent>(nameof(components));
-			_rules = GetOutputNodes<RuleNodeBase>(nameof(rules));
+			_rules = GetOutputNodes<IRule>(nameof(rules));
+			ruleCallbacks = new StateCallbackHelper(dependencyManager, State, _rules.Where(r => r.IsPureRule).ToList());
+			_components = GetOutputNodes<IStateListener>(nameof(components));
+			componentCallbacks = new StateCallbackHelper(dependencyManager, State, _components);
 
-			foreach (RuleNodeBase rule in _rules)
+			ruleCallbacks.Inject();
+
+			_valid = IsValid();
+
+			if (RunComponents)
 			{
-				dependencyManager.Inject(rule);
+				componentCallbacks.Inject();
 			}
 		}
 
 		#region Callbacks
 
 		/// <inheritdoc/>
-		public override void OnEnteringState()
+		public override void OnEnteringState(ITransition transition)
 		{
-			base.OnEnteringState();
+			base.OnEnteringState(transition);
 
 			callbackService.SubscribeUpdate(UpdateMode.Update, this, OnUpdate, 99998);
-			foreach (RuleNodeBase rule in _rules)
+
+			ruleCallbacks.OnEnteringState(transition);
+			if (RunComponents)
 			{
-				rule.OnEnteringState();
+				componentCallbacks.OnEnteringState(transition);
 			}
 		}
 
@@ -60,9 +76,10 @@ namespace SpaxUtils.StateMachines
 		{
 			base.WhileEnteringState(transition);
 
-			foreach (RuleNodeBase rule in _rules)
+			ruleCallbacks.WhileEnteringState(transition);
+			if (RunComponents)
 			{
-				rule.WhileEnteringState(transition);
+				componentCallbacks.WhileEnteringState(transition);
 			}
 		}
 
@@ -71,30 +88,24 @@ namespace SpaxUtils.StateMachines
 		{
 			base.OnStateEntered();
 
-			foreach (RuleNodeBase rule in _rules)
+			ruleCallbacks.OnStateEntered();
+			if (RunComponents)
 			{
-				rule.OnStateEntered();
+				componentCallbacks.OnStateEntered();
 			}
 		}
 
 		/// <inheritdoc/>
-		public override void OnExitingState()
+		public override void OnExitingState(ITransition transition)
 		{
-			base.OnExitingState();
+			base.OnExitingState(transition);
 
 			callbackService.UnsubscribeUpdate(UpdateMode.Update, this);
 
-			foreach (RuleNodeBase rule in _rules)
+			ruleCallbacks.OnExitingState(transition);
+			if (RunComponents)
 			{
-				rule.OnExitingState();
-			}
-
-			if (Valid)
-			{
-				foreach (IStateComponent component in _components)
-				{
-					component.OnExitingState();
-				}
+				componentCallbacks.OnExitingState(transition);
 			}
 		}
 
@@ -103,17 +114,10 @@ namespace SpaxUtils.StateMachines
 		{
 			base.WhileExitingState(transition);
 
-			foreach (RuleNodeBase rule in _rules)
+			ruleCallbacks.WhileExitingState(transition);
+			if (RunComponents)
 			{
-				rule.WhileExitingState(transition);
-			}
-
-			if (Valid)
-			{
-				foreach (IStateComponent component in _components)
-				{
-					component.WhileExitingState(transition);
-				}
+				componentCallbacks.WhileExitingState(transition);
 			}
 		}
 
@@ -122,17 +126,10 @@ namespace SpaxUtils.StateMachines
 		{
 			base.OnStateExit();
 
-			foreach (RuleNodeBase rule in _rules)
+			ruleCallbacks.OnStateExit();
+			if (RunComponents)
 			{
-				rule.OnStateExit();
-			}
-
-			if (Valid)
-			{
-				foreach (IStateComponent component in _components)
-				{
-					component.OnStateExit();
-				}
+				componentCallbacks.OnStateExit();
 			}
 		}
 
@@ -140,42 +137,34 @@ namespace SpaxUtils.StateMachines
 
 		private void OnUpdate(float delta)
 		{
-			bool wasValid = _valid;
-			_valid = IsValid();
-
-			//SpaxDebug.Log("OnUpdate", $"valid:{_valid}/{wasValid}");
-
-			if (_valid != wasValid)
+			bool valid = IsValid();
+			if (_valid != valid || RunComponents != componentCallbacks.Active)
 			{
-				if (_valid)
+				if (RunComponents)
 				{
-					// Became valid, activate subcomponents.
-					foreach (IStateComponent component in _components)
-					{
-						dependencyManager.Inject(component);
-						component.OnEnteringState();
-						component.OnStateEntered();
-					}
+					// Components should be active, activate subcomponents.
+					componentCallbacks.QuickEnter();
 				}
 				else
 				{
-					// Became invalid, deactivate subcomponents.
-					foreach (IStateComponent component in _components)
-					{
-						component.OnExitingState();
-						component.OnStateExit();
-					}
+					// Components should not be active, deactivate subcomponents.
+					componentCallbacks.QuickExit();
 				}
 			}
+
+			_valid = valid;
 		}
 
 		private bool IsValid()
 		{
-			foreach (IRule rule in _rules)
+			if (_rules.Count > 0)
 			{
-				if (!rule.Valid)
+				foreach (IRule rule in _rules)
 				{
-					return false;
+					if (!rule.Valid)
+					{
+						return false;
+					}
 				}
 			}
 			return true;

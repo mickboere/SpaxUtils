@@ -8,10 +8,13 @@ namespace SpaxUtils
 	/// <see cref="ITargetable"/> <see cref="IEntityComponent"/> implementation.
 	/// Provides basic data required for targetting an entity.
 	/// </summary>
-	public class TargetableComponent : EntityComponentBase, ITargetable
+	public class TargetableComponent : EntityComponentMono, ITargetable
 	{
-		private const string TOOLTIP_LAZY_CENTER = "Caches the entity's Size on Start() and uses it to calculate the center.\n" +
-			"Useful when being used as follow target while animating to prevent jittery movement.";
+		/// <inheritdoc/>
+		public Vector3 Point => headProvider != null && headProvider.Head != null ? headProvider.Head.position : Center;
+
+		/// <inheritdoc/>
+		public Vector3 Orientation => headProvider != null && headProvider.Head != null ? headProvider.Head.forward : transform.forward;
 
 		/// <inheritdoc/>
 		public virtual Vector3 Position => transform.position;
@@ -43,16 +46,20 @@ namespace SpaxUtils
 		public Vector3 Center => Bounds.center;
 
 		/// <inheritdoc/>
-		public Vector3 Size => Application.isPlaying && useSizeAtStart ? startingSize : Bounds.size;
+		public float Radius => radius.Approx(0f) ? Mathf.Max(Size.x, Size.z) * 0.5f : radius;
 
 		/// <inheritdoc/>
-		public Vector3 Point => headProvider != null ? headProvider.Head.position : Center;
+		public Vector3 Size => Application.isPlaying && useSizeAtStart ? startingSize :
+			size == Vector3.zero ? Bounds.size :
+			size;
 
 		/// <inheritdoc/>
 		public bool IsTargetable { get; private set; } = true;
 
 		[SerializeField] private bool debug;
 		[SerializeField] private bool useSizeAtStart;
+		[SerializeField, Conditional(nameof(useSizeAtStart), true, false, false)] private Vector3 size;
+		[SerializeField] private float radius;
 
 		protected IHeadProvider headProvider;
 		protected Vector3 startingSize;
@@ -71,6 +78,11 @@ namespace SpaxUtils
 
 		private void GetRenderers()
 		{
+			if (this == null)
+			{
+				SpaxDebug.Error("Fetching renderers from non-existing targetable.", $"Entity: {Entity.Identification}");
+			}
+
 			if (renderersAtStart == null || renderersAtStart.Any(r => r == null))
 			{
 				renderersAtStart = GetComponentsInChildren<Renderer>(); ;
@@ -85,7 +97,7 @@ namespace SpaxUtils
 			}
 
 			Gizmos.color = Color.yellow;
-			Gizmos.DrawSphere(Center, 0.1f);
+			Gizmos.DrawWireSphere(Center, Radius);
 			Gizmos.color = Color.red;
 			Gizmos.DrawSphere(Center, 0.05f);
 			Gizmos.color = Color.blue;

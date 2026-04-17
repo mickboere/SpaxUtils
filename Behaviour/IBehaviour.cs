@@ -1,9 +1,11 @@
+using System;
+
 namespace SpaxUtils
 {
 	/// <summary>
 	/// Interface for behaviours that can be started or stopped.
 	/// </summary>
-	public interface IBehaviour
+	public interface IBehaviour : IDisposable
 	{
 		/// <summary>
 		/// Returns whether this behaviour is currently running or not.

@@ -6,19 +6,19 @@
 	public enum TimeType
 	{
 		/// <summary>
-		/// Real time passed since creating the loaded profile - persistent through sessions.
-		/// Calculated from system time instead of being tracked like the playtime.
+		/// Amount of scaled time spent in the game on the loaded profile.
 		/// </summary>
-		Realtime,
+		ScaledPlaytime = 0,
 
 		/// <summary>
 		/// Amount of unscaled time spent in the game on the loaded profile.
 		/// </summary>
-		UnscaledPlaytime,
+		UnscaledPlaytime = 1,
 
 		/// <summary>
-		/// Amount of scaled time spent in the game on the loaded profile.
+		/// Real time passed since creating the loaded profile - persistent through sessions.
+		/// Calculated from system time instead of being tracked like the playtime.
 		/// </summary>
-		ScaledPlaytime,
+		Realtime = 2,
 	}
 }

@@ -4,19 +4,18 @@ using UnityEngine;
 
 namespace SpaxUtils
 {
-	public class ProcLeaningAnimation : EntityComponentBase
+	public class ProcLeaningAnimation : EntityComponentMono
 	{
 		[SerializeField] private float sensitivity = 30f;
 		[SerializeField] private float speed = 6f;
 		[SerializeField] private float maxAngle = 20f;
-		[SerializeField] private int frameRate;
-		[SerializeField] private bool fixedUpdate;
+		[SerializeField] private UpdateMode updateMode;
 
 		private RigidbodyWrapper wrapper;
 		private CallbackService callbackService;
-		private IGrounderComponent grounder;
+		private GrounderComponent grounder;
 
-		public void InjectDependencies(RigidbodyWrapper wrapper, CallbackService callbackService, IGrounderComponent grounder)
+		public void InjectDependencies(RigidbodyWrapper wrapper, CallbackService callbackService, GrounderComponent grounder)
 		{
 			this.wrapper = wrapper;
 			this.callbackService = callbackService;
@@ -25,10 +24,7 @@ namespace SpaxUtils
 
 		protected void OnEnable()
 		{
-			if (frameRate > 0)
-			{
-				callbackService.AddCustom(this, 1f / frameRate, UpdateRotation);
-			}
+			callbackService.SubscribeUpdate(updateMode, this, UpdateRotation);
 		}
 
 		protected void OnDisable()
@@ -36,22 +32,7 @@ namespace SpaxUtils
 			if (callbackService != null)
 			{
 				callbackService.RemoveCustom(this);
-			}
-		}
-
-		protected void Update()
-		{
-			if (!fixedUpdate && frameRate <= 0)
-			{
-				UpdateRotation(Time.deltaTime);
-			}
-		}
-
-		protected void FixedUpdate()
-		{
-			if (fixedUpdate && frameRate <= 0)
-			{
-				UpdateRotation(Time.fixedDeltaTime);
+				callbackService.UnsubscribeUpdates(this);
 			}
 		}
 

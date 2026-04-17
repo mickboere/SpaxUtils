@@ -24,7 +24,11 @@ namespace SpaxUtils
 		public override object Value
 		{
 			get { return Data; }
-			set { Data = new List<RuntimeDataEntry>((IEnumerable<RuntimeDataEntry>)value); }
+			set
+			{
+				Data = new List<RuntimeDataEntry>((IEnumerable<RuntimeDataEntry>)value);
+				OnValueChange();
+			}
 		}
 
 		/// <summary>
@@ -33,7 +37,7 @@ namespace SpaxUtils
 		[JsonIgnore]
 		public IReadOnlyCollection<RuntimeDataEntry> Data
 		{
-			get { return _data.Values; }
+			get { return _data == null ? null : _data.Values; }
 			set
 			{
 				_data = new Dictionary<string, RuntimeDataEntry>();
@@ -46,16 +50,20 @@ namespace SpaxUtils
 		}
 		private Dictionary<string, RuntimeDataEntry> _data;
 
+		/// <summary>
+		/// Whether any entries within this collection are dirty.
+		/// </summary>
+		public override bool Dirty
+		{
+			get
+			{
+				return _data.Count > 0 && Data.Any((d) => d.Dirty);
+			}
+		}
+
 		public RuntimeDataCollection(string id, List<RuntimeDataEntry> dataEntries = null, RuntimeDataCollection parent = null) : base(id, null, parent)
 		{
-			if (dataEntries != null)
-			{
-				Data = dataEntries;
-			}
-			else
-			{
-				_data = new Dictionary<string, RuntimeDataEntry>();
-			}
+			Data = dataEntries ?? new List<RuntimeDataEntry>();
 		}
 
 		public override void Dispose()
@@ -65,6 +73,24 @@ namespace SpaxUtils
 				entry.Value.Dispose();
 			}
 			base.Dispose();
+		}
+
+		public RuntimeDataEntry this[string id]
+		{
+			get
+			{
+				if (ContainsEntry(id))
+				{
+					return GetEntry(id);
+				}
+
+				SpaxDebug.Error("No entry present for ID:", id);
+				return null;
+			}
+			set
+			{
+				TryAdd(value, true);
+			}
 		}
 
 		#region Static Functions
@@ -92,11 +118,11 @@ namespace SpaxUtils
 				// If entry is collection, clone and add.
 				if (entry is RuntimeDataCollection childCollection)
 				{
-					to.TryAdd(childCollection.Clone(), overwrite);
+					to.TryAdd(childCollection.CloneCollection(), overwrite);
 				}
 				else // If entry is not a collection, 
 				{
-					to.TryAdd(new RuntimeDataEntry(entry), overwrite);
+					to.TryAdd(new RuntimeDataEntry(entry, null, entry.Dirty), overwrite);
 				}
 			}
 		}
@@ -141,18 +167,19 @@ namespace SpaxUtils
 		/// <param name="dispose">Should the <see cref="RuntimeDataEntry"/> be disposed after removal?</param>
 		public bool TryRemove(string id, bool dispose = false)
 		{
-			RuntimeDataEntry present = GetEntry(id);
+			RuntimeDataEntry entry = GetEntry(id);
 
-			if (present == null)
+			if (entry == null)
 			{
 				return false;
 			}
 
-			present.Parent = null;
+			_data.Remove(id);
+			entry.Parent = null;
 
 			if (dispose)
 			{
-				present.Dispose();
+				entry.Dispose();
 			}
 
 			return true;
@@ -164,18 +191,24 @@ namespace SpaxUtils
 		/// <param name="id">The id of data entry we're looking to replace.</param>
 		/// <param name="value">The value to set in the data entry of type <paramref name="id"/>.</param>
 		/// <param name="createIfNull">If the desired data entry does not exist yet, should it be created?</param>
-		public void SetValue(string id, object value, bool createIfNull = true)
+		public void SetValue(string id, object value, bool createIfNull = true, bool dirty = true)
 		{
 			RuntimeDataEntry entry = GetEntry(id);
 			if (entry != null)
 			{
+				bool wasDirty = entry.Dirty;
 				entry.Value = value;
+				if (!wasDirty && !dirty)
+				{
+					// If entry already was dirty, don't make it not dirty.
+					entry.Dirty = false;
+				}
 				DataUpdatedEvent?.Invoke(entry);
 			}
 			else if (createIfNull)
 			{
-				entry = new RuntimeDataEntry(id, value, this);
-				_data.Add(entry.ID, entry);
+				entry = new RuntimeDataEntry(id, value, this, dirty);
+				//_data.Add(entry.ID, entry);
 				DataUpdatedEvent?.Invoke(entry);
 			}
 		}
@@ -189,6 +222,12 @@ namespace SpaxUtils
 		/// <returns>Entry with ID <paramref name="id"/>, NULL if null.</returns>
 		public RuntimeDataEntry GetEntry(string id)
 		{
+			if (_data == null)
+			{
+				SpaxDebug.Error($"Collection ({ID}) data is NULL. This should not be possible.", $"Failed to get entry for ID: ({id}).");
+				return null;
+			}
+
 			if (_data.ContainsKey(id))
 			{
 				return _data[id];
@@ -200,12 +239,18 @@ namespace SpaxUtils
 		/// Returns entry with ID <paramref name="id"/> and casts it to <typeparamref name="T"/>, if any.
 		/// </summary>
 		/// <param name="id">The ID of the entry to retrieve.</param>
-		public bool TryGetEntry<T>(string id, out T result) where T : RuntimeDataEntry
+		public bool TryGetEntry<T>(string id, out T result, T defaultIfNull = null) where T : RuntimeDataEntry
 		{
 			result = null;
 			RuntimeDataEntry entry = GetEntry(id);
 			if (entry == null)
 			{
+				if (defaultIfNull != null)
+				{
+					result = defaultIfNull;
+					return TryAdd(defaultIfNull);
+				}
+
 				return false;
 			}
 			else
@@ -334,7 +379,7 @@ namespace SpaxUtils
 					value = cast;
 					return true;
 				}
-				SpaxDebug.Error($"Invalid value cast:", $"From '{entry.Value}' to '{typeof(T).FullName}\nEntry:\n{entry}");
+				//SpaxDebug.Error($"Invalid value cast:", $"From '{entry.Value}' to '{typeof(T).FullName}\nEntry:\n{entry}");
 			}
 			value = default;
 			return false;
@@ -344,12 +389,18 @@ namespace SpaxUtils
 
 		#region Cloning and Appending
 
+		/// <inheritdoc/>
+		public override RuntimeDataEntry Clone(string id = null)
+		{
+			return CloneCollection();
+		}
+
 		/// <summary>
 		/// Create a deep copy of this <see cref="RuntimeDataCollection"/>.
 		/// </summary>
-		public RuntimeDataCollection Clone(string id = null)
+		public RuntimeDataCollection CloneCollection(string id = null)
 		{
-			RuntimeDataCollection collection = new RuntimeDataCollection(id ?? ID);
+			RuntimeDataCollection collection = new RuntimeDataCollection(id.IsNullOrEmpty() ? ID : id);
 
 			if (_data == null)
 			{
@@ -366,9 +417,9 @@ namespace SpaxUtils
 		/// </summary>
 		/// <param name="runtimeDataCollection">The collection to copy the entries from.</param>
 		/// <param name="overwrite">If this collection already contains an entry with the same ID, should it be overwritten?</param>
-		public RuntimeDataCollection Append(RuntimeDataCollection runtimeDataCollection, bool overwrite = false)
+		public RuntimeDataCollection AppendCollection(RuntimeDataCollection runtimeDataCollection, bool overwrite = false)
 		{
-			if (runtimeDataCollection != null && runtimeDataCollection.Data.Count > 0)
+			if (runtimeDataCollection != null && runtimeDataCollection.Data.Count > 0 && runtimeDataCollection != this)
 			{
 				CopyData(runtimeDataCollection, this, overwrite);
 			}
@@ -380,22 +431,36 @@ namespace SpaxUtils
 		/// In case of duplicate ID's, the entry already in this collection will take precedence.
 		/// </summary>
 		/// <param name="collections">The collections to copy the entries from.</param>
-		public RuntimeDataCollection Append(params RuntimeDataCollection[] collections)
+		public RuntimeDataCollection AppendCollections(params RuntimeDataCollection[] collections)
 		{
 			foreach (RuntimeDataCollection collection in collections)
 			{
-				Append(collection);
+				AppendCollection(collection);
 			}
 			return this;
 		}
 
 		#endregion
 
+		/// <summary>
+		/// Converts all runtime data to string using json serializer.
+		/// </summary>
 		public override string ToString()
 		{
-			return SpaxJsonUtils.Serialize(this);
+			return SpaxJsonUtils.Serialize(this, false); // Outputs all raw data contained in collection.
 		}
 
+		/// <summary>
+		/// Converts only DIRTY runtime data to string using json serializer.
+		/// </summary>
+		public string ToStringOptimized()
+		{
+			return SpaxJsonUtils.Serialize(this, true); // Outputs only dirty data contained in collection.
+		}
+
+		/// <summary>
+		/// Converts all runtime data to string explicitly, circumventing the json serializer.
+		/// </summary>
 		public override string ToStringExplicit()
 		{
 			return $"{{\n\tID={ID};\n\tData\n\t{{\n\t\t{string.Join(";\n\t\t", Data.Select((d) => d.ToStringExplicit()))}\n\t}}\n}}";

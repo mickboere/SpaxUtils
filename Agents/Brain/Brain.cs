@@ -22,6 +22,8 @@ namespace SpaxUtils
 		private Dictionary<string, BrainState> states;
 		private StateMachine stateMachine;
 		private Dictionary<StateMachineGraph, StateMachineGraph> graphInstances;
+		private Dictionary<string, string> superimposerLayers = new Dictionary<string, string>();
+		private bool autoTransition = true;
 
 		public Brain(
 			IDependencyManager dependencyManager,
@@ -134,8 +136,8 @@ namespace SpaxUtils
 			if (state == null)
 			{
 				// State does not exist yet, create it using the template.
-				BrainState parent = (template == null || template.Parent == null) ? null : EnsureState(template.Parent.ID, template.Parent);
-				state = new BrainState(id, parent, (template == null || template.DefaultChild == null) ? null : template.DefaultChild.ID);
+				BrainState parent = (template == null || template.ParentState == null) ? null : EnsureState(template.ParentState.ID, template.ParentState);
+				state = new BrainState(id, parent, (template == null || template.DefaultChildState == null) ? null : template.DefaultChildState.ID);
 				states.Add(id, state);
 				stateMachine.AddState(state, false);
 
@@ -157,6 +159,65 @@ namespace SpaxUtils
 			return HeadState != null && StateHierarchy.Any((s) => s.ID == id);
 		}
 
+		/// <inheritdoc/>
+		public void SuperimposeState(string id, string child = null, string layer = null)
+		{
+			if (!layer.IsNullOrEmpty())
+			{
+				if (superimposerLayers.ContainsKey(layer) && superimposerLayers[layer] != id)
+				{
+					autoTransition = false;
+					DeposeState(superimposerLayers[layer]);
+					autoTransition = true;
+				}
+				superimposerLayers[layer] = id;
+			}
+
+			IState state = EnsureState(id);
+			IState childState = child.IsNullOrEmpty() ? stateMachine.RootState : EnsureState(child);
+			if (childState.ParentState == state)
+			{
+				// Already superimposed.
+				return;
+			}
+			// Make child's parent state, whether null or not, the parent of our superimposed state.
+			state.SetParent(childState.ParentState);
+			// If child was default child of parent, make superimposed state default state instead.
+			if (childState.ParentState != null && childState.ParentState.DefaultChildState == childState)
+			{
+				childState.ParentState.SetDefaultChild(id);
+			}
+			// Finally re-parent child to superimposed state.
+			childState.SetParent(state);
+			// Attempt re-transition to current headstate to account for active hierarchy change.
+			if (autoTransition) stateMachine.TransitionImmediately(HeadState.ID);
+		}
+
+		/// <inheritdoc/>
+		public void DeposeState(string id, string layer = null)
+		{
+			if (!layer.IsNullOrEmpty())
+			{
+				superimposerLayers.Remove(layer);
+			}
+
+			IState state = EnsureState(id);
+			// For each child of superimposed state, set parent to superimposed state's parent --if any.
+			List<IState> children = state.Children.Values.ToList();
+			foreach (IState child in children)
+			{
+				child.SetParent(state.ParentState);
+			}
+			// If superimposed state had default child and superimposed state was default child of parent, make child new default.
+			if (state.ParentState != null && state.ParentState.DefaultChildState == state && state.DefaultChild != null)
+			{
+				state.ParentState.SetDefaultChild(state.DefaultChild);
+			}
+			state.SetParent(null);
+			// Attempt re-transition to current headstate to account for active hierarchy change.
+			if (autoTransition) stateMachine.TransitionImmediately(HeadState.ID);
+		}
+
 		#endregion States
 
 		#region Transitions
@@ -173,13 +234,13 @@ namespace SpaxUtils
 		#region Components
 
 		/// <inheritdoc/>
-		public bool TryAddComponent(string id, IStateComponent component)
+		public bool TryAddComponent(string id, IStateListener component)
 		{
 			return EnsureState(id).TryAddComponent(component);
 		}
 
 		/// <inheritdoc/>
-		public bool TryRemoveComponent(string id, IStateComponent component)
+		public bool TryRemoveComponent(string id, IStateListener component)
 		{
 			return EnsureState(id).TryRemoveComponent(component);
 		}

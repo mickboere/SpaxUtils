@@ -7,7 +7,7 @@ namespace SpaxUtils
 	/// <summary>
 	/// Interface for classes that are able to bind, inject, and locate dependencies.
 	/// </summary>
-	public interface IDependencyManager : IDisposable
+	public interface IDependencyManager : IDisposable, IIdentifiable
 	{
 		/// <summary>
 		/// The default method used for dependency injection.
@@ -20,6 +20,11 @@ namespace SpaxUtils
 		/// Returns first dependency of type <typeparamref name="T"/>.
 		/// </summary>
 		T Get<T>(bool includeParents = true, bool createIfNull = true);
+
+		/// <summary>
+		/// Returns first dependency of type <typeparamref name="T"/>, if any.
+		/// </summary>
+		bool TryGet<T>(out T result, bool includeParents = true);
 
 		/// <summary>
 		/// Returns dependency of type <typeparamref name="T"/> bound with <see cref="object"/> <paramref name="key"/>.
@@ -66,6 +71,11 @@ namespace SpaxUtils
 		bool Bind(object key, object value);
 
 		/// <summary>
+		/// Binds the given data without checking if the same key is already bound.
+		/// </summary>
+		void BindUnchecked(object key, object value);
+
+		/// <summary>
 		/// Unbinds the dependency stored with <paramref name="key"/>.
 		/// </summary>
 		void UnbindKey(object key);
@@ -82,6 +92,9 @@ namespace SpaxUtils
 
 		#endregion
 
+		/// <summary>
+		/// Returns a string summarizing all data stored within this dependency manager.
+		/// </summary>
 		string GetDebugOutput();
 	}
 }

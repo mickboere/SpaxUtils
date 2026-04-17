@@ -1,0 +1,18 @@
+﻿using SpaxUtils.StateMachines;
+
+namespace SpaxUtils
+{
+	public class AgentStateIdentifiers : IStateIdentifiers
+	{
+		public const string INACTIVE = "Inactive";
+		public const string ACTIVE = "Active";
+		public const string CONTROL = "Control";
+		public const string PASSIVE = "Passive";
+		public const string IDLE = "Idle";
+		public const string INTERACTING = "Interacting";
+		public const string COMBAT = "Combat";
+		public const string DEAD = "Dead";
+		public const string CUTSCENE = "Cutscene";
+		public const string LOBBY = "Lobby";
+	}
+}

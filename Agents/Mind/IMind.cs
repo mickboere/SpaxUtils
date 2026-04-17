@@ -9,7 +9,7 @@ namespace SpaxUtils
 	/// Interface for an <see cref="IAgent"/>'s mind.
 	/// Keeps track of the agent's emotions, objectives and memories.
 	/// </summary>
-	public interface IMind
+	public interface IMind : IDisposable
 	{
 		/// <summary>
 		/// Invoked when the mind is activated.
@@ -43,7 +43,12 @@ namespace SpaxUtils
 		bool Active { get; }
 
 		/// <summary>
-		/// The mind's personality profile responsible for simulation weights.
+		/// The mind's inclination profile responsible for stimulation weights.
+		/// </summary>
+		Vector8 Inclination { get; }
+
+		/// <summary>
+		/// The mind's personality profile, used by active behaviours to determine sub-behaviour.
 		/// </summary>
 		Vector8 Personality { get; }
 
@@ -55,7 +60,7 @@ namespace SpaxUtils
 		/// <summary>
 		/// The stimulation profile that is currently the strongest and the entity responsible for it.
 		/// </summary>
-		(Vector8 motivation, IEntity target) Motivation { get; }
+		(Vector8 emotion, IEntity target) Motivation { get; }
 
 		/// <summary>
 		/// The <see cref="IMindBehaviour"/> currently in control of the Agent.
@@ -99,6 +104,19 @@ namespace SpaxUtils
 		/// <param name="satisfaction">The satisfaction to apply.</param>
 		/// <param name="source">The entity responsible for this satisfaction.</param>
 		void Satisfy(Vector8 satisfaction, IEntity source);
+
+		/// <summary>
+		/// Adds a stimulation filter to stimuli from <paramref name="entity"/>.
+		/// </summary>
+		/// <param name="entity">The source of stimuli to filter.</param>
+		/// <param name="filter">The stimulation multiplier.</param>
+		void SetFilter(IEntity entity, Vector8 filter);
+
+		/// <summary>
+		/// Removes a stimulation filter to no longer filter <paramref name="entity"/>'s stimuli.
+		/// </summary>
+		/// <param name="entity">The source of stimuli to no longer filter.</param>
+		void RemoveFilter(IEntity entity);
 
 		#endregion
 

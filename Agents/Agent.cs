@@ -11,10 +11,18 @@ namespace SpaxUtils
 	/// </summary>
 	public class Agent : Entity, IAgent
 	{
-		public event Action<IAgent> DiedEvent;
-		public event Action<IAgent> RevivedEvent;
+		public event Action<DeathContext> DiedEvent;
+		public event Action ReviveEvent;
+		public event Action RecoverEvent;
 
 		#region Properties
+
+		/// <inheritdoc/>
+		public bool Alive { get; protected set; }
+
+		/// <inheritdoc/>
+		public float Age => (float)_age;
+		private double _age;
 
 		/// <inheritdoc/>
 		public IActor Actor { get; private set; }
@@ -37,32 +45,67 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public ITargeter Targeter { get; private set; }
 
+		/// <inheritdoc/>
+		public ICommunicationChannel Comms { get; private set; }
+
 		#endregion Properties
 
 		protected override string GameObjectNamePrefix => "[Agent]";
 
-		[SerializeField, ConstDropdown(typeof(IStateIdentifierConstants))] private string state;
-		[SerializeField] private List<StateMachineGraph> brainGraphs;
+		[Header("Agent")]
+		[SerializeField, ConstDropdown(typeof(IStateIdentifiers))] private string state;
+		[SerializeField] private List<BrainGraph> brainGraphs;
 
-		private CallbackService callbackService;
-		private AEMOISettings aemoiSettings;
-		private InputToActMap inputToActMap;
-		private IPerformer[] performers;
 		private IRelationData[] relationData;
 
 		public void InjectDependencies(
-			IAgentBody body, ITargetable targetableComponent, ITargeter targeterComponent,
+			IAgentBody body, ITargetable targetableComponent, ITargeter targeterComponent, ICommunicationChannel comms,
 			CallbackService callbackService, AEMOISettings aemoiSettings, InputToActMap inputToActMap,
-			IPerformer[] performers, IRelationData[] relationData)
+			IPerformer[] performers, IRelationData[] relationData, BrainGraph[] brainGraphs, AEMOIBehaviourAsset[] behaviour,
+			[Optional, BindingIdentifier(MindDataIdentifiers.INCLINATION)] Vector8 inclination,
+			[Optional, BindingIdentifier(MindDataIdentifiers.PERSONALITY)] Vector8 personality)
 		{
 			Body = body;
 			Targetable = targetableComponent;
 			Targeter = targeterComponent;
-			this.callbackService = callbackService;
-			this.aemoiSettings = aemoiSettings;
-			this.inputToActMap = inputToActMap;
-			this.performers = performers;
+			Comms = comms;
+
 			this.relationData = relationData;
+
+			foreach (BrainGraph brainGraph in brainGraphs)
+			{
+				if (!this.brainGraphs.Contains(brainGraph))
+				{
+					this.brainGraphs.Add(brainGraph);
+				}
+			}
+
+			if (Actor != null)
+			{
+				SpaxDebug.Error($"[{Identification.ID}] Double injection on Agent!");
+				return;
+			}
+
+			// Initialize all Agent components.
+			Actor = new Actor($"ACTOR_{Identification.ID}", callbackService, inputToActMap, performers,
+				(state) => Brain != null && Brain.IsStateActive(state));
+			Brain = new Brain(DependencyManager, callbackService, state, null, brainGraphs);
+			// Create new instances of all injected mind behaviours and use them to initialize the Mind.
+			List<IMindBehaviour> mindBehaviours = behaviour.Select(b => (IMindBehaviour)b.CreateInstance()).ToList();
+			foreach (IMindBehaviour b in mindBehaviours)
+			{
+				DependencyManager.Inject(b);
+			}
+			Mind = new AEMOI(DependencyManager, aemoiSettings,
+				new StatOctad(this, aemoiSettings.Inclination, inclination == Vector8.Zero ? Vector8.Half : inclination),
+				new StatOctad(this, aemoiSettings.Personality, personality == Vector8.Zero ? Vector8.Half : personality),
+				mindBehaviours);
+			LoadRelations();
+
+			// Bind Agent components so that later injections can retrieve them easily (this is meant for Nodes, not EntityComponents as they may already be injected before this).
+			DependencyManager.Bind(Actor);
+			DependencyManager.Bind(Mind);
+			DependencyManager.Bind(Brain);
 		}
 
 		protected override void Awake()
@@ -76,65 +119,87 @@ namespace SpaxUtils
 			}
 #endif
 
-			// Initialize all Agent components.
-			Actor = new Actor($"ACTOR_{Identification.ID}", callbackService, inputToActMap, performers);
-			Mind = new AEMOI(DependencyManager, aemoiSettings, new StatOcton(this, aemoiSettings.Personality, Vector8.Half));
-			Brain = new Brain(DependencyManager, callbackService, state, null, brainGraphs);
-			LoadRelations();
-
-			// Start the Brain to become alive.
+			// Start the Brain to come to life.
 			Brain.EnteredStateEvent += OnEnteredStateEvent;
 			Brain.Start();
 		}
 
-		protected void OnDestroy()
+		protected override void Update()
+		{
+			base.Update();
+
+			if (Alive)
+			{
+				_age += Time.deltaTime;
+			}
+		}
+
+		protected override void OnDestroy()
 		{
 			((Actor)Actor)?.Dispose();
 			Brain?.Dispose();
+			Mind?.Dispose();
+			base.OnDestroy();
+		}
+
+		protected override void ApplyData()
+		{
+			base.ApplyData();
+
+			// Retrieve whether this entity was last alive when its data was saved.
+			Alive = RuntimeData.GetValue(EntityDataIdentifiers.ALIVE, false);
+			_age = RuntimeData.GetValue(EntityDataIdentifiers.AGE, 0d);
+			if (Alive && RuntimeData.GetValue<string>(EntityDataIdentifiers.SCENE) == sceneService.CurrentScene)
+			{
+				Transform.position = RuntimeData.GetValue(EntityDataIdentifiers.POSITION, transform.position);
+				Transform.eulerAngles = RuntimeData.GetValue(EntityDataIdentifiers.ROTATION, transform.eulerAngles);
+			}
+			Alive = true; // Entity is being initialized so it is now definitely alive.
+		}
+
+		protected override void OnSavingData()
+		{
+			base.OnSavingData();
+			RuntimeData.SetValue(EntityDataIdentifiers.ALIVE, Alive);
+			RuntimeData.SetValue(EntityDataIdentifiers.AGE, _age);
+			RuntimeData.SetValue(EntityDataIdentifiers.SCENE, sceneService.CurrentScene);
+			RuntimeData.SetValue(EntityDataIdentifiers.POSITION, Transform.position);
+			RuntimeData.SetValue(EntityDataIdentifiers.ROTATION, Transform.eulerAngles);
 		}
 
 		/// <inheritdoc/>
-		public void Die(ITransition transition = null)
+		public void Die(DeathContext context)
 		{
-			if (Alive && Brain.TryTransition(StateIdentifiers.DEAD, transition))
+			if (!Alive)
 			{
-				Alive = false;
-				Actor.TryCancel(true);
-				Actor.Blocked = true;
-				DiedEvent?.Invoke(this);
-			}
-		}
-
-		/// <inheritdoc/>
-		public void Revive(ITransition transition = null)
-		{
-			if (!Alive && Brain.TryTransition(StateIdentifiers.ACTIVE, transition))
-			{
-				Alive = true;
-				Actor.Blocked = false;
-				RevivedEvent?.Invoke(this);
-			}
-		}
-
-		/// <summary>
-		/// Will store <paramref name="graphs"/> during initialization to inject them during the Brain's creation.
-		/// </summary>
-		/// <param name="graphs">The <see cref="StateMachineGraph"/>(s) to initialize the brain with.</param>
-		public void AddInitialBrainGraphs(IEnumerable<StateMachineGraph> graphs)
-		{
-			if (Brain != null)
-			{
-				SpaxDebug.Error("Brain graphs cannot be added to Agent because the Brain has already been initialized.", "Use Brain.AppendGraph() instead.");
 				return;
 			}
 
-			foreach (StateMachineGraph graph in graphs)
+			Alive = false;
+			Actor.TryCancel(true);
+			Actor.AddBlocker(this);
+			Brain.TryTransition(AgentStateIdentifiers.DEAD);
+			DiedEvent?.Invoke(context);
+		}
+
+		/// <inheritdoc/>
+		public void Revive()
+		{
+			if (!Alive && (Brain.IsStateActive(AgentStateIdentifiers.ACTIVE) || Brain.TryTransition(AgentStateIdentifiers.ACTIVE)))
 			{
-				if (!brainGraphs.Contains(graph))
-				{
-					brainGraphs.Add(graph);
-				}
+				Alive = true;
+				Actor.RemoveBlocker(this);
 			}
+
+			Recover();
+
+			ReviveEvent?.Invoke();
+		}
+
+		/// <inheritdoc/>
+		public void Recover()
+		{
+			RecoverEvent?.Invoke();
 		}
 
 		private void LoadRelations()
@@ -171,8 +236,7 @@ namespace SpaxUtils
 		private void OnEnteredStateEvent(IState state)
 		{
 			this.state = state.ID;
-
-			SpaxDebug.Notify($"[{Identification.Name}]", $"OnEnteredStateEvent({string.Join(", ", Brain.StateHierarchy.Select(s => s.ID))})");
+			//SpaxDebug.Notify($"[{Identification.Name}]", $"OnEnteredStateEvent({string.Join(", ", Brain.StateHierarchy.Select(s => s.ID))})");
 		}
 	}
 }

@@ -269,5 +269,69 @@ namespace SpaxUtils
 		}
 
 		#endregion // Scan Points
+
+		#region Charge Prediction
+
+		/// <summary>
+		/// Predict how much we intend to charge and how long that will take.
+		/// intent: 0..1 (0 = minimum charge only, 1 = as close to MaxCharge as possible).
+		/// </summary>
+		public static void GetChargePrediction(
+			ICombatMove move,
+			float intent,
+			float chargeSpeed,
+			out float chargeTime,
+			out float chargeFactor)
+		{
+			if (move == null || !move.HasCharge)
+			{
+				chargeTime = 0f;
+				chargeFactor = 1f; // no extra damage / storm
+				return;
+			}
+
+			float invSpeed = 1f / Mathf.Max(chargeSpeed, 0.01f);
+			float minT = move.MinCharge * invSpeed;
+			float maxT = move.MaxCharge > 0f ? move.MaxCharge * invSpeed : minT;
+
+			intent = Mathf.Clamp01(intent);
+			float t = Mathf.Lerp(minT, maxT, intent);
+
+			chargeTime = t;
+
+			// Map charge time into an "excess" factor 1..2:
+			//  1   = minimum charge,
+			//  2   = maximum charge.
+			if (maxT > minT)
+			{
+				float norm = Mathf.InverseLerp(minT, maxT, t); // 0..1
+				chargeFactor = 1f + norm; // 1..2
+			}
+			else
+			{
+				chargeFactor = 1f;
+			}
+		}
+
+		/// <summary>
+		/// Given a melee move and a chargeFactor (1..2), estimate the storm distance
+		/// and effective reach (baseReach + storm travel).
+		/// </summary>
+		public static float GetStormReach(IMeleeCombatMove meleeMove, float baseReach, float chargeFactor, out float stormDistance)
+		{
+			stormDistance = 0f;
+			if (meleeMove == null || meleeMove.StormDistance <= 0f || chargeFactor <= 1f)
+			{
+				return baseReach;
+			}
+
+			// Only the "excess" over 1 increases storm distance.
+			float excess = Mathf.Clamp01(chargeFactor - 1f); // 0..1
+			stormDistance = meleeMove.StormDistance * excess;
+
+			return baseReach + stormDistance;
+		}
+
+		#endregion // Charge Prediction
 	}
 }

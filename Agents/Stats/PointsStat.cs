@@ -1,5 +1,7 @@
 ﻿using System;
 using UnityEngine;
+using UnityEngine.Serialization;
+using UnityEngine.UI;
 
 namespace SpaxUtils
 {
@@ -10,7 +12,7 @@ namespace SpaxUtils
 	public class PointsStat
 	{
 		#region Tooltips
-		private const string TT_hasMax = "Whether this stat has an associated maximum value stat. If false, the max will be the same as the current value.";
+		private const string TT_defaultIsFull = "When true, a full recovery of the agent will ensure the stat is also fully recovered.";
 		private const string TT_hasRecovery = "Whether this stat automatically recovers points over time.";
 		private const string TT_isRecoverable = "Whether this stat has a diminishable recoverable amount separate from its max amount.";
 		private const string TT_overdraw = "The amount taxed from the recoverable amount when the stat is overdrawn (below 0). Default: 1.";
@@ -19,45 +21,70 @@ namespace SpaxUtils
 		public string Identifier => stat;
 		public EntityStat Current { get; private set; }
 		public EntityStat Max { get; private set; }
-		public EntityStat Cost { get; private set; }
-		public EntityStat Recoverable { get; private set; }
+		public EntityStat GainMult { get; private set; }
+		public EntityStat DrainMult { get; private set; }
+		public EntityStat Reserve { get; private set; }
 		public EntityStat Recovery { get; private set; }
 		public EntityStat RecoveryDelay { get; private set; }
 		public EntityStat Frailty { get; private set; }
+		public EntityStat Exp { get; private set; }
+		public EntityStat ExpGainMult { get; private set; }
 
-		public bool HasMax => hasMax;
-		public bool HasRecovery => hasMax && hasRecovery;
-		public bool IsRecoverable => hasMax && isRecoverable;
+		public bool DefaultIsFull => defaultIsFull;
+		public bool HasRecovery => hasRecovery;
+		public bool HasReserve => hasReserve;
+
+		/// <summary>
+		/// The current value of the Current stat's base value.
+		/// </summary>
+		public float Value { get { return Current.BaseValue; } protected set { Current.BaseValue = value; } }
 
 		/// <summary>
 		/// How much the curent points make up of the max points.
 		/// </summary>
-		public float PercentileMax => Current / Max;
+		public float PercentageMax => Current / Max;
+
 		/// <summary>
-		/// How much the current points make up of the recoverable points.
+		/// How much the current points make up of the recoverable points (if no reserve, max).
 		/// </summary>
-		public float PercentileRecoverable => IsRecoverable ? Current / Recoverable : PercentileMax;
+		public float PercentageRecoverable => HasReserve ? Current / Reserve : PercentageMax;
+
 		/// <summary>
 		/// How much the recoverable points make up of the max points.
 		/// </summary>
-		public float RecoverablePercentile => IsRecoverable ? Recoverable / Max : 1f;
+		public float ReservePercentage => HasReserve ? Reserve / Max : 1f;
+
 		/// <summary>
 		/// Whether the stat points are currently recovering.
 		/// </summary>
-		public bool IsRecovering => HasRecovery && (recoveryTimer == null || recoveryTimer.Expired) && !PercentileRecoverable.Approx(1f);
+		public bool IsRecovering => HasRecovery && (recoveryTimer == null || recoveryTimer.Expired) && !PercentageRecoverable.Approx(1f);
 
-		[SerializeField, ConstDropdown(typeof(IStatIdentifierConstants), includeEmpty: true)] private string stat;
-		[SerializeField, Tooltip(TT_hasRecovery)] private bool hasMax = true;
-		[SerializeField, Conditional(nameof(hasMax), hide: true), Tooltip(TT_hasRecovery)] private bool hasRecovery;
-		[SerializeField, Conditional(nameof(hasMax), hide: true), Tooltip(TT_isRecoverable)] private bool isRecoverable;
-		[SerializeField, Conditional(nameof(isRecoverable), hide: true), Tooltip(TT_overdraw)] private float overdraw = 1f;
+		/// <summary>
+		/// Whether the stat points are currently recovering after having been drained completely.
+		/// </summary>
+		public bool IsRecoveringFromZero => wasDrained && (Current.BaseValue.Approx(0f) || IsRecovering);
+
+		[SerializeField, ConstDropdown(typeof(IStatIdentifiers), includeEmpty: true)] private string stat;
+		[SerializeField, Tooltip(TT_defaultIsFull)] private bool defaultIsFull = true;
+		[SerializeField, Tooltip(TT_hasRecovery)] private bool hasRecovery;
+		[SerializeField] private float drainedRecoveryDelayPenalty = 1.5f;
+		[SerializeField, Tooltip(TT_isRecoverable)] private bool hasReserve;
+		[SerializeField, Conditional(nameof(hasReserve), hide: true), Tooltip(TT_overdraw)] private float overdraw = 0f;
+
+		[SerializeField, ConstDropdown(typeof(IStatIdentifiers), includeEmpty: true)] private string expStat;
+		[SerializeField] private float expGainMultiplier = 1f;
+		[SerializeField] private float expDrainMultiplier = 1f;
 
 		private bool initialized = false;
 		private EntityStat timescale;
 		private float lastCurrent;
-		private float lastDamage;
+		private float lastOverdraw;
+		private bool wasDrained;
 
 		private TimerClass recoveryTimer;
+
+		// When true, the next Current.ValueChanged callback is considered an internal clamp write and should not grant EXP or run damage/heal logic.
+		private bool suppressNextReward;
 
 		public void Initialize(IEntity entity)
 		{
@@ -67,48 +94,45 @@ namespace SpaxUtils
 				return;
 			}
 
-			string maxId = stat.SubStat(AgentStatIdentifiers.SUB_MAX);
-			string costId = stat.SubStat(AgentStatIdentifiers.SUB_COST);
-			string recoverableId = stat.SubStat(AgentStatIdentifiers.SUB_RECOVERABLE);
-			string frailtyId = stat.SubStat(AgentStatIdentifiers.SUB_FRAILTY);
-			string recoveryId = stat.SubStat(AgentStatIdentifiers.SUB_RECOVERY);
-			string recoveryDelayId = stat.SubStat(AgentStatIdentifiers.SUB_RECOVERY_DELAY);
+			timescale = entity.Stats.GetStat(EntityStatIdentifiers.TIMESCALE, true, 1f);
 
-			timescale = entity.GetStat(EntityStatIdentifiers.TIMESCALE, true, 1f);
+			Current = entity.Stats.GetStat(stat, true);
 
-			Current = entity.GetStat(stat, true);
+			lastCurrent = Current;
+			Current.ValueChangedEvent += OnCurrentChangedEvent;
 
-			if (HasMax)
+			Max = entity.Stats.GetStat(stat.SubStat(AgentStatIdentifiers.SUB_MAX), true);
+			Max.ValueChangedEvent += OnMaxChangedEvent;
+
+			GainMult = entity.Stats.GetStat(stat.SubStat(AgentStatIdentifiers.SUB_GAIN), true, 1f);
+			DrainMult = entity.Stats.GetStat(stat.SubStat(AgentStatIdentifiers.SUB_DRAIN), true, 1f);
+
+			if (HasReserve)
 			{
-				Current.ValueChangedEvent += OnCurrentChangedEvent;
-				lastCurrent = Current;
-
-				Max = entity.GetStat(maxId, true);
-				Max.ValueChangedEvent += OnMaxChangedEvent;
-			}
-
-			Cost = entity.GetStat(costId, true, 1f);
-
-			if (IsRecoverable)
-			{
-				Recoverable = entity.GetStat(recoverableId, true);
-				Recoverable.ValueChangedEvent += OnRecoverableChangedEvent;
-				Frailty = entity.GetStat(frailtyId);
+				Reserve = entity.Stats.GetStat(stat.SubStat(AgentStatIdentifiers.SUB_RESERVE), true);
+				Reserve.ValueChangedEvent += OnRecoverableChangedEvent;
+				Frailty = entity.Stats.GetStat(stat.SubStat(AgentStatIdentifiers.SUB_FRAILTY));
 			}
 			if (HasRecovery)
 			{
-				Recovery = entity.GetStat(recoveryId, true);
-				RecoveryDelay = entity.GetStat(recoveryDelayId, true);
+				Recovery = entity.Stats.GetStat(stat.SubStat(AgentStatIdentifiers.SUB_RECOVERY), true);
+				RecoveryDelay = entity.Stats.GetStat(stat.SubStat(AgentStatIdentifiers.SUB_RECOVERY_DELAY), true);
 			}
 
-			if (HasMax && Current.BaseValue > Max)
+			if (Value > Max)
 			{
-				// Health points have been manually supplied through data, accomodate for it.
-				Max.BaseValue = Current.BaseValue - Max;
-				if (isRecoverable)
+				// Points have been manually supplied through data, accomodate for it.
+				Max.BaseValue = Value - Max; // Account for Max modifiers.
+				if (hasReserve)
 				{
-					Recoverable.BaseValue = Max;
+					Reserve.BaseValue = Max;
 				}
+			}
+
+			if (!string.IsNullOrEmpty(expStat))
+			{
+				Exp = entity.Stats.GetStat(expStat, true);
+				ExpGainMult = entity.Stats.GetStat(expStat.SubStat(AgentStatIdentifiers.SUB_GAIN), true, 1f);
 			}
 
 			initialized = true;
@@ -123,98 +147,182 @@ namespace SpaxUtils
 
 			if (HasRecovery && (recoveryTimer == null || recoveryTimer.Expired))
 			{
-				if (IsRecoverable)
+				float cap = HasReserve ? (float)Reserve : (float)Max;
+				float target = Mathf.Min(cap, Current.BaseValue + Recovery * delta * timescale);
+				if (target > Current.BaseValue)
 				{
-					// Recover Current towards Recoverable.
-					Current.BaseValue = Mathf.Min(Recoverable, Current.BaseValue + Recovery * delta * timescale);
-				}
-				else
-				{
-					// Recover Current towards Max.
-					Current.BaseValue = Mathf.Min(Max, Current.BaseValue + Recovery * delta * timescale);
+					Set(target, true);
 				}
 			}
 		}
 
 		/// <summary>
-		/// Set the stat's current value to its max value.
+		/// Sets the Current's BaseValue to the target value.
+		/// If rewardsEXP is true, the delta between previous and new value will be rewarded as EXP.
 		/// </summary>
-		public void Recover()
+		/// <returns>The delta between the previous and the current value.</returns>
+		public float Set(float target, bool rewardsEXP)
 		{
-			if (!initialized || !HasMax)
-			{
-				return;
-			}
+			suppressNextReward = !rewardsEXP;
+			float previous = Value;
+			Value = target;
+			// <OnCurrentChangedEvent has now been called, clamping the Value>
+			return Value - previous;
+		}
 
-			Current.BaseValue = Max;
+		/// <summary>
+		/// Adds points to the Current stat, optionally applying the implicit Gain multiplier.
+		/// </summary>
+		/// <returns>Returns the amount that was actually gained.</returns>
+		public float Gain(float amount, bool applyMultiplier = true)
+		{
+			amount *= applyMultiplier ? GainMult : 1f;
+			return Set(Current.BaseValue + amount, true);
+		}
+
+		/// <summary>
+		/// Subtracts points from the Current stat, optionally applying the implicit Drain multiplier.
+		/// </summary>
+		/// <returns>Returns the amount that was actually drained.</returns>
+		public float Drain(float amount, bool applyMultiplier = true)
+		{
+			amount *= applyMultiplier ? DrainMult : 1f;
+			return -Set(Current.BaseValue - amount, true);
+		}
+
+		/// <summary>
+		/// Subtracts points from the Current stat, optionally applying the implicit Drain multiplier.
+		/// Has out parameters to indicate if fully drained and any overdraw amount.
+		/// </summary>
+		/// <returns>Returns the amount that was actually drained (amount-overdraw).</returns>
+		public float Drain(float amount, out bool drained, bool applyMultiplier = true)
+		{
+			float damage = Drain(amount, applyMultiplier);
+			drained = Value.Approx(0f);
+			return damage;
+		}
+
+		/// <summary>
+		/// Subtracts points from the Current stat, optionally applying the implicit Drain multiplier.
+		/// Has out parameters to indicate if fully drained and any overdraw amount.
+		/// </summary>
+		/// <returns>Returns the amount that was actually drained (amount-overdraw).</returns>
+		public float Drain(float amount, out bool drained, out float overdraw, bool applyMultiplier = true)
+		{
+			lastOverdraw = 0f;
+			float damage = Drain(amount, applyMultiplier);
+			drained = Value.Approx(0f);
+			overdraw = lastOverdraw;
+			return damage;
+		}
+
+		/// <summary>
+		/// Sets the current value to the max value.
+		/// </summary>
+		public float Recover()
+		{
+			return Set(Max, false);
 		}
 
 		private void OnCurrentChangedEvent()
 		{
-			float current = this.Current.BaseValue;
+			float current = Value;
+			float damage = lastCurrent - current;
 
-			if (current > Max)
+			// Calculate overdraw before clamping.
+			if (current < 0)
 			{
-				// Current cannot exceed Max.
-				this.Current.BaseValue = Max;
-				// Return here as this change will have reinvoked this callback.
+				lastOverdraw = Mathf.Abs(current);
+				// Apply overdraw damage to Reserve.
+				if (HasReserve && overdraw > 0f)
+				{
+					Reserve.BaseValue -= lastOverdraw * overdraw;
+				}
+			}
+
+			// Clamp Current between 0 and Max.
+			if (current < 0f || current > Max)
+			{
+				Value = Mathf.Clamp(Value, 0f, Max);
+				// OnChanged is reinvoked by the above line, exit this call.
 				return;
 			}
 
-			if (current < lastCurrent)
+			// Reward EXP for the change in Current, unless suppressed.
+			if (suppressNextReward) suppressNextReward = false;
+			else RewardExp(damage);
+
+			// Check if no longer drained.
+			if (PercentageRecoverable.Approx(1f))
 			{
-				// Damage has occured to the Current stat.
-				lastDamage = lastCurrent - current;
-				if (IsRecoverable)
+				wasDrained = false;
+			}
+
+			// Handle damage.
+			if (damage > 0f)
+			{
+				if (current.Approx(0f))
+				{
+					wasDrained = true;
+				}
+
+				if (HasReserve)
 				{
 					if (Frailty != null)
 					{
-						// Subtract frailty damage from recoverable.
-						Recoverable.BaseValue -= lastDamage * Frailty;
-					}
-
-					if (current < 0)
-					{
-						// Substract overdraw damage from recoverable.
-						if (lastCurrent < 0)
-						{
-							Recoverable.BaseValue -= lastDamage * overdraw;
-						}
-						else
-						{
-							Recoverable.BaseValue -= Mathf.Abs(current) * overdraw;
-						}
+						// Subtract frailty damage from reserve.
+						Reserve.BaseValue -= damage * Frailty;
 					}
 				}
 
-				float duration = current < Mathf.Epsilon ? RecoveryDelay * 1.5f : RecoveryDelay;
-				recoveryTimer = recoveryTimer?.Reset(duration) ?? new TimerClass(duration, () => timescale, true);
+				if (HasRecovery)
+				{
+					float duration = wasDrained ? RecoveryDelay * drainedRecoveryDelayPenalty : RecoveryDelay;
+					recoveryTimer = recoveryTimer?.Reset(duration) ?? new TimerClass(duration, () => timescale, true);
+				}
 			}
-			else if (IsRecoverable)
+			else if (HasReserve && current > Reserve)
 			{
 				// Current has healed, Recoverable cannot be smaller than Current.
-				Recoverable.BaseValue = Mathf.Max(Recoverable, current);
+				Reserve.BaseValue = current;
 			}
 
 			lastCurrent = current;
 		}
 
+		private void RewardExp(float damage)
+		{
+			if (Exp == null)
+			{
+				return;
+			}
+
+			float mult = damage >= 0f ? expDrainMultiplier : expGainMultiplier;
+			Exp.BaseValue += damage.Abs() * mult * ExpGainMult;
+		}
+
 		private void OnMaxChangedEvent()
 		{
-			// Current cannot exceed Max.
-			Current.BaseValue = Mathf.Min(Current, Max);
+			// Current cannot exceed Max. This clamp should not grant EXP or count as an action.
+			float clamped = Mathf.Min(Current, Max);
+			if (!Current.BaseValue.Approx(clamped))
+			{
+				suppressNextReward = true;
+				Current.BaseValue = clamped;
+				lastCurrent = clamped;
+			}
 
-			if (IsRecoverable)
+			if (HasReserve)
 			{
 				// Recoverable cannot exceed Max.
-				Recoverable.BaseValue = Mathf.Min(Recoverable, Max);
+				Reserve.BaseValue = Mathf.Min(Reserve, Max);
 			}
 		}
 
 		private void OnRecoverableChangedEvent()
 		{
 			// Recoverable cannot exceed Max.
-			Recoverable.BaseValue = Mathf.Min(Recoverable, Max);
+			Reserve.BaseValue = Mathf.Min(Reserve, Max);
 		}
 
 		public static implicit operator float(PointsStat pointsStat)

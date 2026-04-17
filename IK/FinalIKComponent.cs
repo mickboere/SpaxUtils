@@ -6,6 +6,7 @@ using System.Linq;
 
 namespace SpaxUtils
 {
+	[DefaultExecutionOrder(9000)]
 	public class FinalIKComponent : IKComponentBase
 	{
 		[Serializable]
@@ -30,12 +31,17 @@ namespace SpaxUtils
 
 		protected override Dictionary<string, UpdateMode> Settings { get; set; }
 
+		[SerializeField] protected Transform ikTransformsRoot;
 		[SerializeField] protected FullBodyBipedIK fullBodyIK;
 		[SerializeField] protected LookAtIK lookAtIk;
 		[SerializeField] protected List<Chain> chains;
 
 		protected void Awake()
 		{
+			// First parent IK transforms root to entity root so that transformations to the body are ignored by IK.
+			ikTransformsRoot.SetParent(Entity.Transform);
+			ikTransformsRoot.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
+
 			if (fullBodyIK == null)
 			{
 				fullBodyIK = GetComponentInChildren<FullBodyBipedIK>();
@@ -82,7 +88,7 @@ namespace SpaxUtils
 			Quaternion rotation = chain.TipBone.rotation;
 			foreach (KeyValuePair<IKInfluencer, float> influencer in rotationWeights)
 			{
-				rotation = rotation.Lerp(influencer.Key.Rotation, influencer.Value);
+				rotation = rotation.Slerp(influencer.Key.Rotation, influencer.Value);
 			}
 
 			chain.Target.SetPositionAndRotation(position, rotation);

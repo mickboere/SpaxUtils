@@ -44,7 +44,7 @@ namespace SpaxUtils
 			if (State == PerformanceState.Performing)
 			{
 				// Successful Parry.
-				hitData.Result_Parried = true;
+				hitData.Data.SetValue(HitDataIdentifiers.PARRIED, true);
 				parries.Add(hitData.Hitter);
 
 				if (hitData.Hitter.TryGetEntityComponent(out IHittable parriedHittable))
@@ -57,17 +57,18 @@ namespace SpaxUtils
 						hitData.Inertia,
 						hitData.Point,
 						-hitData.Inertia.normalized,
-						hitData.Force,
-						hitData.Strength,
+						hitData.Mass,
+						0f,
+						hitData.Power,
 						0f,
 						0f);
 
-					base.ProcessAttack(parriedHittable, parryHit);
+					base.ProcessHit(parriedHittable, parryHit);
 				}
 			}
 		}
 
-		protected override void ProcessAttack(IHittable hittable, HitData hitData)
+		protected override void ProcessHit(IHittable hittable, HitData hitData)
 		{
 			// Parry attack hit an enemy.
 
@@ -80,7 +81,7 @@ namespace SpaxUtils
 			//SpaxDebug.Log("<color=green>Parry hit!</color>");
 
 			parries.Add(hittable.Entity);
-			base.ProcessAttack(hittable, hitData);
+			base.ProcessHit(hittable, hitData);
 		}
 	}
 }

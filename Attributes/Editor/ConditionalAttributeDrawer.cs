@@ -1,5 +1,6 @@
 ﻿using UnityEngine;
 using UnityEditor;
+using System.Linq;
 
 namespace SpaxUtils
 {
@@ -11,7 +12,7 @@ namespace SpaxUtils
 			ConditionalAttribute conditionalAttribute = attribute as ConditionalAttribute;
 			SerializedProperty toggleProperty = property.FindNeighbourProperty(conditionalAttribute.ToggleProperty);
 
-			if (conditionalAttribute.EnumValue > -1)
+			if (conditionalAttribute.EnumValues.Length > 0)
 			{
 				// Enum
 				PropertyIsEnum(position, property, label, conditionalAttribute, toggleProperty);
@@ -26,13 +27,16 @@ namespace SpaxUtils
 		private void PropertyIsEnum(Rect position, SerializedProperty property, GUIContent label,
 			ConditionalAttribute conditionalAttribute, SerializedProperty toggleProperty)
 		{
-			if (toggleProperty.enumValueIndex == conditionalAttribute.EnumValue == conditionalAttribute.Inverse)
+			bool valid = conditionalAttribute.EnumValues.Contains(toggleProperty.enumValueIndex) != conditionalAttribute.Inverse;
+			if (conditionalAttribute.Hide && !valid)
 			{
 				return;
 			}
 
 			EditorGUI.BeginProperty(position, label, property);
+			EditorGUI.BeginDisabledGroup(!valid);
 			EditorGUI.PropertyField(position, property, label, true);
+			EditorGUI.EndDisabledGroup();
 			EditorGUI.EndProperty();
 		}
 
@@ -72,13 +76,14 @@ namespace SpaxUtils
 			ConditionalAttribute conditionalAttribute = attribute as ConditionalAttribute;
 			SerializedProperty toggleProperty = property.FindNeighbourProperty(conditionalAttribute.ToggleProperty);
 
-			if ((conditionalAttribute.EnumValue > -1 && toggleProperty.enumValueIndex == conditionalAttribute.EnumValue == conditionalAttribute.Inverse) ||
-				(conditionalAttribute.Hide && toggleProperty.boolValue == conditionalAttribute.Inverse))
+			if (conditionalAttribute.Hide &&
+				((conditionalAttribute.EnumValues.Length > 0 && conditionalAttribute.EnumValues.Contains(toggleProperty.enumValueIndex) == conditionalAttribute.Inverse) ||
+				(conditionalAttribute.EnumValues.Length == 0 && toggleProperty.boolValue == conditionalAttribute.Inverse)))
 			{
 				return 0f;
 			}
 
-			return base.GetPropertyHeight(property, label);
+			return EditorGUI.GetPropertyHeight(property, label);
 		}
 	}
 }

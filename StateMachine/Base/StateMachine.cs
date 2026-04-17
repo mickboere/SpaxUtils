@@ -7,7 +7,7 @@ using UnityEngine;
 namespace SpaxUtils.StateMachines
 {
 	/// <summary>
-	/// A single state machine layer, always has a single active <see cref="IState"/> of which the <see cref="IStateComponent"/>s are run.
+	/// A single state machine layer, always has a single active <see cref="IState"/> of which the <see cref="IStateListener"/>s are run.
 	/// </summary>
 	public class StateMachine : IDisposable
 	{
@@ -30,6 +30,11 @@ namespace SpaxUtils.StateMachines
 		/// The uppermost active state in the <see cref="StateHierarchy"/>.
 		/// </summary>
 		public IState HeadState => StateHierarchy.Count > 0 ? StateHierarchy[StateHierarchy.Count - 1] : null;
+
+		/// <summary>
+		/// The lowermost active state in the <see cref="StateHierarchy"/>.
+		/// </summary>
+		public IState RootState => StateHierarchy.Count > 0 ? StateHierarchy[0] : null;
 
 		/// <summary>
 		/// The currently active transition, if any.
@@ -56,7 +61,7 @@ namespace SpaxUtils.StateMachines
 
 		public StateMachine(IDependencyManager dependencyManager, CallbackService callbackService, List<IState> states = null, string defaultState = null)
 		{
-			this.dependencyManager = new DependencyManager(dependencyManager, "StateMachineLayer");
+			this.dependencyManager = new DependencyManager(dependencyManager, $"StateMachineLayer\\{dependencyManager.ID}");
 			this.dependencyManager.Bind(this);
 			this.callbackService = callbackService;
 			this.states = new Dictionary<string, IState>();
@@ -77,10 +82,20 @@ namespace SpaxUtils.StateMachines
 		{
 			CancelTransition();
 			callbackService.UnsubscribeUpdate(UpdateMode.Update, this);
+
+			foreach (IState state in hierarchy)
+			{
+				state.OnExitingState(null);
+			}
+			foreach (IState state in hierarchy)
+			{
+				state.OnStateExit();
+			}
 		}
 
 		private void OnUpdate(float delta)
 		{
+			//SpaxDebug.Log($"[{dependencyManager.ID}] OnUpdate");
 			CheckTransitions();
 		}
 
@@ -193,7 +208,7 @@ namespace SpaxUtils.StateMachines
 			}
 
 			CancelTransition();
-			PrepareState(states[state]);
+			PrepareState(states[state], null);
 			EnterState(states[state]);
 		}
 
@@ -207,7 +222,7 @@ namespace SpaxUtils.StateMachines
 		{
 			if (states.ContainsKey(state) && !Transitioning)
 			{
-				PrepareState(states[state]);
+				PrepareState(states[state], transition);
 
 				if (transition == null || transition.Completed)
 				{
@@ -232,7 +247,18 @@ namespace SpaxUtils.StateMachines
 			if (Transitioning)
 			{
 				DisposeTransition();
-				PrepareState(HeadState);
+
+				// Exit the states we were in the process of entering.
+				foreach (IState state in entering)
+				{
+					state.OnExitingState(null);
+				}
+				foreach (IState state in entering)
+				{
+					state.OnStateExit();
+				}
+
+				PrepareState(HeadState, null);
 				EnterState(HeadState);
 			}
 		}
@@ -253,20 +279,24 @@ namespace SpaxUtils.StateMachines
 			entering = null;
 		}
 
-		private void PrepareState(IState toState)
+		private void PrepareState(IState toState, ITransition transition)
 		{
 			newHierarchy = toState.CollectActiveHierarchyRecursively();
 			exiting = hierarchy.Except(newHierarchy).ToList();
 			entering = newHierarchy.Except(hierarchy).ToList();
 
+			// Exit old.
 			foreach (IState state in exiting)
 			{
-				state.OnExitingState();
+				state.OnExitingState(transition);
 			}
+
+			// Enter new.
 			foreach (IState state in entering)
 			{
 				dependencyManager.Inject(state);
-				state.OnEnteringState();
+				state.Initialize(state);
+				state.OnEnteringState(transition);
 			}
 		}
 

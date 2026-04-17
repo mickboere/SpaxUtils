@@ -7,7 +7,7 @@ using UnityEngine;
 
 namespace SpaxUtils
 {
-	public class LegacyGrounderComponent : EntityComponentBase//, IAgentGrounderComponent
+	public class LegacyGrounderComponent : EntityComponentMono//, IAgentGrounderComponent
 	{
 		private const float CENTIMETER = 0.01f;
 
@@ -62,7 +62,7 @@ namespace SpaxUtils
 		[SerializeField] private Mesh groundNormalMesh;
 		[SerializeField] private Vector3 groundNormalMeshScale = Vector3.one * 0.1f;
 
-		private PhysicMaterial physicMaterial;
+		private PhysicsMaterial physicMaterial;
 		private RigidbodyWrapper rigidbodyWrapper;
 
 		public void InjectDependencies(IEntity entity, RigidbodyWrapper rigidbodyWrapper, ColliderWrapper colliderWrapper)
@@ -249,12 +249,12 @@ namespace SpaxUtils
 
 		private void SetUpPhysicMaterial()
 		{
-			physicMaterial = new PhysicMaterial();
+			physicMaterial = new PhysicsMaterial();
 			physicMaterial.staticFriction = defaultStaticFriction;
 			physicMaterial.dynamicFriction = defaultDynamicFriction;
-			physicMaterial.frictionCombine = PhysicMaterialCombine.Average;
+			physicMaterial.frictionCombine = PhysicsMaterialCombine.Average;
 			physicMaterial.bounciness = 0f;
-			physicMaterial.bounceCombine = PhysicMaterialCombine.Minimum;
+			physicMaterial.bounceCombine = PhysicsMaterialCombine.Minimum;
 			feetCollider.Collider.material = physicMaterial;
 		}
 	}

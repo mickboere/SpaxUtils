@@ -4,15 +4,67 @@ namespace SpaxUtils
 {
 	public static class QuaternionExtensions
 	{
+		#region Interpolation
+
 		public static Quaternion Lerp(this Quaternion a, Quaternion b, float t)
 		{
 			return Quaternion.Lerp(a, b, t);
+		}
+
+		/// <summary>
+		/// Framerate independent implementation of Lerp.
+		/// Only works if <paramref name="t"/> is multiplied by deltaTime.
+		/// </summary>
+		public static Quaternion FILerp(this Quaternion a, Quaternion b, float t)
+		{
+			return Quaternion.Lerp(a, b, 1 - Mathf.Exp(-t));
 		}
 
 		public static Quaternion Slerp(this Quaternion a, Quaternion b, float t)
 		{
 			return Quaternion.Slerp(a, b, t);
 		}
+
+		/// <summary>
+		/// Framerate independent implementation of Slerp.
+		/// Only works if <paramref name="t"/> is multiplied by deltaTime.
+		/// </summary>
+		public static Quaternion FISlerp(this Quaternion a, Quaternion b, float t)
+		{
+			return Quaternion.Slerp(a, b, 1 - Mathf.Exp(-t));
+		}
+
+		public static Quaternion SmoothDamp(this Quaternion rot, Quaternion target, ref Quaternion velocity, float smoothTime, float deltaTime)
+		{
+			if (deltaTime < Mathf.Epsilon) return rot;
+
+			// Account for double-cover.
+			var Dot = Quaternion.Dot(rot, target);
+			var Multi = Dot > 0f ? 1f : -1f;
+			target.x *= Multi;
+			target.y *= Multi;
+			target.z *= Multi;
+			target.w *= Multi;
+
+			// Smooth damp (nlerp approx),
+			var Result = new Vector4(
+				Mathf.SmoothDamp(rot.x, target.x, ref velocity.x, smoothTime, float.MaxValue, deltaTime),
+				Mathf.SmoothDamp(rot.y, target.y, ref velocity.y, smoothTime, float.MaxValue, deltaTime),
+				Mathf.SmoothDamp(rot.z, target.z, ref velocity.z, smoothTime, float.MaxValue, deltaTime),
+				Mathf.SmoothDamp(rot.w, target.w, ref velocity.w, smoothTime, float.MaxValue, deltaTime)
+			).normalized;
+
+			// Ensure velocity is tangent.
+			var derivError = Vector4.Project(new Vector4(velocity.x, velocity.y, velocity.z, velocity.w), Result);
+			velocity.x -= derivError.x;
+			velocity.y -= derivError.y;
+			velocity.z -= derivError.z;
+			velocity.w -= derivError.w;
+
+			return new Quaternion(Result.x, Result.y, Result.z, Result.w);
+		}
+
+		#endregion Interpolation
 
 		public static Quaternion Inverse(this Quaternion a)
 		{
@@ -97,36 +149,6 @@ namespace SpaxUtils
 				return Quaternion.identity;
 			}
 			return Quaternion.LookRotation(forward / weight, up / weight);
-		}
-
-		public static Quaternion SmoothDamp(this Quaternion rot, Quaternion target, ref Quaternion velocity, float smoothTime, float deltaTime)
-		{
-			if (deltaTime < Mathf.Epsilon) return rot;
-
-			// Account for double-cover.
-			var Dot = Quaternion.Dot(rot, target);
-			var Multi = Dot > 0f ? 1f : -1f;
-			target.x *= Multi;
-			target.y *= Multi;
-			target.z *= Multi;
-			target.w *= Multi;
-
-			// Smooth damp (nlerp approx),
-			var Result = new Vector4(
-				Mathf.SmoothDamp(rot.x, target.x, ref velocity.x, smoothTime, float.MaxValue, deltaTime),
-				Mathf.SmoothDamp(rot.y, target.y, ref velocity.y, smoothTime, float.MaxValue, deltaTime),
-				Mathf.SmoothDamp(rot.z, target.z, ref velocity.z, smoothTime, float.MaxValue, deltaTime),
-				Mathf.SmoothDamp(rot.w, target.w, ref velocity.w, smoothTime, float.MaxValue, deltaTime)
-			).normalized;
-
-			// Ensure velocity is tangent.
-			var derivError = Vector4.Project(new Vector4(velocity.x, velocity.y, velocity.z, velocity.w), Result);
-			velocity.x -= derivError.x;
-			velocity.y -= derivError.y;
-			velocity.z -= derivError.z;
-			velocity.w -= derivError.w;
-
-			return new Quaternion(Result.x, Result.y, Result.z, Result.w);
 		}
 	}
 }

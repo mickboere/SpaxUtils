@@ -7,12 +7,20 @@ namespace SpaxUtils
 	/// <summary>
 	/// Behaviour that adjust the Agent's stats while guarding.
 	/// </summary>
-	[CreateAssetMenu(fileName = "CombatBehaviour_Guarding", menuName = "ScriptableObjects/Combat/GuardingCombatBehaviourAsset")]
+	[CreateAssetMenu(fileName = nameof(GuardingCombatBehaviourAsset), menuName = "Performance/Behaviour/" + nameof(GuardingCombatBehaviourAsset))]
 	public class GuardingCombatBehaviourAsset : BaseCombatMoveBehaviourAsset
 	{
+		protected bool InWindow =>
+			Performer.ChargeTime > Move.MinCharge * windowShift &&
+			Performer.ChargeTime < Move.MinCharge * windowShift + blockWindow;
+
+		[SerializeField, Range(0f, 1f), Tooltip("The perfect-block time window which negates all damages.")] private float blockWindow = 0.1f;
+		[SerializeField, Range(0f, 1f), Tooltip("0 is at beginning of charge, 1 is at ending of minimum charge.")] private float windowShift = 1f;
+
 		private AgentStatHandler agentStatHandler;
 		private IHittable hittable;
 
+		private PointsStat chargeStat;
 		private EntityStat defenceStat;
 		private EntityStat guardStat;
 
@@ -24,19 +32,20 @@ namespace SpaxUtils
 			this.agentStatHandler = agentStatHandler;
 			this.hittable = hittable;
 
-			defenceStat = Agent.GetStat(AgentStatIdentifiers.DEFENCE);
-			guardStat = Agent.GetStat(AgentStatIdentifiers.GUARD);
+			agentStatHandler.TryGetPointStat(Move.ChargeCost.Stat, out chargeStat);
+			defenceStat = Agent.Stats.GetStat(AgentStatIdentifiers.PROOFING);
+			guardStat = Agent.Stats.GetStat(AgentStatIdentifiers.GUARD);
 		}
 
 		public override void Start()
 		{
 			base.Start();
 
-			defenceMod = new FloatFuncModifier(ModMethod.Additive, (defence) => defence + guardStat * Weight);
+			defenceMod = new FloatFuncModifier(ModMethod.Additive, (defence) => defence + defence * guardStat * Weight);
 			defenceStat.AddModifier(this, defenceMod);
 
-			enduranceDamageMod = new FloatFuncModifier(ModMethod.Absolute, (damage) => damage / (guardStat * 0.01f).LerpTo(1f, Weight.Invert()));
-			agentStatHandler.PointStatOcton.W.Cost.AddModifier(this, enduranceDamageMod);
+			enduranceDamageMod = new FloatFuncModifier(ModMethod.Absolute, (damage) => damage * (InWindow ? 0f : (1f / (guardStat * Weight).Max(1f))));
+			agentStatHandler.PointStats.W.DrainMult.AddModifier(this, enduranceDamageMod);
 
 			hittable.Subscribe(this, OnHitEvent, 1000);
 		}
@@ -46,7 +55,11 @@ namespace SpaxUtils
 			base.Stop();
 
 			defenceStat.RemoveModifier(this);
-			agentStatHandler.PointStatOcton.W.Cost.RemoveModifier(this);
+			agentStatHandler.PointStats.W.DrainMult.RemoveModifier(this);
+
+			defenceMod.Dispose();
+			enduranceDamageMod.Dispose();
+
 			hittable.Unsubscribe(this);
 		}
 
@@ -54,11 +67,11 @@ namespace SpaxUtils
 		{
 			base.ExternalUpdate(delta);
 
-			if (Performer.State == PerformanceState.Preparing)
+			if (Performer.State == PerformanceState.Preparing && chargeStat != null)
 			{
 				// Drain charge stat.
-				Agent.TryApplyStatCost(Move.ChargeCost, delta, out bool drained);
-				if (drained)
+				chargeStat.Drain(Move.ChargeCost.Cost * delta, out bool drained);
+				if (Move.ChargeCost.Required && drained)
 				{
 					Performer.TryPerform();
 				}
@@ -68,7 +81,12 @@ namespace SpaxUtils
 		private void OnHitEvent(HitData hitData)
 		{
 			// Hit by enemy attack during guard.
-			hitData.Result_Blocked = Weight;
+			hitData.Data.SetValue(HitDataIdentifiers.GUARD, Weight);
+
+			if (InWindow)
+			{
+				hitData.Data.SetValue(HitDataIdentifiers.BLOCKED, true);
+			}
 		}
 	}
 }

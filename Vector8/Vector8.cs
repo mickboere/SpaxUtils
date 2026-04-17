@@ -9,7 +9,10 @@ namespace SpaxUtils
 	[Serializable]
 	public struct Vector8
 	{
-		public const float DIAGONAL = 0.70710856237f;
+		/// <summary>
+		/// X & Y values of a diagonal line with a length of 1.
+		/// </summary>
+		public const float DIAGONAL = 0.70710678118f;
 
 		#region Static Values
 		public static Vector8 Zero => new Vector8(0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f);
@@ -62,7 +65,6 @@ namespace SpaxUtils
 		/// <summary>
 		/// Returns the highest value of all members.
 		/// </summary>
-		/// <returns></returns>
 		public float Max() => Max(this);
 
 		/// <summary>
@@ -78,6 +80,16 @@ namespace SpaxUtils
 		public float Highest(out int index) => Highest(this, out index);
 
 		/// <summary>
+		/// Returns the greatest of all provided member values.
+		/// </summary>
+		public Vector8 Maximize(params Vector8[] b) => Maximize(this, b);
+
+		/// <summary>
+		/// Returns the smallest of all provided member values.
+		/// </summary>
+		public Vector8 Minimize(params Vector8[] b) => Minimize(this, b);
+
+		/// <summary>
 		/// Linearly interpolates to <paramref name="b"/> by <paramref name="t"/>.
 		/// </summary>
 		public Vector8 Lerp(Vector8 b, float t) => Lerp(this, b, t);
@@ -86,6 +98,11 @@ namespace SpaxUtils
 		/// Linearly interpolates to <paramref name="b"/> by <paramref name="t"/>, clamping <paramref name="t"/> bewteen 0 and 1.
 		/// </summary>
 		public Vector8 LerpClamped(Vector8 b, float t) => LerpClamped(this, b, t);
+
+		/// <summary>
+		/// Framerate independent linear interpolation to <paramref name="b"/> by <paramref name="t"/>.
+		/// </summary>
+		public Vector8 FILerp(Vector8 b, float t) => Lerp(this, b, t);
 
 		/// <summary>
 		/// Shifts member values clockwise by <paramref name="amount"/> members.
@@ -112,6 +129,11 @@ namespace SpaxUtils
 		/// <summary>
 		/// Scales all members values proportionally so that its highest member never exceeds 1.
 		/// Does NOT make it so that the total length of the vector is 1!
+		/// </summary>
+		public Vector8 Range(float r = 1f) => Range(this);
+
+		/// <summary>
+		/// Divides <paramref name="v"/> by its sum.
 		/// </summary>
 		public Vector8 Normalize() => Normalize(this);
 
@@ -145,6 +167,12 @@ namespace SpaxUtils
 		/// </summary>
 		/// <returns>An array of <see cref="Vector3"/> positions where Z is 0.</returns>
 		public Vector3[] GetPositions3D() => GetPositions3D(this);
+
+		/// <summary>
+		/// Get the positions of all members arranged in a circle within <paramref name="rect"/>.
+		/// </summary>
+		/// <returns>An array of <see cref="Vector3"/> positions contained within <paramref name="rect"/> where Z is 0.</returns>
+		public Vector3[] GetPositions3DRect(float scale, Rect rect) => GetPositions3DRect(this, scale, rect);
 
 		#endregion Public Functions
 
@@ -187,6 +215,44 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
+		/// Returns the greatest of all provided member values.
+		/// </summary>
+		public static Vector8 Maximize(Vector8 a, params Vector8[] b)
+		{
+			Vector8 result = a;
+			foreach (Vector8 v in b)
+			{
+				for (int i = 0; i < 8; i++)
+				{
+					if (v[i] > result[i])
+					{
+						result[i] = v[i];
+					}
+				}
+			}
+			return result;
+		}
+
+		/// <summary>
+		/// Returns the smallest of all provided member values.
+		/// </summary>
+		public static Vector8 Minimize(Vector8 a, params Vector8[] b)
+		{
+			Vector8 result = a;
+			foreach (Vector8 v in b)
+			{
+				for (int i = 0; i < 8; i++)
+				{
+					if (v[i] < result[i])
+					{
+						result[i] = v[i];
+					}
+				}
+			}
+			return result;
+		}
+
+		/// <summary>
 		/// Linearly interpolates between <paramref name="a"/> and <paramref name="b"/> by <paramref name="t"/>.
 		/// </summary>
 		public static Vector8 Lerp(Vector8 a, Vector8 b, float t)
@@ -208,6 +274,14 @@ namespace SpaxUtils
 		public static Vector8 LerpClamped(Vector8 a, Vector8 b, float t)
 		{
 			return Lerp(a, b, Mathf.Clamp01(t));
+		}
+
+		/// <summary>
+		/// Framerate independent linear interpolation between <paramref name="a"/> and <paramref name="b"/> by <paramref name="t"/>.
+		/// </summary>
+		public static Vector8 FILerp(Vector8 a, Vector8 b, float t)
+		{
+			return Lerp(a, b, 1f - Mathf.Exp(-t));
 		}
 
 		/// <summary>
@@ -291,17 +365,29 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
-		/// Scales all of <paramref name="v"/>'s members proportionally so that its highest member never exceeds 1.
-		/// Does NOT make it so that the total length of the vector is 1!
+		/// Scales all of <paramref name="v"/>'s members proportionally so that its highest member never exceeds Range.
+		/// Does NOT make it so that the total length of the vector equals the range!
 		/// </summary>
-		public static Vector8 Normalize(Vector8 v)
+		public static Vector8 Range(Vector8 v, float r = 1f)
 		{
 			if (v.Max() <= 0f)
 			{
 				return v;
 			}
-			float m = 1f / v.Max();
+			float m = r / v.Max();
 			return v * m;
+		}
+
+		/// <summary>
+		/// Divides <paramref name="v"/> by its sum.
+		/// </summary>
+		public static Vector8 Normalize(Vector8 v)
+		{
+			if (v == Zero)
+			{
+				return Zero;
+			}
+			return v / v.Sum();
 		}
 
 		/// <summary>
@@ -401,6 +487,22 @@ namespace SpaxUtils
 				new Vector2(-v.W, 0f),
 				new Vector2(-v.NW, v.NW) * DIAGONAL
 			};
+		}
+
+		/// <summary>
+		/// Get the positions of all members arranged in a circle within <paramref name="rect"/>.
+		/// </summary>
+		/// <returns>An array of <see cref="Vector3"/> positions contained within <paramref name="rect"/> where Z is 0.</returns>
+		public static Vector3[] GetPositions3DRect(Vector8 v, float scale, Rect rect)
+		{
+			Vector3[] positions = v.GetPositions3D();
+			float s = 0.5f * scale;
+			for (int i = 0; i < positions.Length; i++)
+			{
+				positions[i].x *= rect.size.x * s;
+				positions[i].y *= rect.size.y * s;
+			}
+			return positions;
 		}
 
 		#endregion
@@ -635,6 +737,30 @@ namespace SpaxUtils
 				a.SW <= b.SW &&
 				a.W <= b.W &&
 				a.NW <= b.NW;
+		}
+
+		/// <summary>
+		/// Returns whether all members of <paramref name="a"/> match all members of <paramref name="b"/>.
+		/// </summary>
+		public static bool operator ==(Vector8 a, Vector8 b)
+		{
+			return
+				a.N.Approx(b.N) &&
+				a.NE.Approx(b.NE) &&
+				a.E.Approx(b.E) &&
+				a.SE.Approx(b.SE) &&
+				a.S.Approx(b.S) &&
+				a.SW.Approx(b.SW) &&
+				a.W.Approx(b.W) &&
+				a.NW.Approx(b.NW);
+		}
+
+		/// <summary>
+		/// Returns whether any members of <paramref name="a"/> differ from members of <paramref name="b"/>.
+		/// </summary>
+		public static bool operator !=(Vector8 a, Vector8 b)
+		{
+			return !(a == b);
 		}
 
 		#endregion Operators

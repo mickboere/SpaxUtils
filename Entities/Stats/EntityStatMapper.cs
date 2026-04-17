@@ -4,13 +4,14 @@ using SpaxUtils;
 namespace SpiritAxis
 {
 	/// <summary>
-	/// <see cref="IEntityComponent"/> that takes a <see cref="StatMappingSheet"/> to modify one stat with another.
+	/// <see cref="IEntityComponent"/> that takes a <see cref="StatMap"/> to modify one stat with another.
 	/// Stats that do not exist yet will be created.
 	/// </summary>
 	[DefaultExecutionOrder(-999)]
-	public class EntityStatMapper : EntityComponentBase
+	public class EntityStatMapper : EntityComponentMono
 	{
-		[SerializeField] private StatMappingSheet[] mappingSheets;
+		[SerializeField] private StatAtlas[] atlases;
+		[SerializeField] private StatMap[] maps;
 
 		public override void InjectDependencies(IEntity entity)
 		{
@@ -21,36 +22,45 @@ namespace SpiritAxis
 
 		private void AddStatMappings()
 		{
-			if (mappingSheets.Length == 0)
+			foreach (StatAtlas atlas in atlases)
 			{
-				return;
+				foreach (StatMap map in atlas.Maps)
+				{
+					AddMap(map);
+				}
 			}
 
-			foreach (StatMappingSheet statMappingSheet in mappingSheets)
+			foreach (StatMap map in maps)
 			{
-				// Configure the defined stat-to-stat mappings.
-				foreach (StatMapping mapping in statMappingSheet.Mappings)
+				AddMap(map);
+			}
+		}
+
+		private void AddMap(StatMap map)
+		{
+			// Configure the defined stat-to-stat mappings.
+			for (int i = 0; i < map.StatMappings.Count; i++)
+			{
+				StatMapping mapping = map.StatMappings[i];
+
+				// Get the target stat to add the mapping to.
+				EntityStat toStat = Entity.Stats.GetStat(mapping.ToStat, true);
+
+				string id = map.name + "_" + i.ToString();
+				if (!toStat.HasModifier(id))
 				{
-					// Get the target stat to add the mapping to.
-					EntityStat toStat = Entity.GetStat(mapping.ToStat, true);
+					// Get the stat we're going to use as input value for the mapping.
+					EntityStat fromStat = Entity.Stats.GetStat(mapping.FromStat, true);
 
-					// Only add the modifier if this stat does not have a mapping from the mapping stat yet.
-					// Easily checkable since we use the input stat's identifier as mod identifier.
-					if (!toStat.HasModifier(mapping.FromStat))
-					{
-						// Get the stat we're going to use as input value for the mapping.
-						EntityStat fromStat = Entity.GetStat(mapping.FromStat, true);
+					// Create the mapping modifier.
+					StatModifier mod = new StatModifier(mapping, fromStat, mapping.SourceBase);
 
-						// Create the mapping modifier.
-						StatModifier mod = new StatModifier(mapping, fromStat);
-
-						// Add the mapping modifier.
-						toStat.AddModifier(mapping.FromStat, mod);
-					}
-					else
-					{
-						SpaxDebug.Error($"Stat '{mapping.ToStat}' already contains a mapping from '{mapping.FromStat}'.", "Mapping was not added.", statMappingSheet);
-					}
+					// Add the mapping modifier.
+					toStat.AddModifier(id, mod);
+				}
+				else
+				{
+					SpaxDebug.Error($"Stat '{mapping.ToStat}' somehow already contains a mapping for id '{id}' from '{mapping.FromStat}'.", "Mapping was not added.", map);
 				}
 			}
 		}

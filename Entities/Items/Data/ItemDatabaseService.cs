@@ -42,11 +42,16 @@ namespace SpaxUtils
 			}
 
 			items.Add(itemData.ID, itemData);
-			items.Add(itemData.Name, itemData);
 		}
 
 		public IItemData GetItem(string id)
 		{
+			if(id.IsNullOrEmpty())
+			{
+				SpaxDebug.Error("Item ID is null!");
+				return null;
+			}
+
 			if (items.ContainsKey(id))
 			{
 				return items[id];

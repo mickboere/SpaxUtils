@@ -62,6 +62,23 @@ namespace SpaxUtils
 		bool IsStateActive(string id);
 
 		/// <summary>
+		/// Superimposes a brainstate named <paramref name="id"/> on top of <paramref name="child"/> or the currently active hierarchy
+		/// </summary>
+		/// <param name="id">The id of the state to superimpose.</param>
+		/// <param name="child">The id of the initial state to superimpose upon.</param>
+		/// <param name="layer">The superimposer layer, if any. Using a layer will depose any other superimposer occupying that layer.</param>
+		/// <returns></returns>
+		void SuperimposeState(string id, string child = null, string layer = null);
+
+		/// <summary>
+		/// Deposes a brainstate named <paramref name="id"/> to no longer be superimposed on its children.
+		/// </summary>
+		/// <param name="id">The id of the state to depose.</param>
+		/// <param name="layer">The superimposer layer, if any.</param>
+		/// <returns></returns>
+		void DeposeState(string id, string layer = null);
+
+		/// <summary>
 		/// Have the brain enter a state with ID <paramref name="id"/>.
 		/// </summary>
 		/// <param name="id">The ID of the state to transition to.</param>
@@ -72,18 +89,18 @@ namespace SpaxUtils
 		#region Components
 
 		/// <summary>
-		/// Adds the <paramref name="component"/> to the <paramref name="id"/> to receive <see cref="IStateComponent"/> callbacks when the state is active.
+		/// Adds the <paramref name="component"/> to the <paramref name="id"/> to receive <see cref="IStateListener"/> callbacks when the state is active.
 		/// </summary>
 		/// <param name="id">The name of the state to add the component to.</param>
 		/// <param name="component">The component to add.</param>
-		bool TryAddComponent(string id, IStateComponent component);
+		bool TryAddComponent(string id, IStateListener component);
 
 		/// <summary>
-		/// Removes the <paramref name="component"/> from <paramref name="id"/> to stop it from receiving <see cref="IStateComponent"/> callbacks.
+		/// Removes the <paramref name="component"/> from <paramref name="id"/> to stop it from receiving <see cref="IStateListener"/> callbacks.
 		/// </summary>
 		/// <param name="id">The name of the state to remove the component from.</param>
 		/// <param name="component">The component to remove.</param>
-		bool TryRemoveComponent(string id, IStateComponent component);
+		bool TryRemoveComponent(string id, IStateListener component);
 
 		#endregion Components
 

@@ -108,7 +108,14 @@ namespace SpaxUtils
 		/// </summary>
 		public void Pose(IPoserInstructions instructions)
 		{
-			Pose(instructions.Instructions[0].Transition, instructions.Instructions[1].Transition, instructions.Instructions[1].Weight);
+			if (instructions.Instructions.Length == 1)
+			{
+				Pose(instructions.Instructions[0].Transition);
+			}
+			else if (instructions.Instructions.Length == 2)
+			{
+				Pose(instructions.Instructions[0].Transition, instructions.Instructions[1].Transition, instructions.Instructions[1].Weight);
+			}
 		}
 
 		public void PoseNormalized(PoseSequence sequence, float progress)

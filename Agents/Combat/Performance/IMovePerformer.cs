@@ -13,18 +13,13 @@ namespace SpaxUtils
 		IPerformanceMove Move { get; }
 
 		/// <summary>
-		/// The amount of time this combat performance has spent charging.
+		/// The amount of time this combat performance has spent preparing the performance (charging).
 		/// </summary>
-		float Charge { get; }
+		float ChargeTime { get; }
 
 		/// <summary>
-		/// Whether this move has been canceled.
+		/// Whether the current performance should halt its the runtime once minimum duration has been reached.
 		/// </summary>
-		bool Canceled { get; }
-
-		/// <summary>
-		/// The amount of time since this move has been canceled.
-		/// </summary>
-		float CancelTime { get; }
+		bool Prolong { get; set; }
 	}
 }

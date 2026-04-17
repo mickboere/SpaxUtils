@@ -9,5 +9,4 @@ namespace SpaxUtils
 
 		[SerializeField, ConstDropdown(typeof(IBodyLocations))] private List<string> coversLocation;
 	}
-
 }

@@ -8,6 +8,6 @@ namespace SpaxUtils
 		event Action<T> AddedComponentEvent;
 		event Action<T> RemovedComponentEvent;
 
-		IList<T> Components { get; }
+		List<T> Components { get; }
 	}
 }

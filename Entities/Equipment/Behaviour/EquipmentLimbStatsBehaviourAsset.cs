@@ -8,21 +8,31 @@ namespace SpaxUtils
 	/// <summary>
 	/// Behaviour that maps limb stats of equipment to the agent's limb stats.
 	/// </summary>
-	[CreateAssetMenu(fileName = "EquipmentLimbStatsBehaviour", menuName = "ScriptableObjects/EquipmentLimbStatsBehaviourAsset")]
+	[CreateAssetMenu(fileName = nameof(EquipmentLimbStatsBehaviourAsset), menuName = "ScriptableObjects/Behaviours/" + nameof(EquipmentLimbStatsBehaviourAsset))]
 	public class EquipmentLimbStatsBehaviourAsset : BehaviourAsset
 	{
 		[Serializable]
 		public class SlotToLimb
 		{
-			public string SLOT => slot;
-			public string LIMB => limb;
+			public string Slot => slot;
+			public string Limb => limb;
 
 			[SerializeField, ConstDropdown(typeof(IEquipmentSlotTypeConstants))] private string slot;
-			[SerializeField, ConstDropdown(typeof(IStatIdentifierConstants), filter: AgentStatIdentifiers.SUB_STAT)] private string limb;
+			[SerializeField, ConstDropdown(typeof(IStatIdentifiers), filter: AgentStatIdentifiers.SUB_STAT)] private string limb;
+		}
+
+		[Serializable]
+		public class ItemToAgent
+		{
+			public string ItemStat => itemStat;
+			public string AgentStat => agentStat;
+
+			[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifiers))] private string itemStat;
+			[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifiers))] private string agentStat;
 		}
 
 		[SerializeField] private List<SlotToLimb> slotToLimbMap;
-		[SerializeField, ConstDropdown(typeof(IStatIdentifierConstants))] private List<string> limbStats;
+		[SerializeField] private List<ItemToAgent> itemToAgentMap;
 
 		private IAgent agent;
 		private RuntimeEquipedData runtimeEquipedData;
@@ -38,10 +48,10 @@ namespace SpaxUtils
 		{
 			base.Start();
 
-			foreach (string limbStat in limbStats)
+			foreach (ItemToAgent map in itemToAgentMap)
 			{
-				if (runtimeEquipedData.RuntimeItemData.TryGetData(limbStat, out RuntimeDataEntry data) &&
-					agent.TryGetStat(limbStat.SubStat(slotToLimbMap.First((m) => m.SLOT == runtimeEquipedData.Slot.Type).LIMB), out EntityStat stat))
+				if (runtimeEquipedData.RuntimeItemData.RuntimeData.TryGetEntry(map.ItemStat, out RuntimeDataEntry data) &&
+					agent.Stats.TryGetStat(map.AgentStat.SubStat(slotToLimbMap.First((m) => m.Slot == runtimeEquipedData.Slot.Type).Limb), out EntityStat stat))
 				{
 					var mod = new DataStatMappingModifier(data, ModMethod.Additive, Operation.Add, delegate () { return (float)data.Value; });
 					stat.AddModifier(this, mod);

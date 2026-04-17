@@ -16,7 +16,7 @@ namespace SpaxUtils
 		/// <summary>
 		/// Whether the actor is currently blocked from performing.
 		/// </summary>
-		bool Blocked { get; set; }
+		bool Blocked { get; }
 
 		/// <summary>
 		/// Sends a new act to the actor.
@@ -32,7 +32,8 @@ namespace SpaxUtils
 		/// <param name="act">The name of the act to perform.</param>
 		/// <param name="value">The (button) value for the act. TRUE=hold, FALSE=release.
 		/// If <paramref name="value"/> is null, a full button press will be stimulated by sending a TRUE followed immediately by a FALSE.</param>
-		void SendInput(string act, bool? value = null);
+		/// <param name="callback">The callback to be invoked once the input has been accepted by the actor to be performed.</param>
+		void SendInput(string act, bool? value = null, Action<IPerformer> callback = null);
 
 		/// <summary>
 		/// Add a new <see cref="IPerformer"/> able to take control and execute <see cref="IAct"/>s on behalf of the Agent.
@@ -43,5 +44,16 @@ namespace SpaxUtils
 		/// Removes a registered performer.
 		/// </summary>
 		void RemovePerformer(IPerformer performer);
+
+		/// <summary>
+		/// Make <paramref name="blocker"/> block this actor from performing.
+		/// </summary>
+		void AddBlocker(object blocker);
+
+		/// <summary>
+		/// Remove <paramref name="blocker"/> from preventing this actor from performing.
+		/// </summary>
+		/// <param name="blocker"></param>
+		void RemoveBlocker(object blocker);
 	}
 }

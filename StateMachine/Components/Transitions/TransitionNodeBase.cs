@@ -10,8 +10,10 @@ namespace SpaxUtils.StateMachines
 	{
 		public abstract bool Valid { get; }
 		public abstract float Validity { get; }
+		public virtual bool IsPureRule => false;
+
 		public virtual string NextState => _nextState == null ? null : _nextState.ID;
-		private IState _nextState;
+		protected IState _nextState;
 		public virtual float EntryProgress => 1f;
 		public virtual float ExitProgress => 1f - EntryProgress;
 		public virtual bool Completed => true;
@@ -34,9 +36,9 @@ namespace SpaxUtils.StateMachines
 			stateMachine.AddStateTransition(this);
 		}
 
-		public override void OnExitingState()
+		public override void OnExitingState(ITransition transition)
 		{
-			base.OnExitingState();
+			base.OnExitingState(transition);
 
 			stateMachine.RemoveStateTransition(this);
 		}

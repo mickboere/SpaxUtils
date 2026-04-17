@@ -14,14 +14,21 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public string Identifier { get; }
 
-		private Dictionary<Key, Dictionary<object, Action<Val>>> subscriptions;
-		private Dictionary<Key, (Val, TimerStruct)> history;
+		/// <inheritdoc/>
+		public bool Debug { get; set; }
 
-		public ChannelBase(string identifier)
+		protected Dictionary<Key, Dictionary<object, Action<Val>>> subscriptions;
+		protected Dictionary<Key, (Val, TimerStruct)> history;
+		protected List<IChannel<Key, Val>> links;
+		protected bool sending;
+
+		public ChannelBase(string identifier, bool debug = false)
 		{
 			Identifier = identifier;
 			subscriptions = new Dictionary<Key, Dictionary<object, Action<Val>>>();
 			history = new Dictionary<Key, (Val, TimerStruct)>();
+			links = new List<IChannel<Key, Val>>();
+			Debug = debug;
 		}
 
 		/// <inheritdoc/>
@@ -31,9 +38,10 @@ namespace SpaxUtils
 
 			OnReceived(key, val);
 
-			if (subscriptions.ContainsKey(key))
+			if (subscriptions.TryGetValue(key, out Dictionary<object, Action<Val>> dict) && dict != null)
 			{
-				foreach (KeyValuePair<object, Action<Val>> listener in subscriptions[key])
+				var listeners = new Dictionary<object, Action<Val>>(dict);
+				foreach (KeyValuePair<object, Action<Val>> listener in listeners)
 				{
 					listener.Value(val);
 				}
@@ -54,18 +62,47 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public virtual void StopListening(object listener, Key key = default)
 		{
-			if (key == null || default(Key).Equals(key))
+			if (listener == null || subscriptions == null)
 			{
-				// Remove listener from all keys.
-				foreach (KeyValuePair<Key, Dictionary<object, Action<Val>>> kvp in subscriptions)
+				return;
+			}
+
+			// Treat default(Key) as "no key supplied" and remove from all keys.
+			bool removeFromAll = EqualityComparer<Key>.Default.Equals(key, default(Key));
+
+			if (removeFromAll)
+			{
+				// Copy keys to avoid modification-during-enumeration issues.
+				List<Key> keys = new List<Key>(subscriptions.Keys);
+				for (int i = 0; i < keys.Count; i++)
 				{
-					kvp.Value.Remove(listener);
+					Key k = keys[i];
+
+					if (!subscriptions.TryGetValue(k, out Dictionary<object, Action<Val>> dict) || dict == null)
+					{
+						subscriptions.Remove(k);
+						continue;
+					}
+
+					dict.Remove(listener);
+
+					if (dict.Count == 0)
+					{
+						subscriptions.Remove(k);
+					}
 				}
 			}
 			else
 			{
-				// Remove listener only from given key.
-				subscriptions.Remove(key);
+				// Remove listener only from the given key.
+				if (subscriptions.TryGetValue(key, out Dictionary<object, Action<Val>> dict) && dict != null)
+				{
+					dict.Remove(listener);
+					if (dict.Count == 0)
+					{
+						subscriptions.Remove(key);
+					}
+				}
 			}
 		}
 
@@ -86,6 +123,24 @@ namespace SpaxUtils
 			return true;
 		}
 
+		/// <inheritdoc/>
+		public void Link(IChannel<Key, Val> channel)
+		{
+			if (channel == this || links.Contains(channel)) { return; }
+
+			links.Add(channel);
+			channel.ReceivedEvent += OnLinkedMessageReceived;
+		}
+
+		/// <inheritdoc/>
+		public void Unlink(IChannel<Key, Val> channel)
+		{
+			if (channel == this || !links.Contains(channel)) { return; }
+
+			links.Remove(channel);
+			channel.ReceivedEvent -= OnLinkedMessageReceived;
+		}
+
 		/// <summary>
 		/// Invoked when the channel has received a new message event through <see cref="Send{T}(Key, T, TimerStruct)"/>.
 		/// </summary>
@@ -93,7 +148,27 @@ namespace SpaxUtils
 		/// <param name="value">The variable containing the message.</param>
 		protected virtual void OnReceived(Key key, Val value)
 		{
+			if (Debug)
+			{
+				SpaxDebug.Log(Identifier, $"key={key}, val={value}");
+			}
+
+			sending = true;
 			ReceivedEvent?.Invoke(key, value);
+			sending = false;
+		}
+
+		/// <summary>
+		/// Invoked when a linked channel has received a new message event, then forwards that message over this channel.
+		/// </summary>
+		/// <param name="key">The variable identifying the message type.</param>
+		/// <param name="value">The variable containing the message.</param>
+		protected virtual void OnLinkedMessageReceived(Key key, Val value)
+		{
+			if (!sending) // Prevent feedback loop.
+			{
+				Send(key, value);
+			}
 		}
 	}
 }

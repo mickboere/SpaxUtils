@@ -22,8 +22,10 @@ namespace SpaxUtils
 		}
 		private IDependencyManager _instance;
 
+		public static bool HasInstance => _wrapperInstance != null && _wrapperInstance._instance != null;
+
 		/// <summary>
-		/// A reference to the <see cref="GlobalDependencyManager"/> that holds a reference to the actual <see cref="IDependencyManager"/>.
+		/// A reference to the <see cref="GlobalDependencyManager"/> MonoBehaviour that holds a reference to the actual global <see cref="IDependencyManager"/>.
 		/// </summary>
 		public static GlobalDependencyManager WrapperInstance
 		{
@@ -59,7 +61,7 @@ namespace SpaxUtils
 		/// <summary>
 		/// A list containing all implementations of <see cref="IDependencyManager"/>
 		/// </summary>
-		public static List<IDependencyManager> AllLocators = new List<IDependencyManager>();
+		public static List<IDependencyManager> AllManagers = new List<IDependencyManager>();
 
 		[SerializeField] private bool debug;
 		[SerializeField] private bool test;
@@ -84,6 +86,14 @@ namespace SpaxUtils
 				gameObject.AddComponent<DependencyManagerTests>();
 			}
 #endif
+		}
+
+		protected void OnDestroy()
+		{
+			if (_wrapperInstance == this)
+			{
+				Instance.Dispose();
+			}
 		}
 	}
 }

@@ -1,4 +1,6 @@
 ﻿using System;
+using UnityEngine;
+using UnityEngine.InputSystem;
 using static UnityEngine.InputSystem.InputAction;
 
 namespace SpaxUtils
@@ -11,14 +13,24 @@ namespace SpaxUtils
 	{
 		public event Action<Option> PickedEvent;
 		public event Action<CallbackContext> ReceivedInputEvent;
-		public event Action<Option> MadeAvailableEvent;
-		public event Action<Option> MadeUnavailableEvent;
+		public event Action<Option> ActivatedEvent;
+		public event Action<Option> DeactivatedEvent;
+
+		/// <summary>
+		/// Whether this option is currently able to be picked.
+		/// </summary>
+		public bool Enabled { get; private set; }
 
 		public string Title { get; }
 		public string Description { get; }
 		public string InputAction { get; }
 		public bool HasInputAction => !string.IsNullOrEmpty(InputAction);
-		public bool Available { get; private set; }
+
+		/// <summary>
+		/// Whether this option is currently enabled and actively listening for player input.
+		/// </summary>
+		public bool Listening => _listening && inputAction.enabled;
+		private bool _listening;
 
 		private readonly bool pickOnInput;
 		private readonly bool eatInput;
@@ -27,6 +39,7 @@ namespace SpaxUtils
 		private readonly Action<CallbackContext> onInputCallback;
 
 		private PlayerInputWrapper playerInputWrapper;
+		private InputAction inputAction;
 
 		public Option(
 			string title,
@@ -53,7 +66,14 @@ namespace SpaxUtils
 		/// <summary>
 		/// Create a new input-callback-only option.
 		/// </summary>
-		public Option(string title, string inputAction, Action<CallbackContext> onInputCallback, PlayerInputWrapper playerInputWrapper, bool eatInput = false, int prio = 0)
+		public Option(
+			string title,
+			string inputAction,
+			Action<CallbackContext> onInputCallback,
+			PlayerInputWrapper playerInputWrapper,
+			bool eatInput = false,
+			int prio = 0,
+			bool enable = false)
 		{
 			Title = title;
 			InputAction = inputAction;
@@ -65,47 +85,103 @@ namespace SpaxUtils
 			Description = "";
 			onPickedCallback = null;
 			pickOnInput = false;
+
+			if (enable)
+			{
+				Enable();
+			}
 		}
 
 		public void Dispose()
 		{
-			MakeUnavailable();
+			StopListening();
 		}
 
 		/// <summary>
-		/// Makes this option available and starts listening for input.
+		/// Enables this option to allow it to start listening for input while the context is active.
 		/// </summary>
-		public void MakeAvailable(PlayerInputWrapper playerInputWrapper = null)
+		public void Enable(PlayerInputWrapper playerInputWrapper = null)
 		{
+			Enabled = true;
+
 			if (playerInputWrapper != null)
 			{
 				this.playerInputWrapper = playerInputWrapper;
 			}
 
-			if (Available)
+			if (!_listening)
 			{
-				SpaxDebug.Error("Option is already available.", ToString());
+				StartListening();
+			}
+		}
+
+		/// <summary>
+		/// Disables this option to make it unable to be picked.
+		/// </summary>
+		public void Disable()
+		{
+			Enabled = false;
+
+			if (_listening)
+			{
+				StopListening();
+			}
+		}
+
+		/// <summary>
+		/// Enables or disables this option depending on <paramref name="toggle"/>.
+		/// </summary>
+		public void Toggle(bool toggle)
+		{
+			if (toggle)
+			{
+				Enable();
+			}
+			else
+			{
+				Disable();
+			}
+		}
+
+		/// <summary>
+		/// Pick this option and invoke its callback.
+		/// </summary>
+		public void Pick()
+		{
+			if (!Enabled)
+			{
+				SpaxDebug.Log("Option cannot be picked because it is disabled.", ToString(), color: Color.red);
 				return;
 			}
 
-			if (HasInputAction && this.playerInputWrapper == null)
+			PickedEvent?.Invoke(this);
+			onPickedCallback?.Invoke(this);
+		}
+
+		private void StartListening()
+		{
+			if (_listening || !HasInputAction)
 			{
-				SpaxDebug.Error("Option has an input action but no PlayerInputWrapper.", ToString());
 				return;
 			}
 
-			if (!HasInputAction)
+			if (playerInputWrapper == null)
 			{
+				SpaxDebug.Warning("Option could not be activated: has an input action but no PlayerInputWrapper.", ToString());
 				return;
 			}
 
-			this.playerInputWrapper.Subscribe(this, InputAction,
+			inputAction = playerInputWrapper.GetAction(InputAction);
+			playerInputWrapper.Subscribe(this, InputAction,
 				delegate (CallbackContext inputContext)
 				{
+					//SpaxDebug.Log("OnInput", ToString());
+
 					onInputCallback?.Invoke(inputContext);
 					ReceivedInputEvent?.Invoke(inputContext);
 
-					if (pickOnInput && inputContext.canceled)
+					//if (pickOnInput && inputContext.canceled)
+					if (pickOnInput && inputContext.performed)
 					{
 						Pick();
 					}
@@ -114,40 +190,25 @@ namespace SpaxUtils
 				},
 				prio);
 
-			Available = true;
-			MadeAvailableEvent?.Invoke(this);
+			_listening = true;
+			ActivatedEvent?.Invoke(this);
 		}
 
-		/// <summary>
-		/// Makes this option unavailable and stops listening for input.
-		/// </summary>
-		public void MakeUnavailable()
+		private void StopListening()
 		{
-			if (!Available)
+			if (!_listening)
 			{
 				return;
 			}
 
-			if (playerInputWrapper != null)
-			{
-				playerInputWrapper.Unsubscribe(this);
-			}
-			Available = false;
-			MadeUnavailableEvent?.Invoke(this);
-		}
-
-		/// <summary>
-		/// Pick this option and invoke its callback.
-		/// </summary>
-		public void Pick()
-		{
-			PickedEvent?.Invoke(this);
-			onPickedCallback?.Invoke(this);
+			playerInputWrapper.Unsubscribe(this);
+			_listening = false;
+			DeactivatedEvent?.Invoke(this);
 		}
 
 		public override string ToString()
 		{
-			return $"Option\n{{\n\tTitle=\"{Title}\"\n\tDescription=\"{Description}\"\n\tInputAction={InputAction}\n}}\n";
+			return $"Option\n{{\n\tTitle=\"{Title},\"\n\tDescription=\"{Description},\"\n\tInputAction={InputAction},\n\tEnabled={Enabled},\n\tListening={_listening}\n}}";
 		}
 	}
 }

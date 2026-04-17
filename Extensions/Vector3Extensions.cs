@@ -203,7 +203,7 @@ namespace SpaxUtils
 		/// <summary>
 		/// Treats the <see cref="Vector3"/> as a rotatable direction and clamps its rotation to the <paramref name="maxAngle"/> along the <paramref name="axis"/>.
 		/// </summary>
-		public static Vector3 ClampDirection(this Vector3 direction, Vector3 axis, float maxAngle)
+		public static Vector3 ClampAngle(this Vector3 direction, Vector3 axis, float maxAngle)
 		{
 			float angle = Vector3.Angle(direction, axis);
 			if (angle > maxAngle)
@@ -223,6 +223,14 @@ namespace SpaxUtils
 		{
 			vector = Vector3.ClampMagnitude(vector, max);
 			return vector;
+		}
+
+		/// <summary>
+		/// Clamps the individuals components of <paramref name="v"/> to never exceed <paramref name="min"/> or <paramref name="max"/>.
+		/// </summary>
+		public static Vector3 Clamp(this Vector3 v, float min, float max)
+		{
+			return new Vector3(v.x.Clamp(min, max), v.y.Clamp(min, max), v.z.Clamp(min, max));
 		}
 
 		#endregion Clamping
@@ -255,6 +263,29 @@ namespace SpaxUtils
 		public static Vector3 Lerp(this Vector3 a, Vector3 b, float t)
 		{
 			return Vector3.Lerp(a, b, t);
+		}
+
+		/// <summary>
+		/// Framerate independent implementation of <see cref="Lerp(Vector3, Vector3, float)"/>.
+		/// Only works if <paramref name="t"/> is multiplied by deltaTime.
+		/// </summary>
+		public static Vector3 FILerp(this Vector3 a, Vector3 b, float t)
+		{
+			return Vector3.Lerp(a, b, 1 - Mathf.Exp(-t));
+		}
+
+		public static Vector3 Slerp(this Vector3 a, Vector3 b, float t)
+		{
+			return Vector3.Slerp(a, b, t);
+		}
+
+		/// <summary>
+		/// frametime independent implementation of Slerp.
+		/// Only works if <paramref name="t"/> is multiplied by deltaTime.
+		/// </summary>
+		public static Vector3 FISlerp(this Vector3 a, Vector3 b, float t)
+		{
+			return Vector3.Slerp(a, b, 1 - Mathf.Exp(-t));
 		}
 
 		/// <summary>
@@ -376,6 +407,11 @@ namespace SpaxUtils
 		#endregion Operators
 
 		#region Transformation
+
+		public static Vector2 TwoD(this Vector3 v)
+		{
+			return new Vector2(v.x, v.z);
+		}
 
 		/// <summary>
 		/// Converts global vector to local vector (InverseTransformVector).
@@ -578,16 +614,73 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
+		/// Calculates the effective change in velocity of pushing on a moving object.
+		/// Only affects velocity along the push direction; perpendicular velocity is untouched.
+		/// A push has no effect if the object is already moving faster than the push in that direction.
+		/// </summary>
+		/// <param name="current">The current velocity of the object being pushed.</param>
+		/// <param name="push">The velocity with which to push on the object.</param>
+		/// <param name="effect">The resulting effectiveness of the push (0-1).</param>
+		/// <returns>The effective change in velocity, aligned to the push direction.</returns>
+		public static Vector3 CalculatePush(this Vector3 current, Vector3 push, out float effect)
+		{
+			if (push == Vector3.zero)
+			{
+				effect = 0f;
+				return Vector3.zero;
+			}
+
+			Vector3 pushDir = push.normalized;
+			float pushMag = push.magnitude;
+
+			// Project current velocity onto the push direction.
+			float currentAlongPush = Vector3.Dot(current, pushDir);
+
+			// Only push if faster than what's already there in that direction.
+			float needed = pushMag - currentAlongPush;
+			if (needed <= 0f)
+			{
+				effect = 0f;
+				return Vector3.zero;
+			}
+
+			effect = needed / pushMag;
+			return pushDir * needed;
+		}
+
+		/// <summary>
 		/// Calculates kinetic energy of a body.
 		/// </summary>
 		public static Vector3 KineticEnergy(this Vector3 velocity, float mass)
 		{
 			return 0.5f * mass * velocity * velocity.magnitude;
+
+			#region Legacy Physics Based push method (falls apart on consecutive impacts)
+			//Vector3 kE = velocity.KineticEnergy(mass);
+			//Vector3 impactForce = (kE - KineticEnergy) / velocity.magnitude * Time.fixedDeltaTime;
+			//Velocity += impactForce;
+			#endregion
 		}
 
 		#endregion // Physics
 
 		#region Coordination
+
+		/// <summary>
+		/// Calculates the angle in degrees between vectors <paramref name="a"/> and <paramref name="b"/>.
+		/// </summary>
+		public static float Angle(this Vector3 a, Vector3 b)
+		{
+			return Vector3.Angle(a, b);
+		}
+
+		/// <summary>
+		/// Calculates the signed angle in degrees between vectors <paramref name="a"/> and <paramref name="b"/> around <paramref name="axis"/>.
+		/// </summary>
+		public static float SignedAngle(this Vector3 a, Vector3 b, Vector3 axis)
+		{
+			return Vector3.SignedAngle(a, b, axis);
+		}
 
 		/// <summary>
 		/// Compute barycentric coordinates for point p with respect to triangle (a, b, c).
@@ -614,7 +707,7 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
-		/// Approximate a normal vector from a collection of points by comparing the highest and the lowest.
+		/// Approximate a normal vector from a collection of points by comparing their heights.
 		/// </summary>
 		public static Vector3 ApproxNormalFromPoints(this Vector3[] points, Vector3 up, out Vector3 center, bool debug = false, float debugSize = 1f)
 		{
@@ -635,8 +728,8 @@ namespace SpaxUtils
 #if UNITY_EDITOR
 				if (debug)
 				{
-					Debug.DrawRay(points[i], a.normalized * debugSize, Color.red);
-					Debug.DrawRay(points[i], b.normalized * debugSize, Color.green);
+					Debug.DrawRay(points[i], a, Color.red);
+					Debug.DrawRay(points[i], b, Color.green);
 					Debug.DrawRay(points[i], n * debugSize, Color.cyan);
 				}
 #endif
@@ -649,6 +742,15 @@ namespace SpaxUtils
 		#endregion Coordination
 
 		#region Parsing
+
+		/// <summary>
+		/// Returns whether the Vector3 contains any NaN's or Infinity's.
+		/// </summary>
+		public static bool IsValid(this Vector3 v)
+		{
+			return !(float.IsNaN(v.x) || float.IsNaN(v.y) || float.IsNaN(v.z)
+				|| float.IsInfinity(v.x) || float.IsInfinity(v.y) || float.IsInfinity(v.z));
+		}
 
 		/// <summary>
 		/// Will convert <paramref name="vector3"/> to a string following the format: "0,0,0".

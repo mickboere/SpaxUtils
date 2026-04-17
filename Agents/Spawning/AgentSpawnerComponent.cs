@@ -1,33 +1,39 @@
-using System.Collections;
 using UnityEngine;
 
 namespace SpaxUtils
 {
+	/// <summary>
+	/// Single slot <see cref="AgentSpawnerBase"/> implementation.
+	/// </summary>
 	[RequireComponent(typeof(Entity))]
-	public class AgentSpawnerComponent : EntityComponentBase
+	public class AgentSpawnerComponent : AgentSpawnerBase
 	{
-		[SerializeField] private AgentSetupAsset agentSetup;
-		[SerializeField] AgentSpawnData spawnData;
-
-		private IDependencyManager dependencyManager;
-
-		public void InjectDependencies(IDependencyManager dependencyManager)
+		protected override int GetSlotCount()
 		{
-			this.dependencyManager = dependencyManager;
+			return 1;
 		}
 
-		protected void Start()
+		protected override bool TryGetSpawnpoint(int slotIndex, out ISpawnpoint spawnpoint)
+		{
+			spawnpoint = GetComponent<ISpawnpoint>();
+			return spawnpoint != null;
+		}
+
+		protected void OnDrawGizmos()
 		{
 			ISpawnpoint spawnpoint = GetComponent<ISpawnpoint>();
-			if (spawnpoint != null)
+			if (spawnpoint == null)
 			{
-				DependencyManager agentDependencyManager = new DependencyManager(dependencyManager, agentSetup.Identification.Name);
-				agentDependencyManager.Bind(spawnpoint);
-				spawnData.Spawn(agentSetup, agentDependencyManager, spawnpoint.Position, spawnpoint.Rotation);
+				return;
 			}
-			else
+
+			if (agentSetup != null && agentSetup.Body != null)
 			{
-				SpaxDebug.Warning($"Spawner has no spawnpoint component attached.", $"Agent was not spawned.");
+				Gizmos.matrix = transform.localToWorldMatrix;
+				Gizmos.color = Color.blue;
+				Gizmos.DrawWireCube(
+					Vector3.up * agentSetup.Body.BaseSize.y * 0.5f * agentSetup.Body.Scale,
+					agentSetup.Body.BaseSize * agentSetup.Body.Scale);
 			}
 		}
 	}

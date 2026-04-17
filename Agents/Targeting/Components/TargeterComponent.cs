@@ -1,14 +1,16 @@
 ﻿using System;
 using System.Linq;
+using System.Security.Authentication;
+using UnityEngine;
 
 namespace SpaxUtils
 {
 	/// <summary>
 	/// Implementation of <see cref="ITargeter"/>.
 	/// Stores an entity's current target as <see cref="ITargetable"/>.
-	/// Also keeps track of the agent's friends and enemies as collections of <see cref="IEntityComponentFilter{ITargetable}"/>
+	/// Also keeps track of the agent's enemies and allies as collections of <see cref="IEntityComponentFilter{ITargetable}"/>
 	/// </summary>
-	public class TargeterComponent : EntityComponentBase, ITargeter
+	public class TargeterComponent : EntityComponentMono, ITargeter
 	{
 		/// <inheritdoc/>
 		public event Action<ITargetable> TargetChangedEvent;
@@ -16,21 +18,37 @@ namespace SpaxUtils
 		#region Properties
 
 		/// <inheritdoc/>
-		public ITargetable Target { get; private set; }
-
-		/// <inheritdoc/>
-		public bool Targeting => Target != null;
+		public ITargetable Target
+		{
+			get
+			{
+				if (_target != null && _target is MonoBehaviour mono && !mono)
+				{
+					// Fixes bug where target isn't null even though its destroyed.
+					Target = null;
+				}
+				return _target;
+			}
+			set
+			{
+				_target = value;
+				TargetChangedEvent?.Invoke(_target);
+			}
+		}
+		private ITargetable _target;
 
 		/// <inheritdoc/>
 		public IEntityComponentFilter<ITargetable> Enemies => enemies;
 
 		/// <inheritdoc/>
-		public IEntityComponentFilter<ITargetable> Friends => friends;
+		public IEntityComponentFilter<ITargetable> Allies => allies;
 
 		#endregion Properties
 
+		[SerializeField] private bool debug;
+
 		private EntityComponentFilter<ITargetable> enemies;
-		private EntityComponentFilter<ITargetable> friends;
+		private EntityComponentFilter<ITargetable> allies;
 
 		private IAgent agent;
 
@@ -41,13 +59,17 @@ namespace SpaxUtils
 			enemies?.Dispose();
 			enemies = new EntityComponentFilter<ITargetable>(
 				entityCollection,
-				(entity) => entity.Identification.HasAny(agent.Relations.Enemies) || agent.Relations.Enemies.Contains(entity.Identification.ID),
+				(other) =>
+					agent.Relations.Score(other.Identification) < -AgentRelations.THRESHOLD ||
+					(other is IAgent a && a.Relations.Score(agent.Identification) < -AgentRelations.THRESHOLD),
 				(c) => true,
 				agent);
-			friends?.Dispose();
-			friends = new EntityComponentFilter<ITargetable>(
+			allies?.Dispose();
+			allies = new EntityComponentFilter<ITargetable>(
 				entityCollection,
-				(entity) => entity.Identification.HasAny(agent.Relations.Friends) || agent.Relations.Friends.Contains(entity.Identification.ID),
+				(other) =>
+					agent.Relations.Score(other.Identification) > AgentRelations.THRESHOLD ||
+					(other is IAgent a && a.Relations.Score(agent.Identification) > AgentRelations.THRESHOLD),
 				(c) => true,
 				agent);
 		}
@@ -60,8 +82,18 @@ namespace SpaxUtils
 		protected void OnDestroy()
 		{
 			enemies.Dispose();
-			friends.Dispose();
+			allies.Dispose();
 			agent.Relations.RelationsUpdatedEvent -= OnRelationsUpdatedEvent;
+		}
+
+		protected void OnDrawGizmos()
+		{
+			if (debug && Target != null)
+			{
+				Gizmos.color = Color.red;
+				Gizmos.DrawLine(transform.position, Target.Point);
+				Gizmos.DrawSphere(Target.Point, 0.1f);
+			}
 		}
 
 		/// <inheritdoc/>
@@ -79,13 +111,12 @@ namespace SpaxUtils
 			}
 
 			Target = targetable;
-			TargetChangedEvent?.Invoke(Target);
 		}
 
 		private void OnRelationsUpdatedEvent()
 		{
 			enemies.Reevaluate();
-			friends.Reevaluate();
+			allies.Reevaluate();
 		}
 	}
 }

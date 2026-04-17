@@ -24,36 +24,37 @@ namespace SpaxUtils
 				body;
 
 		/// <inheritdoc/>
-		public IList<StateMachineGraph> BrainGraphs =>
-			template != null && template.BrainGraphs != null ?
-				new List<StateMachineGraph>().Concat(template.BrainGraphs).Concat(brainGraphs).ToList() :
-				brainGraphs;
-
-		/// <inheritdoc/>
 		public IList<GameObject> Children =>
 			template != null && template.Children != null ?
-				new List<GameObject>().Concat(template.Children).Concat(children).ToList() :
+				template.Children.Union(children).ToList() :
 				children;
 
 		/// <inheritdoc/>
 		public IList<object> Dependencies =>
 			template != null && template.Dependencies != null ?
-				new List<object>().Concat(template.Dependencies).Concat(dependencies).ToList() :
-				new List<object>().Concat(dependencies).ToList();
+				template.Dependencies.Union(dependencies).ToList() :
+				dependencies.Cast<object>().ToList();
 
 		/// <inheritdoc/>
-		public RuntimeDataCollection Data =>
-			template != null && template.Data != null ? data.ApplyToRuntimeDataCollection(template.Data) :
-			data.Count > 0 ? data.ToRuntimeDataCollection(identification.ID) :
-			null;
+		public bool ContainsData => (data != null && data.Count > 0) || (template != null && template.ContainsData);
 
 		[SerializeField] private AgentSetupAsset template;
 		[SerializeField] private Identification identification;
 		[SerializeField] private Agent frame;
 		[SerializeField] private AgentBodyComponent body;
-		[SerializeField] private List<StateMachineGraph> brainGraphs;
 		[SerializeField] private List<GameObject> children;
-		[SerializeField] private List<ScriptableObject> dependencies;
+		[SerializeField] private List<Object> dependencies;
 		[SerializeField] private LabeledDataCollection data;
+
+		/// <inheritdoc/>
+		public RuntimeDataCollection RetrieveDataClone()
+		{
+			var dataCollection = data.ToRuntimeDataCollection(Identification.ID);
+			if (template != null && template.ContainsData)
+			{
+				dataCollection.AppendCollection(template.RetrieveDataClone(), false);
+			}
+			return dataCollection;
+		}
 	}
 }

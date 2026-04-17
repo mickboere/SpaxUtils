@@ -12,7 +12,8 @@ namespace SpaxUtils
 	/// </summary>
 	public class Actor : ChannelBase<string, IAct>, IActor, IDisposable
 	{
-		public event Action<IPerformer> PerformanceStartedEvent;
+		public event Action<IPerformer> StartedPreparingEvent;
+		public event Action<IPerformer> StartedPerformingEvent;
 		public event Action<IPerformer> PerformanceUpdateEvent;
 		public event Action<IPerformer> PerformanceCompletedEvent;
 
@@ -20,7 +21,7 @@ namespace SpaxUtils
 		public IPerformer MainPerformer => activePerformers.Count > 0 ? activePerformers[activePerformers.Count - 1] : null;
 
 		/// <inheritdoc/>
-		public bool Blocked { get; set; } = false;
+		public bool Blocked => blockers.Count > 0;
 
 		/// <inheritdoc/>
 		public int Priority => int.MaxValue;
@@ -34,15 +35,32 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public float RunTime => MainPerformer != null ? MainPerformer.RunTime : 0f;
 
+		/// <inheritdoc/>
+		public float Weight => MainPerformer != null ? MainPerformer.Weight : 0f;
+
+		/// <inheritdoc/>
+		public bool Paused
+		{
+			get { return MainPerformer != null ? MainPerformer.Paused : false; }
+			set { if (MainPerformer != null) MainPerformer.Paused = value; }
+		}
+
+		/// <inheritdoc/>
+		public bool Canceled => MainPerformer != null ? MainPerformer.Canceled : false;
+
+		/// <inheritdoc/>
+		public float CancelTime => MainPerformer != null ? MainPerformer.CancelTime : 0f;
+
 		private CallbackService callbackService;
 		private Dictionary<string, InputToActMapper> inputMappers = new Dictionary<string, InputToActMapper>();
 		private List<IPerformer> availablePerformers = new List<IPerformer>();
 		private List<IPerformer> activePerformers = new List<IPerformer>();
 		private Act<bool>? lastPerformedInput;
 		private (Act<bool> act, TimerStruct timer)? lastFailedAttempt;
+		private List<object> blockers = new List<object>();
 
 		public Actor(string identifier, CallbackService callbackService, InputToActMap inputToActMap = null,
-			IEnumerable<IPerformer> performers = null) : base(identifier)
+			IEnumerable<IPerformer> performers = null, Func<string, bool> stateChecker = null) : base(identifier)
 		{
 			this.callbackService = callbackService;
 			callbackService.SubscribeUpdate(UpdateMode.Update, this, OnUpdate);
@@ -52,7 +70,7 @@ namespace SpaxUtils
 			{
 				foreach (InputToActMapping mapping in inputToActMap.Mappings)
 				{
-					inputMappers.Add(mapping.Title, new InputToActMapper(this, mapping));
+					inputMappers.Add(mapping.Title, new InputToActMapper(this, mapping, stateChecker));
 				}
 			}
 
@@ -97,30 +115,30 @@ namespace SpaxUtils
 		}
 
 		/// <inheritdoc/>
-		public void SendInput(string act, bool? value = null)
+		public void SendInput(string act, bool? value = null, Action<IPerformer> callback = null)
 		{
 			if (inputMappers.ContainsKey(act))
 			{
 				if (value.HasValue)
 				{
-					inputMappers[act].Send(value.Value);
+					inputMappers[act].Send(value.Value, callback);
 				}
 				else
 				{
-					inputMappers[act].Send(true);
-					inputMappers[act].Send(false);
+					//inputMappers[act].Send(true, callback);
+					inputMappers[act].Send(false, callback);
 				}
 			}
 			else
 			{
 				if (value.HasValue)
 				{
-					Send(new Act<bool>(act, value.Value));
+					Send(new Act<bool>(act, value.Value, callback: callback));
 				}
 				else
 				{
-					Send(new Act<bool>(act, true));
-					Send(new Act<bool>(act, false));
+					Send(new Act<bool>(act, true, callback: callback));
+					Send(new Act<bool>(act, false, callback: callback));
 				}
 			}
 		}
@@ -147,7 +165,8 @@ namespace SpaxUtils
 				availablePerformers.Sort((a, b) => b.Priority.CompareTo(a.Priority));
 			}
 
-			performer.PerformanceStartedEvent += OnPerformanceStartedEvent;
+			performer.StartedPreparingEvent += OnStartedPreparingEvent;
+			performer.StartedPerformingEvent += OnStartedPerformingEvent;
 			performer.PerformanceUpdateEvent += OnPerformanceUpdateEvent;
 			performer.PerformanceCompletedEvent += OnPerformanceCompletedEvent;
 		}
@@ -161,7 +180,8 @@ namespace SpaxUtils
 			}
 
 			availablePerformers.Remove(performer);
-			performer.PerformanceStartedEvent -= OnPerformanceStartedEvent;
+			performer.StartedPreparingEvent -= OnStartedPreparingEvent;
+			performer.StartedPerformingEvent -= OnStartedPerformingEvent;
 			performer.PerformanceUpdateEvent -= OnPerformanceUpdateEvent;
 			performer.PerformanceCompletedEvent -= OnPerformanceCompletedEvent;
 		}
@@ -175,8 +195,20 @@ namespace SpaxUtils
 		{
 			base.OnReceived(key, act);
 
-			if (!SupportsAct(act.Title) || Blocked)
+			if (Blocked || !SupportsAct(act.Title))
 			{
+				return;
+			}
+
+			// Signal act: prepare and perform immediately in one shot.
+			if (act is ActSignal)
+			{
+				IPerformer performer = null;
+				if (TryPrepare(act, out performer))
+				{
+					performer.TryPerform();
+					act.Callback?.Invoke(performer);
+				}
 				return;
 			}
 
@@ -191,16 +223,20 @@ namespace SpaxUtils
 					return;
 				}
 
-				if ((input.Value && TryPrepare(input, out _)) ||
+				IPerformer performer = null;
+				if ((input.Value && TryPrepare(input, out performer)) ||
 					(!input.Value && MainPerformer != null && lastPerformedInput.HasValue &&
 						lastPerformedInput.Value.Title == input.Title && lastPerformedInput.Value.Value &&
 						MainPerformer.TryPerform()))
 				{
+					// Successful input.
 					lastPerformedInput = act.Title == ActorActs.CANCEL ? null : input;
 					lastFailedAttempt = null;
+					act.Callback?.Invoke(performer ?? MainPerformer);
 				}
 				else
 				{
+					// Unsuccessful input, retry later.
 					lastFailedAttempt = (input, new TimerStruct(act.Buffer));
 				}
 			}
@@ -234,7 +270,7 @@ namespace SpaxUtils
 			if (MainPerformer != null && act.Title == ActorActs.CANCEL)
 			{
 				finalPerformer = MainPerformer;
-				return MainPerformer.TryCancel(false);
+				return MainPerformer.TryCancel();
 			}
 
 			// Ensure Support and Non-Occupance or Interuptability.
@@ -273,9 +309,14 @@ namespace SpaxUtils
 			return MainPerformer == null ? false : MainPerformer.TryCancel(force);
 		}
 
-		private void OnPerformanceStartedEvent(IPerformer performer)
+		private void OnStartedPreparingEvent(IPerformer performer)
 		{
-			PerformanceStartedEvent?.Invoke(performer);
+			StartedPreparingEvent?.Invoke(performer);
+		}
+
+		private void OnStartedPerformingEvent(IPerformer performer)
+		{
+			StartedPerformingEvent?.Invoke(performer);
 		}
 
 		private void OnPerformanceUpdateEvent(IPerformer performer)
@@ -295,6 +336,28 @@ namespace SpaxUtils
 		}
 
 		#endregion Performance
+
+		#region Blocking
+
+		/// <inheritdoc/>
+		public void AddBlocker(object blocker)
+		{
+			if (!blockers.Contains(blocker))
+			{
+				blockers.Add(blocker);
+			}
+		}
+
+		/// <inheritdoc/>
+		public void RemoveBlocker(object blocker)
+		{
+			if (blockers.Contains(blocker))
+			{
+				blockers.Remove(blocker);
+			}
+		}
+
+		#endregion Blocking
 
 		private void RetryLastFailedAttempt()
 		{

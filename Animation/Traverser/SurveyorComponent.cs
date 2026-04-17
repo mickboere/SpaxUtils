@@ -5,32 +5,35 @@ namespace SpaxUtils
 	/// <summary>
 	/// Surveyor wheel implementation that simulates foot movement of an entity to dictate more accurate movement animation.
 	/// </summary>
-	/// https://github.com/mickboere/SpaxUtils/blob/master/Animation/Procedural/LegWalkerComponent.cs
-	public class SurveyorComponent : EntityComponentBase
+	public class SurveyorComponent : EntityComponentMono
 	{
-		public float Effect { get; private set; }
 		public float Stride { get; private set; }
+		public float Influence { get; private set; }
 		public float Circumference { get; private set; }
-		public float Spacing { get; set; }
-		public float DefaultSpacing => defaultSpacing;
+		public float Progress { get; private set; }
 
-		[Header("Surveyor")]
-		[SerializeField] private float strideLength = 1f;
-		[SerializeField] private float minStride = 0.3f;
+		[Header("Stride")]
+		[SerializeField] private float minStride = 0.5f;
+		[SerializeField] private float fullStride = 1f;
 		[SerializeField] private float maxStride = 1.3f;
 		[SerializeField] private AnimationCurve strideSpeed = new AnimationCurve(new Keyframe(0f, 0f), new Keyframe(1f, 1f));
-		[SerializeField, MinMaxRange(0f, 1f, true)] private Vector2 groundedRange = new Vector2(0.4f, 0.6f);
-		[SerializeField] private float surveyLength = 1.3f;
-		[SerializeField] private float maxReach = 1.5f;
-		[SerializeField] private Vector3 surveyOriginOffset;
-		[SerializeField] private float defaultSpacing = 0.4f;
-		[SerializeField, Range(0f, 1f)] private float surveyOriginCOMInfluence = 0.5f;
-		[SerializeField, Range(0f, 2f)] private float surveyOriginVelocityInfluence = 0.5f;
-		[SerializeField] private float maxFootingAngle = 75f;
 		[Header("Stride Influence")]
 		[SerializeField, Range(0f, 1f)] private float mobilityStrideInfluence = 1f;
 		[SerializeField, Range(0f, 1f)] private float accelerationStrideInfluence = 1f;
-		[SerializeField] private Vector2 accelerationSmoothing = new Vector2(10f, 2f);
+		[SerializeField] private float accelerationScale = 1f;
+		[SerializeField, Tooltip("X=acceleration smooth speed, Y=deceleration smooth speed")]
+		private Vector2 accelerationSmoothing = new Vector2(20f, 0.1f);
+		[Header("Surveying")]
+		[SerializeField, Range(0f, 1f)] private float resetProgress;
+		[SerializeField, MinMaxRange(0f, 1f, true)] private Vector2 groundedRange = new Vector2(0.35f, 0.65f);
+		[SerializeField, Range(0f, 1f)] private float groundThreshold = 0.5f;
+		[SerializeField] private float liftThreshold = 0.025f;
+		[SerializeField, Range(1f, 2f)] private float surveyLength = 1.3f;
+		[SerializeField] private float maxReach = 1.5f;
+		[SerializeField] private Vector3 surveyOriginOffset;
+		[SerializeField, Range(0f, 1f)] private float surveyOriginCOMInfluence = 0f;
+		[SerializeField, Range(0f, 2f)] private float surveyOriginVelocityInfluence = 1.25f;
+		[SerializeField] private float maxFootingAngle = 75f;
 		[Header("Ground check")]
 		[SerializeField] private LayerMask layerMask;
 		[SerializeField, Tooltip("Grounded amount calculated from raycast approaching the ground.")] private AnimationCurve anticipationCurve = new AnimationCurve(new Keyframe(0f, 0f), new Keyframe(1f, 1f));
@@ -39,71 +42,59 @@ namespace SpaxUtils
 		[SerializeField] private float checkRadius = 0.1f;
 		[SerializeField] private float clipThreshold = 0.025f;
 
-		[SerializeField, Header("Gizmos")] private bool drawGizmos;
-		[SerializeField, Conditional(nameof(drawGizmos))] private bool drawSpokes;
-		[SerializeField, Conditional(nameof(drawGizmos))] private bool drawRaycasts;
+		[SerializeField, Header("Gizmos")] private bool debug;
+		[SerializeField, Conditional(nameof(debug))] private bool drawSpokes;
+		[SerializeField, Conditional(nameof(debug))] private bool drawRaycasts;
+		[SerializeField, Conditional(nameof(debug))] private bool log;
 
-		private float progress;
 		private RigidbodyWrapper rigidbodyWrapper;
-		private ILegsComponent legs;
-		private IGrounderComponent grounder;
+		private AgentLegsComponent legs;
 		private IAgentBody body;
+		private GrounderComponent grounder;
+		private IAgentMovementHandler movementHandler;
+		private EntityStat moveSpeedStat;
 
 		private float smoothAccel;
-		private float previousAccel;
 
-		public void InjectDependencies(RigidbodyWrapper wrapper, ILegsComponent legs, IGrounderComponent grounder, IAgentBody body)
+		public void InjectDependencies(RigidbodyWrapper wrapper, AgentLegsComponent legs, IAgentBody body,
+			GrounderComponent grounder, IAgentMovementHandler movementHandler)
 		{
 			this.rigidbodyWrapper = wrapper;
 			this.legs = legs;
 			this.grounder = grounder;
 			this.body = body;
+			this.movementHandler = movementHandler;
+
+			moveSpeedStat = Entity.Stats.GetStat(AgentStatIdentifiers.MOVEMENT_SPEED, true, 1f);
 		}
 
-		public void ResetSurveyor()
+		public void ResetSurveyor(float progress = 0f)
 		{
-			progress = 0f;
-			Spacing = defaultSpacing;
-			foreach (ILeg leg in legs.Legs)
+			Progress = progress;
+			smoothAccel = 0f;
+
+			foreach (Leg leg in legs.Legs)
 			{
-				leg.UpdateFoot(false, 0f, false, default, default);
+				leg.UpdateGround(grounder.Grounded, 0f, false, default, default);
 			}
 		}
 
 		public void UpdateSurveyor(float delta)
 		{
-			UpdateSurveyor(delta * EntityTimeScale, rigidbodyWrapper.Velocity.FlattenY().magnitude);
-			UpdateLegs(delta * EntityTimeScale);
-		}
-
-		public void UpdateSurveyor(float delta, float velocity)
-		{
-			if (!grounder.Grounded || grounder.Sliding || velocity < 0.01f)
+			float velocity = rigidbodyWrapper.Velocity.FlattenY().magnitude;
+			if (!grounder.Grounded || grounder.Sliding || rigidbodyWrapper.Control < 0.5f || velocity < 0.01f)
 			{
+				ResetSurveyor(resetProgress);
 				return;
 			}
 
-			Effect = velocity / body.BaseSpeed;
-
-			// Mobility Influence
-			Effect *= Mathf.Lerp(1f, grounder.Mobility, mobilityStrideInfluence);
-
-			// Acceleration Influence
-			float accel = rigidbodyWrapper.Acceleration.magnitude;
-			smoothAccel = Mathf.Lerp(smoothAccel, 1f - accel, (accel > previousAccel ? accelerationSmoothing.x : accelerationSmoothing.y) * delta);
-			previousAccel = accel;
-			Effect *= Mathf.Lerp(1f, smoothAccel, accelerationStrideInfluence);
-
-			Stride = Mathf.Clamp(strideLength * Effect, minStride, maxStride);
-			Circumference = Stride * Mathf.PI;
-
-			float travel = velocity / Circumference;
-			progress = (progress + travel * delta).Repeat();
+			UpdateProgress(delta * EntityTimeScale, velocity);
+			Survey(delta * EntityTimeScale);
 		}
 
 		public float GetProgress(float offset = 0f, bool applyStrideSpeedCurve = true)
 		{
-			float p = (progress + offset).Repeat();
+			float p = (Progress + offset).Repeat();
 			return applyStrideSpeedCurve ? strideSpeed.Evaluate(p) : p;
 		}
 
@@ -127,35 +118,42 @@ namespace SpaxUtils
 			return dir;
 		}
 
-		private void UpdateLegs(float delta)
+		private void UpdateProgress(float delta, float velocity)
 		{
-			if (rigidbodyWrapper.Control < 0.5f || grounder.Sliding)
-			{
-				foreach (ILeg leg in legs.Legs)
-				{
-					Vector3 dir = leg.Foot.position - leg.Knee.position;
-					float length = dir.magnitude + clipThreshold * 2f;
-					if (Physics.Raycast(leg.Knee.position, dir, out RaycastHit hit, length, layerMask) &&
-						length - hit.distance > clipThreshold)
-					{
-						leg.UpdateFoot(grounder.Grounded, 1f, true, hit.point, hit);
-					}
-					else
-					{
-						leg.UpdateFoot(grounder.Grounded, 0f, false, leg.TargetPoint, leg.GroundedHit);
-					}
-				}
+			// Calculate stride length.
+			float strideInterpolation = velocity.InverseLerp(movementHandler.MinSpeed, movementHandler.FullSpeed);
+			float relativeSpeed = velocity / movementHandler.FullSpeed;
+			Stride = minStride.Lerp(fullStride, strideInterpolation).Lerp(
+				maxStride, ((relativeSpeed - 1f) * 2f).Clamp01());
 
-				return;
-			}
+			// Calculate stride influence.
+			Influence = 1f;
+			// 1. Mobility Influence
+			Influence *= Mathf.Lerp(1f, grounder.Mobility, mobilityStrideInfluence);
+			// 2. Acceleration Influence
+			float accel = (rigidbodyWrapper.Acceleration.magnitude * accelerationScale).Clamp01() * 
+				(relativeSpeed * (1f / moveSpeedStat) * 0.5f).InvertClamped();
+			smoothAccel = smoothAccel.FILerp(accel,
+				(accel > smoothAccel ? accelerationSmoothing.x : accelerationSmoothing.y) * delta);
+			Influence *= Mathf.Lerp(1f, smoothAccel.Invert(), accelerationStrideInfluence);
 
-			foreach (ILeg leg in legs.Legs)
+			// Calculate updated progress with influenced stride.
+			Stride = (Stride * Influence).Max(minStride);
+			Circumference = Stride * Mathf.PI;
+			float travel = velocity / Circumference * rigidbodyWrapper.Grip.InOutQuint();
+			Progress = (Progress + travel * delta).Repeat();
+		}
+
+		private void Survey(float delta)
+		{
+			foreach (Leg leg in legs.Legs)
 			{
 				float progress = GetProgress(leg.WalkCycleOffset);
 				Vector3 direction = GetSurveyorSpoke(progress, out Vector3 origin);
 
-				// Adjust spacing.
-				origin += (leg.Thigh.position - origin).FlattenY();
+				// Adjust sideways-spacing to always cast above the foot.
+				Vector3 offsetDir = rigidbodyWrapper.Velocity == Vector3.zero ? transform.forward : rigidbodyWrapper.Velocity;
+				origin += offsetDir.LookRotation() * (offsetDir.LookRotation().Inverse() * (leg.SolePos - origin)).FlattenYZ();
 
 				// Move origin forwards to meet center of mass.
 				origin += (body.Center - origin).LocalizeDirection(transform).FlattenXY().GlobalizeDirection(transform) * surveyOriginCOMInfluence;
@@ -171,38 +169,55 @@ namespace SpaxUtils
 				Vector3 targetPoint = leg.TargetPoint;
 				RaycastHit groundedHit = leg.GroundedHit;
 				bool validGround = false;
+				float groundRange = progress < groundedRange.x ? progress / groundedRange.x : progress > groundedRange.y ? progress.InverseLerp(groundedRange.y, 1f) : 1f;
 
 				// Cast to find valid target foot position.
 				if (Physics.SphereCast(origin, checkRadius, direction, out RaycastHit hit, Stride * surveyLength, layerMask))
 				{
 					// Find safe spot if hit normal exceeds max footing angle.
-					if (hit.normal.Dot(rigidbodyWrapper.Up).InvertClamped() * 90f > maxFootingAngle && TryFindSafeSpot(hit.point, out RaycastHit safeSpot))
+					if (hit.normal.Dot(rigidbodyWrapper.Up).InvertClamped() * 90f > maxFootingAngle)
 					{
-						hit = safeSpot;
+						if (TryFindSafeSpot(hit.point, out RaycastHit safeSpot))
+						{
+							groundedHit = safeSpot;
+							validGround = true;
+						}
 					}
-
-					validGround = true;
-					groundedHit = hit;
-					if (progress < 0.5f)
+					else
 					{
-						targetPoint = hit.point;
+						groundedHit = hit;
+						validGround = true;
 					}
-
-					float hitDistance = Vector3.Distance(origin, hit.point) - Stride;
-					float fade = Mathf.Clamp01(hitDistance / (Stride * surveyLength - Stride)).Invert();
-					groundedAmount = progress < 0.5f ? anticipationCurve.Evaluate(fade) : exitCurve.Evaluate(fade);
 				}
 
-				if (targetPoint.Distance(leg.Thigh.position) > leg.Length * maxReach)
+				// If on valid ground, determine grounding values.
+				if (validGround)
+				{
+					float hitDistance = Vector3.Distance(origin, hit.point) - Stride;
+					float fade = Mathf.Clamp01(hitDistance / (Stride * surveyLength - Stride)).Invert().Min(groundRange);
+					groundedAmount = progress < groundThreshold ? anticipationCurve.Evaluate(fade) : exitCurve.Evaluate(fade);
+
+					// Only allow changing target point if foot is not grounded.
+					if (progress < groundThreshold)
+					{
+						targetPoint = groundedHit.point;
+					}
+				}
+
+				if (targetPoint.Distance(leg.ThighPos) > leg.Length * maxReach)
 				{
 					groundedAmount = 0f;
+					validGround = false;
 				}
 
-				bool grounded = grounder.Grounded && progress > groundedRange.x && progress < groundedRange.y;
-				leg.UpdateFoot(grounded, groundedAmount, validGround, targetPoint, groundedHit);
+				bool grounded = grounder.Grounded && groundRange.Approx(1f);
+				leg.UpdateGround(grounded, groundedAmount, validGround, targetPoint, groundedHit);
 			}
 		}
 
+		/// <summary>
+		/// Starting at <paramref name="end"/>, cast <paramref name="iterations"/> rays until current RB position is reached to find a safe spot to place feet.
+		/// </summary>
 		private bool TryFindSafeSpot(Vector3 end, out RaycastHit safeSpot, int iterations = 6)
 		{
 			for (int i = 1; i <= iterations; i++)
@@ -210,18 +225,20 @@ namespace SpaxUtils
 				float f = (float)i / iterations;
 				Vector3 t = Vector3.Lerp(end, rigidbodyWrapper.Position, f);
 				Vector3 origin = t + rigidbodyWrapper.Up * body.Scale;
-				//if (Physics.SphereCast(origin, checkRadius, -rigidbodyWrapper.Up, out RaycastHit hit, surveyLength * body.Scale, layerMask))
-				//{
-				//	safeSpot = hit;
-				//	return true;
-				//}
 
-				//Debug.DrawRay(origin, -rigidbodyWrapper.Up * surveyLength * body.Scale, Color.red, 1f);
-
-				if (Physics.Raycast(origin, -rigidbodyWrapper.Up, out RaycastHit hit, surveyLength * body.Scale, layerMask))
+				if (Physics.Raycast(origin, -rigidbodyWrapper.Up, out RaycastHit hit, surveyLength * body.Scale, layerMask) &&
+					hit.normal.Dot(rigidbodyWrapper.Up).InvertClamped() * 90f < maxFootingAngle)
 				{
 					safeSpot = hit;
+					if (debug)
+					{
+						Debug.DrawLine(origin, hit.point, Color.green, 1f);
+					}
 					return true;
+				}
+				else if (debug)
+				{
+					Debug.DrawRay(origin, -rigidbodyWrapper.Up * surveyLength * body.Scale, Color.red, 1f);
 				}
 			}
 
@@ -231,7 +248,7 @@ namespace SpaxUtils
 
 		protected void OnDrawGizmos()
 		{
-			if (!drawGizmos)
+			if (!debug)
 			{
 				return;
 			}
@@ -248,26 +265,28 @@ namespace SpaxUtils
 			{
 				for (int i = 0; i < legs.Legs.Count; i++)
 				{
-					ILeg leg = legs.Legs[i];
+					Leg leg = legs.Legs[i];
+					Vector3 target = leg.CastOrigin + leg.CastDirection.normalized * Stride;
+					Vector3 survey = leg.CastDirection.normalized * (surveyLength - 1f);
 
-					Gizmos.color = new Color(0f, 0.2f, 0.9f);
+					Gizmos.color = new Color(leg.GroundedAmount, leg.GroundedAmount, leg.GroundedAmount);
 					Gizmos.DrawRay(leg.CastOrigin, leg.CastDirection.normalized * Stride);
+					Gizmos.color = GetProgress(leg.WalkCycleOffset, false) < groundThreshold ? Color.yellow : Color.magenta;
+					Gizmos.DrawSphere(target, 0.03f);
+					Gizmos.DrawSphere(target + survey, 0.03f);
 
-					if (leg.ValidGround)
+					if (!leg.ValidGround)
 					{
-						Gizmos.color = Color.red;
-						Gizmos.DrawLine(leg.CastOrigin, leg.GroundedHit.point);
-						Gizmos.DrawSphere(leg.CastOrigin, 0.05f);
-						Gizmos.DrawSphere(leg.GroundedHit.point, 0.05f);
+						Gizmos.DrawRay(target, survey);
 					}
 					else
 					{
-						Gizmos.color = GetProgress(leg.WalkCycleOffset, false) < 0.5f ? Color.yellow : Color.magenta;
-						Vector3 pos = leg.CastOrigin + leg.CastDirection.normalized * Stride;
-						Vector3 dir = leg.CastDirection.normalized * (surveyLength - 1f);
-						Gizmos.DrawRay(pos, dir);
-						Gizmos.DrawSphere(pos, 0.05f);
-						Gizmos.DrawSphere(pos + dir, 0.05f);
+						Gizmos.color = Color.red;
+						Gizmos.DrawLine(leg.CastOrigin, leg.GroundedHit.point);
+						Gizmos.DrawSphere(leg.CastOrigin, 0.03f);
+						Gizmos.DrawSphere(leg.GroundedHit.point, 0.03f);
+						Gizmos.color = Color.green;
+						Gizmos.DrawSphere(leg.TargetPoint, 0.04f);
 					}
 				}
 			}

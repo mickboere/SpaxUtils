@@ -16,7 +16,17 @@ namespace SpaxUtils
 		/// </summary>
 		event Action<RuntimeDataCollection> OnSaveEvent;
 
+		/// <summary>
+		/// Invoked when the entity is disabled or destroyed.
+		/// </summary>
+		event Action<IEntity> DeactivatedEvent;
+
 		#region Properties
+
+		/// <summary>
+		/// Whether this entity is currently busy.
+		/// </summary>
+		bool Busy { get; }
 
 		/// <summary>
 		/// The entity's identification.
@@ -39,73 +49,63 @@ namespace SpaxUtils
 		RuntimeDataCollection RuntimeData { get; }
 
 		/// <summary>
-		/// The modified runtime data.
+		/// The <see cref="EntityStat"/>s that wrap around the <see cref="RuntimeData"/>.
 		/// </summary>
-		StatCollection<EntityStat> Stats { get; }
+		EntityStatManager Stats { get; }
 
 		/// <summary>
-		/// Whether this entity is currently alive or not.
+		/// Whether the priority for this entity should be managed dynamically based on distance to nearest camera.
 		/// </summary>
-		bool Alive { get; }
+		bool DynamicPriority { get; set; }
 
 		/// <summary>
-		/// Age this entity has been alive for in seconds.
+		/// The priority level of this Entity, used for optimization.
 		/// </summary>
-		float Age { get; }
+		PriorityLevel Priority { get; set; }
+
+		/// <summary>
+		/// Whether this entity is running in debug mode.
+		/// </summary>
+		bool Debug { get; }
+
+		#endregion
+
+		#region Occupation
+
+		/// <summary>
+		/// Marks this entity as busy, being occupied with <paramref name="occupier"/>.
+		/// </summary>
+		void Occupy(object occupier);
+
+		/// <summary>
+		/// No longer marks this entity as being occupied with <paramref name="occupier"/>.
+		/// </summary>
+		void Deoccupy(object occupier);
+
+		#endregion Occupation
+
+		#region Optimization
+
+		/// <summary>
+		/// Add a subscriber to be invoked by the priority-optimized update callback.
+		/// </summary>
+		/// <param name="callback">The callback to be invoked.</param>
+		void SubscribeOptimizedUpdate(Action<float> callback);
+
+		/// <summary>
+		/// Remove a subscriber to no longer be invoked by the priority-optimized update callback.
+		/// </summary>
+		/// <param name="callback">The callback to unsubscribe from the callback.</param>
+		void UnsubscribeOptimizedUpdate(Action<float> callback);
 
 		#endregion
 
 		#region Data
 
 		/// <summary>
-		/// Save the entity's <see cref="RuntimeData"/>.
+		/// Manually save the entity's <see cref="RuntimeData"/>.
 		/// </summary>
 		void SaveData();
-
-		/// <summary>
-		/// Sets the value object of <see cref="RuntimeDataEntry"/> with ID <paramref name="identifier"/>.
-		/// </summary>
-		/// <param name="identifier">The ID of the <see cref="RuntimeDataEntry"/> of which to set the value.</param>
-		void SetDataValue(string identifier, object value);
-
-		/// <summary>
-		/// Returns value of runtime data with ID <paramref name="identifier"/>.
-		/// </summary>
-		/// <param name="identifier">The identifier of the <see cref="RuntimeDataEntry"/> of which to return its value.</param>
-		/// <returns>The value of the <see cref="RuntimeDataEntry"/> with ID <paramref name="identifier"/>.</returns>
-		object GetDataValue(string identifier);
-
-		/// <summary>
-		/// Returns value of runtime data with ID <paramref name="identifier"/> as <typeparamref name="T"/>.
-		/// </summary>
-		/// <typeparam name="T">The type to cast the value to.</typeparam>
-		/// <param name="identifier">The identifier of the <see cref="RuntimeDataEntry"/> of which to return its value.</param>
-		/// <returns>The value of the <see cref="RuntimeDataEntry"/> with ID <paramref name="identifier"/> as <typeparamref name="T"/>.</returns>
-		T GetDataValue<T>(string identifier);
-
-		/// <summary>
-		/// Returns an <see cref="EntityStat"/> that wraps around the data with ID <paramref name="identifier"/>.
-		/// <see cref="EntityStat"/> implements <see cref="CompositeFloatBase"/> which allows any amount of modifications to be done to the base data value without changing the data itself.
-		/// </summary>
-		/// <param name="identifier">The identifier of the runtime data for which to return a modifiable <see cref="EntityStat"/>.</param>
-		/// <param name="createDataIfNull">If there is no existing data for <paramref name="identifier"/>, should it be created?</param>
-		/// <param name="defaultValueIfUndefined">The default value for the newly created stat if there is no stat configuration data available.</param>
-		/// <returns>An <see cref="EntityStat"/> that wraps around the data with ID <paramref name="identifier"/>.</returns>
-		EntityStat GetStat(string identifier, bool createDataIfNull = false, float defaultValueIfUndefined = 0f);
-
-		/// <summary>
-		/// Checks whether an <see cref="EntityStat"/> wrapping around data with ID <paramref name="identifier"/> exists.
-		/// <see cref="EntityStat"/> implements <see cref="CompositeFloatBase"/> which allows any amount of modifications to be done to the base data value without changing the data itself.
-		/// </summary>
-		/// <param name="identifier">The identifier of the runtime data for which to seek the modifiable <see cref="EntityStat"/>.</param>
-		/// <param name="stat">The resulting <see cref="EntityStat"/>, if any.</param>
-		/// <returns>Whether an <see cref="EntityStat"/> exists with ID <paramref name="identifier"/>.</returns>
-		bool TryGetStat(string identifier, out EntityStat stat);
-
-		/// <summary>
-		/// Will try to retrieve stat from <paramref name="cost"/> and damage it by <paramref name="cost"/> * <paramref name="delta"/>.
-		/// </summary>
-		bool TryApplyStatCost(StatCost cost, float delta, out bool drained);
 
 		#endregion
 

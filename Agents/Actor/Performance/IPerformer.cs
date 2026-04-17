@@ -9,9 +9,14 @@ namespace SpaxUtils
 	public interface IPerformer
 	{
 		/// <summary>
-		/// Invoked on the first frame of performance (not preparing, but actual <see cref="PerformanceState.Performing"/>).
+		/// Invoked on the first frame of preparing a new performance.
 		/// </summary>
-		event Action<IPerformer> PerformanceStartedEvent;
+		event Action<IPerformer> StartedPreparingEvent;
+
+		/// <summary>
+		/// Invoked on the first frame of performance (NOT preparing, but actual <see cref="PerformanceState.Performing"/>).
+		/// </summary>
+		event Action<IPerformer> StartedPerformingEvent;
 
 		/// <summary>
 		/// Invoked every frame during every state of performance, including preparation and completion.
@@ -45,6 +50,26 @@ namespace SpaxUtils
 		/// The amount of time the performance has been going for.
 		/// </summary>
 		float RunTime { get; }
+
+		/// <summary>
+		/// Whether this performer's runtime is currently paused.
+		/// </summary>
+		bool Paused { get; set; }
+
+		/// <summary>
+		/// Whether the current performance has been canceled.
+		/// </summary>
+		bool Canceled { get; }
+
+		/// <summary>
+		/// The amount of time passed since this performer has been canceled.
+		/// </summary>
+		float CancelTime { get; }
+
+		/// <summary>
+		/// Active weight of this performance.
+		/// </summary>
+		float Weight { get; }
 
 		#endregion Properties
 

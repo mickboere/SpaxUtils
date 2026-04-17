@@ -5,22 +5,36 @@ using System.Collections.Generic;
 namespace SpaxUtils
 {
 	/// <summary>
-	/// Advanced <see cref="IEntity"/> implementation for free agents which have a body that can act, think, die, target and be targeted.
-	/// Input has to be routed through the <see cref="Actor"/> as <see cref="IAct"/>s, which can be observed and reacted to.
+	/// Interface for living entities (an <see cref="IEntity"/> with agency).
 	/// </summary>
 	public interface IAgent : IEntity
 	{
 		/// <summary>
 		/// Invoked once the agent has died.
 		/// </summary>
-		event Action<IAgent> DiedEvent;
+		event Action<DeathContext> DiedEvent;
 
 		/// <summary>
 		/// Invoked once the agent has revived.
 		/// </summary>
-		event Action<IAgent> RevivedEvent;
+		event Action ReviveEvent;
+
+		/// <summary>
+		/// Invoked once the agent must recover.
+		/// </summary>
+		event Action RecoverEvent;
 
 		#region Properties
+
+		/// <summary>
+		/// Whether this agent is currently alive or not.
+		/// </summary>
+		bool Alive { get; }
+
+		/// <summary>
+		/// Age this agent has been alive for in seconds.
+		/// </summary>
+		float Age { get; }
 
 		/// <summary>
 		/// The action performer of this agent.
@@ -28,7 +42,7 @@ namespace SpaxUtils
 		IActor Actor { get; }
 
 		/// <summary>
-		/// The state machine of this agent.
+		/// The state machine / behavior tree of this agent.
 		/// </summary>
 		IBrain Brain { get; }
 
@@ -57,16 +71,26 @@ namespace SpaxUtils
 		/// </summary>
 		ITargeter Targeter { get; }
 
+		/// <summary>
+		/// The (private) communication channel of this agent.
+		/// </summary>
+		ICommunicationChannel Comms { get; }
+
 		#endregion
 
 		/// <summary>
 		/// Kills the agent, having it enter the "dead" state.
 		/// </summary>
-		void Die(ITransition transition = null);
+		void Die(DeathContext context);
 
 		/// <summary>
 		/// Revives the agent, having it exit the "dead" state.
 		/// </summary>
-		void Revive(ITransition transition = null);
+		void Revive();
+
+		/// <summary>
+		/// Ensures the Agent recovers to full capacity.
+		/// </summary>
+		void Recover();
 	}
 }

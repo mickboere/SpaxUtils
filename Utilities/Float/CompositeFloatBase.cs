@@ -33,7 +33,7 @@ namespace SpaxUtils
 		/// <summary>
 		/// Returns the <see cref="BaseValue"/> but with all "Base" modifiers applied.
 		/// </summary>
-		public float ModdedBaseValue => ModUtil.Modify(BaseValue, modifiers.Values.Where(m => m.Method == ModMethod.Base).ToList());
+		public virtual float ModdedBaseValue => ModUtil.Modify(BaseValue, modifiers.Values.Where(m => m.Method == ModMethod.Base).ToList());
 
 		/// <summary>
 		/// Returns true if there are any modifiers.
@@ -98,6 +98,15 @@ namespace SpaxUtils
 		/// <summary>
 		/// Adds a new float modifier to the composite.
 		/// </summary>
+		/// <param name="modifier">The float modifier to add to the composite.</param>
+		public void AddModifier(IModifier<float> modifier)
+		{
+			AddModifier(modifier, modifier);
+		}
+
+		/// <summary>
+		/// Adds a new float modifier to the composite.
+		/// </summary>
 		/// <param name="modIdentifier">The identifier object of the modifier, used to remove the modifier later.</param>
 		/// <param name="modifier">The float modifier to add to the composite.</param>
 		public void AddModifier(object modIdentifier, IModifier<float> modifier)
@@ -112,6 +121,7 @@ namespace SpaxUtils
 			// If we already have a mod using this identifier, first remove the existing one.
 			if (HasModifier(modIdentifier))
 			{
+				SpaxDebug.Warning($"Overwriting existing modifier with identifier '{modIdentifier}'.");
 				RemoveModifier(modIdentifier);
 			}
 
@@ -142,6 +152,14 @@ namespace SpaxUtils
 		/// <param name="modifier">The modifier to remove from the composite.</param>
 		public void RemoveModifier(IModifier<float> modifier)
 		{
+			if (HasModifier(modifier))
+			{
+				modifiers.Remove(modifier, out IModifier<float> mod);
+				mod.RecalculateEvent -= OnModifierRecalculateEvent;
+				ValueChanged();
+				return;
+			}
+
 			foreach (KeyValuePair<object, IModifier<float>> kvp in modifiers)
 			{
 				if (kvp.Value == modifier)

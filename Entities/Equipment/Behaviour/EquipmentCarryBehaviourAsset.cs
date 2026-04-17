@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace SpaxUtils
 {
-	[CreateAssetMenu(fileName = "EquipmentCarryBehaviourAsset", menuName = "ScriptableObjects/EquipmentCarryBehaviourAsset")]
+	[CreateAssetMenu(fileName = "EquipmentCarryBehaviourAsset", menuName = "ScriptableObjects/Behaviours/EquipmentCarryBehaviourAsset")]
 	public class EquipmentCarryBehaviourAsset : BehaviourAsset
 	{
 		private float ElbowHintWeight
@@ -15,12 +15,11 @@ namespace SpaxUtils
 
 		[SerializeField] private bool debug;
 		[SerializeField] private int ikPrio = 0;
+		[SerializeField] private float smoothTime = 0.5f;
 		[Header("Position")]
-		[SerializeField] private float accelerationInfluence = 1f;
-		[SerializeField] private float maxAccelerationInfluence = 1f;
-		[SerializeField] private float velocityInfluence = 1f;
-		[SerializeField] private float maxVelocityInfluence = 1f;
+		[SerializeField] private float posTimeMult = 1f;
 		[Header("Rotation")]
+		[SerializeField] private float rotTimeMult = 1f;
 		[SerializeField] private float smoothMaxAngle = 60f;
 		[SerializeField] private float absoluteMaxAngle = 90f;
 		[SerializeField] private float smoothAnglePower = 10f;
@@ -30,10 +29,11 @@ namespace SpaxUtils
 		private AgentArmsComponent arms;
 		private IIKComponent ik;
 		private TransformLookup lookup;
-		private RigidbodyWrapper rigidbodyWrapper;
 		private FinalIKComponent finalIK;
 		private CallbackService callbackService;
+		private EntityStat timescale;
 
+		private bool initialized;
 		private bool isLeft;
 		private Transform hand;
 		private string ikChain;
@@ -43,22 +43,31 @@ namespace SpaxUtils
 		private Quaternion targetRotationSmooth;
 		private Quaternion rotVelocity;
 
-		public void InjectDependencies(RuntimeEquipedData equipedData, IAgent agent, IIKComponent ik, AgentArmsComponent arms,
-			TransformLookup lookup, RigidbodyWrapper rigidbodyWrapper, FinalIKComponent finalIK, CallbackService callbackService)
+		public void InjectDependencies(RuntimeEquipedData equipedData, IAgent agent,
+			AgentArmsComponent arms, TransformLookup lookup, CallbackService callbackService,
+			[Optional] FinalIKComponent finalIK, [Optional] IIKComponent ik)
 		{
 			this.equipedData = equipedData;
 			this.agent = agent;
 			this.arms = arms;
 			this.ik = ik;
 			this.lookup = lookup;
-			this.rigidbodyWrapper = rigidbodyWrapper;
 			this.finalIK = finalIK;
 			this.callbackService = callbackService;
+
+			initialized = ik != null && finalIK != null;
+
+			timescale = agent.Stats.GetStat(EntityStatIdentifiers.TIMESCALE, true, 1f);
 		}
 
 		public override void Start()
 		{
 			base.Start();
+
+			if (!initialized)
+			{
+				return;
+			}
 
 			isLeft = equipedData.Slot.Type == EquipmentSlotTypes.LEFT_HAND;
 			hand = isLeft ? arms.LeftHand : arms.RightHand;
@@ -72,6 +81,11 @@ namespace SpaxUtils
 		public override void Stop()
 		{
 			base.Stop();
+
+			if (!initialized)
+			{
+				return;
+			}
 
 			callbackService.UnsubscribeUpdates(this);
 			arms.SheathedEvent -= OnSheathedEvent;
@@ -90,23 +104,23 @@ namespace SpaxUtils
 				return;
 			}
 
+			delta *= timescale;
+
 			// GATHER CONTROL DATA.
 			(Vector3 pos, Quaternion rot) orientation = arms.GetHandSlotOrientation(isLeft, false);
 			Vector3 positionOffset = hand.position - orientation.pos;
 			Quaternion rotationOffset = orientation.rot.Inverse() * hand.rotation;
 
-			float mass = equipedData.RuntimeItemData.TryGetStat(AgentStatIdentifiers.MASS, out float m) ? m : 1f;
-			float strength = agent.TryGetStat(AgentStatIdentifiers.STRENGTH, out EntityStat s) ? s : 1f;
-			float smoothTime = mass / (strength * 0.1f);
+			float mass = equipedData.RuntimeItemData.RuntimeData.TryGetValue(AgentStatIdentifiers.MASS, out float m) ? m : 1f;
+			float strength = agent.Stats.TryGetStat(AgentStatIdentifiers.STRENGTH, out EntityStat s) ? s : 1f;
+			float time = mass / strength * smoothTime;
 
 			// CALCULATE POSITION.
 			Vector3 targetPos = hand.position - agent.Transform.position;
-			//targetPos += (rigidbodyWrapper.Acceleration * accelerationInfluence).ClampMagnitude(maxAccelerationInfluence);
-			//targetPos += (rigidbodyWrapper.Velocity * velocityInfluence).ClampMagnitude(maxVelocityInfluence);
 			targetPosSmooth =
 				targetPosSmooth == Vector3.zero ?
 					targetPos :
-					targetPosSmooth.SmoothDamp(targetPos, ref posVelocity, smoothTime, delta);
+					targetPosSmooth.SmoothDamp(targetPos, ref posVelocity, time * posTimeMult, delta);
 
 			// - Prevent position going out of bounds.
 			targetPosSmooth = (targetPosSmooth + agent.Transform.position).LocalizePoint(agent.Transform);
@@ -126,7 +140,7 @@ namespace SpaxUtils
 			targetRotationSmooth =
 				targetRotationSmooth == Quaternion.identity ?
 					targetRotation :
-					targetRotationSmooth.SmoothDamp(targetRotation, ref rotVelocity, smoothTime, delta);
+					targetRotationSmooth.SmoothDamp(targetRotation, ref rotVelocity, time * rotTimeMult, delta);
 			targetRotationSmooth = targetRotationSmooth.SmoothClampForward(agent.Transform.forward, smoothMaxAngle, absoluteMaxAngle, smoothAnglePower * delta);
 
 			// APPLY INFLUENCE.

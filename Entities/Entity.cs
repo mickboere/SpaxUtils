@@ -12,11 +12,16 @@ namespace SpaxUtils
 	/// <summary>
 	/// Base implementation for an <see cref="IEntity"/>, wraps around Unity's GameObject.
 	/// </summary>
-	[DefaultExecutionOrder(-9999), ExecuteInEditMode]
+	[DefaultExecutionOrder(-10000), ExecuteInEditMode]
 	public class Entity : MonoBehaviour, IEntity
 	{
 		/// <inheritdoc/>
 		public event Action<RuntimeDataCollection> OnSaveEvent;
+
+		/// <inheritdoc/>
+		public event Action<IEntity> DeactivatedEvent;
+
+		#region Properties
 
 		/// <inheritdoc/>
 		public GameObject GameObject => gameObject;
@@ -26,6 +31,9 @@ namespace SpaxUtils
 
 		/// <inheritdoc/>
 		public string ID => Identification.ID;
+
+		/// <inheritdoc/>
+		public bool Busy => occupiers.Count > 0;
 
 		/// <inheritdoc/>
 		public IIdentification Identification
@@ -50,37 +58,82 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public virtual RuntimeDataCollection RuntimeData { get; private set; }
 
-		/// <inheritdoc/>
-		public StatCollection<EntityStat> Stats { get; private set; }
+		public EntityStatManager Stats { get; private set; }
 
 		/// <inheritdoc/>
-		public bool Alive { get; protected set; }
+		public bool DynamicPriority
+		{
+			get { return dynamicPriority; }
+			set
+			{
+				if (value != dynamicPriority && optimizedUpdateCallbacks.Count > 0)
+				{
+					if (value)
+					{
+						optimizationService.Subscribe(GameObject, entityOptimizationSettings.EntityOptimizationInterval, OnOptimizationPing);
+					}
+					else
+					{
+						optimizationService.Unsubscribe(GameObject);
+					}
+				}
+				dynamicPriority = value;
+			}
+		}
 
 		/// <inheritdoc/>
-		public float Age => (float)_age;
-		private double _age;
+		public PriorityLevel Priority
+		{
+			get { return priority; }
+			set
+			{
+				if (priority != value && optimizedUpdateCallbacks.Count > 0)
+				{
+					optimizationService.Switch(this, value);
+				}
+				priority = value;
+			}
+		}
+
+		/// <inheritdoc/>
+		public bool Debug { get { return debug; } set { debug = value; } }
 
 		protected virtual string GameObjectNamePrefix => "[Entity]";
 		protected virtual string GameObjectName =>
-			string.IsNullOrWhiteSpace(identification.Name) ?
-				string.IsNullOrWhiteSpace(identification.ID) ?
-					Identification.Labels.Count == 0 ?
-						gameObject.name :
-					$"{GameObjectNamePrefix} {identification.TagLabels()}" :
-				$"{GameObjectNamePrefix} {identification.ID}" :
-			$"{GameObjectNamePrefix} {identification.Name}";
+			identification != null ?
+				string.IsNullOrWhiteSpace(identification.Name) ?
+					string.IsNullOrWhiteSpace(identification.ID) ?
+						Identification.Labels == null || Identification.Labels.Count == 0 ?
+							gameObject.name :
+						$"{GameObjectNamePrefix} {identification.TagLabels()}" :
+					$"{GameObjectNamePrefix} {identification.ID}" :
+				$"{GameObjectNamePrefix} {identification.Name}" :
+			$"{GameObjectNamePrefix} UNKNOWN";
+
+		#endregion Properties
 
 		[SerializeField] protected Identification identification;
+		[SerializeField] private bool autoSaveData;
+		[Header("Optimization")]
+		[SerializeField] private bool dynamicPriority;
+		[SerializeField] private PriorityLevel priority;
+		[SerializeField] private bool debug;
 
 		protected IEntityCollection entityCollection;
-		protected IStatLibrary statLibrary;
+		protected OptimizedCallbackService optimizationService;
+		protected CameraManager cameraService;
+		protected EntityOptimizationSettings entityOptimizationSettings;
 		protected RuntimeDataService runtimeDataService;
+		protected SceneService sceneService;
 		private bool initialized;
-		private List<string> failedStats = new List<string>(); // Used to minimize error logs.
+		private bool deactivated;
+		private List<object> occupiers = new List<object>();
+		private List<Action<float>> optimizedUpdateCallbacks = new List<Action<float>>();
 
 		public void InjectDependencies(
 			IDependencyManager dependencyManager, IEntityComponent[] entityComponents, IEntityCollection entityCollection,
-			RuntimeDataService runtimeDataService, IStatLibrary statLibrary,
+			OptimizedCallbackService optimizationService, CameraManager cameraService, EntityOptimizationSettings entityOptimizationSettings,
+			RuntimeDataService runtimeDataService, IStatLibrary statLibrary, SceneService sceneService,
 			[Optional] RuntimeDataCollection runtimeData, [Optional] IIdentification identification)
 		{
 			if (DependencyManager != null)
@@ -90,10 +143,21 @@ namespace SpaxUtils
 			}
 
 			DependencyManager = dependencyManager;
-			Components = new List<IEntityComponent>(entityComponents);
+			Components = new List<IEntityComponent>();
+			foreach (IEntityComponent component in entityComponents)
+			{
+				// Only add component if it actually belongs to this entity.
+				if (component.Entity == null || component.Entity == this)
+				{
+					Components.Add(component);
+				}
+			}
 			this.entityCollection = entityCollection;
+			this.optimizationService = optimizationService;
+			this.cameraService = cameraService;
+			this.entityOptimizationSettings = entityOptimizationSettings;
 			this.runtimeDataService = runtimeDataService;
-			this.statLibrary = statLibrary;
+			this.sceneService = sceneService;
 
 			// Load identification.
 			if (identification != null)
@@ -105,10 +169,10 @@ namespace SpaxUtils
 			LoadData(runtimeData);
 
 			// Initialize stats.
-			Stats = new StatCollection<EntityStat>();
+			Stats = new EntityStatManager(this, statLibrary);
 		}
 
-		#region Unity Functions
+		#region Internal
 
 		protected virtual void Awake()
 		{
@@ -122,16 +186,6 @@ namespace SpaxUtils
 			Initialize();
 		}
 
-		protected void Start()
-		{
-#if UNITY_EDITOR
-			if (!Application.isPlaying)
-			{
-				return;
-			}
-#endif
-		}
-
 		protected virtual void OnEnable()
 		{
 #if UNITY_EDITOR
@@ -142,8 +196,13 @@ namespace SpaxUtils
 #endif
 
 			Initialize();
-			Identification.IdentificationUpdatedEvent += OnIdentificationUpdatedEvent;
-			entityCollection.Add(this);
+
+			if (gameObject.activeInHierarchy)
+			{
+				// Entity could have been disabled during initialization, ensure its not.
+				Identification.IdentificationUpdatedEvent += OnIdentificationUpdatedEvent;
+				entityCollection.Add(this);
+			}
 		}
 
 		protected virtual void OnDisable()
@@ -155,11 +214,22 @@ namespace SpaxUtils
 			}
 #endif
 
-			Identification.IdentificationUpdatedEvent -= OnIdentificationUpdatedEvent;
-			entityCollection.Remove(this);
+			Deactivate();
 		}
 
-		protected void Update()
+		protected virtual void OnDestroy()
+		{
+#if UNITY_EDITOR
+			if (!Application.isPlaying)
+			{
+				return;
+			}
+#endif
+
+			Deactivate();
+		}
+
+		protected virtual void Update()
 		{
 #if UNITY_EDITOR
 			if (!Application.isPlaying && PrefabStageUtility.GetCurrentPrefabStage() == null)
@@ -167,14 +237,20 @@ namespace SpaxUtils
 				gameObject.name = GameObjectName;
 			}
 #endif
-
-			if (Alive)
-			{
-				_age += Time.deltaTime;
-			}
 		}
 
-		#endregion Unity Functions
+		protected virtual void OnValidate()
+		{
+#if UNITY_EDITOR
+			if (!Application.isPlaying && !gameObject.scene.name.IsNullOrEmpty() && PrefabStageUtility.GetCurrentPrefabStage() == null &&
+				identification != null && identification.ID.IsNullOrEmpty())
+			{
+				identification.ID = Guid.NewGuid().ToString();
+			}
+#endif
+		}
+
+		#endregion Internal
 
 		private void Initialize()
 		{
@@ -182,19 +258,106 @@ namespace SpaxUtils
 			// Thanks to DefaultExecutionOrderAttribute we should be able to inject all other components before they wake up.
 			if (DependencyManager == null)
 			{
-				string dependencyManagerName = $"Entity:{Identification.Name}";
-				SpaxDebug.Log("Entity did not have its dependencies injected.", $"Creating new DependencyManager using Global, named; '{dependencyManagerName}'.", LogType.Notify, Color.yellow, GameObject);
-				DependencyUtils.Inject(GameObject, new DependencyManager(GlobalDependencyManager.Instance, dependencyManagerName), true, true);
+				DependencyUtils.Inject(GameObject, new DependencyManager(GlobalDependencyManager.Instance, $"Entity:{Identification.Name}"), true, true);
 			}
 
 			if (!initialized)
 			{
-				gameObject.name = GameObjectName;
-				Alive = true; // Active entity is being initialized so we can assume its alive.
-				ApplyData();
 				initialized = true;
+				gameObject.name = GameObjectName;
+				ApplyData();
+				if (autoSaveData)
+				{
+					runtimeDataService.SavingCurrentToDiskEvent += OnSavingEvent;
+				}
 			}
 		}
+
+		private void Deactivate()
+		{
+			if (deactivated)
+			{
+				return;
+			}
+
+			deactivated = true;
+			Identification.IdentificationUpdatedEvent -= OnIdentificationUpdatedEvent;
+			entityCollection?.Remove(this);
+			DeactivatedEvent?.Invoke(this);
+		}
+
+		#region Occupation
+
+		/// <inheritdoc/>
+		public void Occupy(object occupier)
+		{
+			if (!occupiers.Contains(occupier))
+			{
+				occupiers.Add(occupier);
+			}
+		}
+
+		/// <inheritdoc/>
+		public void Deoccupy(object occupier)
+		{
+			if (occupiers.Contains(occupier))
+			{
+				occupiers.Remove(occupier);
+			}
+		}
+
+		#endregion Occupation
+
+		#region Optimization
+
+		/// <inheritdoc/>
+		public void SubscribeOptimizedUpdate(Action<float> callback)
+		{
+			if (optimizedUpdateCallbacks.Count == 0)
+			{
+				// Begin listening to optimized update callbacks.
+				optimizationService.Subscribe(this, priority, OnOptimizedUpdate);
+				if (dynamicPriority)
+				{
+					// Priority is dynamic, ping every interval to update.
+					optimizationService.Subscribe(GameObject, entityOptimizationSettings.EntityOptimizationInterval, OnOptimizationPing);
+				}
+			}
+			optimizedUpdateCallbacks.Add(callback);
+		}
+
+		/// <inheritdoc/>
+		public void UnsubscribeOptimizedUpdate(Action<float> callback)
+		{
+			optimizedUpdateCallbacks.Remove(callback);
+			if (optimizedUpdateCallbacks.Count == 0)
+			{
+				// Entity no longer needs to be listening to optimized updates.
+				optimizationService.Unsubscribe(this);
+				if (dynamicPriority)
+				{
+					optimizationService.Unsubscribe(GameObject);
+				}
+			}
+		}
+
+		private void OnOptimizedUpdate(float delta)
+		{
+			// Invoke all subscriptions.
+			List<Action<float>> callbacks = new List<Action<float>>(optimizedUpdateCallbacks);
+			foreach (Action<float> callback in callbacks)
+			{
+				callback(delta);
+			}
+		}
+
+		private void OnOptimizationPing(float delta)
+		{
+			// Automatically change priority depending on distance to nearest camera.
+			Priority = entityOptimizationSettings.GetPriorityBySqrDistance(cameraService.GetSqrDistanceToMainCamera(Transform.position));
+		}
+
+		#endregion Optimization
 
 		#region Data
 
@@ -202,8 +365,14 @@ namespace SpaxUtils
 		{
 			if (baseData != null)
 			{
+				if (baseData.ID != Identification.ID)
+				{
+					// This is actually fine in cases like camera entity receiving player data.
+					//SpaxDebug.Warning("Base data ID does not match entity ID! ", $"Base data ID: {baseData.ID}, Entity ID: {Identification.ID}. This may cause issues with saving/loading data.", this);
+				}
+
 				// Data was supplied through dependencies.
-				RuntimeData = baseData.Clone(Identification.ID);
+				RuntimeData = baseData;
 			}
 			else
 			{
@@ -212,10 +381,11 @@ namespace SpaxUtils
 				RuntimeData = new RuntimeDataCollection(Identification.ID);
 			}
 
-			if (runtimeDataService.EnsureCurrentProfile().TryGetEntry(Identification.ID, out RuntimeDataCollection entityData))
+			if (runtimeDataService.EnsureCurrentProfile().TryGetEntry(Identification.ID, out RuntimeDataCollection loadedData) &&
+				loadedData != RuntimeData)
 			{
 				// Saved data was found in data service, append to existing data and overwrite duplicate data.
-				RuntimeData.Append(entityData, true);
+				RuntimeData.AppendCollection(loadedData, true);
 			}
 		}
 
@@ -227,129 +397,48 @@ namespace SpaxUtils
 				return;
 			}
 
-			// Load or set entity name in data.
+			// Load entity name from data, or set it.
 			if (RuntimeData.ContainsEntry(EntityDataIdentifiers.NAME))
 			{
 				Identification.Name = RuntimeData.GetValue<string>(EntityDataIdentifiers.NAME);
 			}
 			else
 			{
-				RuntimeData.SetValue(EntityDataIdentifiers.NAME, Identification.Name);
+				RuntimeData.SetValue(EntityDataIdentifiers.NAME, Identification.Name, true, false);
 			}
 
-			_age = RuntimeData.GetValue(EntityDataIdentifiers.AGE, 0d);
-			if (Age > 0d)
+			// Retrieve pre-set priority level to override dynamic priority, if any.
+			if (RuntimeData.TryGetValue(EntityDataIdentifiers.PRIORITY, out int prio))
 			{
-				Transform.position = RuntimeData.GetValue(EntityDataIdentifiers.POSITION, transform.position);
-				Transform.eulerAngles = RuntimeData.GetValue(EntityDataIdentifiers.ROTATION, transform.eulerAngles);
+				DynamicPriority = false;
+				Priority = (PriorityLevel)prio;
+			}
+
+			// Retrieve whether this entity should be run in debug mode.
+			if (RuntimeData.TryGetValue(EntityDataIdentifiers.DEBUG, out bool debug))
+			{
+				Debug = debug;
+			}
+
+			// If the entity has been turned off, disable the game object.
+			if (RuntimeData.GetValue(EntityDataIdentifiers.OFF, false))
+			{
+				gameObject.SetActive(false);
 			}
 		}
 
 		/// <inheritdoc/>
 		public virtual void SaveData()
 		{
-			RuntimeData.SetValue(EntityDataIdentifiers.NAME, Identification.Name);
-			RuntimeData.SetValue(EntityDataIdentifiers.ALIVE, Alive);
-			RuntimeData.SetValue(EntityDataIdentifiers.AGE, _age);
-			RuntimeData.SetValue(EntityDataIdentifiers.POSITION, Transform.position);
-			RuntimeData.SetValue(EntityDataIdentifiers.ROTATION, Transform.eulerAngles);
-
+			OnSavingData();
+			//SpaxDebug.Log("Saving entity:", RuntimeData.ToString());
 			OnSaveEvent?.Invoke(RuntimeData);
-
-			// TODO: Only save entity stats that do no match the default value in order to reduce filesize.
-			runtimeDataService.SaveDataToProfile(RuntimeData);
+			runtimeDataService.WriteToProfile(RuntimeData);
 		}
 
-		/// <inheritdoc/>
-		public virtual void SetDataValue(string identifier, object value)
+		protected virtual void OnSavingEvent(RuntimeDataCollection _)
 		{
-			RuntimeData.SetValue(identifier, value);
-		}
-
-		/// <inheritdoc/>
-		public virtual object GetDataValue(string identifier)
-		{
-			return RuntimeData.GetValue(identifier);
-		}
-
-		/// <inheritdoc/>
-		public virtual T GetDataValue<T>(string identifier)
-		{
-			return RuntimeData.GetValue<T>(identifier);
-		}
-
-		/// <inheritdoc/>
-		public virtual EntityStat GetStat(string identifier, bool createDataIfNull = false, float defaultValueIfUndefined = 0f)
-		{
-			if (Stats.HasStat(identifier))
-			{
-				// Stat already exists.
-				return Stats.GetStat(identifier);
-			}
-			else if (RuntimeData.ContainsEntry(identifier))
-			{
-				// Data exists but stat does not, create the stat.
-				RuntimeDataEntry entry = RuntimeData.GetEntry(identifier);
-
-				// Default floating point deserialization is double, convert to float.
-				if (entry.Value is double)
-				{
-					entry.Value = Convert.ToSingle(entry.Value);
-				}
-
-				if (entry.Value is float)
-				{
-					IStatConfiguration setting = statLibrary.Get(identifier);
-					EntityStat stat = new EntityStat(this, entry, null,
-						setting != null ? setting.HasMinValue ? setting.MinValue : null : null,
-						setting != null ? setting.HasMaxValue ? setting.MaxValue : null : null,
-						setting != null ? setting.Decimals : DecimalMethod.Decimal);
-
-					Stats.AddStat(identifier, stat);
-					return stat;
-				}
-				else if (!failedStats.Contains(identifier))
-				{
-					SpaxDebug.Error("Failed to create stat.", $"Data with ID '{identifier}' is of type '{entry.Value.GetType().FullName}'", GameObject);
-					failedStats.Add(identifier);
-				}
-			}
-			else if (createDataIfNull)
-			{
-				// Data does not exist, create it along with the stat.
-				statLibrary.TryGet(identifier, out IStatConfiguration setting);
-				RuntimeDataEntry data = new RuntimeDataEntry(identifier, setting == null ? defaultValueIfUndefined : setting.DefaultValue);
-				RuntimeData.TryAdd(data);
-				EntityStat stat = new EntityStat(this, data, null,
-						setting != null ? setting.HasMinValue ? setting.MinValue : null : null,
-						setting != null ? setting.HasMaxValue ? setting.MaxValue : null : null,
-						setting != null ? setting.Decimals : DecimalMethod.Decimal);
-				Stats.AddStat(identifier, stat);
-				return stat;
-			}
-
-			return null;
-		}
-
-		/// <inheritdoc/>
-		public bool TryApplyStatCost(StatCost cost, float delta, out bool drained)
-		{
-			drained = false;
-			if (TryGetStat(cost.Stat, out EntityStat costStat))
-			{
-				// Damage unclamped, because performance's are active and will simply overdraw cost from "recoverable" (reservoir) stat.
-				costStat.Damage(cost.Cost * delta, false, out bool d);
-				drained = d || drained;
-				return true;
-			}
-			return false;
-		}
-
-		/// <inheritdoc/>
-		public virtual bool TryGetStat(string identifier, out EntityStat stat)
-		{
-			stat = GetStat(identifier);
-			return stat != null;
+			SaveData();
 		}
 
 		#endregion
@@ -390,6 +479,11 @@ namespace SpaxUtils
 		}
 
 		#endregion Entity Component Methods
+
+		protected virtual void OnSavingData()
+		{
+			//RuntimeData.SetValue(EntityDataIdentifiers.NAME, Identification.Name);
+		}
 
 		private void OnIdentificationUpdatedEvent(IIdentification identification)
 		{

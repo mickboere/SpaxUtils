@@ -4,25 +4,31 @@ using SpaxUtils.StateMachines;
 namespace SpaxUtils
 {
 	/// <summary>
-	/// <see cref="BehaviourNodeBase"/> implementation that sets the configured flags upon entering the state.
+	/// Sets the configured flags upon entering the state.
 	/// </summary>
-	[NodeWidth(400)]
-	public class SetFlagNode : StateMachineNodeBase
+	[NodeWidth(300)]
+	public class SetFlagNode : StateComponentNodeBase
 	{
-		[SerializeField, Input(backingValue = ShowBackingValue.Never)] private Connections.StateComponent inConnection;
-		[SerializeField, ConstDropdown(typeof(IGameFlagConstants))] private string[] flags;
+		[SerializeField] private FlagSetting[] flags;
+		[SerializeField, Tooltip("Mark the flags as being set by this Entity.")] private bool setID;
 
 		private FlagService flagsService;
+		private IEntity entity;
+
+		public void InjectDependencies(IEntity entity)
+		{
+			this.entity = entity;
+		}
 
 		public void InjectDependencies(FlagService flagsService)
 		{
 			this.flagsService = flagsService;
 		}
 
-		public override void OnStateEntered()
+		public override void OnEnteringState(ITransition transition)
 		{
-			base.OnStateEntered();
-			flagsService.SetFlags(flags);
+			base.OnEnteringState(transition);
+			FlagSetting.ApplyAll(flags, flagsService, setID ? entity.ID : "");
 		}
 	}
 }

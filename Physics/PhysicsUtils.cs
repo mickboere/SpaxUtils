@@ -61,7 +61,7 @@ namespace SpaxUtils
 		/// <param name="sort">Sorts the resulting hits by distance.</param>
 		/// <returns>True if there were any hits, false if there were not.</returns>
 		public static bool TubeCast(Vector3 origin, Vector2 scale, Vector3 direction, Vector3 up, float maxLength, int layermask,
-			int rays, out List<RaycastHit> hits, bool sort = false)
+			int rays, out List<RaycastHit> hits, bool sort = false, bool debug = false)
 		{
 			hits = new List<RaycastHit>();
 			for (int i = 0; i < rays; i++)
@@ -71,6 +71,14 @@ namespace SpaxUtils
 				if (Physics.Raycast(from, direction, out RaycastHit hit, maxLength, layermask))
 				{
 					hits.Add(hit);
+					if (debug)
+					{
+						Debug.DrawLine(from, hit.point, Color.blue);
+					}
+				}
+				else if (debug)
+				{
+					Debug.DrawLine(from, direction.normalized * maxLength, Color.red);
 				}
 			}
 			if (sort)

@@ -15,7 +15,15 @@ namespace SpaxUtils
 				method;
 
 		public Operation Operation => operation;
-		public float Value => value;
+		public float Value
+		{
+			get { return value; }
+			set
+			{
+				this.value = value;
+				Recalculate();
+			}
+		}
 
 		[SerializeField] private ModMethod method;
 		[SerializeField] private Operation operation;
@@ -86,6 +94,8 @@ namespace SpaxUtils
 					return Mathf.Pow(input, value);
 				case Operation.Set:
 					return value;
+				case Operation.Fraction:
+					return value / input;
 				default:
 					SpaxDebug.Error("FloatModifier: ", $"ModType [{operation}] is not supported.");
 					return input;

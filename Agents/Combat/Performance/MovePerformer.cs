@@ -10,7 +10,8 @@ namespace SpaxUtils
 	/// </summary>
 	public class MovePerformer : IMovePerformer, IDisposable
 	{
-		public event Action<IPerformer> PerformanceStartedEvent;
+		public event Action<IPerformer> StartedPreparingEvent; // < Can never be listened to in this implementation because it would be invoked on construction.
+		public event Action<IPerformer> StartedPerformingEvent;
 		public event Action<IPerformer> PerformanceUpdateEvent;
 		public event Action<IPerformer> PerformanceCompletedEvent;
 
@@ -20,13 +21,16 @@ namespace SpaxUtils
 		public IAct Act { get; }
 		public PerformanceState State { get; set; }
 		public float RunTime { get; private set; }
+		public float Weight { get; private set; }
 
 		#endregion IPerformer Properties
 
 		#region IMovePerformer Properties
 
 		public IPerformanceMove Move { get; private set; }
-		public float Charge { get; private set; }
+		public float ChargeTime { get; private set; }
+		public bool Prolong { get; set; }
+		public bool Paused { get; set; }
 		public bool Canceled { get; private set; }
 		public float CancelTime { get; private set; }
 
@@ -39,6 +43,7 @@ namespace SpaxUtils
 
 		private List<BehaviourAsset> behaviours;
 		private bool released;
+		private bool startedPerformance;
 
 		public MovePerformer(IDependencyManager dependencyManager, IAct act,
 			IPerformanceMove move, IAgent agent, EntityStat entityTimeScale,
@@ -57,7 +62,10 @@ namespace SpaxUtils
 			Move = move;
 			State = Move.HasCharge ? PerformanceState.Preparing : PerformanceState.Performing;
 			RunTime = 0f;
-			Charge = 0f;
+			Weight = 0f;
+			ChargeTime = 0f;
+			Prolong = false;
+			Paused = false;
 
 			// Initialize behaviours.
 			behaviours = new List<BehaviourAsset>();
@@ -94,12 +102,12 @@ namespace SpaxUtils
 			if (!Move.HasCharge || released)
 			{
 				// Already performing.
-				return false;
+				return true;
 			}
 
 			released = true;
 
-			if (Move.RequireMinCharge && Charge < Move.MinCharge)
+			if (Move.RequireMinCharge && ChargeTime < Move.MinCharge)
 			{
 				// Min charge not reached but required, cancel attack.
 				TryCancel(false);
@@ -113,7 +121,7 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public bool TryCancel(bool force)
 		{
-			if (force || State == PerformanceState.Preparing)
+			if (force || State == PerformanceState.Preparing || (State == PerformanceState.Performing && RunTime.Approx(0f)))
 			{
 				// Delay setting state to "Finishing" to prevent state change during Followup Move.
 				Canceled = true;
@@ -129,30 +137,43 @@ namespace SpaxUtils
 		{
 			if (!Canceled)
 			{
-				EntityStat speedMult = State == PerformanceState.Preparing ? agent.GetStat(Move.ChargeSpeedMultiplierStat) : agent.GetStat(Move.PerformSpeedMultiplierStat);
+				EntityStat speedMult = State == PerformanceState.Preparing ? agent.Stats.GetStat(Move.ChargeSpeedMultiplierStat) : agent.Stats.GetStat(Move.PerformSpeedMultiplierStat);
 				float delta = Time.deltaTime * (speedMult ?? 1f) * entityTimeScale;
 
 				if (State == PerformanceState.Preparing)
 				{
 					// Preparing (charging).
-					Charge += delta;
-
-					if (Charge >= Move.MinCharge && released)
+					if (ChargeTime < Move.MinCharge && released && ChargeTime + delta >= Move.MinCharge)
 					{
-						// Finished charging.
+						// Released before we finished charging, make sure we don't overcharge.
+						ChargeTime = Move.MinCharge;
 						State = PerformanceState.Performing;
 					}
+					else
+					{
+						ChargeTime += delta;
+						if (ChargeTime >= Move.MinCharge && released)
+						{
+							// Finished charging.
+							State = PerformanceState.Performing;
+						}
+					}
+					Weight = Mathf.Clamp01(ChargeTime / Move.MinCharge);
 				}
 				// No else statement here to remove frame delay.
 				if (State != PerformanceState.Preparing)
 				{
-					if (RunTime.Approx(0f))
+					if (!startedPerformance)
 					{
-						PerformanceStartedEvent?.Invoke(this);
+						StartedPerformingEvent?.Invoke(this);
+						startedPerformance = true;
 					}
 
 					// Performing.
-					RunTime += delta;
+					if (!Paused && (State != PerformanceState.Performing || !Prolong || RunTime + delta < Move.MinDuration))
+					{
+						RunTime += delta;
+					}
 
 					if (RunTime >= Move.TotalDuration)
 					{
@@ -164,6 +185,8 @@ namespace SpaxUtils
 						// Finishing
 						State = PerformanceState.Finishing;
 					}
+
+					Weight = ((RunTime - Move.MinDuration) / Move.Release).InvertClamped();
 				}
 			}
 			else
@@ -177,6 +200,8 @@ namespace SpaxUtils
 					// Completed cancel fadeout.
 					State = PerformanceState.Completed;
 				}
+
+				Weight = (CancelTime / Move.CancelDuration).InvertClamped();
 			}
 
 			UpdateBehaviours();
@@ -185,6 +210,7 @@ namespace SpaxUtils
 
 			if (State == PerformanceState.Completed)
 			{
+				Weight = 0f;
 				PerformanceCompletedEvent?.Invoke(this);
 			}
 		}

@@ -12,13 +12,18 @@ namespace SpaxUtils
 	/// Library that matches input bindings with icons.
 	/// </summary>
 	[CreateAssetMenu(fileName = "InputIconLibrary", menuName = "ScriptableObjects/Input Icon Library")]
-	public class InputIconLibrary : ScriptableObject
+	public class InputIconLibrary : ScriptableObject, IService
 	{
 		[SerializeField] private GamepadIcons xbox;
 		[SerializeField] private GamepadIcons playstation;
 
 		public Sprite GetIcon(InputAction action, string controlScheme)
 		{
+			if (action == null || controlScheme.IsNullOrEmpty())
+			{
+				return null;
+			}
+
 			// Retrieve the first binding in this action that is active for the given control scheme.
 			InputBinding binding = action.bindings.FirstOrDefault((b) => b.groups.Contains(controlScheme));
 			return GetIcon(binding);

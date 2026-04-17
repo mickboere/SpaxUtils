@@ -8,6 +8,7 @@ namespace SpaxUtils
 	public class TimerClass : IDisposable
 	{
 		public Action TimerExpiredEvent;
+		public Action<float> UpdateEvent;
 
 		public float Time { get; set; }
 		public float? Duration { get; set; }
@@ -18,32 +19,37 @@ namespace SpaxUtils
 		}
 		private float _timescale = 1f;
 		private Func<float> TimescaleFunc { get; set; }
-
+		public bool Paused { get; set; }
 		public float Progress
 		{
 			get { return Duration.HasValue ? Time / Duration.Value : 1f; }
 			set { if (Duration.HasValue) { Time = Duration.Value * value; } }
 		}
 		public bool Expired => Duration.HasValue ? Time >= Duration.Value : true;
+		public float Remaining => Duration.HasValue ? Duration.Value - Time : 0f;
 
 		private CallbackService callbackService;
 
-		public TimerClass(float? duration = null, CallbackService callbackService = null)
+		public TimerClass(float? duration = null, CallbackService callbackService = null, UpdateMode updateMode = UpdateMode.Update)
 		{
 			Duration = duration;
 			if (callbackService != null)
 			{
 				this.callbackService = callbackService;
-				callbackService.SubscribeUpdate(UpdateMode.Update, this, OnUpdate, -9999);
+				callbackService.SubscribeUpdate(updateMode, this, OnUpdate, -9999);
 			}
 		}
 
-		public TimerClass(float? duration, float timescale = 1f, CallbackService callbackService = null) : this(duration, callbackService)
+		public TimerClass(float? duration, float timescale = 1f,
+			CallbackService callbackService = null, UpdateMode updateMode = UpdateMode.Update)
+			: this(duration, callbackService, updateMode)
 		{
 			_timescale = timescale;
 		}
 
-		public TimerClass(float? duration, Func<float> timescale = null, CallbackService callbackService = null) : this(duration, callbackService)
+		public TimerClass(float? duration, Func<float> timescale = null,
+			CallbackService callbackService = null, UpdateMode updateMode = UpdateMode.Update)
+			: this(duration, callbackService, updateMode)
 		{
 			TimescaleFunc = timescale;
 		}
@@ -71,13 +77,29 @@ namespace SpaxUtils
 		/// <returns>Whether the timer has expired.</returns>
 		public bool Update(float delta)
 		{
+			if (Paused)
+			{
+				return Expired;
+			}
+
 			bool wasExpired = Expired;
 			Time += delta * Timescale;
 			if (!wasExpired && Expired)
 			{
 				TimerExpiredEvent?.Invoke();
 			}
+			UpdateEvent?.Invoke(delta);
 			return Expired;
+		}
+
+		public void Pause()
+		{
+			Paused = true;
+		}
+
+		public void Continue()
+		{
+			Paused = false;
 		}
 
 		/// <summary>

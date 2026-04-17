@@ -9,6 +9,10 @@ namespace SpaxUtils
 
 		bool Stunned { get; }
 
-		void EnterStun(HitData hitData);
+		/// <summary>
+		/// Have the entity enter its stunned state.
+		/// Make sure necessary forces are applied BEFORE entering stun.
+		/// </summary>
+		void EnterStun(HitData hitData, float duration = -1f);
 	}
 }

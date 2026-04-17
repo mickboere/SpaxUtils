@@ -1,5 +1,4 @@
-﻿using System.Collections.Generic;
-using UnityEngine;
+﻿using UnityEngine;
 
 namespace SpaxUtils
 {
@@ -9,8 +8,6 @@ namespace SpaxUtils
 	/// </summary>
 	public class HitData
 	{
-		#region Send
-
 		/// <summary>
 		/// The entity which was hit.
 		/// </summary>
@@ -24,7 +21,7 @@ namespace SpaxUtils
 		/// <summary>
 		/// The total mass of the hitter, used to apply inertia.
 		/// </summary>
-		public float Mass { get; }
+		public float HitterMass { get; }
 
 		/// <summary>
 		/// The inertia of the hitter in world-space.
@@ -42,88 +39,61 @@ namespace SpaxUtils
 		public Vector3 Direction { get; }
 
 		/// <summary>
-		/// The total force behind the hit, defines force transfer capacity.
+		/// Total mass behind the striking limb+weapon.
 		/// </summary>
-		public float Force { get; }
+		public float Mass { get; }
 
 		/// <summary>
-		/// The total strength behind the hit, defines impact force.
-		/// </summary>
-		public float Strength { get; }
-
-		/// <summary>
-		/// The total offensive power of the hit, defines penetration damage.
-		/// </summary>
-		public float Offence { get; }
-
-		/// <summary>
-		/// The total piercing power of the hit, defines penetration capacity.
+		/// The total piercing power of the hit, defines penetration damage.
 		/// </summary>
 		public float Piercing { get; }
 
-		#endregion Send
-
-		#region Return
+		/// <summary>
+		/// Total power behind the hit (before mass).
+		/// </summary>
+		public float Power { get; }
 
 		/// <summary>
-		/// Return data defining whether the receiver was guarding/blocking against the attack and the amound of guard weight applied to the hit.
+		/// Total crit quality behind the hit.
 		/// </summary>
-		public float Result_Blocked { get; set; }
+		public float Precision { get; }
 
 		/// <summary>
-		/// Return data defining whether this hit was parried by the receiver.
+		/// Total luck of the hitter.
 		/// </summary>
-		public bool Result_Parried { get; set; }
+		public float Luck { get; }
 
 		/// <summary>
-		/// Return data defining whether this hit caused the receiver to be stunned.
+		/// Runtime data container used to store additional hit data.
 		/// </summary>
-		public bool Result_Stunned { get; set; }
-
-		/// <summary>
-		/// Return data defining the percentage of penetration dealt to receiver (0-1~).
-		/// </summary>
-		public float Result_Penetration { get; set; }
-
-		/// <summary>
-		/// Return data defining percentage of impact dealt to receiver (0-1~).
-		/// </summary>
-		public float Result_Impact { get; set; }
-
-		/// <summary>
-		/// Return data defining total amount of damage dealt to receiver.
-		/// </summary>
-		public float Result_Damage { get; set; }
-
-		/// <summary>
-		/// Return data defining total amount of force transfered to receiver.
-		/// </summary>
-		public float Result_Force { get; set; }
-
-		#endregion Return
+		public RuntimeDataCollection Data;
 
 		public HitData(
 			IHittable receiver,
 			IEntity hitter,
-			float mass,
+			float hitterMass,
 			Vector3 inertia,
 			Vector3 point,
 			Vector3 direction,
-			float force,
-			float strength = 0f,
-			float offence = 0f,
-			float piercing = 0f)
+			float mass,
+			float piercing,
+			float power,
+			float precision,
+			float luck,
+			RuntimeDataCollection data = null)
 		{
 			Receiver = receiver;
 			Hitter = hitter;
-			Mass = mass;
+			HitterMass = hitterMass;
 			Inertia = inertia;
 			Point = point;
 			Direction = direction;
-			Force = force;
-			Strength = strength;
-			Offence = offence;
+			Mass = mass;
 			Piercing = piercing;
+			Power = power;
+			Precision = precision;
+			Luck = luck;
+			Data = data ?? new RuntimeDataCollection(null);
 		}
 
 		public override string ToString()
@@ -131,21 +101,97 @@ namespace SpaxUtils
 			return $"HitData:" +
 				$"\nReceiver={Receiver.Entity.Identification.TagFull()}," +
 				$"\nHitter={Hitter.Identification.TagFull()}," +
-				$"\nMass={Mass}," +
+				$"\nHitterMass={HitterMass}," +
 				$"\nInertia={Inertia}," +
 				$"\nPoint={Point}," +
 				$"\nDirection={Direction}," +
-				$"\nForce={Force}," +
-				$"\nStrength={Strength}," +
-				$"\nOffence={Offence}," +
+				$"\nMass={Mass}," +
 				$"\nPiercing={Piercing}," +
-				$"\n\nResult_Blocked={Result_Blocked}," +
-				$"\nResult_Parried={Result_Parried}," +
-				$"\nResult_Stunned={Result_Stunned}," +
-				$"\nResult_Penetration={Result_Penetration}," +
-				$"\nResult_Impact={Result_Impact}," +
-				$"\nResult_Damage={Result_Damage}," +
-				$"\nResult_Force={Result_Force}";
+				$"\nPower={Power}," +
+				$"\nPrecision={Precision}," +
+				$"\n\nData:\n{Data},";
 		}
+	}
+
+	public class HitDataIdentifiers
+	{
+		#region Return
+
+		// BOOLS
+		/// <summary>
+		/// Return data defining whether this hit was perfectly blocked.
+		/// </summary>
+		public const string BLOCKED = "Blocked";
+		/// <summary>
+		/// Return data defining whether this hit was parried by the receiver.
+		/// </summary>
+		public const string PARRIED = "Parried";
+		/// <summary>
+		/// Return data defining whether this hit was deflected by the receiver.
+		/// </summary>
+		public const string DEFLECTED = "Deflected";
+		/// <summary>
+		/// Return data defining whether this hit caused the receiver to be stunned.
+		/// </summary>
+		public const string STUNNED = "Stunned";
+		/// <summary>
+		/// Return data defining whether this hit landed as a critical hit.
+		/// </summary>
+		public const string CRIT = "Crit";
+
+		// FLOATS
+		/// <summary>
+		/// Return data defining the amount of guard the receiver had during the hit (0=no guard, 1=full guard).
+		/// </summary>
+		public const string GUARD = "Guard";
+		/// <summary>
+		/// Return data defining the amount of coupling.
+		/// </summary>
+		public const string COUPLING = "Coupling";
+		/// <summary>
+		/// Return data defining the amount of added critical damage.
+		/// </summary>
+		public const string CRIT_DAMAGE = "Crit_Damage";
+		/// <summary>
+		/// Return data defining the percentage of penetration dealt to receiver (0-1~).
+		/// </summary>
+		public const string PENETRATION = "Penetration";
+		/// <summary>
+		/// Return data defining the amount of piercing damage.
+		/// </summary>
+		public const string PIERCING_DAMAGE = "Piercing_Damage";
+		/// <summary>
+		/// Return data defining percentage of impact dealt to receiver (0-1~).
+		/// </summary>
+		public const string IMPACT = "Impact";
+		/// <summary>
+		/// Return data defining the amount of blunt damage.
+		/// </summary>
+		public const string BLUNT_DAMAGE = "Blunt_Damage";
+		/// <summary>
+		/// Return data defining the amount of grace intervention that was subtracted from total damage.
+		/// </summary>
+		public const string GRACE = "Grace";
+		/// <summary>
+		/// Return data defining total amount of damage that will be dealt to the receiver.
+		/// </summary>
+		public const string DAMAGE_TOTAL = "Damage_Total";
+		/// <summary>
+		/// Return data defining actual amount of damage that has been subtracted from the receiver's health.
+		/// </summary>
+		public const string DAMAGE_DEALT = "Damage_Dealt";
+		/// <summary>
+		/// Return data defining total amount of force transfered to receiver.
+		/// </summary>
+		public const string FORCE = "Force";
+		/// <summary>
+		/// The percentage of endurance-damage that was endured.
+		/// Examples:
+		///     0 = The endurance was already empty and thus nothing was endured, receiver is stunned.
+		///     0.5 = Only half of the force was endured, receiver is stunned.
+		///     1 = The full force of the hit was endured by the receiver, receiver is NOT stunned.
+		/// </summary>
+		public const string ENDURED = "Endured";
+		#endregion Return
 	}
 }
