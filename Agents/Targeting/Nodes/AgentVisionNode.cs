@@ -7,7 +7,7 @@ namespace SpaxUtils
 {
 	public class AgentVisionNode : StateMachineNodeBase
 	{
-		[SerializeField, Input(backingValue = ShowBackingValue.Never)] protected Connections.StateComponent inConnection;
+		[SerializeField, NodeInput] protected Connections.StateComponent inConnection;
 		[SerializeField, Tooltip("Spotting interval in seconds.")] private float interval = 1f;
 
 		private IVisionComponent spottingComponent;

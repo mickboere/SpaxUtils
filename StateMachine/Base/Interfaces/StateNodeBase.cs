@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -27,16 +27,16 @@ namespace SpaxUtils.StateMachines
 		public IReadOnlyCollection<IStateListener> Components => _components ?? GetComponents();
 		private IReadOnlyCollection<IStateListener> _components;
 
-		[SerializeField, ReadOnly] private string id;
-		[SerializeField, Input(backingValue = ShowBackingValue.Never)] private Connections.State inConnection;
-		[SerializeField, Output(backingValue = ShowBackingValue.Never, typeConstraint = TypeConstraint.Inherited)] private Connections.StateComponent components;
+		[SerializeField, ReadOnly, HideInInspector] private string id;
+		[SerializeField, NodeInput] private Connections.State inConnection;
+		[SerializeField, NodeOutput(typeConstraint: TypeConstraint.Inherited)] private Connections.StateComponent components;
 
 		private StateCallbackHelper callbackHelper;
 
-		protected override void Init()
+		public override void OnCreated()
 		{
 			EnsureUniqueId();
-			base.Init();
+			base.OnCreated();
 		}
 
 		public void InjectDependencies(IDependencyManager dependencyManager)
@@ -126,18 +126,18 @@ namespace SpaxUtils.StateMachines
 			{
 				if (string.IsNullOrEmpty(id))
 				{
-					id = Guid.NewGuid().ToString();
+					id = System.Guid.NewGuid().ToString();
 				}
-				else if (graph.nodes.Any((node) => node is StateNodeBase state && state != this && state.id == id))
+				else if (Graph != null && Graph.Nodes.Any((node) => node is StateNodeBase state && state != this && state.id == id))
 				{
-					id = Guid.NewGuid().ToString();
+					id = System.Guid.NewGuid().ToString();
 				}
 			}
 		}
 
 		public IReadOnlyCollection<IState> GetAllChildStates()
 		{
-			return XNodeExtensions.GetAllOutputNodes(this).Where((c) => c is IState).Cast<IState>().ToHashSet();
+			return GetAllOutputNodes().Where((c) => c is IState).Cast<IState>().ToHashSet();
 		}
 	}
 }

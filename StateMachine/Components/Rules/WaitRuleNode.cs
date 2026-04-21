@@ -12,7 +12,7 @@ namespace SpaxUtils.StateMachines
 	{
 		public override bool Valid => valid;
 
-		[SerializeField, Input(backingValue = ShowBackingValue.Never)] protected Connections.Rule inConnection;
+		[SerializeField, NodeInput] protected Connections.Rule inConnection;
 		[SerializeField] private float minWait;
 		[SerializeField] private float maxWait;
 

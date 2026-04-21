@@ -7,7 +7,7 @@ namespace SpaxUtils
 {
 	public class AgentTargeterNode : StateMachineNodeBase
 	{
-		[SerializeField, Input(backingValue = ShowBackingValue.Never)] protected Connections.StateComponent inConnection;
+		[SerializeField, NodeInput] protected Connections.StateComponent inConnection;
 
 		private IAgent agent;
 		private AgentNavigationHandler navigationHandler;

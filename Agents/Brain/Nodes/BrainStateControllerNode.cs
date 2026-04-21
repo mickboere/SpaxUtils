@@ -12,7 +12,7 @@ namespace SpaxUtils
 	{
 		public override string UserFacingName => $"Next: {nextState}";
 
-		[SerializeField, Input(backingValue = ShowBackingValue.Never)] private Connections.StateComponent inConnection;
+		[SerializeField, NodeInput] private Connections.StateComponent inConnection;
 		[SerializeField, ConstDropdown(typeof(IStateIdentifiers))] private string nextState;
 
 		private Brain brain;

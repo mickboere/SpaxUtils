@@ -5,7 +5,7 @@ namespace SpaxUtils.StateMachines
 	[NodeWidth(140), NodeTint("#a3334b")]
 	public class BackToStartNode : StateMachineNodeBase
 	{
-		[SerializeField, Input(backingValue = ShowBackingValue.Never)] protected Connections.StateComponent inConnection;
+		[SerializeField, NodeInput] protected Connections.StateComponent inConnection;
 
 		private StateMachine stateMachine;
 

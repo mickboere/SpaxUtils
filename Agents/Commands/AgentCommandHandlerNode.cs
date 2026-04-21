@@ -10,7 +10,7 @@ namespace SpaxUtils
 	/// </summary>
 	public class AgentCommandHandlerNode : StateMachineNodeBase
 	{
-		[SerializeField, Input(backingValue = ShowBackingValue.Never)] protected Connections.StateComponent inConnection;
+		[SerializeField, NodeInput] protected Connections.StateComponent inConnection;
 
 		[Header("Defaults")]
 		[SerializeField] private float moveSpeed = 0.5f;

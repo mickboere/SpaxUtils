@@ -20,7 +20,7 @@ namespace SpaxUtils
 		[SerializeField] private bool eatInput;
 		[SerializeField] private int prio = 0;
 		[SerializeField, ConstDropdown(typeof(IStateIdentifiers))] private string nextState;
-		[SerializeField, Output(backingValue = ShowBackingValue.Never, typeConstraint = TypeConstraint.Inherited)] protected Connections.Rule rules;
+		[SerializeField, NodeOutput(typeConstraint: TypeConstraint.Inherited)] protected Connections.Rule rules;
 
 		private Brain brain;
 		private PlayerInputWrapper playerInputWrapper;

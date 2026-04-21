@@ -18,6 +18,6 @@ namespace SpaxUtils
 		[SerializeField, ConstDropdown(typeof(IStateIdentifiers), showAdress: true)] private string identifier;
 		[SerializeField, HideInInspector] private bool hasDefaultChild;
 		[SerializeField, Conditional(nameof(hasDefaultChild), drawToggle: true, hide: false), ConstDropdown(typeof(IStateIdentifiers))] private string defaultChild;
-		[SerializeField, Output(backingValue = ShowBackingValue.Never, typeConstraint = TypeConstraint.Inherited)] private Connections.State children;
+		[SerializeField, NodeOutput(typeConstraint: TypeConstraint.Inherited)] private Connections.State children;
 	}
 }

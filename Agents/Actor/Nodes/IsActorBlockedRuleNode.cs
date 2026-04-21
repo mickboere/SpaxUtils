@@ -9,7 +9,7 @@ namespace SpaxUtils
 	{
 		public override bool Valid => agent == null || agent.Actor.Blocked != invert;
 
-		[SerializeField, Input(backingValue = ShowBackingValue.Never)] protected Connections.Rule inConnection;
+		[SerializeField, NodeInput] protected Connections.Rule inConnection;
 		[SerializeField] private bool invert;
 
 		private IAgent agent;

@@ -117,9 +117,12 @@ namespace SpaxUtils
 			Rect inputFieldPosition = position;
 			if (constDropdownAttribute.InputField)
 			{
-				// Make room for input field.
-				position.x = position.xMax - DROPDOWN_WIDTH + 2f;
-				position.width = DROPDOWN_WIDTH;
+				// Position the dropdown button at the right edge, but clamp so it never
+				// goes left of the field's own origin (happens when UIToolkit hands the
+				// IMGUI drawer a near-zero rect on the first layout pass).
+				float buttonX = Mathf.Max(inputFieldPosition.x, inputFieldPosition.xMax - DROPDOWN_WIDTH + 2f);
+				position = new Rect(buttonX, position.y, DROPDOWN_WIDTH, position.height);
+				inputFieldPosition.width = Mathf.Max(0f, inputFieldPosition.width - (DROPDOWN_WIDTH - 15f));
 			}
 			EditorGUI.showMixedValue = property.hasMultipleDifferentValues;
 			if (!error && currentOption != EMPTY && constDropdownAttribute.ShowAdress && !constDropdownAttribute.StoreAdress)
@@ -142,8 +145,6 @@ namespace SpaxUtils
 			}
 			if (constDropdownAttribute.InputField)
 			{
-				// Draw inputfield.
-				inputFieldPosition.width -= DROPDOWN_WIDTH - 15f;
 				EditorGUI.PropertyField(inputFieldPosition, property);
 			}
 			EditorGUI.EndProperty();

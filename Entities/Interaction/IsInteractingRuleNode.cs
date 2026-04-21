@@ -9,7 +9,7 @@ namespace SpaxUtils
 	{
 		public override bool Valid => (interactionHandler != null && interactionHandler.Interactions.Count > 0) != invert;
 
-		[SerializeField, Input(backingValue = ShowBackingValue.Never)] protected Connections.Rule inConnection;
+		[SerializeField, NodeInput] protected Connections.Rule inConnection;
 		[SerializeField] private bool invert;
 
 		private InteractionHandler interactionHandler;

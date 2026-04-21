@@ -16,7 +16,7 @@ namespace SpiritAxis
 		public override bool Valid => valid;
 		public override float Validity => nodes.Length;
 
-		[SerializeField, Input(backingValue = ShowBackingValue.Never)] protected Connections.Rule inConnection;
+		[SerializeField, NodeInput] protected Connections.Rule inConnection;
 		[SerializeField] private StateNodeBase[] nodes;
 		[SerializeField] private bool invert;
 

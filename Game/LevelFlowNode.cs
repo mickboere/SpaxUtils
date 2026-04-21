@@ -14,8 +14,8 @@ namespace SpaxUtils
 		public float Validity => 1f;
 		public virtual bool IsPureRule => false;
 
-		[SerializeField, Input(backingValue = ShowBackingValue.Never)] protected Connections.StateComponent inConnection;
-		[SerializeField, Input(backingValue = ShowBackingValue.Never)] protected Connections.Rule exitedFlowRule;
+		[SerializeField, NodeInput] protected Connections.StateComponent inConnection;
+		[SerializeField, NodeInput] protected Connections.Rule exitedFlowRule;
 
 		private IDependencyManager dependencyManager;
 		private IHistory history;
@@ -38,7 +38,7 @@ namespace SpaxUtils
 
 		protected void OnValidate()
 		{
-			Init();
+			name = UserFacingName;
 		}
 
 		public override void OnEnteringState(ITransition transition)

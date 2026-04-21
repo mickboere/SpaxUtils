@@ -10,7 +10,7 @@ namespace SpaxUtils.StateMachines
 	[NodeTint("#6d88a6"), NodeWidth(200)]
 	public class RunInjectedFlowsNode : StateMachineNodeBase
 	{
-		[SerializeField, Input(backingValue = ShowBackingValue.Never)] protected Connections.StateComponent inConnection;
+		[SerializeField, NodeInput] protected Connections.StateComponent inConnection;
 
 		private IDependencyManager dependencyManager;
 		private IHistory history;

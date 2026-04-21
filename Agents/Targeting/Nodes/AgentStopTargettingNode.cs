@@ -8,7 +8,7 @@ namespace SpaxUtils
 	/// </summary>
 	public class AgentStopTargettingNode : StateMachineNodeBase
 	{
-		[SerializeField, Input(backingValue = ShowBackingValue.Never)] protected Connections.StateComponent inConnection;
+		[SerializeField, NodeInput] protected Connections.StateComponent inConnection;
 
 		private ITargeter targeter;
 

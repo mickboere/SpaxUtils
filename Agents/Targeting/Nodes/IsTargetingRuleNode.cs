@@ -11,7 +11,7 @@ namespace SpaxUtils
 	{
 		public override bool Valid => targeter.Target != null != invert;
 
-		[SerializeField, Input(backingValue = ShowBackingValue.Never)] protected Connections.Rule inConnection;
+		[SerializeField, NodeInput] protected Connections.Rule inConnection;
 		[SerializeField] private bool invert;
 
 		private ITargeter targeter;
