@@ -11,7 +11,7 @@ namespace SpaxUtils
 				(labels.Length == 0 || poiHandler.CurrentPOI.Entity.Identification.HasAll(labels)))
 			!= invert;
 
-		[SerializeField, Input(backingValue = ShowBackingValue.Never)] protected Connections.Rule ruleConnection;
+		[SerializeField, NodeInput] protected Connections.Rule ruleConnection;
 		[SerializeField, ConstDropdown(typeof(IIdentificationLabels))] private string[] labels;
 		[SerializeField] private bool invert;
 

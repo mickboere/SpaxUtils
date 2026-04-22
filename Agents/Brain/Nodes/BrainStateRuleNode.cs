@@ -22,7 +22,7 @@ namespace SpaxUtils
 			}
 		}
 
-		[SerializeField, Input(backingValue = ShowBackingValue.Never)] protected Connections.Rule inConnection;
+		[SerializeField, NodeInput] protected Connections.Rule inConnection;
 		[SerializeField, ConstDropdown(typeof(IStateIdentifiers))] private string[] states;
 		[SerializeField] private bool any;
 		[SerializeField] private bool invert;

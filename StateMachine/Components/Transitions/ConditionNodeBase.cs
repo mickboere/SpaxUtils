@@ -4,13 +4,11 @@ using UnityEngine;
 
 namespace SpaxUtils.StateMachines
 {
-
 	/// <summary>
 	/// <see cref="IStateTransition"/> that utilizes <see cref="IRule"/> nodes to determine whether the transition is valid.
 	/// Requires all connected <see cref="RuleNodeBase"/> implementations to be valid in order to pass as valid itself.
 	/// Can contain (sub) components that will be activated once the condition is valid.
 	/// </summary>
-	[NodeWidth(140)]
 	public abstract class ConditionNodeBase : TransitionNodeBase
 	{
 		private const string TT_COMPONENTS = "Linked components will be activated while the condition is valid.\nThis allows you to run condition consequences without transitioning to another state node.";
@@ -26,8 +24,8 @@ namespace SpaxUtils.StateMachines
 		/// </summary>
 		protected virtual bool RunComponents => _valid;
 
-		[SerializeField, Output(backingValue = ShowBackingValue.Never, typeConstraint = TypeConstraint.Inherited)] protected Connections.Rule rules;
-		[SerializeField, Output(backingValue = ShowBackingValue.Never, typeConstraint = TypeConstraint.Inherited), Tooltip(TT_COMPONENTS)] private Connections.StateComponent components;
+		[SerializeField, NodeOutput(typeConstraint: TypeConstraint.Inherited)] protected Connections.Rule rules;
+		[SerializeField, NodeOutput(typeConstraint: TypeConstraint.Inherited), Tooltip(TT_COMPONENTS)] private Connections.StateComponent components;
 
 		private CallbackService callbackService;
 

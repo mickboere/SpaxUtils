@@ -8,7 +8,7 @@ namespace SpaxUtils
 	/// </summary>
 	public class SurveyorNode : StateMachineNodeBase
 	{
-		[SerializeField, Input(backingValue = ShowBackingValue.Never)] protected Connections.StateComponent inConnection;
+		[SerializeField, NodeInput] protected Connections.StateComponent inConnection;
 
 		private SurveyorComponent surveyorComponent;
 		private CallbackService callbackService;

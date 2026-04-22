@@ -12,7 +12,7 @@ namespace SpaxUtils
 		public override bool Valid => _valid;
 		private bool _valid;
 
-		[SerializeField, Input(backingValue = ShowBackingValue.Never)] protected Connections.Rule inConnection;
+		[SerializeField, NodeInput] protected Connections.Rule inConnection;
 		[SerializeField, ConstDropdown(typeof(ICommsMsgs))] private string message;
 
 		private GlobalComms globalComms;

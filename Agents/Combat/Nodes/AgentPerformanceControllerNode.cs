@@ -11,7 +11,7 @@ namespace SpaxUtils
 	/// </summary>
 	public class AgentPerformanceControllerNode : StateMachineNodeBase
 	{
-		[SerializeField, Input(backingValue = ShowBackingValue.Never)] protected Connections.StateComponent inConnection;
+		[SerializeField, NodeInput] protected Connections.StateComponent inConnection;
 
 		private IAgent agent;
 

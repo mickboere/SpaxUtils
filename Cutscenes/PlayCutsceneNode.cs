@@ -15,9 +15,9 @@ namespace SpaxUtils
 		public float Validity => Valid ? 1f : 0f;
 		public virtual bool IsPureRule => false;
 
-		[SerializeField, Input(backingValue = ShowBackingValue.Never)] protected Connections.StateComponent inConnection;
+		[SerializeField, NodeInput] protected Connections.StateComponent inConnection;
 		[SerializeField, ConstDropdown(typeof(ICutsceneConstants))] private string cutsceneKey;
-		[SerializeField, Input(backingValue = ShowBackingValue.Never)] protected Connections.Rule completedRule;
+		[SerializeField, NodeInput] protected Connections.Rule completedRule;
 
 		private CutsceneService cutsceneService;
 

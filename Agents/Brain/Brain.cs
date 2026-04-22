@@ -263,8 +263,8 @@ namespace SpaxUtils
 			graphInstances.Add(graph, instance);
 
 			SpaxDebug.Notify($"[{GetHashCode()}] Graph instantiation success!", $"({graph.name})\n" +
-				$"Instanced:\n\t-{string.Join("\n\t-", instance.nodes.Select((n) => $"[{n.GetHashCode()}] {n.GetType().FullName}"))}\n\n" +
-				$"Prefab:\n\t-{string.Join("\n\t-", graph.nodes.Select((n) => $"[{n.GetHashCode()}] {n.GetType().FullName}"))}");
+				$"Instanced:\n\t-{string.Join("\n\t-", instance.Nodes.Select((n) => $"[{n.GetHashCode()}] {n.GetType().FullName}"))}\n\n" +
+				$"Prefab:\n\t-{string.Join("\n\t-", graph.Nodes.Select((n) => $"[{n.GetHashCode()}] {n.GetType().FullName}"))}");
 
 			// Go through all graph states and add their components to the corresponding BrainStates.
 			List<IState> graphStates = instance.GetNodesOfType<IState>();

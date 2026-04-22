@@ -1,0 +1,19 @@
+{
+    "name": "SpaxUtils.StateMachine.Editor",
+    "rootNamespace": "SpaxUtils.StateMachines",
+    "references": [
+        "GUID:d3ba9085b8877b241925b39f1f2bfc0c",
+        "GUID:b8e24fd1eb19b4226afebb2810e3c19b"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

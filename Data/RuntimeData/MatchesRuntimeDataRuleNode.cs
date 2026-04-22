@@ -9,7 +9,7 @@ namespace SpaxUtils
 		public override bool Valid => _valid;
 		private bool _valid;
 
-		[SerializeField, Input(backingValue = ShowBackingValue.Never)] protected Connections.Rule ruleConnection;
+		[SerializeField, NodeInput] protected Connections.Rule ruleConnection;
 		[SerializeField] private LabeledDataCollection data;
 
 		private RuntimeDataCollection runtimeDataCollection;

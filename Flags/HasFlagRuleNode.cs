@@ -36,7 +36,7 @@ namespace SpaxUtils
 		public override bool Valid => _valid;
 		public override float Validity => requirements == null ? 0f : requirements.Length;
 
-		[SerializeField, Input(backingValue = ShowBackingValue.Never)] protected Connections.Rule inConnection;
+		[SerializeField, NodeInput] protected Connections.Rule inConnection;
 		[SerializeField] private FlagRequirement[] requirements;
 
 		private FlagService flagsService;

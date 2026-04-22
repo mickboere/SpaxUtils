@@ -18,7 +18,7 @@ namespace SpaxUtils.StateMachines
 		public virtual float ExitProgress => 1f - EntryProgress;
 		public virtual bool Completed => true;
 
-		[SerializeField, Output(backingValue = ShowBackingValue.Never, connectionType = ConnectionType.Override, typeConstraint = TypeConstraint.Inherited)] protected Connections.State outConnection;
+		[SerializeField, NodeOutput(connectionType: ConnectionType.Override, typeConstraint: TypeConstraint.Inherited)] protected Connections.State outConnection;
 
 		private StateMachine stateMachine;
 
