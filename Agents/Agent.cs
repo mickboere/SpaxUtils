@@ -1,7 +1,6 @@
 using SpaxUtils.StateMachines;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
 
 namespace SpaxUtils
@@ -60,15 +59,15 @@ namespace SpaxUtils
 
 		public void InjectDependencies(
 			IAgentBody body, ITargetable targetableComponent, ITargeter targeterComponent, ICommunicationChannel comms,
-			CallbackService callbackService, AEMOISettings aemoiSettings, InputToActMap inputToActMap,
-			IPerformer[] performers, IRelationData[] relationData, BrainGraph[] brainGraphs, AEMOIBehaviourAsset[] behaviour,
-			[Optional, BindingIdentifier(MindDataIdentifiers.INCLINATION)] Vector8 inclination,
-			[Optional, BindingIdentifier(MindDataIdentifiers.PERSONALITY)] Vector8 personality)
+			CallbackService callbackService, InputToActMap inputToActMap,
+			IPerformer[] performers, IRelationData[] relationData, BrainGraph[] brainGraphs,
+			[Optional] IMind mind)
 		{
 			Body = body;
 			Targetable = targetableComponent;
 			Targeter = targeterComponent;
 			Comms = comms;
+			Mind = mind;
 
 			this.relationData = relationData;
 
@@ -86,25 +85,13 @@ namespace SpaxUtils
 				return;
 			}
 
-			// Initialize all Agent components.
 			Actor = new Actor($"ACTOR_{Identification.ID}", callbackService, inputToActMap, performers,
 				(state) => Brain != null && Brain.IsStateActive(state));
 			Brain = new Brain(DependencyManager, callbackService, state, null, brainGraphs);
-			// Create new instances of all injected mind behaviours and use them to initialize the Mind.
-			List<IMindBehaviour> mindBehaviours = behaviour.Select(b => (IMindBehaviour)b.CreateInstance()).ToList();
-			foreach (IMindBehaviour b in mindBehaviours)
-			{
-				DependencyManager.Inject(b);
-			}
-			Mind = new AEMOI(DependencyManager, aemoiSettings,
-				new StatOctad(this, aemoiSettings.Inclination, inclination == Vector8.Zero ? Vector8.Half : inclination),
-				new StatOctad(this, aemoiSettings.Personality, personality == Vector8.Zero ? Vector8.Half : personality),
-				mindBehaviours);
 			LoadRelations();
 
 			// Bind Agent components so that later injections can retrieve them easily (this is meant for Nodes, not EntityComponents as they may already be injected before this).
 			DependencyManager.Bind(Actor);
-			DependencyManager.Bind(Mind);
 			DependencyManager.Bind(Brain);
 		}
 

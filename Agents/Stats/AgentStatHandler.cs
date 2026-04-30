@@ -1,8 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.Serialization;
-using System.Linq; // Added for Sum() operations
 
 namespace SpaxUtils
 {
@@ -17,6 +15,8 @@ namespace SpaxUtils
 		public StatOctad BodyExperience { get; private set; }
 		public StatOctad SoulLevels { get; private set; }
 		public StatOctad SoulExperience { get; private set; }
+		public Vector8 BodyDistribution { get; private set; }
+		public Vector8 SoulDistribution { get; private set; }
 		public PointStatOctad PointStats => pointStatOctad;
 		public StatOctad Physics { get; private set; }
 
@@ -32,19 +32,18 @@ namespace SpaxUtils
 		[SerializeField] private StatMap soulAttributeMap;
 
 		private IAgent agent;
-		private Vector8 bodyDistribution;
-		private Vector8 soulDistribution;
 
 		private EntityStat recoveryStat;
 		private FloatOperationModifier recoveryMod;
 
 		public void InjectDependencies(IAgent agent,
+			[Optional, BindingIdentifier(AgentStatIdentifiers.DISTRIBUTION)] Vector8 generalDistribution,
 			[Optional, BindingIdentifier(AgentStatIdentifiers.BODY_DISTRIBUTION)] Vector8 bodyDistribution,
 			[Optional, BindingIdentifier(AgentStatIdentifiers.SOUL_DISTRIBUTION)] Vector8 soulDistribution)
 		{
 			this.agent = agent;
-			this.bodyDistribution = bodyDistribution;
-			this.soulDistribution = soulDistribution;
+			BodyDistribution = bodyDistribution == Vector8.Zero ? generalDistribution : bodyDistribution;
+			SoulDistribution = soulDistribution == Vector8.Zero ? generalDistribution : soulDistribution;
 		}
 
 		protected void Awake()
@@ -61,25 +60,29 @@ namespace SpaxUtils
 			SoulExperience = soulExperience.Initialize(agent);
 
 			// --- BODY INITIALIZATION ---
-			if (bodyDistribution != Vector8.Zero &&
+			if (BodyDistribution != Vector8.Zero &&
 				agent.Stats.TryGetStat(AgentStatIdentifiers.BODY_RANK, out EntityStat bodyRank) &&
 				bodyRank.BaseValue > 0f)
 			{
-				ApplyBudgetDistribution(bodyRank.BaseValue, bodyDistribution, BodyExperience, BodyLevels, bodyAttributeMap);
+				ApplyBudgetDistribution(bodyRank.BaseValue, BodyDistribution, BodyExperience, BodyLevels, bodyAttributeMap);
 				bodyRank.BaseValue = 0f;
 			}
 
 			// --- SOUL INITIALIZATION ---
-			if (soulDistribution != Vector8.Zero &&
+			if (SoulDistribution != Vector8.Zero &&
 				agent.Stats.TryGetStat(AgentStatIdentifiers.SOUL_RANK, out EntityStat soulRank) &&
 				soulRank.BaseValue > 0f)
 			{
-				ApplyBudgetDistribution(soulRank.BaseValue, soulDistribution, SoulExperience, SoulLevels, soulAttributeMap);
+				ApplyBudgetDistribution(soulRank.BaseValue, SoulDistribution, SoulExperience, SoulLevels, soulAttributeMap);
 				soulRank.BaseValue = 0f;
 			}
 
 			pointStatOctad.Initialize(agent);
 			Physics = physicsOctad.Initialize(agent);
+
+			// Recompute distributions from the actual initialized levels so they reflect true attribute investment.
+			BodyDistribution = BodyLevels.Vector8.NormalizeMax();
+			SoulDistribution = SoulLevels.Vector8.NormalizeMax();
 
 			// Modify recovery stat with control (so that recovery only occurs when agent is in control).
 			if (agent.Body.HasRigidbody && agent.Stats.TryGetStat(AgentStatIdentifiers.RECOVERY, out recoveryStat))

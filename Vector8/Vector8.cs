@@ -80,6 +80,22 @@ namespace SpaxUtils
 		public float Highest(out int index) => Highest(this, out index);
 
 		/// <summary>
+		/// Returns the signed value of the member with the highest absolute magnitude.
+		/// </summary>
+		/// <param name="index">The index of that member.</param>
+		public float HighestAbs(out int index) => HighestAbs(this, out index);
+
+		/// <summary>
+		/// Drains each channel toward zero by <paramref name="amount"/>[i], never crossing zero.
+		/// </summary>
+		public Vector8 MoveTowardZero(Vector8 amount) => MoveTowardZero(this, amount);
+
+		/// <summary>
+		/// Returns the sum of absolute values of all members.
+		/// </summary>
+		public float AbsSum() => AbsSum(this);
+
+		/// <summary>
 		/// Returns the greatest of all provided member values.
 		/// </summary>
 		public Vector8 Maximize(params Vector8[] b) => Maximize(this, b);
@@ -130,7 +146,7 @@ namespace SpaxUtils
 		/// Scales all members values proportionally so that its highest member never exceeds 1.
 		/// Does NOT make it so that the total length of the vector is 1!
 		/// </summary>
-		public Vector8 Range(float r = 1f) => Range(this);
+		public Vector8 NormalizeMax(float r = 1f) => NormalizeMax(this, r);
 
 		/// <summary>
 		/// Divides <paramref name="v"/> by its sum.
@@ -212,6 +228,48 @@ namespace SpaxUtils
 				}
 			}
 			return max;
+		}
+
+		/// <summary>
+		/// Returns the signed value of the member with the highest absolute magnitude.
+		/// </summary>
+		/// <param name="index">The index of that member.</param>
+		public static float HighestAbs(Vector8 v, out int index)
+		{
+			float max = 0f;
+			index = -1;
+			for (int i = 0; i < 8; i++)
+			{
+				float abs = Mathf.Abs(v[i]);
+				if (abs > max)
+				{
+					max = abs;
+					index = i;
+				}
+			}
+			return index >= 0 ? v[index] : 0f;
+		}
+
+		/// <summary>
+		/// Drains each channel of <paramref name="v"/> toward zero by <paramref name="amount"/>[i], never crossing zero.
+		/// </summary>
+		public static Vector8 MoveTowardZero(Vector8 v, Vector8 amount)
+		{
+			Vector8 r = v;
+			for (int i = 0; i < 8; i++)
+			{
+				r[i] = Mathf.MoveTowards(r[i], 0f, Mathf.Abs(amount[i]));
+			}
+			return r;
+		}
+
+		/// <summary>
+		/// Returns the sum of absolute values of all members.
+		/// </summary>
+		public static float AbsSum(Vector8 v)
+		{
+			return Mathf.Abs(v.N) + Mathf.Abs(v.NE) + Mathf.Abs(v.E) + Mathf.Abs(v.SE)
+				 + Mathf.Abs(v.S) + Mathf.Abs(v.SW) + Mathf.Abs(v.W) + Mathf.Abs(v.NW);
 		}
 
 		/// <summary>
@@ -368,7 +426,7 @@ namespace SpaxUtils
 		/// Scales all of <paramref name="v"/>'s members proportionally so that its highest member never exceeds Range.
 		/// Does NOT make it so that the total length of the vector equals the range!
 		/// </summary>
-		public static Vector8 Range(Vector8 v, float r = 1f)
+		public static Vector8 NormalizeMax(Vector8 v, float r = 1f)
 		{
 			if (v.Max() <= 0f)
 			{

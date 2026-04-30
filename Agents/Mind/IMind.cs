@@ -68,6 +68,24 @@ namespace SpaxUtils
 		IMindBehaviour ActiveBehaviour { get; }
 
 		/// <summary>
+		/// The entity chosen as the current target by the active behaviour's <see cref="IMindBehaviour.Evaluate"/> call.
+		/// Authoritative targeting source; updated each tick before <see cref="MotivatedEvent"/>.
+		/// </summary>
+		IEntity ActiveTarget { get; }
+
+		/// <summary>
+		/// The agent's true internal emotional state — unsigned, slow-smoothed aggregate of |stim| across all tracked entities.
+		/// Represents how the agent FEELS, not directed at any specific entity.
+		/// </summary>
+		Vector8 Emotion { get; }
+
+		/// <summary>
+		/// Behavioural lean as a Vector8 — per axis-pair lean combining base disposition (Inclination + Personality + Emotion)
+		/// and directed emotion toward <see cref="ActiveTarget"/>, dampened by inertia.
+		/// </summary>
+		Vector8 Balance { get; }
+
+		/// <summary>
 		/// Activates the mind to allow it to process stimuli and act upon them.
 		/// </summary>
 		/// <param name="reset">Whether the mind's emotions should be reset before activating.</param>

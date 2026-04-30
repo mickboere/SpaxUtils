@@ -26,12 +26,19 @@
 		//Vector8 Trigger { get; }
 
 		/// <summary>
-		/// Returns whether this behaviour is valid to be intiated.
+		/// Evaluates whether this behaviour can run against <paramref name="candidate"/> and returns the chosen target and strength.
+		/// Simple behaviours validate the candidate directly. Compound behaviours may override to select a different target.
 		/// </summary>
-		/// <param name="motivation">The agent's current motivation profile, used to determine whether the minimum motivation is met for behaviour initiation.</param>
-		/// <param name="target">The <see cref="IEntity"/> this motivation is currently targeting.</param>
-		/// <param name="distance">The current distance from the motivation being met. When multiple behaviours of the same priority are valid, the one with the lowest distance will be chosen.</param>
-		/// <returns>Whether this behaviour is valid to be initiated.</returns>
-		bool Valid(Vector8 motivation, IEntity target, out float distance);
+		/// <param name="candidate">The entity with the highest-magnitude stimuli, as chosen by the mind.</param>
+		/// <param name="candidateStimuli">The signed stimuli vector for <paramref name="candidate"/>.</param>
+		(IEntity target, float strength) Evaluate(IEntity candidate, Vector8 candidateStimuli);
+
+		/// <summary>
+		/// Returns whether this behaviour is valid to be initiated against <paramref name="target"/>.
+		/// </summary>
+		/// <param name="stimuli">The signed stimuli vector for <paramref name="target"/>.</param>
+		/// <param name="target">The entity being evaluated.</param>
+		/// <param name="strength">Strength of the match; higher means a better fit.</param>
+		bool Valid(Vector8 stimuli, IEntity target, out float strength);
 	}
 }

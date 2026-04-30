@@ -16,8 +16,8 @@ namespace SpaxUtils
 		protected IAgent Agent { get; private set; }
 		protected IMind Mind => Agent.Mind;
 		protected Vector8 Personality => Mind.Personality;
-		protected Vector8 Emotion => Mind.Motivation.emotion;
-		protected IEntity Target => Mind.Motivation.target;
+		protected Vector8 Emotion => Mind.Emotion;
+		protected IEntity Target => Mind.ActiveTarget;
 
 		protected EntityStat EntityTimescale;
 		protected CallbackService CallbackService { get; private set; }
@@ -49,7 +49,22 @@ namespace SpaxUtils
 			EntityTimescale = Agent.Stats.GetStat(EntityStatIdentifiers.TIMESCALE, true, 1f);
 		}
 
-		public virtual bool Valid(Vector8 motivation, IEntity target, out float strength)
+		public virtual (IEntity target, float strength) Evaluate(IEntity candidate, Vector8 candidateStimuli)
+		{
+			if (candidate == null)
+			{
+				return (null, 0f);
+			}
+
+			if (!Valid(candidateStimuli, candidate, out float strength))
+			{
+				return (null, 0f);
+			}
+
+			return (candidate, strength);
+		}
+
+		public virtual bool Valid(Vector8 stimuli, IEntity target, out float strength)
 		{
 			strength = 0f;
 
@@ -59,20 +74,32 @@ namespace SpaxUtils
 				return false;
 			}
 
-			if (motivation >= trigger)
+			// Sign-aware threshold check: each non-zero trigger channel requires the stimuli to
+			// match sign AND meet the absolute magnitude.
+			for (int i = 0; i < 8; i++)
 			{
-				// Calculate strength by summing all motivation members that exceed the minimum trigger motivation.
-				for (int i = 0; i < 8; i++)
+				if (trigger[i].Approx(0))
 				{
-					if (!trigger[i].Approx(0))
-					{
-						strength += motivation[i] * trigger[i];
-					}
+					continue;
 				}
-				return true;
+
+				if (stimuli[i] * Mathf.Sign(trigger[i]) < Mathf.Abs(trigger[i]))
+				{
+					return false;
+				}
 			}
 
-			return false;
+			// Strength: sum of (stimuli[i] * trigger[i]) for triggered channels.
+			// Positive when they agree in sign, contributing meaningfully to behaviour selection.
+			for (int i = 0; i < 8; i++)
+			{
+				if (!trigger[i].Approx(0))
+				{
+					strength += stimuli[i] * trigger[i];
+				}
+			}
+
+			return true;
 		}
 
 		public override void Start()

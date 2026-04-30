@@ -20,14 +20,14 @@ namespace SpaxUtils
 		#region Personality
 		public const string PERSONALITY = MIND + "Personality"; // Behavior weights
 
-		public const string FIERCENESS = PERSONALITY + "/Fierceness"; // Fire ->		(dull > fierce)
-		public const string SHARPNESS = PERSONALITY + "/Sharpness"; // Light ->			(late > sharp)
-		public const string SWIFTNESS = PERSONALITY + "/Swiftness"; // Air ->			(slow > swift)
-		public const string KINDNESS = PERSONALITY + "/Kindness"; // Spirit ->			(ignorant > kind)
-		public const string CAREFULNESS = PERSONALITY + "/Carefulness"; // Water ->		(careless > careful)
-		public const string ADAPTIVENESS = PERSONALITY + "/Adaptiveness"; // Nature ->	(random > adaptive)
-		public const string STEADFASTNESS = PERSONALITY + "/Steadfastness"; // Earth ->	(soft > steadfast)
-		public const string RUTHLESSNESS = PERSONALITY + "/Ruthlessness"; // Void ->	(simple > ruthless)
+		public const string FIERCENESS = PERSONALITY + "/Fierceness"; // Fire ->		(meek > fierce)
+		public const string SHARPNESS = PERSONALITY + "/Sharpness"; // Light ->			(dull > sharp)
+		public const string SWIFTNESS = PERSONALITY + "/Swiftness"; // Air ->			(sluggish > swift)
+		public const string KINDNESS = PERSONALITY + "/Kindness"; // Spirit ->			(cold > kind)
+		public const string CAUTIOUSNESS = PERSONALITY + "/Cautiousness"; // Water ->	(rash > cautious)
+		public const string ADAPTIVENESS = PERSONALITY + "/Adaptiveness"; // Nature ->	(rigid > adaptive)
+		public const string STEADFASTNESS = PERSONALITY + "/Steadfastness"; // Earth ->	(fickle > steadfast)
+		public const string RUTHLESSNESS = PERSONALITY + "/Ruthlessness"; // Void ->	(gentle > ruthless)
 		#endregion
 	}
 }

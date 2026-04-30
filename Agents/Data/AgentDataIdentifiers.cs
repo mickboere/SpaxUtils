@@ -13,5 +13,6 @@ namespace SpaxUtils
 		// AI DATA
 		private const string AI = "AI/";
 		public const string PARRY = AI + "Parry"; // Whether this AI should be able to parry attacks.
+		public const string FOLLOWING = AI + "Following"; // String: entity ID this agent should follow.
 	}
 }

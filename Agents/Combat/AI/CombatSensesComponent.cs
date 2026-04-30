@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace SpaxUtils
@@ -11,6 +12,7 @@ namespace SpaxUtils
 	{
 		public EnemySense EnemySense { get; private set; }
 		public ProjectileSense ProjectileSense { get; private set; }
+		public AllySense AllySense { get; private set; }
 
 		[Header("Aggro")]
 		[SerializeField, Tooltip("Aggro level at which the agent transitions to Combat.")]
@@ -24,6 +26,7 @@ namespace SpaxUtils
 		private ISpawnpoint spawnpoint;
 		private AgentStatHandler statHandler;
 		private CombatSensesSettings settings;
+		private AllySensesSettings allySensesSettings;
 		private ProjectileService projectileService;
 		private AgentCombatComponent combatComponent;
 		private FocusHandler focusHandler;
@@ -35,6 +38,7 @@ namespace SpaxUtils
 		public void InjectDependencies(IVisionComponent vision,
 			IHittable hittable, [Optional] ISpawnpoint spawnpoint,
 			AgentStatHandler statHandler, CombatSensesSettings settings,
+			AllySensesSettings allySensesSettings,
 			ProjectileService projectileService, AgentCombatComponent combatComponent,
 			[Optional] FocusHandler focusHandler)
 		{
@@ -43,6 +47,7 @@ namespace SpaxUtils
 			this.spawnpoint = spawnpoint;
 			this.statHandler = statHandler;
 			this.settings = settings;
+			this.allySensesSettings = allySensesSettings;
 			this.projectileService = projectileService;
 			this.combatComponent = combatComponent;
 			this.focusHandler = focusHandler;
@@ -70,6 +75,7 @@ namespace SpaxUtils
 
 			EnemySense = new EnemySense(Agent, vision, statHandler, combatComponent, settings);
 			ProjectileSense = new ProjectileSense(Agent, projectileService);
+			AllySense = new AllySense(Agent, vision, allySensesSettings);
 
 			if (focusHandler != null)
 			{
@@ -86,6 +92,7 @@ namespace SpaxUtils
 
 			EnemySense.Dispose();
 			ProjectileSense.Dispose();
+			AllySense.Dispose();
 
 			if (focusHandler != null)
 			{
@@ -105,26 +112,30 @@ namespace SpaxUtils
 
 		private void OnMindMotivated()
 		{
-			// Invoked when the mind's motivation has settled.
-			if (Agent.Mind.Motivation.target != null)
+			// Invoked after behaviour reassessment and Balance computation — ActiveTarget is up-to-date.
+			IEntity activeTarget = Agent.Mind.ActiveTarget;
+			if (activeTarget != null)
 			{
-				ITargetable target = Agent.Mind.Motivation.target.GetEntityComponent<ITargetable>();
+				ITargetable target = activeTarget.GetEntityComponent<ITargetable>();
 				if (Agent.Targeter.Target == null || Agent.Targeter.Target != target)
 				{
-					// Set target to the entity responsible for the mind's motivation.
 					Agent.Targeter.SetTarget(target);
 					lastTarget = target;
 				}
 			}
-			else if (lastTarget != null && Agent.Targeter.Target != lastTarget)
+			else if (lastTarget != null && Agent.Targeter.Target == lastTarget)
 			{
 				Agent.Targeter.SetTarget(null);
 				lastTarget = null;
 			}
 
-			// Aggro = sum of all threat-relevant emotion axes (all except SE).
-			Vector8 emotion = Agent.Mind.Motivation.emotion;
-			aggroStat.BaseValue = emotion.Sum() - emotion.SE;
+			// Aggro = unsigned magnitude sum across all tracked entity stimuli.
+			float rawAggro = 0f;
+			foreach (KeyValuePair<IEntity, Vector8> kv in Agent.Mind.Stimuli)
+			{
+				rawAggro += kv.Value.AbsSum();
+			}
+			aggroStat.BaseValue = rawAggro;
 
 			if (!inCombat && aggroStat >= aggroEnterThreshold)
 			{
@@ -136,8 +147,6 @@ namespace SpaxUtils
 				inCombat = false;
 				Agent.Brain.TryTransition(AgentStateIdentifiers.PASSIVE);
 			}
-
-			//SpaxDebug.Log($"[{Agent.Identification.Name}] rawAggro={rawAggro}, effectiveAggro={aggroStat}, inCombat={inCombat}, enterThreshold={aggroEnterThreshold}");
 		}
 
 		private void OnMindUpdating(float delta)
@@ -145,6 +154,7 @@ namespace SpaxUtils
 			// Invoked when the mind starts its current update cycle.
 			EnemySense.Sense(delta);
 			ProjectileSense.Sense(delta);
+			AllySense.Sense(delta);
 		}
 
 		private void OnReceivedHitEvent(HitData hitData)
@@ -216,8 +226,8 @@ namespace SpaxUtils
 			float hateGain = baseStim * (0.5f + 0.5f * ruthlessness); // 0..MAX_HIT_STIM
 			stim.NW = hateGain;
 
-			// Use the same damping as continuous stimuli (handled in AEMOI.Stimulate).
-			Agent.Mind.Stimulate(stim, hitData.Hitter);
+			// Foe-directed emotions are negative; flip sign before sending.
+			Agent.Mind.Stimulate(-stim, hitData.Hitter);
 		}
 	}
 }

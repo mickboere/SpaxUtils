@@ -33,6 +33,20 @@ namespace SpaxUtils
 			"\nHigher maximum values let opposed directions drain very quickly.")]
 		public Vector2 AxisBalanceSatisfactionRange = new Vector2(0.25f, 2f);
 
+		[Header("Emotion Aggregation")]
+		[Tooltip("Smooth rate for the Emotion aggregate (lerp factor per second). ~0.25 yields a 2-4s half-life.")]
+		public float EmotionSmoothRate = 0.25f;
+
+		[Header("Balance")]
+		[Tooltip("Inertia dampener on the directed (per-target) component of Balance. Higher = slower Balance response to target stimuli.")]
+		public float BalanceInertiaK = 1.0f;
+		[Range(0f, 1f), Tooltip("Weight of Inclination in the Balance computation.")]
+		public float BalanceInclinationWeight = 1f;
+		[Range(0f, 1f), Tooltip("Weight of Personality in the Balance computation.")]
+		public float BalancePersonalityWeight = 1f;
+		[Range(0f, 1f), Tooltip("Weight of Emotion in the Balance computation. 0 = no emotional colouring; tune up to taste.")]
+		public float BalanceEmotionWeight = 0f;
+
 		[Header("Behaviour Switching")]
 		[Tooltip("Extra relative strength required for a new behaviour with the same priority to override the current one.\n" +
 		 "0 = no inertia, 0.25 = needs 25% more strength.")]

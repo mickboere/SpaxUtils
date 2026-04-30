@@ -48,6 +48,7 @@
 		// Void
 		public const string LETHALITY_EXP = BODY_EXP + "Lethality";
 		public const string LETHALITY_LVL = BODY_LVL + "Lethality";
+		
 		#endregion Bodily Attributes
 
 		// SOUL ATTRIBUTES
@@ -89,6 +90,8 @@
 		public const string HOSTILITY_EXP = SOUL_EXP + "Hostility"; // Raises combat danger and experience gain.
 		public const string HOSTILITY_LVL = SOUL_LVL + "Hostility";
 		#endregion Soul Attributes
+
+		public const string DISTRIBUTION = ATTRIBUTES + "Distribution"; // General normalized distribution key.
 
 		// < Stats >
 		// Stats are either measured in Points (PointStats & Physics), percentages (0..1) or in real values (kg, m/s, etc).

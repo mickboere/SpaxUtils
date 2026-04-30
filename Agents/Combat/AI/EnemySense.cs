@@ -338,6 +338,10 @@ namespace SpaxUtils
 			{
 				Vector8 current = agent.Mind.RetrieveStimuli(info.Agent);
 
+				// Stimuli are now signed (negative = foe-directed); use absolute values when
+				// reading current levels for relaxation calculations.
+				Vector8 cur = current.Absolute();
+
 				float threat01 = info.Threat;
 				float threatStim = threat01 * AEMOI.MAX_STIM;
 				float lethality01 = info.Lethality;
@@ -376,35 +380,27 @@ namespace SpaxUtils
 				float distanceSafe = Mathf.Clamp01(info.Distance / (activeReach * 2f)); // 0 = on top, 1 = far.
 				float verySafe = calm * distanceSafe;
 
-				// ---------------------------
-				// Signed raw stim per axis
-				// ---------------------------
-
 				// N (Fight): danger minus relaxation.
 				float fightDanger;
 				{
-					float courage = 1f - lethality01; // prefer to fight weaker/equal enemies.
+					float courage = 1f - lethality01;
 					fightDanger = threatStim * hate01 * Mathf.Clamp01(courage + 0.3f) * (1f - 0.5f * resourceDef);
 				}
 
-				// Only really relax N if WATER (S) leans higher and axis is not extreme.
-				float fightRelax = current.N * verySafe * nsBalance * nsLeanS * 1.25f;
+				float fightRelax = cur.N * verySafe * nsBalance * nsLeanS * 1.25f;
 				float fight = fightDanger - fightRelax;
 
 				// NE (Utilize / anticipate opening).
 				float utilizeDanger = info.Oppurtunity * AEMOI.MAX_STIM * (1f - 0.5f * threat01);
-				float oppClosed = 1f - Mathf.Clamp01(Mathf.Abs(info.Oppurtunity)); // 1 when no clear opening.
+				float oppClosed = 1f - Mathf.Clamp01(Mathf.Abs(info.Oppurtunity));
 				float neSafe = Mathf.Max(calm, oppClosed * distanceSafe);
-				float utilizeRelax = current.NE * neSafe * 1.0f;
+				float utilizeRelax = cur.NE * neSafe * 1.0f;
 				float utilize = utilizeDanger - utilizeRelax;
 
 				// E (Evade).
 				float immediateThreat = threatStim * intent01;
 				float evadeDanger = immediateThreat + windupDanger;
-
-				// When far & calm, strongly relax evasion.
-				float safeFromImmediate = verySafe;
-				float evadeRelax = current.E * safeFromImmediate * 1.5f;
+				float evadeRelax = cur.E * verySafe * 1.5f;
 				float evade = evadeDanger - evadeRelax;
 
 				// SE (Support) – left mostly to global systems.
@@ -414,41 +410,37 @@ namespace SpaxUtils
 				float baseRetreat = threatStim * (0.4f + 0.6f * lethality01);
 				float resourceFactor = 0.3f + 0.7f * resourceDef;
 				float retreatDanger = baseRetreat * resourceFactor;
-				float retreatSafe = distanceSafe * calm;
-				float retreatRelax = current.S * retreatSafe * 1.5f; // stronger drop when far & calm.
+				float retreatRelax = cur.S * distanceSafe * calm * 1.5f;
 				float retreat = retreatDanger - retreatRelax;
 
 				// SW (Enhance / buffing).
 				float enhanceDanger = AEMOI.MAX_STIM * lethality01 * (1f - threat01) * Mathf.Clamp01(resourceDef + 0.2f);
-				float enhanceRelax = current.SW * resourceOk * calm * 1.0f;
+				float enhanceRelax = cur.SW * resourceOk * calm * 1.0f;
 				float enhance = enhanceDanger - enhanceRelax;
 
 				// W (Guard).
 				float guardDanger = threatStim * (0.25f + 0.75f * intent01) + windupDanger;
-				float guardSafe = verySafe;
-				float guardRelax = current.W * guardSafe * 1.5f;
+				float guardRelax = cur.W * verySafe * 1.5f;
 				float guard = guardDanger - guardRelax;
 
 				// NW (Target / aggro).
-				float hateNorm = Mathf.Clamp01(info.Resentment);          // 0..1 hostility
-				float maxContNW = Mathf.Max(info.Resentment, 1f);          // resentment or at least 1
+				float hateNorm = Mathf.Clamp01(info.Resentment);
+				float maxContNW = Mathf.Max(info.Resentment, 1f);
 
 				float nwDanger = threatStim * hateNorm;
 				float nwRelax = love01 * AEMOI.MAX_STIM * calm;
-				float target = nwDanger - nwRelax;                        // signed impulse
+				float targetNW = nwDanger - nwRelax;
 
-				float currentNW = current.NW;
-
-				if (target > 0f)
+				if (targetNW > 0f)
 				{
-					if (currentNW >= maxContNW)
+					if (cur.NW >= maxContNW)
 					{
-						target = 0f;
+						targetNW = 0f;
 					}
 					else
 					{
-						float factor = Mathf.Clamp01((maxContNW - currentNW) / maxContNW);
-						target *= factor;
+						float factor = Mathf.Clamp01((maxContNW - cur.NW) / maxContNW);
+						targetNW *= factor;
 					}
 				}
 
@@ -460,15 +452,15 @@ namespace SpaxUtils
 					retreat,  // S
 					enhance,  // SW
 					guard,    // W
-					target    // NW
+					targetNW  // NW
 				);
 
 				// Aggro modulation (NW boosts positive combat impulses only).
-				float aggroNorm = Mathf.Clamp01(current.NW / AEMOI.MAX_STIM);
+				float aggroNorm = Mathf.Clamp01(cur.NW / AEMOI.MAX_STIM);
 				if (aggroNorm > 0f)
 				{
-					float strong = 1f + aggroNorm;        // 1..2
-					float medium = 1f + 0.5f * aggroNorm; // 1..1.5
+					float strong = 1f + aggroNorm;
+					float medium = 1f + 0.5f * aggroNorm;
 
 					ScalePositive(ref rawStim.N, strong);
 					ScalePositive(ref rawStim.NE, strong);
@@ -478,8 +470,8 @@ namespace SpaxUtils
 					ScalePositive(ref rawStim.SW, medium);
 				}
 
-				// Send raw impulses; AEMOI handles damping.
-				agent.Mind.Stimulate(rawStim * delta, info.Agent);
+				// Foe-directed emotions are negative; flip sign before sending.
+				agent.Mind.Stimulate(-rawStim * delta, info.Agent);
 			}
 		}
 

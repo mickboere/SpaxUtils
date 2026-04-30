@@ -19,6 +19,15 @@ namespace SpaxUtils
 		/// <summary>Whether the agent's stun handler is currently in the stunned state.</summary>
 		public bool Stunned => stunHandler.Stunned;
 
+		/// <summary>True when the agent is in a committed state (stunned or charging) and cannot freely act.</summary>
+		public bool IsVulnerable => Stunned || (CurrentCombatMove != null && CurrentCombatMove.HasCharge);
+
+		/// <summary>Normalized recent damage received (0-1, relative to max health). Decays over time.</summary>
+		public float RecentDamageNormalized { get; private set; }
+
+		/// <summary>The last entity that inflicted damage on this agent.</summary>
+		public IEntity LastAttacker { get; private set; }
+
 		/// <summary>The combat move that is currently being prepared/performed (if any).</summary>
 		public ICombatMove CurrentCombatMove { get; private set; }
 
@@ -62,6 +71,9 @@ namespace SpaxUtils
 
 		#endregion Move Selection
 
+		[Header("Damage Tracking")]
+		[SerializeField] private float recentDamageDecay = 2f;
+
 		[Header("Reach")]
 		[SerializeField] private float fallbackBaseReach = 0.5f;
 
@@ -75,6 +87,7 @@ namespace SpaxUtils
 
 		private IMovePerformanceHandler moveHandler;
 		private IStunHandler stunHandler;
+		private IHittable hittable;
 
 		private EntityStat powerStat;
 		private EntityStat proofingStat;
@@ -82,11 +95,13 @@ namespace SpaxUtils
 		public void InjectDependencies(
 			AgentStatHandler agentStatHandler,
 			IMovePerformanceHandler moveHandler,
-			IStunHandler stunHandler)
+			IStunHandler stunHandler,
+			IHittable hittable)
 		{
 			StatHandler = agentStatHandler;
 			this.moveHandler = moveHandler;
 			this.stunHandler = stunHandler;
+			this.hittable = hittable;
 
 			powerStat = Agent.Stats.GetStat(AgentStatIdentifiers.POWER);
 			proofingStat = Agent.Stats.GetStat(AgentStatIdentifiers.PROOFING);
@@ -95,11 +110,23 @@ namespace SpaxUtils
 		protected void OnEnable()
 		{
 			Agent.SubscribeOptimizedUpdate(OnUpdate);
+			hittable?.Subscribe(this, OnReceivedHit);
 		}
 
 		protected void OnDisable()
 		{
 			Agent.UnsubscribeOptimizedUpdate(OnUpdate);
+			hittable?.Unsubscribe(this);
+		}
+
+		private void OnReceivedHit(HitData hitData)
+		{
+			float damage = hitData.Data.GetValue<float>(HitDataIdentifiers.DAMAGE_TOTAL, 0f);
+			if (damage <= 0f || StatHandler == null) return;
+			float maxHealth = StatHandler.PointStats.SW.Max;
+			if (maxHealth > 0f)
+				RecentDamageNormalized = Mathf.Clamp01(RecentDamageNormalized + damage / maxHealth);
+			LastAttacker = hitData.Hitter;
 		}
 
 		/// <summary>
@@ -107,6 +134,8 @@ namespace SpaxUtils
 		/// </summary>
 		protected void OnUpdate(float deltaTime)
 		{
+			RecentDamageNormalized = Mathf.MoveTowards(RecentDamageNormalized, 0f, recentDamageDecay * deltaTime);
+
 			InCombatMode = Agent.Brain.IsStateActive(AgentStateIdentifiers.COMBAT);
 
 			CurrentCombatMove =
