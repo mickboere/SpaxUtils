@@ -76,10 +76,10 @@ namespace SpaxUtils
 			float difficulty = agent.RuntimeData.GetValue(EntityDataIdentifiers.DIFFICULTY, 0.5f);
 
 			Vector8 resolvedPersonality = personality != Vector8.Zero ? personality
-				: statHandler != null ? DistributionToPersonality(statHandler.BodyDistribution, difficulty)
+				: statHandler != null ? statHandler.BodyDistribution * Mathf.Clamp01(difficulty)
 				: Vector8.Half;
 			Vector8 resolvedInclination = inclination != Vector8.Zero ? inclination
-				: statHandler != null ? DistributionToPersonality(statHandler.SoulDistribution, difficulty)
+				: statHandler != null ? statHandler.SoulDistribution
 				: Vector8.Half;
 
 			aemoi = new AEMOI(agent.DependencyManager, settings,
@@ -95,12 +95,6 @@ namespace SpaxUtils
 					aemoi.AddBehaviour(b);
 				}
 			}
-		}
-
-		// Distribution values treated as direct personality values; difficulty scales them from zero.
-		private static Vector8 DistributionToPersonality(Vector8 distribution, float difficulty)
-		{
-			return distribution * Mathf.Clamp01(difficulty);
 		}
 	}
 }
