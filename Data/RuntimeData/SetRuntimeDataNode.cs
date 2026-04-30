@@ -9,6 +9,7 @@ namespace SpaxUtils
 		[SerializeField] private LabeledDataCollection data;
 		[SerializeField] private bool overwrite;
 		[SerializeField] private bool dirty;
+		[SerializeField] private bool debug;
 
 		private RuntimeDataCollection runtimeDataCollection;
 
@@ -21,6 +22,10 @@ namespace SpaxUtils
 		{
 			base.OnStateEntered();
 			data.ApplyToRuntimeDataCollection(runtimeDataCollection, overwrite, dirty);
+			if(debug)
+			{
+				SpaxDebug.Log("Applied data.", runtimeDataCollection.ToString());
+			}
 		}
 	}
 }

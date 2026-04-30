@@ -37,6 +37,29 @@ namespace SpaxUtils.StateMachines
 
 			RefreshExpandedState();
 			RefreshPorts();
+
+			RegisterCallback<MouseDownEvent>(evt =>
+			{
+				if (evt.clickCount == 2)
+				{
+					OpenScript();
+				}
+			});
+		}
+
+		public override void BuildContextualMenu(ContextualMenuPopulateEvent evt)
+		{
+			base.BuildContextualMenu(evt);
+			evt.menu.AppendAction("Open Script", _ => OpenScript());
+		}
+
+		private void OpenScript()
+		{
+			MonoScript script = MonoScript.FromScriptableObject(Node);
+			if (script != null)
+			{
+				AssetDatabase.OpenAsset(script);
+			}
 		}
 
 		public void SetFieldsVisible(bool visible)
@@ -82,7 +105,7 @@ namespace SpaxUtils.StateMachines
 
 				if (inputAttr != null)
 				{
-					Port port = InstantiatePort(
+					Port port = PortFactory.Create(
 						Orientation.Horizontal,
 						Direction.Input,
 						inputAttr.connectionType == ConnectionType.Override ? Port.Capacity.Single : Port.Capacity.Multi,
@@ -95,7 +118,7 @@ namespace SpaxUtils.StateMachines
 				}
 				else if (outputAttr != null)
 				{
-					Port port = InstantiatePort(
+					Port port = PortFactory.Create(
 						Orientation.Horizontal,
 						Direction.Output,
 						outputAttr.connectionType == ConnectionType.Override ? Port.Capacity.Single : Port.Capacity.Multi,
@@ -206,6 +229,23 @@ namespace SpaxUtils.StateMachines
 				BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.DeclaredOnly);
 
 			return GetAllFields(type.BaseType).Concat(own);
+		}
+
+		/// <summary>
+		/// Subclasses Port to access its protected constructor, so we can attach a custom
+		/// <see cref="StateMachineEdgeConnectorListener"/> that fires nodeCreationRequest on empty-space drops.
+		/// </summary>
+		private class PortFactory : Port
+		{
+			private PortFactory(Orientation orientation, Direction direction, Capacity capacity, Type type)
+				: base(orientation, direction, capacity, type) { }
+
+			public static Port Create(Orientation orientation, Direction direction, Capacity capacity, Type type)
+			{
+				var port = new PortFactory(orientation, direction, capacity, type);
+				port.AddManipulator(new EdgeConnector<Edge>(new StateMachineEdgeConnectorListener()));
+				return port;
+			}
 		}
 	}
 }

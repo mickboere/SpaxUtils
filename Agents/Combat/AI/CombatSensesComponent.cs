@@ -133,7 +133,7 @@ namespace SpaxUtils
 			float rawAggro = 0f;
 			foreach (KeyValuePair<IEntity, Vector8> kv in Agent.Mind.Stimuli)
 			{
-				rawAggro += kv.Value.AbsSum();
+				rawAggro += kv.Value.Clamp(-AEMOI.MAX_STIM, 0f).AbsSum();
 			}
 			aggroStat.BaseValue = rawAggro;
 

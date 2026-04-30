@@ -471,7 +471,11 @@ namespace SpaxUtils
 				}
 
 				// Foe-directed emotions are negative; flip sign before sending.
-				agent.Mind.Stimulate(-rawStim * delta, info.Agent);
+				// Distance falloff ensures close enemies dominate target selection naturally.
+				float distanceFalloff = settings.DistanceFalloffK > 0f
+					? 1f / (1f + settings.DistanceFalloffK * info.Distance)
+					: 1f;
+				agent.Mind.Stimulate(-rawStim * delta * distanceFalloff, info.Agent);
 			}
 		}
 

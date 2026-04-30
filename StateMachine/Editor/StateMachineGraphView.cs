@@ -19,6 +19,7 @@ namespace SpaxUtils.StateMachines
 		private GraphAsset graphAsset;
 		private readonly Dictionary<string, StateMachineNodeView> nodeViews = new Dictionary<string, StateMachineNodeView>();
 		private readonly Dictionary<string, Group> groupViews = new Dictionary<string, Group>();
+		private NodeCreationSearchWindow searchWindow;
 
 
 		public StateMachineGraphView()
@@ -34,6 +35,52 @@ namespace SpaxUtils.StateMachines
 
 			graphViewChanged += OnGraphViewChanged;
 			viewTransformChanged += OnZoomChanged;
+
+			searchWindow = ScriptableObject.CreateInstance<NodeCreationSearchWindow>();
+			nodeCreationRequest = OnNodeCreationRequest;
+		}
+
+		private void OnNodeCreationRequest(NodeCreationContext context)
+		{
+			if (graphAsset == null)
+			{
+				return;
+			}
+
+			// Convert to graph content space while in the correct GUI context (the graph editor window).
+			// GUIUtility.ScreenToGUIPoint converts OS screen coords to this window's GUI/panel world space.
+			// ChangeCoordinatesTo then converts from panel world space to content container local space,
+			// which accounts for pan and zoom. Both WorldToLocal and GetRootVisualElement were removed in Unity 6.
+			Vector2 guiPos = GUIUtility.ScreenToGUIPoint(context.screenMousePosition);
+			Vector2 contentPos = panel.visualTree.ChangeCoordinatesTo(contentViewContainer, guiPos);
+
+			searchWindow.Initialize(this, graphAsset, context.target as Port, contentPos);
+			SearchWindow.Open(new SearchWindowContext(context.screenMousePosition), searchWindow);
+		}
+
+		internal StateMachineNodeView CreateNodeViewAndRegister(GraphNodeBase node)
+		{
+			StateMachineNodeView view = CreateNodeView(node);
+			nodeViews[node.Guid] = view;
+			return view;
+		}
+
+		internal Port FindFirstCompatiblePort(Port sourcePort, StateMachineNodeView targetView)
+		{
+			if (sourcePort.capacity == Port.Capacity.Single && sourcePort.connected)
+			{
+				return null;
+			}
+
+			Direction requiredDirection = sourcePort.direction == Direction.Output
+				? Direction.Input
+				: Direction.Output;
+
+			return ports.ToList().FirstOrDefault(p =>
+				p.node == targetView &&
+				p.direction == requiredDirection &&
+				p.portType == sourcePort.portType &&
+				!(p.capacity == Port.Capacity.Single && p.connected));
 		}
 
 		private void OnZoomChanged(GraphView view)
@@ -90,8 +137,56 @@ namespace SpaxUtils.StateMachines
 				}
 			}
 
-			// Defer FrameAll until after the layout pass resolves node sizes.
-			schedule.Execute(_ => FrameAll());
+			FrameFromData(asset);
+		}
+
+		// Frames the view to fit all nodes using stored position data rather than resolved
+		// UIElements layout, which is zero until the first paint and makes FrameAll unreliable.
+		private void FrameFromData(GraphAsset asset)
+		{
+			List<GraphNodeBase> nodes = asset.Nodes.Where(n => n != null).ToList();
+			if (nodes.Count == 0)
+			{
+				return;
+			}
+
+			const float padding = 80f;
+			const float estimatedNodeSize = 200f;
+
+			float minX = float.MaxValue, minY = float.MaxValue;
+			float maxX = float.MinValue, maxY = float.MinValue;
+
+			foreach (GraphNodeBase node in nodes)
+			{
+				minX = Mathf.Min(minX, node.Position.x);
+				minY = Mathf.Min(minY, node.Position.y);
+				maxX = Mathf.Max(maxX, node.Position.x + estimatedNodeSize);
+				maxY = Mathf.Max(maxY, node.Position.y + estimatedNodeSize);
+			}
+
+			Rect contentBounds = Rect.MinMaxRect(minX - padding, minY - padding, maxX + padding, maxY + padding);
+
+			// Use the graphView's layout if available, otherwise fall back to the panel root
+			// (the full editor window content area) which is sized before child layout runs.
+			float viewW = layout.width > 0f ? layout.width : panel?.visualTree.layout.width ?? 0f;
+			float viewH = layout.height > 0f ? layout.height : panel?.visualTree.layout.height ?? 0f;
+
+			if (viewW <= 0f || viewH <= 0f)
+			{
+				// Panel not ready either — defer once and retry.
+				schedule.Execute(_ => FrameFromData(asset));
+				return;
+			}
+
+			float zoom = Mathf.Clamp(
+				Mathf.Min(viewW / contentBounds.width, viewH / contentBounds.height),
+				ContentZoomer.DefaultMinScale,
+				ContentZoomer.DefaultMaxScale);
+
+			float panX = viewW * 0.5f - contentBounds.center.x * zoom;
+			float panY = viewH * 0.5f - contentBounds.center.y * zoom;
+
+			UpdateViewTransform(new Vector3(panX, panY, 0f), new Vector3(zoom, zoom, 1f));
 		}
 
 		private StateMachineNodeView CreateNodeView(GraphNodeBase node)
