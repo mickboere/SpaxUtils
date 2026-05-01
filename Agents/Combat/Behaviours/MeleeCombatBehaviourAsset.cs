@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 namespace SpaxUtils
@@ -437,7 +438,8 @@ namespace SpaxUtils
 		{
 			foreach (HitScanHitData hit in newHits)
 			{
-				if (hit.GameObject.TryGetComponentRelative(out IHittable hittable))
+				if (hit.GameObject.TryGetComponentRelative(out IHittable hittable) &&
+					!targeter.Allies.Components.Any(a => a.Entity == hittable.Entity))
 				{
 					// Generate hit data.
 					Vector3 lookDir = (hittable.Entity.Transform.position - Agent.Transform.position)

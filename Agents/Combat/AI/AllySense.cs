@@ -33,7 +33,22 @@ namespace SpaxUtils
 
 		public void Sense(float delta)
 		{
-			followingId = agent.RuntimeData.GetValue<string>(AgentDataIdentifiers.FOLLOWING);
+			string newFollowingId = agent.RuntimeData.GetValue<string>(AgentDataIdentifiers.FOLLOWING);
+
+			// If following was just cleared, immediately satisfy E for the previous follow target.
+			if (!string.IsNullOrEmpty(followingId) && string.IsNullOrEmpty(newFollowingId))
+			{
+				foreach (AllyInfo info in allies.Values)
+				{
+					if (info.Agent.Identification.ID == followingId)
+					{
+						agent.Mind.Satisfy(new Vector8() { E = AEMOI.MAX_STIM }, info.Agent);
+						break;
+					}
+				}
+			}
+
+			followingId = newFollowingId;
 			GatherAllyData();
 			SendContinuousStimuli(delta);
 		}

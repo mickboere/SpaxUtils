@@ -38,6 +38,10 @@ namespace SpaxUtils.StateMachines
 
 			searchWindow = ScriptableObject.CreateInstance<NodeCreationSearchWindow>();
 			nodeCreationRequest = OnNodeCreationRequest;
+
+			serializeGraphElements = OnSerializeElements;
+			canPasteSerializedData = OnCanPaste;
+			unserializeAndPaste = OnPaste;
 		}
 
 		private void OnNodeCreationRequest(NodeCreationContext context)
@@ -418,6 +422,170 @@ namespace SpaxUtils.StateMachines
 				SyncGroupToData(g, data);
 				Undo.CollapseUndoOperations(undoGroup);
 			});
+		}
+
+		private string OnSerializeElements(IEnumerable<GraphElement> elements)
+		{
+			var data = new CopyPasteData();
+			List<StateMachineNodeView> views = elements.OfType<StateMachineNodeView>().ToList();
+			var guids = new HashSet<string>(views.Select(v => v.Node.Guid));
+
+			foreach (StateMachineNodeView view in views)
+			{
+				data.nodes.Add(new SerializedNodeData
+				{
+					typeName = view.Node.GetType().AssemblyQualifiedName,
+					originalGuid = view.Node.Guid,
+					position = view.Node.Position,
+					nodeJson = EditorJsonUtility.ToJson(view.Node)
+				});
+			}
+
+			foreach (GraphEdge edge in graphAsset.Edges)
+			{
+				if (guids.Contains(edge.OutputNodeGuid) && guids.Contains(edge.InputNodeGuid))
+				{
+					data.edges.Add(new SerializedEdgeData
+					{
+						outputGuid = edge.OutputNodeGuid,
+						outputPort = edge.OutputPortName,
+						inputGuid = edge.InputNodeGuid,
+						inputPort = edge.InputPortName
+					});
+				}
+			}
+
+			return JsonUtility.ToJson(data);
+		}
+
+		private bool OnCanPaste(string data)
+		{
+			if (string.IsNullOrEmpty(data))
+			{
+				return false;
+			}
+
+			try
+			{
+				CopyPasteData parsed = JsonUtility.FromJson<CopyPasteData>(data);
+				return parsed?.nodes?.Count > 0;
+			}
+			catch
+			{
+				return false;
+			}
+		}
+
+		private void OnPaste(string operationName, string data)
+		{
+			CopyPasteData copyData = JsonUtility.FromJson<CopyPasteData>(data);
+			if (copyData?.nodes == null || copyData.nodes.Count == 0)
+			{
+				return;
+			}
+
+			const float pasteOffset = 40f;
+			var guidMap = new Dictionary<string, string>();
+			var newViews = new List<StateMachineNodeView>();
+
+			int undoGroup = Undo.GetCurrentGroup();
+			Undo.SetCurrentGroupName("Paste Nodes");
+			Undo.RecordObject(graphAsset, "Paste Nodes");
+
+			foreach (SerializedNodeData nodeData in copyData.nodes)
+			{
+				Type type = Type.GetType(nodeData.typeName);
+				if (type == null)
+				{
+					continue;
+				}
+
+				Vector2 newPos = nodeData.position + new Vector2(pasteOffset, pasteOffset);
+				GraphNodeBase newNode = graphAsset.AddNode(type, newPos);
+				CopyNodeFields(nodeData.nodeJson, newNode);
+				newNode.Position = newPos;
+
+				guidMap[nodeData.originalGuid] = newNode.Guid;
+				newViews.Add(CreateNodeViewAndRegister(newNode));
+			}
+
+			foreach (SerializedEdgeData edgeData in copyData.edges)
+			{
+				if (!guidMap.TryGetValue(edgeData.outputGuid, out string outGuid)) continue;
+				if (!guidMap.TryGetValue(edgeData.inputGuid, out string inGuid)) continue;
+				if (!nodeViews.TryGetValue(outGuid, out StateMachineNodeView outView)) continue;
+				if (!nodeViews.TryGetValue(inGuid, out StateMachineNodeView inView)) continue;
+
+				Port outPort = outView.GetPort(edgeData.outputPort, Direction.Output);
+				Port inPort = inView.GetPort(edgeData.inputPort, Direction.Input);
+				if (outPort == null || inPort == null) continue;
+
+				Undo.RecordObject(graphAsset, "Paste Connection");
+				graphAsset.AddEdge(new GraphEdge(outGuid, edgeData.outputPort, inGuid, edgeData.inputPort));
+
+				Edge edgeView = outPort.ConnectTo(inPort);
+				AddElement(edgeView);
+			}
+
+			Undo.CollapseUndoOperations(undoGroup);
+
+			ClearSelection();
+			foreach (StateMachineNodeView view in newViews)
+			{
+				AddToSelection(view);
+			}
+		}
+
+		// Copies serialized data fields from sourceJson into dest, preserving dest's guid,
+		// position, and graph reference. Uses a temp object as deserialization intermediary.
+		private static void CopyNodeFields(string sourceJson, GraphNodeBase dest)
+		{
+			GraphNodeBase temp = (GraphNodeBase)ScriptableObject.CreateInstance(dest.GetType());
+			EditorJsonUtility.FromJsonOverwrite(sourceJson, temp);
+
+			SerializedObject srcSO = new SerializedObject(temp);
+			SerializedObject dstSO = new SerializedObject(dest);
+
+			SerializedProperty it = srcSO.GetIterator();
+			if (it.NextVisible(true))
+			{
+				do
+				{
+					if (it.name != "m_Script" && it.name != "guid" && it.name != "position" && it.name != "graph")
+					{
+						dstSO.CopyFromSerializedProperty(it);
+					}
+				}
+				while (it.NextVisible(false));
+			}
+
+			dstSO.ApplyModifiedProperties();
+			UnityEngine.Object.DestroyImmediate(temp);
+		}
+
+		[Serializable]
+		private class CopyPasteData
+		{
+			public List<SerializedNodeData> nodes = new List<SerializedNodeData>();
+			public List<SerializedEdgeData> edges = new List<SerializedEdgeData>();
+		}
+
+		[Serializable]
+		private class SerializedNodeData
+		{
+			public string typeName;
+			public string originalGuid;
+			public Vector2 position;
+			public string nodeJson;
+		}
+
+		[Serializable]
+		private class SerializedEdgeData
+		{
+			public string outputGuid;
+			public string outputPort;
+			public string inputGuid;
+			public string inputPort;
 		}
 	}
 }

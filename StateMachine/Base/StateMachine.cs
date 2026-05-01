@@ -58,6 +58,7 @@ namespace SpaxUtils.StateMachines
 		private List<IState> newHierarchy;
 		private List<IState> exiting;
 		private List<IState> entering;
+		private bool preparing;
 
 		public StateMachine(IDependencyManager dependencyManager, CallbackService callbackService, List<IState> states = null, string defaultState = null)
 		{
@@ -220,7 +221,7 @@ namespace SpaxUtils.StateMachines
 		/// <returns>Whether the transition was successfully initiated.</returns>
 		public bool TryTransition(string state, ITransition transition = null)
 		{
-			if (states.ContainsKey(state) && !Transitioning)
+			if (states.ContainsKey(state) && !Transitioning && !preparing)
 			{
 				PrepareState(states[state], transition);
 
@@ -281,6 +282,8 @@ namespace SpaxUtils.StateMachines
 
 		private void PrepareState(IState toState, ITransition transition)
 		{
+			preparing = true;
+
 			newHierarchy = toState.CollectActiveHierarchyRecursively();
 			exiting = hierarchy.Except(newHierarchy).ToList();
 			entering = newHierarchy.Except(hierarchy).ToList();
@@ -298,6 +301,8 @@ namespace SpaxUtils.StateMachines
 				state.Initialize(state);
 				state.OnEnteringState(transition);
 			}
+
+			preparing = false;
 		}
 
 		private IEnumerator StartTransition(IState toState, ITransition transition)

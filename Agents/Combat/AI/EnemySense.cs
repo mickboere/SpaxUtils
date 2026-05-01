@@ -380,6 +380,10 @@ namespace SpaxUtils
 				float distanceSafe = Mathf.Clamp01(info.Distance / (activeReach * 2f)); // 0 = on top, 1 = far.
 				float verySafe = calm * distanceSafe;
 
+				// Reach proximity: 1 within reach, inversely proportional beyond.
+				// Evade and guard only spike when the enemy can physically threaten us right now.
+				float reachProximity = Mathf.Clamp01(activeReach / Mathf.Max(info.Distance, activeReach));
+
 				// N (Fight): danger minus relaxation.
 				float fightDanger;
 				{
@@ -397,9 +401,9 @@ namespace SpaxUtils
 				float utilizeRelax = cur.NE * neSafe * 1.0f;
 				float utilize = utilizeDanger - utilizeRelax;
 
-				// E (Evade).
+				// E (Evade): gated by reach proximity — no spike unless enemy can actually hit us.
 				float immediateThreat = threatStim * intent01;
-				float evadeDanger = immediateThreat + windupDanger;
+				float evadeDanger = (immediateThreat + windupDanger) * reachProximity;
 				float evadeRelax = cur.E * verySafe * 1.5f;
 				float evade = evadeDanger - evadeRelax;
 
@@ -418,8 +422,8 @@ namespace SpaxUtils
 				float enhanceRelax = cur.SW * resourceOk * calm * 1.0f;
 				float enhance = enhanceDanger - enhanceRelax;
 
-				// W (Guard).
-				float guardDanger = threatStim * (0.25f + 0.75f * intent01) + windupDanger;
+				// W (Guard): same reach gating as evade.
+				float guardDanger = (threatStim * (0.25f + 0.75f * intent01) + windupDanger) * reachProximity;
 				float guardRelax = cur.W * verySafe * 1.5f;
 				float guard = guardDanger - guardRelax;
 
