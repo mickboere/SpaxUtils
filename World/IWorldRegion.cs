@@ -22,6 +22,12 @@ namespace SpaxUtils
 		Vector3 SamplePoint();
 
 		/// <summary>
+		/// Returns the closest point that lies within (or on the surface of) the region to <paramref name="point"/>.
+		/// If <paramref name="point"/> is already inside, it is returned unchanged.
+		/// </summary>
+		Vector3 GetClosestPointWithinRegion(Vector3 point);
+
+		/// <summary>
 		/// Returns all unoccupied points of interest belonging to this region that match the required labels.
 		/// </summary>
 		List<PointOfInterest> GetAvailablePOIs(string[] requiredLabels = null);

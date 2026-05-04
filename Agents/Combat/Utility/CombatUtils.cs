@@ -333,5 +333,64 @@ namespace SpaxUtils
 		}
 
 		#endregion // Charge Prediction
+
+		#region Ally Threat
+
+		/// <summary>
+		/// Finds the primary threat directed at <paramref name="allyInfo"/>'s agent.
+		/// Priority 1: <see cref="AgentCombatComponent.LastAttacker"/> (most recent hit).
+		/// Priority 2: highest-Threat enemy currently targeting the ally via <see cref="TargetingService"/>.
+		/// </summary>
+		public static IAgent FindPrimaryThreat(
+			AllyInfo allyInfo,
+			TargetingService targetingService,
+			CombatSensesComponent combatSenses,
+			IAgent self)
+		{
+			if (allyInfo == null)
+				return null;
+
+			// P1: last attacker.
+			IEntity lastAttacker = allyInfo.CombatComp?.LastAttacker;
+			if (lastAttacker is IAgent attackerAgent && attackerAgent.Alive)
+				return attackerAgent;
+
+			// P2: scan targeters via service.
+			ITargetable allyTargetable = allyInfo.Agent?.Targetable;
+			if (allyTargetable == null || targetingService == null)
+				return null;
+
+			IAgent bestThreat = null;
+			float bestScore = -1f;
+
+			foreach (ITargeter targeter in targetingService.GetTargeters(allyTargetable))
+			{
+				if (targeter == self?.Targeter)
+					continue;
+
+				IAgent threatening = targeter.TargetAgent;
+				if (threatening == null || !threatening.Alive)
+					continue;
+
+				float score = 0.5f;
+				ITargetable tgt = threatening.Targetable;
+				if (tgt != null && combatSenses?.EnemySense != null)
+				{
+					EnemyInfo info = combatSenses.EnemySense.GetEnemyInfo(tgt);
+					if (info != null)
+						score = info.Threat;
+				}
+
+				if (score > bestScore)
+				{
+					bestScore = score;
+					bestThreat = threatening;
+				}
+			}
+
+			return bestThreat;
+		}
+
+		#endregion // Ally Threat
 	}
 }

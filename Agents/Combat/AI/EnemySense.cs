@@ -34,6 +34,7 @@ namespace SpaxUtils
 		private readonly AgentStatHandler statHandler;
 		private readonly AgentCombatComponent combatComponent;
 		private readonly CombatSensesSettings settings;
+		private readonly TargetingService targetingService;
 
 		private float pointSum;
 		private List<ITargetable> visible;
@@ -41,18 +42,24 @@ namespace SpaxUtils
 		private HashSet<ITargetable> visibleSet = new HashSet<ITargetable>();
 		private List<ITargetable> forgetBuffer = new List<ITargetable>(16);
 
+		private readonly ISpawnpoint spawnpoint;
+
 		public EnemySense(
 			IAgent agent,
 			IVisionComponent vision,
 			AgentStatHandler statHandler,
 			AgentCombatComponent combatComponent,
-			CombatSensesSettings settings)
+			CombatSensesSettings settings,
+			TargetingService targetingService,
+			ISpawnpoint spawnpoint = null)
 		{
 			this.agent = agent;
 			this.vision = vision;
 			this.statHandler = statHandler;
 			this.combatComponent = combatComponent;
 			this.settings = settings;
+			this.targetingService = targetingService;
+			this.spawnpoint = spawnpoint;
 
 			agent.Targeter.Enemies.RemovedComponentEvent += OnEnemyTargetRemovedEvent;
 		}
@@ -125,10 +132,13 @@ namespace SpaxUtils
 
 				if (!enemies.ContainsKey(enemy))
 				{
+					// Only begin tracking enemies inside this agent's assigned region.
+					if (spawnpoint?.Region != null && !spawnpoint.Region.IsInside(enemyAgent.Transform.position))
+						continue;
+
 					enemyData = new EnemyInfo(enemyAgent);
 					enemies.Add(enemy, enemyData);
 					enemyAgent.DiedEvent += OnEnemyDiedEvent;
-					enemyData.Resentment = -agent.Relations.Score(enemyAgent.Identification);
 				}
 				else
 				{
@@ -184,6 +194,9 @@ namespace SpaxUtils
 
 		private void UpdateEnemyInfo(ITargetable enemy, EnemyInfo info, float delta)
 		{
+			// Resentment reflects current relations including any accumulated per-ID aggro.
+			info.Resentment = -agent.Relations.Score(info.Agent.Identification);
+
 			// Visibility.
 			if (visibleSet.Contains(enemy))
 			{
@@ -266,19 +279,8 @@ namespace SpaxUtils
 			}
 
 			float rawIntent = 0f;
-			if (info.CombatComp != null)
-			{
-				if (info.CombatComp.InCombatMode)
-				{
-					rawIntent += 0.5f;
-				}
-
-				if (info.CombatComp.CurrentCombatMove != null)
-				{
-					rawIntent += 0.5f;
-				}
-			}
-
+			if (info.ClosingSpeed > MIN_APPROACH_SPEED) rawIntent += 0.5f;
+			if (info.CombatComp != null && info.CombatComp.CurrentCombatMove != null) rawIntent += 0.5f;
 			rawIntent = Mathf.Clamp01(rawIntent);
 			info.Intent = rawIntent * facingToSelf;
 
@@ -407,8 +409,9 @@ namespace SpaxUtils
 				float evadeRelax = cur.E * verySafe * 1.5f;
 				float evade = evadeDanger - evadeRelax;
 
-				// SE (Support) – left mostly to global systems.
-				float support = 0f;
+				// SE (Mercy) — back off when another agent is already handling this enemy.
+				int otherTargeters = Mathf.Max(0, targetingService.TargeterCount(info.Agent.Targetable) - 1);
+				float support = otherTargeters > 0 ? Mathf.Clamp01(otherTargeters * 0.5f) : 0f;
 
 				// S (Retreat).
 				float baseRetreat = threatStim * (0.4f + 0.6f * lethality01);

@@ -26,10 +26,10 @@ namespace SpaxUtils
 		private ISpawnpoint spawnpoint;
 		private AgentStatHandler statHandler;
 		private CombatSensesSettings settings;
-		private AllySensesSettings allySensesSettings;
 		private ProjectileService projectileService;
 		private AgentCombatComponent combatComponent;
 		private FocusHandler focusHandler;
+		private TargetingService targetingService;
 
 		private EntityStat aggroStat;
 		private bool inCombat;
@@ -38,19 +38,18 @@ namespace SpaxUtils
 		public void InjectDependencies(IVisionComponent vision,
 			IHittable hittable, [Optional] ISpawnpoint spawnpoint,
 			AgentStatHandler statHandler, CombatSensesSettings settings,
-			AllySensesSettings allySensesSettings,
 			ProjectileService projectileService, AgentCombatComponent combatComponent,
-			[Optional] FocusHandler focusHandler)
+			[Optional] FocusHandler focusHandler, TargetingService targetingService)
 		{
 			this.vision = vision;
 			this.hittable = hittable;
 			this.spawnpoint = spawnpoint;
 			this.statHandler = statHandler;
 			this.settings = settings;
-			this.allySensesSettings = allySensesSettings;
 			this.projectileService = projectileService;
 			this.combatComponent = combatComponent;
 			this.focusHandler = focusHandler;
+			this.targetingService = targetingService;
 
 			aggroStat = Agent.Stats.GetStat(AgentStatIdentifiers.AGGRO, true, 0f);
 		}
@@ -73,9 +72,9 @@ namespace SpaxUtils
 
 			hittable.Subscribe(this, OnReceivedHitEvent);
 
-			EnemySense = new EnemySense(Agent, vision, statHandler, combatComponent, settings);
+			EnemySense = new EnemySense(Agent, vision, statHandler, combatComponent, settings, targetingService, spawnpoint);
 			ProjectileSense = new ProjectileSense(Agent, projectileService);
-			AllySense = new AllySense(Agent, vision, allySensesSettings);
+			AllySense = new AllySense(Agent, vision, settings, targetingService);
 
 			if (focusHandler != null)
 			{
@@ -225,6 +224,17 @@ namespace SpaxUtils
 			// NW (Hate / aggro) - long-term hostility from pain.
 			float hateGain = baseStim * (0.5f + 0.5f * ruthlessness); // 0..MAX_HIT_STIM
 			stim.NW = hateGain;
+
+			// Accumulate persistent aggro toward this specific attacker by entity ID.
+			IIdentification hitterId = hitData.Hitter?.Identification;
+			if (hitterId != null)
+			{
+				float aggroGain = settings.AggroRelationGain * impact01 * (0.5f + 0.5f * ruthlessness);
+				Agent.Relations.Adjust(hitterId.ID, -aggroGain);
+
+				if (Agent.Relations.Relations.TryGetValue(hitterId.ID, out float idScore) && idScore < -settings.MaxAggroRelation)
+					Agent.Relations.Set(hitterId.ID, -settings.MaxAggroRelation);
+			}
 
 			// Foe-directed emotions are negative; flip sign before sending.
 			Agent.Mind.Stimulate(-stim, hitData.Hitter);

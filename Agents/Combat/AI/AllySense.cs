@@ -10,18 +10,20 @@ namespace SpaxUtils
 
 		private readonly IAgent agent;
 		private readonly IVisionComponent vision;
-		private readonly AllySensesSettings settings;
+		private readonly CombatSensesSettings settings;
+		private readonly TargetingService targetingService;
 
 		private readonly HashSet<ITargetable> visibleSet = new HashSet<ITargetable>();
 		private readonly List<ITargetable> forgetBuffer = new List<ITargetable>(16);
 
 		private string followingId;
 
-		public AllySense(IAgent agent, IVisionComponent vision, AllySensesSettings settings)
+		public AllySense(IAgent agent, IVisionComponent vision, CombatSensesSettings settings, TargetingService targetingService)
 		{
 			this.agent = agent;
 			this.vision = vision;
 			this.settings = settings;
+			this.targetingService = targetingService;
 
 			agent.Targeter.Allies.RemovedComponentEvent += OnAllyRemovedEvent;
 		}
@@ -114,7 +116,7 @@ namespace SpaxUtils
 				if (kv.Value.IsFollowTarget)
 					continue;
 
-				if (!visibleSet.Contains(t) && Time.time - kv.Value.LastSeen > settings.ForgetTime)
+				if (!visibleSet.Contains(t) && Time.time - kv.Value.LastSeen > settings.AllyForgetTime)
 					forgetBuffer.Add(t);
 			}
 
@@ -199,10 +201,17 @@ namespace SpaxUtils
 				Vector8 stim = Vector8.Zero;
 
 				// E — Follow: fires for FOLLOWING target regardless of visibility; desire grows with distance.
+				// Counter-pressure: satisfy E proportional to proximity so it doesn't accumulate during combat.
 				if (info.IsFollowTarget)
 				{
 					float dist = Vector3.Distance(agent.Transform.position, info.Agent.Transform.position);
-					stim.E = Mathf.Clamp01(dist / settings.FollowRange);
+					float t = Mathf.Clamp01(dist / settings.FollowRange);
+					stim.E = t;
+					float proximity = 1f - t;
+					if (proximity > 0f)
+					{
+						agent.Mind.Satisfy(new Vector8() { E = proximity * delta }, info.Agent);
+					}
 				}
 
 				// N — Protect: ally taking damage or in combat.
@@ -211,9 +220,17 @@ namespace SpaxUtils
 				// NE — Watch: ally in committed/vulnerable state.
 				stim.NE = isVulnerable ? 1f : 0f;
 
-				// SE — Rally: soft pull when agent is emotionally quiet.
-				float ownMot = agent.Mind.Emotion.AbsSum();
-				stim.SE = ownMot < settings.RallyMaxMotivation ? 1f - ownMot / settings.RallyMaxMotivation : 0f;
+				// SE — Rally: pull toward ally only when either is under active combat pressure (aggro stat > 0).
+				bool enemyTargetingAlly = targetingService.IsBeingTargeted(info.Agent.Targetable);
+				EntityStat selfAggroStat = agent.Stats.GetStat(AgentStatIdentifiers.AGGRO);
+				EntityStat allyAggroStat = info.Agent.Stats.GetStat(AgentStatIdentifiers.AGGRO);
+				bool selfInCombat = selfAggroStat != null && (float)selfAggroStat > 0f;
+				bool allyInCombat = allyAggroStat != null && (float)allyAggroStat > 0f;
+				if (selfInCombat || allyInCombat)
+				{
+					float ownMot = agent.Mind.Emotion.AbsSum();
+					stim.SE = ownMot < settings.RallyMaxMotivation ? 1f - ownMot / settings.RallyMaxMotivation : 0f;
+				}
 
 				// S — Retreat-to: own fear seeks safe harbour near ally.
 				float ownFear = agent.Mind.Emotion.S;
@@ -228,8 +245,8 @@ namespace SpaxUtils
 				stim.W = healthRatio < settings.ShieldHealthThreshold && (inCombat || recentDmg > 0f)
 					? 1f - healthRatio / settings.ShieldHealthThreshold : 0f;
 
-				// NW — Push: ally being attacked, attack the threat directly.
-				stim.NW = inCombat ? Mathf.Clamp01(recentDmg + 0.5f) : 0f;
+				// NW — Push: ally being targeted or attacked; fires even before combat starts.
+				stim.NW = Mathf.Clamp01(recentDmg * 2f + (inCombat ? 0.5f : 0f) + (enemyTargetingAlly ? 0.3f : 0f));
 
 				// Apply supportiveness to all axes except E (E fires unconditionally for FOLLOWING).
 				float followE = stim.E;

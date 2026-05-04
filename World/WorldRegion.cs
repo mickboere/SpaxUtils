@@ -206,6 +206,53 @@ namespace SpaxUtils
 			return index >= 0 ? cachedWorldRotations[index] : transform.rotation * Quaternion.Euler(region.Rotation);
 		}
 
+		/// <inheritdoc/>
+		public Vector3 GetClosestPointWithinRegion(Vector3 point)
+		{
+			if (regions == null || regions.Count == 0)
+				return transform.position;
+
+			Vector3 closest = transform.position;
+			float closestSqDist = float.MaxValue;
+
+			for (int i = 0; i < regions.Count; i++)
+			{
+				Vector3 candidate = ClosestPointInRegion(point, i);
+				float sqDist = (candidate - point).sqrMagnitude;
+				if (sqDist < closestSqDist)
+				{
+					closestSqDist = sqDist;
+					closest = candidate;
+				}
+			}
+
+			return closest;
+		}
+
+		private Vector3 ClosestPointInRegion(Vector3 point, int i)
+		{
+			Region r = regions[i];
+			Vector3 wCenter = cachedWorldCenters[i];
+
+			switch (r.Type)
+			{
+				case RegionType.Box:
+					Vector3 local = Quaternion.Inverse(cachedWorldRotations[i]) * (point - wCenter);
+					local.x = Mathf.Clamp(local.x, -r.BoxSize.x * 0.5f, r.BoxSize.x * 0.5f);
+					local.y = Mathf.Clamp(local.y, -r.BoxSize.y * 0.5f, r.BoxSize.y * 0.5f);
+					local.z = Mathf.Clamp(local.z, -r.BoxSize.z * 0.5f, r.BoxSize.z * 0.5f);
+					return wCenter + cachedWorldRotations[i] * local;
+
+				case RegionType.Sphere:
+					Vector3 toPoint = point - wCenter;
+					float mag = toPoint.magnitude;
+					return mag <= r.Radius ? point : wCenter + toPoint * (r.Radius / mag);
+
+				default:
+					return wCenter;
+			}
+		}
+
 		private bool CheckRegion(Vector3 point, int index)
 		{
 			Region region = regions[index];

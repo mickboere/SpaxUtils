@@ -22,6 +22,7 @@ namespace SpaxUtils
 
 		private Dictionary<string, IState> children;
 		private List<IStateListener> components;
+		private Dictionary<IStateListener, IDependencyManager> componentDependencies;
 
 		private IDependencyManager dependencyManager;
 
@@ -34,6 +35,7 @@ namespace SpaxUtils
 			DefaultChild = defaultChild;
 			children = new Dictionary<string, IState>();
 			this.components = components == null ? new List<IStateListener>() : new List<IStateListener>(components);
+			componentDependencies = new Dictionary<IStateListener, IDependencyManager>();
 		}
 
 		public virtual void Dispose()
@@ -46,7 +48,8 @@ namespace SpaxUtils
 			this.dependencyManager = dependencyManager;
 			foreach (IStateListener component in components)
 			{
-				dependencyManager.Inject(component);
+				var dm = componentDependencies.TryGetValue(component, out var cdm) ? cdm : dependencyManager;
+				dm.Inject(component);
 			}
 		}
 
@@ -169,8 +172,9 @@ namespace SpaxUtils
 		/// Try to add a new <see cref="IStateListener"/> to this state.
 		/// </summary>
 		/// <param name="component">The <see cref="IStateListener"/> to attempt to add.</param>
+		/// <param name="dm">Optional dependency manager override for injecting this component's dependencies. Defaults to the brain's DM.</param>
 		/// <returns>TRUE if it was able to be added, FALSE if it wasn't.</returns>
-		public bool TryAddComponent(IStateListener component)
+		public bool TryAddComponent(IStateListener component, IDependencyManager dm = null)
 		{
 			if (component is IState state)
 			{
@@ -184,9 +188,13 @@ namespace SpaxUtils
 			}
 
 			components.Add(component);
+			if (dm != null)
+			{
+				componentDependencies[component] = dm;
+			}
 			if (Active)
 			{
-				dependencyManager.Inject(component);
+				(dm ?? dependencyManager).Inject(component);
 				component.OnEnteringState(null);
 				component.OnStateEntered();
 			}
@@ -197,13 +205,14 @@ namespace SpaxUtils
 		/// Try to add a collection of new <see cref="IStateListener"/>s to this state.
 		/// </summary>
 		/// <param name="components">The list of <see cref="IStateListener"/>s to attempt to add.</param>
+		/// <param name="dm">Optional dependency manager override for injecting these components' dependencies. Defaults to the brain's DM.</param>
 		/// <returns>TRUE if it all components were successfully added, FALSE if one or multiple were not.</returns>
-		public bool TryAddComponents(IEnumerable<IStateListener> components)
+		public bool TryAddComponents(IEnumerable<IStateListener> components, IDependencyManager dm = null)
 		{
 			bool success = true;
 			foreach (IStateListener component in components)
 			{
-				if (!TryAddComponent(component))
+				if (!TryAddComponent(component, dm))
 				{
 					success = false;
 				}
@@ -222,6 +231,7 @@ namespace SpaxUtils
 			if (components.Contains(component))
 			{
 				components.Remove(component);
+				componentDependencies.Remove(component);
 				if (Active)
 				{
 					component.OnExitingState(null);

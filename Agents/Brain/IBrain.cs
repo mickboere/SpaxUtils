@@ -110,7 +110,8 @@ namespace SpaxUtils
 		/// Will append the <paramref name="graph"/> data to this brain, copying its components and adding them to the appropriate <see cref="BrainState"/>s.
 		/// </summary>
 		/// <param name="graph">The <see cref="StateMachineGraph"/> to append the data of.</param>
-		void AppendGraph(StateMachineGraph graph);
+		/// <param name="dm">Optional dependency manager override for injecting this graph's node dependencies. Defaults to the brain's own DM.</param>
+		void AppendGraph(StateMachineGraph graph, IDependencyManager dm = null);
 
 		/// <summary>
 		/// Will remove the appended data of <paramref name="graph"/> from this brain.

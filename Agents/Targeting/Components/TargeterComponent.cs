@@ -51,10 +51,12 @@ namespace SpaxUtils
 		private EntityComponentFilter<ITargetable> allies;
 
 		private IAgent agent;
+		private TargetingService targetingService;
 
-		public void InjectDependencies(IAgent agent, IEntityCollection entityCollection)
+		public void InjectDependencies(IAgent agent, IEntityCollection entityCollection, TargetingService targetingService)
 		{
 			this.agent = agent;
+			this.targetingService = targetingService;
 
 			enemies?.Dispose();
 			enemies = new EntityComponentFilter<ITargetable>(
@@ -77,6 +79,16 @@ namespace SpaxUtils
 		protected void Awake()
 		{
 			agent.Relations.RelationsUpdatedEvent += OnRelationsUpdatedEvent;
+		}
+
+		protected void OnEnable()
+		{
+			targetingService?.Register(this);
+		}
+
+		protected void OnDisable()
+		{
+			targetingService?.Unregister(this);
 		}
 
 		protected void OnDestroy()

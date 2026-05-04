@@ -250,7 +250,7 @@ namespace SpaxUtils
 		#region Graphs
 
 		/// <inheritdoc/>
-		public void AppendGraph(StateMachineGraph graph)
+		public void AppendGraph(StateMachineGraph graph, IDependencyManager dm = null)
 		{
 			if (graphInstances.ContainsKey(graph))
 			{
@@ -271,7 +271,7 @@ namespace SpaxUtils
 			foreach (IState graphState in graphStates)
 			{
 				BrainState brainState = EnsureState(graphState.ID, graphState);
-				brainState.TryAddComponents(graphState.Components);
+				brainState.TryAddComponents(graphState.Components, dm);
 			}
 		}
 
