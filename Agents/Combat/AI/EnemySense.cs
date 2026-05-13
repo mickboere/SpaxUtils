@@ -328,28 +328,39 @@ namespace SpaxUtils
 
 		private void SendContinuousStimuli(float delta)
 		{
-			// Personality deviations [-1..1].
-			Vector8 pers = agent.Mind.Personality;
-			Vector8 dev = (pers - Vector8.Half) * 2f;
-
-			// N–S axis balance and S-lean (for relaxing fight drive).
-			float nsBalance = 1f - Mathf.Abs(dev.N - dev.S); // 0 = skewed, 1 = balanced.
-			float nsLeanS = Mathf.Max(0f, dev.S - dev.N);  // >0 => more CAREFUL than FIERCE.
+			float sCalm = agent.Mind.Balance.S; // live cautiousness: high S lean → relaxes fight drive
 
 			foreach (EnemyInfo info in enemies.Values)
 			{
+				// When enemy leaves spawn region, flood-satisfy drives so they drain to zero,
+				// allowing Hostile to win selection and return the agent.
+				if (spawnpoint?.Region != null &&
+					!spawnpoint.Region.IsInside(info.Agent.Transform.position))
+				{
+					agent.Mind.Satisfy(Vector8.One * delta, info.Agent);
+					continue;
+				}
+
 				Vector8 current = agent.Mind.RetrieveStimuli(info.Agent);
 
 				// Stimuli are now signed (negative = foe-directed); use absolute values when
 				// reading current levels for relaxation calculations.
 				Vector8 cur = current.Absolute();
 
+				// Enemy's overall emotional balance (0-1 per axis) — observable demeanour.
+				// Used by the cross-state cascade below; Balance is global, not target-specific.
+				Vector8 enemyBalance = info.Agent.Mind.Balance;
+
 				float threat01 = info.Threat;
 				float threatStim = threat01 * AEMOI.MAX_STIM;
 				float lethality01 = info.Lethality;
 				float intent01 = info.Intent;
-				float hate01 = Mathf.Clamp01(info.Resentment);
-				float love01 = Mathf.Clamp01(-info.Resentment);
+				// hate01: faction labels provide a baseline, personal aggro is the primary driver.
+				// Score() sums ID entry + all labels; separate them so faction alone can't max NW.
+				agent.Relations.Relations.TryGetValue(info.Agent.Identification.ID, out float idRelation);
+				float personalHate = Mathf.Clamp01(-idRelation);                          // 0 on first contact, builds through hits
+				float factionHate = Mathf.Clamp01(info.Resentment + idRelation);          // label-only contribution
+				float hate01 = Mathf.Clamp01(factionHate * 0.3f + personalHate);          // faction = 30% ceiling, personal history = full driver
 
 				// Resource deficits.
 				float healthDef = statHandler.PointStats.SW.PercentageMax.Invert();
@@ -359,8 +370,9 @@ namespace SpaxUtils
 				float resourceOk = 1f - resourceDef;
 
 				// Spike when enemy is winding up an attack on us.
+				PerformanceState actorState = info.Agent.Actor.State;
 				float windupDanger = 0f;
-				if (info.Agent.Actor.State == PerformanceState.Preparing &&
+				if (actorState == PerformanceState.Preparing &&
 					info.Agent.Actor.MainPerformer is IMovePerformer movePerformer &&
 					movePerformer.Move is ICombatMove combatMove)
 				{
@@ -372,6 +384,14 @@ namespace SpaxUtils
 
 					float t = Mathf.InverseLerp(range + range, range, info.Distance).InOutSine();
 					windupDanger = t * AEMOI.MAX_STIM;
+				}
+
+				// Approach danger: enemy closing within time horizon, gated by intent (facing + closing).
+				float approachDanger = 0f;
+				if (!float.IsPositiveInfinity(info.TimeToHit) && info.TimeToHit < settings.ApproachHorizonSeconds)
+				{
+					float tNorm = info.TimeToHit / settings.ApproachHorizonSeconds;
+					approachDanger = (1f - tNorm).InOutSine() * intent01 * AEMOI.MAX_STIM;
 				}
 
 				// Calm when threat & intent drop.
@@ -386,32 +406,44 @@ namespace SpaxUtils
 				// Evade and guard only spike when the enemy can physically threaten us right now.
 				float reachProximity = Mathf.Clamp01(activeReach / Mathf.Max(info.Distance, activeReach));
 
-				// N (Fight): danger minus relaxation.
-				float fightDanger;
-				{
-					float courage = 1f - lethality01;
-					fightDanger = threatStim * hate01 * Mathf.Clamp01(courage + 0.3f) * (1f - 0.5f * resourceDef);
-				}
-
-				float fightRelax = cur.N * verySafe * nsBalance * nsLeanS * 1.25f;
+				// N (Fight/Anger): threat * courage * resources.
+				// hate01 removed from danger (subjective); expressed through relax duration instead.
+				// courage = 1-lethality is objective — fear of being outmatched reduces willingness to fight.
+				float courage = 1f - lethality01;
+				float fightDanger = threatStim * Mathf.Clamp01(courage + 0.3f) * (1f - 0.5f * resourceDef);
+				// High N-inclination → N drains slowly (determined fighters stay angry longer).
+				float fightRelax = cur.N * sCalm * Mathf.Lerp(verySafe * 1.25f + 0.2f, 0.05f, Mathf.Clamp01(agent.Mind.Inclination.N));
 				float fight = fightDanger - fightRelax;
 
 				// NE (Utilize / anticipate opening).
 				float utilizeDanger = info.Oppurtunity * AEMOI.MAX_STIM * (1f - 0.5f * threat01);
 				float oppClosed = 1f - Mathf.Clamp01(Mathf.Abs(info.Oppurtunity));
 				float neSafe = Mathf.Max(calm, oppClosed * distanceSafe);
-				float utilizeRelax = cur.NE * neSafe * 1.0f;
+				// High NE-inclination → precision drive drains slowly (patient fighters hold the drive).
+				float utilizeRelax = cur.NE * neSafe * Mathf.Lerp(1.0f, 0.1f, Mathf.Clamp01(agent.Mind.Inclination.NE));
 				float utilize = utilizeDanger - utilizeRelax;
 
-				// E (Evade): gated by reach proximity — no spike unless enemy can actually hit us.
+				// E (Evade): base danger gated by reach proximity; windupDanger is self-scaling via InverseLerp so no extra gate.
 				float immediateThreat = threatStim * intent01;
-				float evadeDanger = (immediateThreat + windupDanger) * reachProximity;
-				float evadeRelax = cur.E * verySafe * 1.5f;
+				float evadeDanger = (immediateThreat + threatStim * 0.5f) * reachProximity + windupDanger + approachDanger * 0.5f;
+				// Normalise total active threat 0-1; Clamp01 guards against simultaneous immediateThreat+windupDanger > MAX_STIM.
+				float attackPressure = Mathf.Clamp01((immediateThreat + windupDanger) / AEMOI.MAX_STIM);
+				// 1f = full-drain rate when no attack: cur.E * 1.0 * delta → exponential decay to zero. Lerps to verySafe during active threat.
+				float evadeRelax = cur.E * Mathf.Lerp(1f, verySafe, attackPressure);
 				float evade = evadeDanger - evadeRelax;
 
 				// SE (Mercy) — back off when another agent is already handling this enemy.
 				int otherTargeters = Mathf.Max(0, targetingService.TargeterCount(info.Agent.Targetable) - 1);
 				float support = otherTargeters > 0 ? Mathf.Clamp01(otherTargeters * 0.5f) : 0f;
+
+				// Shared-target relaxation: drain all drives towards this enemy proportional to SE inclination.
+				// Ruthless agents (low SE inclination) are unaffected; cooperative ones naturally cede.
+				if (otherTargeters > 0)
+				{
+					float sharedRelax = Mathf.Clamp01(otherTargeters * settings.SharedTargetRelaxRate)
+						* Mathf.Clamp01(agent.Mind.Inclination.SE) * delta;
+					agent.Mind.Satisfy(Vector8.One * sharedRelax, info.Agent);
+				}
 
 				// S (Retreat).
 				float baseRetreat = threatStim * (0.4f + 0.6f * lethality01);
@@ -425,31 +457,21 @@ namespace SpaxUtils
 				float enhanceRelax = cur.SW * resourceOk * calm * 1.0f;
 				float enhance = enhanceDanger - enhanceRelax;
 
-				// W (Guard): same reach gating as evade.
-				float guardDanger = (threatStim * (0.25f + 0.75f * intent01) + windupDanger) * reachProximity;
-				float guardRelax = cur.W * verySafe * 1.5f;
+				// W (Guard): gated by reach proximity — no pressure unless enemy is in engagement range.
+				float guardDanger = (threatStim * (0.25f + 0.75f * intent01) + windupDanger) * reachProximity + approachDanger * 0.5f;
+				// 1.5f: Guard drains 50% faster than Evade in safe conditions — sustained blocking should disengage sooner.
+				float guardRelax = cur.W * Mathf.Lerp(1.5f, verySafe * 1.5f, attackPressure);
 				float guard = guardDanger - guardRelax;
 
-				// NW (Target / aggro).
-				float hateNorm = Mathf.Clamp01(info.Resentment);
-				float maxContNW = Mathf.Max(info.Resentment, 1f);
-
-				float nwDanger = threatStim * hateNorm;
-				float nwRelax = love01 * AEMOI.MAX_STIM * calm;
+				// NW (Hate/Disgust/Relentlessness): driven by resentment as a slow-building emotional state.
+				// hate01 (resentment) encodes accumulated relationship history — unlike N (anger), NW does
+				// not spike with moment-to-moment threat. Scales to 30% of MAX_STIM at full hate so it is
+				// meaningful but does not trivially dominate the trigger landscape.
+				float nwDanger = hate01 * AEMOI.MAX_STIM * 0.3f;
+				// High NW-inclination → NW drains slowly (relentless agents hold grudges longest).
+				// Floor matches N's structure: low-inclination floor 0.2, high-inclination floor 0.05.
+				float nwRelax = cur.NW * Mathf.Lerp(verySafe * 1.25f + 0.2f, verySafe * 0.25f + 0.05f, Mathf.Clamp01(agent.Mind.Inclination.NW));
 				float targetNW = nwDanger - nwRelax;
-
-				if (targetNW > 0f)
-				{
-					if (cur.NW >= maxContNW)
-					{
-						targetNW = 0f;
-					}
-					else
-					{
-						float factor = Mathf.Clamp01((maxContNW - cur.NW) / maxContNW);
-						targetNW *= factor;
-					}
-				}
 
 				Vector8 rawStim = new Vector8(
 					fight,    // N
@@ -462,35 +484,24 @@ namespace SpaxUtils
 					targetNW  // NW
 				);
 
-				// Aggro modulation (NW boosts positive combat impulses only).
-				float aggroNorm = Mathf.Clamp01(cur.NW / AEMOI.MAX_STIM);
-				if (aggroNorm > 0f)
-				{
-					float strong = 1f + aggroNorm;
-					float medium = 1f + 0.5f * aggroNorm;
-
-					ScalePositive(ref rawStim.N, strong);
-					ScalePositive(ref rawStim.NE, strong);
-					ScalePositive(ref rawStim.E, medium);
-					ScalePositive(ref rawStim.S, medium);
-					ScalePositive(ref rawStim.W, medium);
-					ScalePositive(ref rawStim.SW, medium);
-				}
+				// Octology cascade: enemy's state at wheel position X drives our response at X+1 (clockwise).
+				// Rotate(1) maps: enemy NW→our N, N→NE, NE→E, E→SE, SE→S, S→SW, SW→W, W→NW.
+				// enemyBalance is 0-1 per axis; scale to stimulation space then apply.
+				rawStim += enemyBalance.Rotate(1) * AEMOI.MAX_STIM * settings.CrossStateScale;
 
 				// Foe-directed emotions are negative; flip sign before sending.
-				// Distance falloff ensures close enemies dominate target selection naturally.
-				float distanceFalloff = settings.DistanceFalloffK > 0f
-					? 1f / (1f + settings.DistanceFalloffK * info.Distance)
+				// Exponential decay from attack range boundary: full signal within reach, sharp falloff beyond.
+				float beyondRange = Mathf.Max(0f, info.Distance - activeReach);
+				float distanceFalloff = settings.ExponentialFalloffK > 0f
+					? Mathf.Exp(-settings.ExponentialFalloffK * beyondRange)
 					: 1f;
+				distanceFalloff *= actorState switch
+				{
+					PerformanceState.Finishing  => 0.2f,
+					PerformanceState.Performing => 0.8f,
+					_                           => 1f,
+				};
 				agent.Mind.Stimulate(-rawStim * delta * distanceFalloff, info.Agent);
-			}
-		}
-
-		private void ScalePositive(ref float v, float factor)
-		{
-			if (v > 0f)
-			{
-				v *= factor;
 			}
 		}
 

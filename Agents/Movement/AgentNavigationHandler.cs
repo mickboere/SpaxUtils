@@ -490,6 +490,30 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
+		/// TrySteerLocal with region boundary awareness. When the projected movement would exit the region,
+		/// the input is redirected toward the closest interior point instead.
+		/// </summary>
+		public bool TrySteerLocal(Vector3 localInput, Vector3 lookDirection, IWorldRegion region,
+			float lookahead, out bool hardStop, bool applyAvoidance = true)
+		{
+			if (region != null && lookahead > 0f && localInput.sqrMagnitude > Mathf.Epsilon)
+			{
+				Vector3 worldDir = (Quaternion.LookRotation(lookDirection.FlattenY().normalized) * localInput).FlattenY().normalized;
+				Vector3 projected = agent.Transform.position + worldDir * lookahead;
+
+				if (!region.IsInside(projected))
+				{
+					Vector3 safe    = region.GetClosestPointWithinRegion(projected);
+					Vector3 safeDir = (safe - agent.Transform.position).normalized;
+					Vector3 newLocal = (Quaternion.Inverse(Quaternion.LookRotation(lookDirection.FlattenY().normalized)) * safeDir)
+						.FlattenY().normalized * localInput.magnitude;
+					return TrySteerLocal(newLocal, lookDirection, out hardStop, applyAvoidance);
+				}
+			}
+			return TrySteerLocal(localInput, lookDirection, out hardStop, applyAvoidance);
+		}
+
+		/// <summary>
 		/// Runs wall and cliff safety checks against the given world-space flat direction.
 		/// Modifies the direction in-place when applyAvoidance is true.
 		/// Returns true if the path is clear.

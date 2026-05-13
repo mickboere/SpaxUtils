@@ -264,40 +264,46 @@ namespace SpaxUtils
 				return;
 			}
 
-			IEntity candidate = Motivation.target;
-			Vector8 candidateStim = candidate != null && stimuli.TryGetValue(candidate, out Vector8 cs)
-				? cs : Vector8.Zero;
-
 			IMindBehaviour best = null;
 			IEntity bestTarget = null;
 			float bestStrength = 0f;
 
 			IMindBehaviour active = ActiveBehaviour;
-			float activeStrength = 0f;
-			bool activeValid = false;
+			IEntity activeBestTarget = null;
+			float activeBestStrength = 0f;
 
-			for (int i = 0; i < behaviours.Count; i++)
+			// Evaluate every behaviour against every stimulated entity so that
+			// ally-directed and enemy-directed behaviours can each find their own best candidate,
+			// rather than all competing over the single globally-strongest entity.
+			List<IEntity> candidates = new(stimuli.Keys);
+			for (int c = 0; c < candidates.Count; c++)
 			{
-				IMindBehaviour behaviour = behaviours[i];
-				var (t, strength) = behaviour.Evaluate(candidate, candidateStim);
-				if (strength <= 0f)
-				{
-					continue;
-				}
+				IEntity candidate = candidates[c];
+				Vector8 candidateStim = stimuli[candidate];
 
-				if (behaviour == active)
+				for (int i = 0; i < behaviours.Count; i++)
 				{
-					activeValid = true;
-					activeStrength = strength;
-				}
+					IMindBehaviour behaviour = behaviours[i];
+					var (t, strength) = behaviour.Evaluate(candidate, candidateStim);
+					if (strength <= 0f)
+					{
+						continue;
+					}
 
-				if (best == null ||
-					behaviour.Priority > best.Priority ||
-					(behaviour.Priority == best.Priority && strength > bestStrength))
-				{
-					best = behaviour;
-					bestTarget = t;
-					bestStrength = strength;
+					if (behaviour == active && strength > activeBestStrength)
+					{
+						activeBestStrength = strength;
+						activeBestTarget = t;
+					}
+
+					if (best == null ||
+						behaviour.Priority > best.Priority ||
+						(behaviour.Priority == best.Priority && strength > bestStrength))
+					{
+						best = behaviour;
+						bestTarget = t;
+						bestStrength = strength;
+					}
 				}
 			}
 
@@ -308,20 +314,20 @@ namespace SpaxUtils
 				return;
 			}
 
-			// Same behaviour: update target and keep going.
+			// Same behaviour wins again: update to its best-matching candidate this frame.
 			if (best == active)
 			{
-				ActiveTarget = bestTarget;
+				ActiveTarget = activeBestTarget;
 				return;
 			}
 
-			// Behaviour inertia: if priorities match, require a strength gap.
+			// Behaviour inertia: if priorities match, require a strength gap to switch.
 			if (active != null &&
-				activeValid &&
+				activeBestStrength > 0f &&
 				best.Priority == active.Priority &&
 				settings.BehaviourSwitchThreshold > 0f)
 			{
-				if (bestStrength < activeStrength * (1f + settings.BehaviourSwitchThreshold))
+				if (bestStrength < activeBestStrength * (1f + settings.BehaviourSwitchThreshold))
 				{
 					return;
 				}
