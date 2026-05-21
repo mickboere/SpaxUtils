@@ -42,6 +42,11 @@ namespace SpaxUtils
 		float Quality { get; }
 
 		/// <summary>
+		/// The mass of this item in KG. Contributes to the agent's Load when equipped.
+		/// </summary>
+		float Mass { get; }
+
+		/// <summary>
 		/// The base value of this item.
 		/// </summary>
 		int Value { get; }

@@ -257,6 +257,21 @@ namespace SpaxUtils
 			// Overlap occurs when two items cover the same location(s), but they won't block equiping.
 			overlap = EquipedItems.Where((e) => e.EquipmentData.CoversLocations.Any((c) => equipmentData.CoversLocations.Contains(c))).ToList();
 
+			// Two-handed: equipping a two-handed weapon clears the other arm, and equipping anything clears a two-handed weapon from the other arm.
+			if (equipmentData.SlotType == EquipmentSlotTypes.LEFT_HAND || equipmentData.SlotType == EquipmentSlotTypes.RIGHT_HAND)
+			{
+				string otherType = equipmentData.SlotType == EquipmentSlotTypes.LEFT_HAND
+					? EquipmentSlotTypes.RIGHT_HAND : EquipmentSlotTypes.LEFT_HAND;
+				RuntimeEquipedData otherArm = EquipedItems.FirstOrDefault(e => e.Slot.Type == otherType);
+				if (otherArm != null)
+				{
+					bool newIsTwoHanded = runtimeItemData.RuntimeData.TryGetValue(ItemDataIdentifiers.TWO_HANDED, out bool a) && a;
+					bool otherIsTwoHanded = otherArm.RuntimeItemData.RuntimeData.TryGetValue(ItemDataIdentifiers.TWO_HANDED, out bool b) && b;
+					if (newIsTwoHanded || otherIsTwoHanded)
+						overlap.Add(otherArm);
+				}
+			}
+
 			// Check if supplied slotID is available.
 			if (slotId != null)
 			{
@@ -266,11 +281,26 @@ namespace SpaxUtils
 					reason = $"Couldn't overwrite item in slot '{slotId}'";
 					return !equipedItems.ContainsKey(slotId) || overwrite;
 				}
+				else if (equipmentData.SlotType == EquipmentSlotTypes.APPAREL)
+				{
+					// Apparel slot will be created dynamically in TryEquip.
+					slot = null;
+					reason = string.Empty;
+					return true;
+				}
 				else
 				{
 					reason = $"No slot exists for '{slotId}'";
 					return false;
 				}
+			}
+
+			if (equipmentData.SlotType == EquipmentSlotTypes.APPAREL)
+			{
+				// Apparel slot will be created dynamically in TryEquip.
+				slot = null;
+				reason = string.Empty;
+				return true;
 			}
 
 			reason = $"Slot could not be retrieved for type: {equipmentData.SlotType}";
@@ -297,6 +327,9 @@ namespace SpaxUtils
 				}
 
 				IEquipmentData itemData = runtimeItemData.ItemData as IEquipmentData;
+
+				// For apparel, CanEquip returns slot=null; create the dynamic slot here.
+				slot ??= AddNewSlot(EquipmentSlotTypes.APPAREL, slotId);
 
 				// If slot is occupied, unequip it first.
 				if (equipedItems.ContainsKey(slot.ID))
@@ -378,6 +411,13 @@ namespace SpaxUtils
 				}
 
 				equipmentData.TryRemove(equipedData.Slot.ID, true);
+
+				// Apparel slots are ephemeral; remove the slot itself when the item leaves.
+				if (equipedData.Slot.Type == EquipmentSlotTypes.APPAREL)
+				{
+					slots.Remove(equipedData.Slot.ID);
+				}
+
 				equipedData.Slot.Unequip(equipedData);
 				UnequipingEvent?.Invoke(equipedData);
 

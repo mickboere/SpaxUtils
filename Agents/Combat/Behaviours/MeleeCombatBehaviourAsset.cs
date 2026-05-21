@@ -49,6 +49,7 @@ namespace SpaxUtils
 		protected ICommunicationChannel comms;
 		protected IStunHandler stunHandler;
 		protected AgentStatHandler statHandler;
+		protected AgentArmsComponent arms;
 		protected AgentImpactHandler agentImpactHandler;
 		protected AgentAudioHandler agentAudioHandler;
 
@@ -101,6 +102,7 @@ namespace SpaxUtils
 			ICommunicationChannel comms,
 			IStunHandler stunHandler,
 			AgentStatHandler statHandler,
+			AgentArmsComponent arms,
 			AgentImpactHandler agentImpactHandler,
 			AgentAudioHandler agentAudioHandler)
 		{
@@ -116,6 +118,7 @@ namespace SpaxUtils
 			this.comms = comms;
 			this.stunHandler = stunHandler;
 			this.statHandler = statHandler;
+			this.arms = arms;
 			this.agentImpactHandler = agentImpactHandler;
 			this.agentAudioHandler = agentAudioHandler;
 
@@ -451,11 +454,19 @@ namespace SpaxUtils
 					float phase = Mathf.Clamp01(Performer.RunTime / Move.MinDuration);
 					float phaseMult = GetPhaseInertiaMultiplier(phase);
 
-					float basePower = powerStat * move.Power * baseStrengthPowerFactor;
+					// Body physics (x=Pierce, y=Power, z=Precision).
+					Vector3 bodyPhysics = new(piercingStat, powerStat, precisionStat);
+					// Weapon physics: zero for body moves, PhysicsDistribution slice for armed moves.
+					// Future (DAMAGE OUTPUT PIPELINE): filter = normalize(weaponDist * moveDist); damage = bodyPhysics * filter.
+					Vector3 weaponDist = GetWeaponPhysics();
+					Vector3 moveDist = new(move.Piercing, move.Power, move.Precision);
+					Vector3 effectivePhysics = bodyPhysics + weaponDist;
+
+					float basePower = effectivePhysics.y * moveDist.y * baseStrengthPowerFactor;
 					float powerValue = basePower * totalCharge * phaseMult;
 
 					// --- MALICE LOGIC ---
-					float basePierce = piercingStat * move.Piercing;
+					float basePierce = effectivePhysics.x * moveDist.x;
 					float maliceBonus = 0f;
 
 					if (basePierce > 0f)
@@ -467,7 +478,7 @@ namespace SpaxUtils
 						// Calculate coverage ratio. If we paid 100% of the cost, we get 100% bonus.
 						float coverage = drained / basePierce;
 
-						// The Malice added is equal to the BASE PIERCE * Coverage. 
+						// The Malice added is equal to the BASE PIERCE * Coverage.
 						// (Symmetrical to Grace: You get out what you put in, scaled by resource availability).
 						maliceBonus = basePierce * coverage;
 					}
@@ -476,7 +487,7 @@ namespace SpaxUtils
 					float finalPierce = basePierce + maliceBonus;
 
 					// Final precision = Base + Charge.
-					float finalPrecision = precisionStat * move.Precision + (accumulatedChargePoints * chargeDamageEfficiency);
+					float finalPrecision = effectivePhysics.z * moveDist.z + (accumulatedChargePoints * chargeDamageEfficiency);
 
 					HitData hitData = new HitData(
 						hittable,
@@ -495,6 +506,19 @@ namespace SpaxUtils
 					ProcessHit(hittable, hitData);
 				}
 			}
+		}
+
+		// Returns the weapon's offensive physics as (x=Pierce, y=Power, z=Precision).
+		// N=Fire/Power, NE=Light/Precision, NW=Void/Pierce — verify against physicsOctad inspector config.
+		private Vector3 GetWeaponPhysics()
+		{
+			if (!move.UseArmament) return Vector3.zero;
+			RuntimeEquipedData weapon = move.Limb == AgentStatIdentifiers.SUB_LEFT_HAND
+				? arms.LeftEquip : arms.RightEquip;
+			if (weapon == null) return Vector3.zero;
+			Vector8 d = weapon.EquipmentData.PhysicsDistribution;
+			float s = weapon.EquipmentData.PhysicsScaling;
+			return new(d.NW * s, d.N * s, d.NE * s);
 		}
 
 		protected virtual void ProcessHit(IHittable hittable, HitData hitData)

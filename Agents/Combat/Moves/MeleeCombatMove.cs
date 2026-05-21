@@ -21,6 +21,7 @@ namespace SpaxUtils
 		public bool PrelongCharge => prelongCharge;
 		public float ProlongThreshold => prolongThreshold;
 		public string Limb => limb;
+		public bool UseArmament => useArmament;
 		public float Piercing => piercing;
 		public float Power => power;
 		public float Precision => precision;
@@ -43,6 +44,7 @@ namespace SpaxUtils
 
 		[Header("Stats")]
 		[SerializeField, ConstDropdown(typeof(IStatIdentifiers), filter: AgentStatIdentifiers.SUB_STAT)] private string limb;
+		[SerializeField] private bool useArmament = false;
 		[SerializeField, Range(0f, 2f), Tooltip("Percentage of user's Piercing transfered into hit."), FormerlySerializedAs("offence")] private float piercing = 1f;
 		[SerializeField, Range(0f, 2f), Tooltip("Percentage of user's Power transfered into hit.")] private float power = 1f;
 		[SerializeField, Range(0f, 2f), Tooltip("Percentage of user's Precision transfered into hit.")] private float precision = 1f;

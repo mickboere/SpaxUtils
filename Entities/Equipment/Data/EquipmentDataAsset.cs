@@ -15,6 +15,7 @@ namespace SpaxUtils
 
 		public float PhysicsScaling => physicsScaling;
 		public Vector8 PhysicsDistribution => physicsDistribution.Vector8;
+		public bool PhysicsPassive => physicsPassive;
 
 		private const string TT_SLOT_TYPE =
 			"The type of slot this equipment must be equiped in." +
@@ -27,6 +28,7 @@ namespace SpaxUtils
 		[SerializeField, Expandable] private List<BehaviourAsset> equipedBehaviour;
 		[SerializeField, Expandable] private List<StatMap> equipedStatMappings;
 		[Header("Physics")]
+		[SerializeField] private bool physicsPassive;
 		[SerializeField, Range(0f, 1f)] private float physicsScaling = 1f;
 		[SerializeField] private RangedOctad physicsDistribution;
 	}

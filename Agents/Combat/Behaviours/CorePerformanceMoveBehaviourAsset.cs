@@ -4,10 +4,10 @@ namespace SpaxUtils
 {
 	/// <summary>
 	/// Abstract base class for CORE <see cref="IPerformanceMove.Behaviour"/> assets, meaning assets that fully control the behaviour of a perfomance move.
-	/// Implements <see cref="IPrerequisite"/> with configurable grounding and sliding requirements.
+	/// Implements <see cref="IConditional"/> with configurable grounding and sliding requirements.
 	/// Subclasses can override <see cref="IsMet"/> to add additional checks (call base first).
 	/// </summary>
-	public abstract class CorePerformanceMoveBehaviourAsset : BasePerformanceMoveBehaviourAsset, IUpdatable, IPrerequisite
+	public abstract class CorePerformanceMoveBehaviourAsset : BasePerformanceMoveBehaviourAsset, IUpdatable, IConditional
 	{
 		protected const string PARAM_MOVE_INDEX = "MoveIndex";
 		protected const string PARAM_PREPARE = "Prepare";

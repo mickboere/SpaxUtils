@@ -83,6 +83,11 @@ namespace SpaxUtils
 		public float Quality => RuntimeData.TryGetValue(ItemDataIdentifiers.QUALITY, out float quality) ? quality : ItemData.Quality;
 
 		/// <summary>
+		/// The mass of this item in KG.
+		/// </summary>
+		public float Mass => RuntimeData.TryGetValue(ItemDataIdentifiers.MASS, out float mass) ? mass : ItemData.Mass;
+
+		/// <summary>
 		/// The total value of this item multiplied by its quantity.
 		/// </summary>
 		public int Value => GetValue() * Quantity;
@@ -107,6 +112,13 @@ namespace SpaxUtils
 
 			// Append base data without overriding.
 			RuntimeData.AppendCollection(itemData.Data, false);
+
+			// Seed Mass into RuntimeData so stat mapping can subscribe reactively.
+			// LabeledDataCollection overrides take precedence (already appended above).
+			if (!runtimeData.ContainsEntry(ItemDataIdentifiers.MASS))
+			{
+				RuntimeData.SetValue(ItemDataIdentifiers.MASS, itemData.Mass, true, false);
+			}
 		}
 
 		public void InitializeBehaviour()

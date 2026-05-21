@@ -1,6 +1,6 @@
 ﻿namespace SpaxUtils
 {
-	public interface IPrerequisite
+	public interface IConditional
 	{
 		bool IsMet(IDependencyManager dependencies);
 	}

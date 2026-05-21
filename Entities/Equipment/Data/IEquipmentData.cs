@@ -48,5 +48,11 @@ namespace SpaxUtils
 		/// The normal distribution of this equipment's physics effects.
 		/// </summary>
 		Vector8 PhysicsDistribution { get; }
+
+		/// <summary>
+		/// When true, <see cref="PhysicsDistribution"/> is applied passively to body stats on equip.
+		/// When false, physics contribution is driven by combat behaviours during active use (weapons).
+		/// </summary>
+		bool PhysicsPassive { get; }
 	}
 }

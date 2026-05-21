@@ -51,6 +51,7 @@ namespace SpaxUtils
 		public IDependencyManager DependencyManager { get; private set; }
 
 		private List<DataStatMappingModifier> statModifiers = new List<DataStatMappingModifier>();
+		private List<(EntityStat stat, string modId)> physicsModifiers = new List<(EntityStat, string)>();
 		private Dictionary<string, object> dataBackup = new Dictionary<string, object>();
 		private List<BehaviourAsset> behaviours = new List<BehaviourAsset>();
 		private IEntity entity;
@@ -64,6 +65,7 @@ namespace SpaxUtils
 			EquipedInstance = equipedInstance;
 
 			AddStatMappings();
+			AddPhysicsPassiveMappings();
 
 			// Apply material overrides (if any) to the equiped instance.
 			// Rules are enforced inside MaterialOverride.ApplyOverrides().
@@ -78,6 +80,10 @@ namespace SpaxUtils
 			foreach (DataStatMappingModifier mod in statModifiers)
 			{
 				mod.Dispose();
+			}
+			foreach ((EntityStat stat, string modId) in physicsModifiers)
+			{
+				stat.RemoveModifier(modId);
 			}
 			foreach (KeyValuePair<string, object> backup in dataBackup)
 			{
@@ -116,12 +122,26 @@ namespace SpaxUtils
 
 		private void AddStatMappings()
 		{
-			foreach (RuntimeDataEntry item in RuntimeItemData.RuntimeData.Data)
+			foreach (RuntimeDataEntry data in RuntimeItemData.RuntimeData.Data)
 			{
+				// Mass → Load: intrinsic mapping, no EquipMap required.
+				if (data.ID == ItemDataIdentifiers.MASS)
+				{
+					EntityStat loadStat = entity.Stats.GetStat(AgentStatIdentifiers.LOAD, true);
+					string modId = GetModID(data.ID);
+					if (!loadStat.HasModifier(modId))
+					{
+						DataStatMappingModifier mod = new(data, ModMethod.Additive, Operation.Add, () => (float)data.Value);
+						statModifiers.Add(mod);
+						loadStat.AddModifier(modId, mod);
+					}
+					//continue; // Mass is handled directly above; skip EquipMap processing for this entry.
+				}
+
 				foreach (StatMap statMappingSheet in EquipmentData.EquipedStatMappings)
 				{
 					// This allows one item stat (e.g. "Strength") to modify multiple entity stats (e.g. "Power" AND "CarryWeight")
-					foreach (StatMapping mapping in statMappingSheet.GetMappingsFrom(item.ID))
+					foreach (StatMapping mapping in statMappingSheet.GetMappingsFrom(data.ID))
 					{
 						// STAT MOD MAPPING:
 						// Retrieve target stat to add mapping modifier to.
@@ -134,22 +154,43 @@ namespace SpaxUtils
 						// If mod isn't present yet, add it to stat.
 						if (!toStat.HasModifier(identifier))
 						{
-							DataStatMappingModifier mod = new DataStatMappingModifier(mapping, item);
+							DataStatMappingModifier mod = new DataStatMappingModifier(mapping, data);
 							statModifiers.Add(mod);
 							toStat.AddModifier(identifier, mod);
 						}
 						else
 						{
-							SpaxDebug.Error($"Stat '{mapping.ToStat}' already contains a mapping from '{identifier}'.", "Mapping was not added.");
+							SpaxDebug.Error($"Stat '{mapping.ToStat}' already contains a mapping from '{identifier}'.", $"Mapping was not added. Source map: '{statMappingSheet.name}' on item '{ItemData.ID}'.");
 						}
 					}
 
 					// DIRECT DATA MAPPING (Keep existing logic, usually 1-to-1)
-					if (statMappingSheet.DataMappings.Contains(item.ID))
+					if (statMappingSheet.DataMappings.Contains(data.ID))
 					{
-						dataBackup[item.ID] = entity.RuntimeData.GetValue(item.ID, item.ValueType.GetDefault());
-						entity.RuntimeData.SetValue(item.ID, item.Value, true, false);
+						dataBackup[data.ID] = entity.RuntimeData.GetValue(data.ID, data.ValueType.GetDefault());
+						entity.RuntimeData.SetValue(data.ID, data.Value, true, false);
 					}
+				}
+			}
+		}
+
+		private void AddPhysicsPassiveMappings()
+		{
+			if (!EquipmentData.PhysicsPassive) return;
+			if (!DependencyManager.TryGet<AgentStatHandler>(out AgentStatHandler statHandler)) return;
+
+			Vector8 distribution = EquipmentData.PhysicsDistribution;
+			float scaling = EquipmentData.PhysicsScaling;
+			for (int i = 0; i < 8; i++)
+			{
+				float contribution = distribution[i] * scaling;
+				if (contribution == 0f) continue;
+				EntityStat physicsStat = statHandler.Physics[i];
+				string modId = GetModID($"physics_{i}");
+				if (!physicsStat.HasModifier(modId))
+				{
+					physicsStat.AddModifier(modId, new FloatOperationModifier(ModMethod.Additive, Operation.Add, contribution));
+					physicsModifiers.Add((physicsStat, modId));
 				}
 			}
 		}

@@ -38,6 +38,9 @@ namespace SpaxUtils
 		public int Value => value;
 
 		/// <inheritdoc/>
+		public float Mass => mass;
+
+		/// <inheritdoc/>
 		public Sprite Icon => icon;
 
 		/// <inheritdoc/>
@@ -65,6 +68,7 @@ namespace SpaxUtils
 		[SerializeField, Range(0f, 2f)] private float quality = 1f;
 		[SerializeField] private int value = -1;
 		[SerializeField] private ItemRarity rarity = ItemRarity.Undefined;
+		[SerializeField] private float mass = 0f;
 		[SerializeField] private Sprite icon;
 		[SerializeField, Expandable] protected List<BehaviourAsset> inventoryBehaviour;
 		[SerializeField] private LabeledDataCollection data;

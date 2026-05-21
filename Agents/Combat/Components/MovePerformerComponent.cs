@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 namespace SpaxUtils
@@ -50,7 +51,7 @@ namespace SpaxUtils
 		public float CancelTime => MainPerformer != null ? MainPerformer.CancelTime : 0f;
 
 		/// <inheritdoc/>
-		public IReadOnlyDictionary<string, Dictionary<IPerformanceMove, (PerformanceState state, int prio, IPerformanceMove prior)>> Moves => moves;
+		public IReadOnlyDictionary<string, Dictionary<IPerformanceMove, (PerformanceState state, int prio, IPerformanceMove prior, IReadOnlyList<IConditional> conditions)>> Moves => moves;
 
 		/// <inheritdoc/>
 		public IReadOnlyDictionary<string, IPerformanceMove> Moveset => moveset;
@@ -66,8 +67,8 @@ namespace SpaxUtils
 		private RigidbodyWrapper rigidbodyWrapper;
 		private CallbackService callbackService;
 
-		private Dictionary<string, Dictionary<IPerformanceMove, (PerformanceState state, int prio, IPerformanceMove prior)>> moves =
-			new Dictionary<string, Dictionary<IPerformanceMove, (PerformanceState state, int prio, IPerformanceMove prior)>>();
+		private Dictionary<string, Dictionary<IPerformanceMove, (PerformanceState state, int prio, IPerformanceMove prior, IReadOnlyList<IConditional> conditions)>> moves =
+			new Dictionary<string, Dictionary<IPerformanceMove, (PerformanceState state, int prio, IPerformanceMove prior, IReadOnlyList<IConditional> conditions)>>();
 		private Dictionary<string, IPerformanceMove> moveset;
 		private bool autoUpdateMoveset = true;
 
@@ -141,7 +142,7 @@ namespace SpaxUtils
 			for (int i = 0; i < move.Behaviour.Count; i++)
 			{
 				BehaviourAsset behaviour = move.Behaviour[i];
-				if (behaviour is IPrerequisite prerequisite && !prerequisite.IsMet(dependencyManager))
+				if (behaviour is IConditional prerequisite && !prerequisite.IsMet(dependencyManager))
 				{
 					return false;
 				}
@@ -204,7 +205,7 @@ namespace SpaxUtils
 		#region Move Management
 
 		/// <inheritdoc/>
-		public void AddMove(string act, IPerformanceMove move, PerformanceState state, int prio, IPerformanceMove prior = null)
+		public void AddMove(string act, IPerformanceMove move, PerformanceState state, int prio, IPerformanceMove prior = null, IReadOnlyList<IConditional> conditions = null)
 		{
 			if (move == null || processing.Contains(move))
 			{
@@ -216,11 +217,11 @@ namespace SpaxUtils
 			// Ensure act.
 			if (!moves.ContainsKey(act))
 			{
-				moves.Add(act, new Dictionary<IPerformanceMove, (PerformanceState state, int prio, IPerformanceMove prior)>());
+				moves.Add(act, new Dictionary<IPerformanceMove, (PerformanceState state, int prio, IPerformanceMove prior, IReadOnlyList<IConditional> conditions)>());
 			}
 
 			// Store move.
-			moves[act][move] = (state, prio, prior);
+			moves[act][move] = (state, prio, prior, conditions);
 
 			// Store follow-up moves for this move.
 			AddFollowUpMoves(move);
@@ -273,7 +274,7 @@ namespace SpaxUtils
 			for (int i = 0; i < move.FollowUps.Count; i++)
 			{
 				MoveFollowUp followUp = move.FollowUps[i];
-				AddMove(followUp.Act, followUp.Move, followUp.State, followUp.Prio, move);
+				AddMove(followUp.Act, followUp.Move, followUp.State, followUp.Prio, move, followUp.Conditions);
 			}
 			autoUpdateMoveset = true;
 		}
@@ -300,8 +301,8 @@ namespace SpaxUtils
 
 			foreach (string act in moves.Keys)
 			{
-				KeyValuePair<IPerformanceMove, (PerformanceState state, int prio, IPerformanceMove prior)>? top = null;
-				foreach (KeyValuePair<IPerformanceMove, (PerformanceState state, int prio, IPerformanceMove prior)> entry in moves[act])
+				KeyValuePair<IPerformanceMove, (PerformanceState state, int prio, IPerformanceMove prior, IReadOnlyList<IConditional> conditions)>? top = null;
+				foreach (KeyValuePair<IPerformanceMove, (PerformanceState state, int prio, IPerformanceMove prior, IReadOnlyList<IConditional> conditions)> entry in moves[act])
 				{
 					var meta = entry.Value;
 
@@ -311,6 +312,12 @@ namespace SpaxUtils
 					}
 
 					if (meta.prior != null && meta.prior != currentMove)
+					{
+						continue;
+					}
+
+					if (meta.conditions != null && meta.conditions.Count > 0
+						&& !meta.conditions.All(c => c.IsMet(dependencyManager)))
 					{
 						continue;
 					}

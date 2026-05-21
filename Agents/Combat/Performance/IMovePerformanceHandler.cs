@@ -16,7 +16,7 @@ namespace SpaxUtils
 		/// <summary>
 		/// All currently registered moves per act.
 		/// </summary>
-		IReadOnlyDictionary<string, Dictionary<IPerformanceMove, (PerformanceState state, int prio, IPerformanceMove prior)>> Moves { get; }
+		IReadOnlyDictionary<string, Dictionary<IPerformanceMove, (PerformanceState state, int prio, IPerformanceMove prior, IReadOnlyList<IConditional> conditions)>> Moves { get; }
 
 		/// <summary>
 		/// The current set of highest-priority moves per act.
@@ -31,7 +31,7 @@ namespace SpaxUtils
 		/// <param name="state">The current state of performance required for this move to be performable.</param>
 		/// <param name="prio">The priority of the move, used to order moves of the same act. Highest prio move gets executed.</param>
 		/// <param name="prior">The prior move this move is a follow up to.</param>
-		void AddMove(string act, IPerformanceMove move, PerformanceState state, int prio, IPerformanceMove prior = null);
+		void AddMove(string act, IPerformanceMove move, PerformanceState state, int prio, IPerformanceMove prior = null, IReadOnlyList<IConditional> conditions = null);
 
 		/// <summary>
 		/// Removes a <see cref="IPerformanceMove"/> from the combat performer.
