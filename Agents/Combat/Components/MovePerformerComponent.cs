@@ -58,7 +58,7 @@ namespace SpaxUtils
 
 		private MovePerformer MainPerformer => helpers.Count > 0 ? helpers[helpers.Count - 1] : null;
 
-		[SerializeField] private List<ActMovePair> unarmedMoves;
+		[SerializeField] private List<MovesetBehaviourAsset> movesets;
 		[SerializeField, Range(0f, 1f)] private float minimumControl = 0.7f;
 
 		private IDependencyManager dependencyManager;
@@ -90,15 +90,9 @@ namespace SpaxUtils
 
 		protected void Start()
 		{
-			// Add default unarmed moves.
 			autoUpdateMoveset = false;
-			for (int i = 0; i < unarmedMoves.Count; i++)
-			{
-				ActMovePair pair = unarmedMoves[i];
-				AddMove(pair.Act, pair.Move,
-					PerformanceState.Inactive | PerformanceState.Finishing | PerformanceState.Completed,
-					pair.Prio);
-			}
+			foreach (MovesetBehaviourAsset moveset in movesets)
+				moveset.Apply(this);
 			autoUpdateMoveset = true;
 			UpdateMoveset();
 		}
@@ -306,14 +300,17 @@ namespace SpaxUtils
 				{
 					var meta = entry.Value;
 
-					if (!meta.state.HasFlag(state))
+					if (meta.prior != null)
 					{
-						continue;
-					}
-
-					if (meta.prior != null && meta.prior != currentMove)
-					{
-						continue;
+						// Follow-up moves respect state and prior conditions.
+						if (!meta.state.HasFlag(state))
+						{
+							continue;
+						}
+						if (meta.prior != currentMove)
+						{
+							continue;
+						}
 					}
 
 					if (meta.conditions != null && meta.conditions.Count > 0

@@ -10,7 +10,7 @@ namespace SpiritAxis
 		protected Poser Poser => agentPoser.GetMainPoser(PoserLayerConstants.BODY);
 
 		[SerializeField, Tooltip("Default moveset. Overridden by an injected AgentMoveset if present.")]
-		private AgentMoveset moveset;
+		private AgentAnimationSet moveset;
 
 		[Header("Skid (direction-change sliding)")]
 		[SerializeField, Range(0f, 20f), Tooltip("How quickly the skid animation appears on sharp direction changes.")]
@@ -73,7 +73,7 @@ namespace SpiritAxis
 		public void InjectDependencies(IAgent agent, RigidbodyWrapper rigidbodyWrapper, AnimatorPoser agentPoser,
 			IAgentMovementHandler movementHandler, GrounderComponent grounder,
 			SurveyorComponent surveyorComponent, CallbackService callbackService,
-			[Optional] AgentMoveset injectedMoveset)
+			[Optional] AgentAnimationSet injectedMoveset)
 		{
 			this.agent = agent;
 			this.rigidbodyWrapper = rigidbodyWrapper;

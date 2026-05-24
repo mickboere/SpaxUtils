@@ -8,8 +8,8 @@ namespace SpaxUtils
 	/// override the fields that differ. Null reference fields and -1 float fields inherit from template.
 	/// Can be injected into PoserNode to override its default serialized values.
 	/// </summary>
-	[CreateAssetMenu(fileName = nameof(AgentMoveset), menuName = "Animation/" + nameof(AgentMoveset))]
-	public class AgentMoveset : ScriptableObject
+	[CreateAssetMenu(fileName = nameof(AgentAnimationSet), menuName = "Animation/" + nameof(AgentAnimationSet))]
+	public class AgentAnimationSet : ScriptableObject
 	{
 		// Sentinel for "inherit from template" on float fields.
 		// All float fields in this class are inherently positive, so -1 is safe.
@@ -17,7 +17,7 @@ namespace SpaxUtils
 
 		[Header("Template")]
 		[SerializeField, Tooltip("Base moveset to inherit from. Null/unset fields fall through to this template.")]
-		private AgentMoveset template;
+		private AgentAnimationSet template;
 
 		[Header("Movement Blend Trees")]
 		[SerializeField] private PoseBlendMap groundedBlendTree;

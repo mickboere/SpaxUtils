@@ -14,5 +14,15 @@
 
 		public const string JUMP = "Jump";
 		public const string DASH = "Dash";
+
+		public const string RIGHT_1 = "Right1";
+		public const string RIGHT_2 = "Right2";
+		public const string RIGHT_3 = "Right3";
+		public const string RIGHT_4 = "Right4";
+
+		public const string LEFT_1 = "Left1";
+		public const string LEFT_2 = "Left2";
+		public const string LEFT_3 = "Left3";
+		public const string LEFT_4 = "Left4";
 	}
 }

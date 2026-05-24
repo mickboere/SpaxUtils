@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using UnityEngine;
 
 namespace SpaxUtils
@@ -11,9 +10,7 @@ namespace SpaxUtils
 	public class MoveFollowUp : ActMovePair
 	{
 		public PerformanceState State => state;
-		public IReadOnlyList<IConditional> Conditions => conditions?.AsReadOnly() ?? Array.Empty<IConditional>();
 
 		[SerializeField] private PerformanceState state;
-		[SerializeField] private ConditionalList conditions;
 	}
 }

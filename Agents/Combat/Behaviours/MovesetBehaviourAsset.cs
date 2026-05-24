@@ -23,18 +23,30 @@ namespace SpaxUtils
 		public override void Start()
 		{
 			base.Start();
-			foreach (ActMovePair pair in moveSet)
-			{
-				movePerformanceHandler.AddMove(pair.Act, pair.Move, PerformanceState.Inactive | PerformanceState.Finishing | PerformanceState.Completed, pair.Prio);
-			}
+			Apply(movePerformanceHandler);
 		}
 
 		public override void Stop()
 		{
 			base.Stop();
+			Revoke(movePerformanceHandler);
+		}
+
+		public void Apply(IMovePerformanceHandler handler)
+		{
+			if (handler == null) return;
 			foreach (ActMovePair pair in moveSet)
 			{
-				movePerformanceHandler.RemoveMove(pair.Act, pair.Move);
+				handler.AddMove(pair.Act, pair.Move, PerformanceState.Inactive | PerformanceState.Finishing | PerformanceState.Completed, pair.Prio, null, pair.Conditions);
+			}
+		}
+
+		public void Revoke(IMovePerformanceHandler handler)
+		{
+			if (handler == null) return;
+			foreach (ActMovePair pair in moveSet)
+			{
+				handler.RemoveMove(pair.Act, pair.Move);
 			}
 		}
 	}

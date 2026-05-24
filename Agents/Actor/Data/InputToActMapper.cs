@@ -57,7 +57,8 @@ namespace SpaxUtils
 		{
 			if (mapping.HoldEveryFrame && holding)
 			{
-				actor.Send(NewAct(true, callback));
+				// Non-interuptor: re-enter the act if nothing is running, but never cancel a running performance.
+				actor.Send(new Act<bool>(mapping.Title, true, mapping.Interuptable, false, mapping.Buffer, callback));
 			}
 		}
 

@@ -191,6 +191,14 @@ namespace SpaxUtils
 			}
 			else
 			{
+				// When canceling from Preparing, seed CancelTime so the weight starts
+				// where ChargeTime/MinCharge left off (avoids a 1-frame snap to full weight).
+				if (State == PerformanceState.Preparing && Move.CancelDuration > 0f && Move.MinCharge > 0f)
+				{
+					float prepareWeight = Mathf.Clamp01(ChargeTime / Move.MinCharge);
+					CancelTime = (1f - prepareWeight) * Move.CancelDuration;
+				}
+
 				State = PerformanceState.Finishing;
 
 				CancelTime += Time.deltaTime * entityTimeScale;
