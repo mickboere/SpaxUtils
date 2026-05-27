@@ -51,6 +51,7 @@ namespace SpaxUtils
 		public Vector8 RetrieveStimuli(IEntity source) => aemoi.RetrieveStimuli(source);
 		public void Stimulate(Vector8 stim, IEntity source) => aemoi.Stimulate(stim, source);
 		public void Satisfy(Vector8 sat, IEntity source) => aemoi.Satisfy(sat, source);
+		public void ClearStimuli(IEntity source) => aemoi.ClearStimuli(source);
 		public void SetFilter(IEntity entity, Vector8 filter) => aemoi.SetFilter(entity, filter);
 		public void RemoveFilter(IEntity entity) => aemoi.RemoveFilter(entity);
 		public void AddBehaviour(IMindBehaviour b) => aemoi.AddBehaviour(b);

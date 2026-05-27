@@ -124,6 +124,15 @@ namespace SpaxUtils
 		void Satisfy(Vector8 satisfaction, IEntity source);
 
 		/// <summary>
+		/// Immediately removes all stimuli and filters for <paramref name="source"/>,
+		/// preventing it from influencing behaviour evaluation any further.
+		/// Use when the source ceases to exist (e.g. on death) rather than <see cref="Satisfy"/>,
+		/// which only decays values toward zero but leaves the entry in the stimuli dictionary.
+		/// </summary>
+		/// <param name="source">The entity whose stimuli should be cleared.</param>
+		void ClearStimuli(IEntity source);
+
+		/// <summary>
 		/// Adds a stimulation filter to stimuli from <paramref name="entity"/>.
 		/// </summary>
 		/// <param name="entity">The source of stimuli to filter.</param>

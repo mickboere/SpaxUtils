@@ -168,7 +168,7 @@ namespace SpaxUtils
 		private void OnAllyDiedEvent(DeathContext context)
 		{
 			IAgent allyAgent = context.Died;
-			agent.Mind.Satisfy(Vector8.One * AEMOI.MAX_STIM, allyAgent);
+			agent.Mind.ClearStimuli(allyAgent);
 
 			if (allyAgent?.Targetable != null)
 			{

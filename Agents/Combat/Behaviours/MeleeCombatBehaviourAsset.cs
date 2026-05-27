@@ -102,7 +102,7 @@ namespace SpaxUtils
 			ICommunicationChannel comms,
 			IStunHandler stunHandler,
 			AgentStatHandler statHandler,
-			AgentArmsComponent arms,
+			[Optional] AgentArmsComponent arms,
 			AgentImpactHandler agentImpactHandler,
 			AgentAudioHandler agentAudioHandler)
 		{
@@ -154,7 +154,10 @@ namespace SpaxUtils
 			float mass = limbMassStat;
 			float strength = strengthStat;
 			wieldRatio = mass > 0f ? strength / mass : 1f;
-			if (wieldRatio < 0f) wieldRatio = 0f;
+			if (wieldRatio < 0f)
+			{
+				wieldRatio = 0f;
+			}
 
 			baseStrengthSpeedFactor = ComputeBaseStrengthSpeedFactor(wieldRatio);
 			baseStrengthPowerFactor = ComputeBaseStrengthPowerFactor(wieldRatio);
@@ -456,17 +459,28 @@ namespace SpaxUtils
 
 					// Body physics (x=Pierce, y=Power, z=Precision).
 					Vector3 bodyPhysics = new(piercingStat, powerStat, precisionStat);
-					// Weapon physics: zero for body moves, PhysicsDistribution slice for armed moves.
-					// Future (DAMAGE OUTPUT PIPELINE): filter = normalize(weaponDist * moveDist); damage = bodyPhysics * filter.
-					Vector3 weaponDist = GetWeaponPhysics();
+					Vector3 weaponDist = GetWeaponDistribution();
 					Vector3 moveDist = new(move.Piercing, move.Power, move.Precision);
-					Vector3 effectivePhysics = bodyPhysics + weaponDist;
 
-					float basePower = effectivePhysics.y * moveDist.y * baseStrengthPowerFactor;
+					// Single normalization pass: weapon and move distributions are never normalized separately,
+					// so a balanced weapon doesn't get 3× total output of a specialized one.
+					// Armed: combinedRaw = weaponDist * moveDist. Body move: combinedRaw = moveDist only.
+					Vector3 combinedRaw = move.UseArmament ? Vector3.Scale(weaponDist, moveDist) : moveDist;
+					float filterMag = combinedRaw.magnitude;
+					Vector3 filter = filterMag > 0f ? combinedRaw / filterMag : Vector3.zero;
+
+					// Move sliders >1 are scalar multipliers for special/finisher attacks.
+					float maxSlider = Mathf.Max(moveDist.x, moveDist.y, moveDist.z);
+					if (maxSlider > 1f)
+					{
+						filter *= maxSlider;
+					}
+
+					float basePower = bodyPhysics.y * filter.y * baseStrengthPowerFactor;
 					float powerValue = basePower * totalCharge * phaseMult;
 
 					// --- MALICE LOGIC ---
-					float basePierce = effectivePhysics.x * moveDist.x;
+					float basePierce = bodyPhysics.x * filter.x;
 					float maliceBonus = 0f;
 
 					if (basePierce > 0f)
@@ -487,7 +501,7 @@ namespace SpaxUtils
 					float finalPierce = basePierce + maliceBonus;
 
 					// Final precision = Base + Charge.
-					float finalPrecision = effectivePhysics.z * moveDist.z + (accumulatedChargePoints * chargeDamageEfficiency);
+					float finalPrecision = bodyPhysics.z * filter.z + (accumulatedChargePoints * chargeDamageEfficiency);
 
 					HitData hitData = new HitData(
 						hittable,
@@ -508,17 +522,23 @@ namespace SpaxUtils
 			}
 		}
 
-		// Returns the weapon's offensive physics as (x=Pierce, y=Power, z=Precision).
+		// Returns the weapon's physics distribution as (x=Pierce, y=Power, z=Precision).
 		// N=Fire/Power, NE=Light/Precision, NW=Void/Pierce — verify against physicsOctad inspector config.
-		private Vector3 GetWeaponPhysics()
+		private Vector3 GetWeaponDistribution()
 		{
-			if (!move.UseArmament) return Vector3.zero;
-			RuntimeEquipedData weapon = move.Limb == AgentStatIdentifiers.SUB_LEFT_HAND
+			if (!move.UseArmament || move.Limb.IsNullOrEmpty() || !arms)
+			{
+				return Vector3.zero;
+			}
+			RuntimeEquipedData weapon = move.Limb == EquipmentSlotTypes.LEFT_HAND
 				? arms.LeftEquip : arms.RightEquip;
-			if (weapon == null) return Vector3.zero;
-			Vector8 d = weapon.EquipmentData.PhysicsDistribution;
-			float s = weapon.EquipmentData.PhysicsScaling;
-			return new(d.NW * s, d.N * s, d.NE * s);
+			if (weapon == null)
+			{
+				return Vector3.zero;
+			}
+			Vector8 dis = weapon.EquipmentData.PhysicsDistribution;
+			float scale = weapon.EquipmentData.PhysicsScaling;
+			return new Vector3(dis.NW * scale, dis.N * scale, dis.NE * scale);
 		}
 
 		protected virtual void ProcessHit(IHittable hittable, HitData hitData)

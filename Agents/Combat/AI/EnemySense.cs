@@ -311,9 +311,10 @@ namespace SpaxUtils
 
 		private void OnEnemyDiedEvent(DeathContext context)
 		{
-			// Enemy has died, satisfy all motivations towards them.
+			// Enemy has died; hard-clear their stimuli so they can no longer influence behaviour evaluation.
+			// (Satisfy only decays toward zero but leaves the dictionary entry, causing stale hostility.)
 			IAgent enemy = context.Died;
-			agent.Mind.Satisfy(Vector8.One * AEMOI.MAX_STIM, enemy);
+			agent.Mind.ClearStimuli(enemy);
 
 			if (enemy != null && enemy.Targetable != null)
 			{

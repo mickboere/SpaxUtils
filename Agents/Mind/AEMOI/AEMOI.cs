@@ -191,6 +191,13 @@ namespace SpaxUtils
 		}
 
 		/// <inheritdoc/>
+		public void ClearStimuli(IEntity source)
+		{
+			stimuli.Remove(source);
+			filters.Remove(source);
+		}
+
+		/// <inheritdoc/>
 		public Vector8 RetrieveStimuli(IEntity source)
 		{
 			return Stimuli.ContainsKey(source) ? Stimuli[source] : Vector8.Zero;
