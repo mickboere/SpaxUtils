@@ -11,6 +11,8 @@
 		Log = 3,
 		Curve = 4,
 		Interpolate = 5,
-		Extrapolate = 6
+		Extrapolate = 6,
+		LevelToPointsStat = 7,
+		LevelToPhysic = 8
 	}
 }

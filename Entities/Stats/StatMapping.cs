@@ -10,6 +10,7 @@ namespace SpaxUtils
 	[Serializable]
 	public class StatMapping : IStatModConfig
 	{
+		public bool Enabled => enabled;
 		public string FromStat => fromStat;
 		public bool SourceBase => sourceBase;
 		public string ToStat => toSubStat ? toStat.SubStat(subStat) : toStat;
@@ -17,6 +18,7 @@ namespace SpaxUtils
 		public ModMethod Method => modMethod;
 		public Operation Operation => operation;
 
+		[SerializeField] private bool enabled = true;
 		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifiers))] private string fromStat;
 		[SerializeField, Tooltip("Whether to source the FromStat's base value [TRUE], or to source its modded value [FALSE].")] private bool sourceBase;
 		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifiers))] private string toStat;
@@ -108,6 +110,10 @@ namespace SpaxUtils
 				case FormulaType.Extrapolate:
 					float y = (pointB.y - pointA.y) / (pointB.x - pointA.x);
 					return shift + pointA.y + (input - pointA.x) * y;
+				case FormulaType.LevelToPhysic:
+					return SpaxFormulas.LevelToPhysic(input);
+				case FormulaType.LevelToPointsStat:
+					return SpaxFormulas.LevelToPointsStat(input);
 				default:
 					return shift + input * scale;
 			}
@@ -151,6 +157,12 @@ namespace SpaxUtils
 
 				case FormulaType.Linear:
 					return scale != 0f ? input / scale : 0f;
+
+				case FormulaType.LevelToPhysic:
+					return SpaxFormulas.PHYSIC_SCALE != 0f ? (output - SpaxFormulas.PHYSIC_SHIFT) / SpaxFormulas.PHYSIC_SCALE : 0f;
+
+				case FormulaType.LevelToPointsStat:
+					return SpaxFormulas.POINTSSTAT_SCALE != 0f ? (output - SpaxFormulas.POINTSSTAT_SHIFT) / SpaxFormulas.POINTSSTAT_SCALE : 0f;
 
 				case FormulaType.Curve:
 					SpaxDebug.Error($"Inverse modifier not supported for 'Curve' type (requires iterative solver). Calculation failed.");

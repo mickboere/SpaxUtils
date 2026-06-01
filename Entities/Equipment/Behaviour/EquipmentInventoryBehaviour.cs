@@ -71,7 +71,7 @@ namespace SpaxUtils
 			for (int i = 0; i < 8; i++)
 			{
 				float lvl = lanePoints[i] <= 0f ? 0f : SpaxFormulas.LevelFromPoints(lanePoints[i]);
-				float physic = Mathf.Round(lvl * 6f * eq.PhysicsScaling);
+				float physic = Mathf.Round(SpaxFormulas.LevelToPhysic(lvl, shift: false) * eq.PhysicsScaling);
 
 				string id = physicsIDs.GetIdentifier(i);
 				if (!string.IsNullOrEmpty(id))

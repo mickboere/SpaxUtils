@@ -28,6 +28,7 @@ namespace SpaxUtils
 		private EntityStat pliancyStat;
 		private EntityStat protectionStat;
 		private EntityStat luckStat;
+		private EntityStat guardStat;
 
 		private TimedCurveModifier hitPauseMod;
 
@@ -60,6 +61,7 @@ namespace SpaxUtils
 			pliancyStat = agent.Stats.GetStat(AgentStatIdentifiers.PLIANCY, true);
 			protectionStat = agent.Stats.GetStat(AgentStatIdentifiers.PROTECTION, true);
 			luckStat = agent.Stats.GetStat(AgentStatIdentifiers.LUCK, true);
+			guardStat = agent.Stats.GetStat(AgentStatIdentifiers.GUARD, true);
 
 			hittable.Subscribe(this, OnHitEvent, 100);
 		}
@@ -115,6 +117,13 @@ namespace SpaxUtils
 			{
 				// Impact is defined only by Coupling and Penetration.
 				impact = coupling * (1f - penetration) * 2f;
+
+				// Guard divides impact (and thus force and blunt damage) by guardStat * guardWeight.
+				float guardWeight = hitData.Data.GetValue<float>(HitDataIdentifiers.GUARD_WEIGHT);
+				if (guardWeight > 0f)
+				{
+					impact /= Mathf.Max(1f, guardStat.Value * guardWeight);
+				}
 
 				// Power is not defended; Impact determines how much Power couples into blunt damage.
 				float bluntOffence = hitData.Power * impact;

@@ -43,6 +43,11 @@ namespace SpiritAxis
 			{
 				StatMapping mapping = map.StatMappings[i];
 
+				if (!mapping.Enabled)
+				{
+					continue;
+				}
+
 				// Get the target stat to add the mapping to.
 				EntityStat toStat = Entity.Stats.GetStat(mapping.ToStat, true);
 

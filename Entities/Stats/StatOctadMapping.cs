@@ -9,6 +9,9 @@ namespace SpaxUtils
 	[Serializable]
 	public class StatOctadMapping
 	{
+		[SerializeField] private bool enabled = true;
+		public bool Enabled => enabled;
+
 		[SerializeField, HideInInspector] private bool fromSingleStat;
 		[SerializeField, Conditional(nameof(fromSingleStat), hide: false, drawToggle: true), ConstDropdown(typeof(ILabeledDataIdentifiers), true)] private string fromSingle;
 		[SerializeField, Conditional(nameof(fromSingleStat), true), Expandable] private StatOctadAsset fromStatOctad;
@@ -46,10 +49,15 @@ namespace SpaxUtils
 		[SerializeField] private Operation operation = Operation.Set;
 
 		/// <summary>
-		/// Converts the 8 octad stats into individual StatMappings.
+		/// Converts the 8 octad stats into individual StatMappings. Returns empty array when disabled.
 		/// </summary>
 		public StatMapping[] GetMappings()
 		{
+			if (!enabled)
+			{
+				return Array.Empty<StatMapping>();
+			}
+
 			StatMapping[] mappings = new StatMapping[8];
 			for (int i = 0; i < 8; i++)
 			{

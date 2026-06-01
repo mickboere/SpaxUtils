@@ -141,9 +141,9 @@ namespace SpaxUtils
 
 		// FLOATS
 		/// <summary>
-		/// Return data defining the amount of guard the receiver had during the hit (0=no guard, 1=full guard).
+		/// Return data defining the guard weight of the receiver during the hit (0=no guard, 1=full guard).
 		/// </summary>
-		public const string GUARD = "Guard";
+		public const string GUARD_WEIGHT = "GuardWeight";
 		/// <summary>
 		/// Return data defining the amount of coupling.
 		/// </summary>

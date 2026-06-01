@@ -248,6 +248,18 @@ namespace SpaxUtils
 			return r;
 		}
 
+		// Scale/shift constants for converting EXP levels to physics and pointstat values.
+		public const float POINTSSTAT_SCALE = 12f;
+		public const float POINTSSTAT_SHIFT = 64f;
+		public const float PHYSIC_SCALE = 6f;
+		public const float PHYSIC_SHIFT = 32f;
+
+		public static float LevelToPointsStat(float level, bool shift = true)
+			=> level * POINTSSTAT_SCALE + (shift ? POINTSSTAT_SHIFT : 0f);
+
+		public static float LevelToPhysic(float level, bool shift = true)
+			=> level * PHYSIC_SCALE + (shift ? PHYSIC_SHIFT : 0f);
+
 		#endregion Standardized Formulas
 
 		#region Standard Curves

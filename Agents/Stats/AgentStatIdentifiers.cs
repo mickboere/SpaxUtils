@@ -167,7 +167,6 @@
 		private const string BODY_EARTH = BODY_STAT + "EARTH/";
 		public const string ENDURANCE = BODY_EARTH + "Endurance"; // POINTSTAT: Amount absorbable force points before being stunned.
 		public const string PROOFING = BODY_EARTH + "Proofing"; // PHYSIC: The body's resistance to piercing (sharp defence).
-		public const string POISE = BODY_EARTH + "Poise"; // Endurance cost divider.
 		public const string GUARD = BODY_EARTH + "Guard"; // Total amount of active guarding defence.
 
 		// Void
