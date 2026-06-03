@@ -176,20 +176,30 @@ namespace SpaxUtils
 
 		private void AddPhysicsPassiveMappings()
 		{
-			if (!EquipmentData.PhysicsPassive) return;
-			if (!DependencyManager.TryGet<AgentStatHandler>(out AgentStatHandler statHandler)) return;
+			if (!EquipmentData.PhysicsPassive)
+			{
+				return;
+			}
+			if (!DependencyManager.TryGet<AgentStatHandler>(out AgentStatHandler statHandler))
+			{
+				return;
+			}
 
-			Vector8 distribution = EquipmentData.PhysicsDistribution;
-			float scaling = EquipmentData.PhysicsScaling;
 			for (int i = 0; i < 8; i++)
 			{
-				float contribution = distribution[i] * scaling;
-				if (contribution == 0f) continue;
+				string physicId = statHandler.Physics.GetIdentifier(i);
+				RuntimeDataEntry physicEntry = RuntimeItemData.RuntimeData.GetEntry(physicId);
+				if (physicEntry == null)
+				{
+					continue;
+				}
 				EntityStat physicsStat = statHandler.Physics[i];
 				string modId = GetModID($"physics_{i}");
 				if (!physicsStat.HasModifier(modId))
 				{
-					physicsStat.AddModifier(modId, new FloatOperationModifier(ModMethod.Additive, Operation.Add, contribution));
+					DataStatMappingModifier mod = new(physicEntry, ModMethod.Additive, Operation.Add, () => (float)physicEntry.Value);
+					statModifiers.Add(mod);
+					physicsStat.AddModifier(modId, mod);
 					physicsModifiers.Add((physicsStat, modId));
 				}
 			}

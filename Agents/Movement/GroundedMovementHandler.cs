@@ -93,6 +93,18 @@ namespace SpaxUtils
 		[SerializeField, Range(0f, 1f)] protected float velocityRecoveryMod = 0.5f;
 		[SerializeField] protected float sprintCost = 0.25f;
 		[SerializeField] protected float tiredInputLimiter = 0.75f;
+		[SerializeField, Tooltip("Rate at which sprint speed builds up toward max sprint speed (0..1 per second).")]
+		protected float sprintRampRate = 0.5f;
+		[SerializeField, Tooltip("Rate at which sprint buildup decays when not sprinting (0..1 per second).")]
+		protected float sprintRampDownRate = 2f;
+		[SerializeField, Tooltip("Scales how much effective load reduces sprint buildup rate, sprint acceleration, and turn-rate smoothing. loadSpeedMod = 1 / (1 + effectiveLoad * factor).")]
+		protected float loadPenaltyFactor = 0.01f;
+		[SerializeField, Tooltip("Each point of Strength negates this many kg of load before any penalty applies. effectiveLoad = max(0, load - strength * factor).")]
+		protected float strengthCapacityFactor = 1f;
+		[SerializeField, Tooltip("Maximum rate (m/s per second) at which TargetVelocity tracks the desired velocity when under load. Scales down further with loadSpeedMod.")]
+		protected float targetVelocityTurnRate = 15f;
+		[SerializeField, Tooltip("Effective load (kg) range for turn-rate smoothing. Below x: instant snap. At y: full smoothing effect."), MinMaxRange(0f, 100f, false)]
+		protected Vector2 turnSmoothingRange = new Vector2(10f, 50f);
 
 		[Header("Sliding")]
 		[SerializeField] protected float slideSteeringSpeed = 4f;
@@ -119,7 +131,11 @@ namespace SpaxUtils
 		protected EntityStat moveSpeedStat;
 		protected EntityStat recoveryStat;
 		protected EntityStat airControlStatValue;
+		protected EntityStat loadStat;
+		protected EntityStat strengthStat;
 		protected FloatOperationModifier recoveryMod;
+		private float sprintBuildup;
+		private float loadSpeedMod = 1f;
 
 		public void InjectDependencies(
 			RigidbodyWrapper rigidbodyWrapper,
@@ -134,6 +150,8 @@ namespace SpaxUtils
 
 			moveSpeedStat = Agent.Stats.GetStat(AgentStatIdentifiers.MOVEMENT_SPEED, true, 1f);
 			recoveryStat = Agent.Stats.GetStat(AgentStatIdentifiers.RECOVERY, true, 1f);
+			loadStat = Agent.Stats.GetStat(AgentStatIdentifiers.LOAD, true, 0f);
+			strengthStat = Agent.Stats.GetStat(AgentStatIdentifiers.STRENGTH, true, 0f);
 			if (!string.IsNullOrEmpty(airControlStat))
 			{
 				airControlStatValue = Agent.Stats.GetStat(airControlStat, true, 0f);
@@ -191,14 +209,31 @@ namespace SpaxUtils
 			// Grounded movement does not utilize Y axis.
 			rigidbodyWrapper.ControlAxis = Vector3.one.FlattenY();
 
+			bool isSprinting = processedInput.magnitude > 1.01f;
+
+			// Load above Strength capacity incurs a movement penalty: slower sprint buildup, acceleration, and turning.
+			float effectiveLoad = Mathf.Max(0f, (float)loadStat - (float)strengthStat * strengthCapacityFactor);
+			loadSpeedMod = 1f / (1f + effectiveLoad * loadPenaltyFactor);
+
+			// Heavy load slows sprint buildup; friction (inverse load) accelerates decay back to walk speed.
+			sprintBuildup = isSprinting
+				? Mathf.MoveTowards(sprintBuildup, 1f, sprintRampRate * loadSpeedMod * delta)
+				: Mathf.MoveTowards(sprintBuildup, 0f, sprintRampDownRate * (1f / loadSpeedMod) * delta);
+
 			if (!targetVelocity.HasValue)
 			{
-				// Calculate target velocity from current input.
-				rigidbodyWrapper.TargetVelocity = InputSmooth == Vector3.zero
+				Vector3 desiredTarget = InputSmooth == Vector3.zero
 					? Vector3.zero
 					: Quaternion.LookRotation(InputAxis) *
 					  InputSmooth.normalized *
 					  CalculateSpeed(InputSmooth.magnitude);
+
+				// Smooth TargetVelocity under heavy load to prevent grip spikes during sharp turns.
+				// turnSmoothing ramps from 0 (instant) at the threshold to 1 (full effect) at 2x the threshold.
+				// Rate uses a reciprocal so onset is gradual rather than a hard switch.
+				float turnSmoothing = Mathf.InverseLerp(turnSmoothingRange.x, turnSmoothingRange.y, effectiveLoad);
+				float turnRate = targetVelocityTurnRate * loadSpeedMod / Mathf.Max(turnSmoothing, 0.01f);
+				rigidbodyWrapper.TargetVelocity = Vector3.MoveTowards(rigidbodyWrapper.TargetVelocity, desiredTarget, turnRate * delta);
 			}
 
 			if (grounder.Grounded)
@@ -208,13 +243,16 @@ namespace SpaxUtils
 					// Default movement control.
 					float acFalloff = accelerationFalloff.Evaluate(rigidbodyWrapper.Speed * rigidbodyWrapper.Control / FullSpeed);
 					float deFalloff = decelerationFalloff.Evaluate(rigidbodyWrapper.Speed * rigidbodyWrapper.Control / FullSpeed);
+					// Load reduces acceleration and free-movement deceleration (inertia).
+					// maxBrake uses the inverse so planted stops (control=0) are stronger under load.
 					rigidbodyWrapper.ApplyMovement(
 						targetVelocity,
-						maxAcceleration * acFalloff,
-						maxDeceleration * deFalloff,
+						maxAcceleration * acFalloff * loadSpeedMod,
+						maxDeceleration * deFalloff * loadSpeedMod,
 						power,
 						ignoreControl,
-						grounder.Mobility);
+						grounder.Mobility,
+						maxDeceleration * deFalloff * (1f / loadSpeedMod));
 
 					if (processedInput.magnitude > 1.01f)
 					{
@@ -369,8 +407,8 @@ namespace SpaxUtils
 				: input < 0.5f
 					? MinSpeed.Lerp(HalfSpeed, input * 2f)
 					: input < 1f
-						? HalfSpeed.Lerp(FullSpeed * moveSpeedStat, (input - 0.5f) * 2f)
-						: FullSpeed * moveSpeedStat * input;
+						? HalfSpeed.Lerp(FullSpeed * Mathf.Min(1f, (float)moveSpeedStat), (input - 0.5f) * 2f)
+						: FullSpeed * Mathf.Lerp(1f, moveSpeedStat * input, sprintBuildup);
 		}
 	}
 }

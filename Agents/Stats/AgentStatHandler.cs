@@ -13,19 +13,20 @@ namespace SpaxUtils
 
 		public StatOctad BodyLevels { get; private set; }
 		public StatOctad BodyExperience { get; private set; }
+		public StatOctad Physics { get; private set; }
+		public Vector8 BodyDistribution { get; private set; }
+		public PointStatOctad PointStats => pointStatOctad;
+
 		public StatOctad SoulLevels { get; private set; }
 		public StatOctad SoulExperience { get; private set; }
-		public Vector8 BodyDistribution { get; private set; }
 		public Vector8 SoulDistribution { get; private set; }
-		public PointStatOctad PointStats => pointStatOctad;
-		public StatOctad Physics { get; private set; }
 
 		[Header("BODY")]
 		[SerializeField] private StatOctadAsset bodyLevels;
 		[SerializeField] private StatOctadAsset bodyExperience;
+		[SerializeField] private StatOctadAsset physicsOctad;
 		[SerializeField] private StatMap bodyAttributeMap;
 		[SerializeField] private PointStatOctad pointStatOctad; // Locally defined.
-		[SerializeField] private StatOctadAsset physicsOctad;
 		[Header("SOUL")]
 		[SerializeField] private StatOctadAsset soulLevels;
 		[SerializeField] private StatOctadAsset soulExperience;

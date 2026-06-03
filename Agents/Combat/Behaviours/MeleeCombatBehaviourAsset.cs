@@ -17,6 +17,12 @@ namespace SpaxUtils
 		[Header("Swinging")]
 		[SerializeField, MinMaxRange(0.5f, 1.5f), Tooltip("Attack speed modifier by strength / weapon mass relation.")]
 		private Vector2 strengthSpeedModRange = new Vector2(0.7f, 1.15f);
+		[SerializeField, Range(1f, 4f), Tooltip("Exponent for under-strength speed curve. Higher = slower ramp-up before reaching mass-equal strength.")]
+		private float speedCurveExponent = 2f;
+		[SerializeField, Tooltip("Wield ratio at which the over-strength speed bonus reaches strengthSpeedModRange.y. E.g. 10 = need 10x the limb mass in strength.")]
+		private float overStrengthFullRatio = 10f;
+		[SerializeField, Tooltip("Reference mass at which swing cost equals Move.PerformCost.Cost x 100.")]
+		private float massNormalizer = 50f;
 		[SerializeField, Range(0f, 1f), Tooltip("Minimum power factor when heavily under-strengthed.")]
 		private float minPowerFactor = 0.4f;
 		[SerializeField, Range(0f, 1f), Tooltip("Minimum swing speed factor at the start of a very heavy swing.")]
@@ -322,11 +328,11 @@ namespace SpaxUtils
 		{
 			if (ratio <= 1f)
 			{
-				return Mathf.Lerp(strengthSpeedModRange.x, 1f, Mathf.Clamp01(ratio));
+				return Mathf.Lerp(strengthSpeedModRange.x, 1f, Mathf.Pow(Mathf.Clamp01(ratio), speedCurveExponent));
 			}
 			else
 			{
-				float extra = Mathf.Clamp01(ratio - 1f);
+				float extra = Mathf.Clamp01((ratio - 1f) / (overStrengthFullRatio - 1f));
 				return Mathf.Lerp(1f, strengthSpeedModRange.y, extra);
 			}
 		}
@@ -417,7 +423,7 @@ namespace SpaxUtils
 			}
 
 			// Play exertion audio.
-			float drained = statHandler.PointStats.N.Drain(Move.PerformCost.Cost * (limbMassStat / strengthStat) * 100f);
+			float drained = statHandler.PointStats.N.Drain(Move.PerformCost.Cost * (limbMassStat / massNormalizer) * 100f);
 			float fraction = drained / statHandler.PointStats.N.Reserve;
 			agentAudioHandler.PlayExertion(fraction);
 		}

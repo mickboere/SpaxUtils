@@ -359,14 +359,22 @@ namespace SpaxUtils
 		/// <param name="power">Responsiveness of the applied forces.</param>
 		/// <param name="ignoreControl">TRUE will always use 100% control, false will use current <see cref="Control"/> percentage.</param>
 		/// <param name="scale">Float that scales every single calculation involved, used to simulate reduced mobility.</param>
-		public void ApplyMovement(Vector3? targetVelocity = null, float maxAcceleration = 2000f, float maxDeceleration = 2000f, float power = 20f,
-			bool ignoreControl = false, float scale = 1f)
+		public void ApplyMovement(
+			Vector3? targetVelocity = null,
+			float maxAcceleration = 2000f,
+			float maxDeceleration = 2000f,
+			float power = 20f,
+			bool ignoreControl = false,
+			float scale = 1f,
+			float maxBrake = -1f)
 		{
 			Vector3 target = targetVelocity == null ? TargetVelocity : targetVelocity.Value;
 			float control = ignoreControl ? 1f : Control;
+			float resolvedBrake = maxBrake > 0f ? maxBrake : maxDeceleration;
 			float acceleration = target == Vector3.zero ? 0f : Velocity == Vector3.zero ? 1f :
 				Velocity.normalized.NormalizedDot((target - Velocity).normalized);
 			float maxForce = maxDeceleration.Lerp(maxAcceleration, acceleration);
+			maxForce = Mathf.Lerp(maxForce, resolvedBrake, 1f - control);
 			Vector3 force = Velocity.CalculateForce(
 				target * control * scale,
 				power * scale * (timeScale ?? 1f),

@@ -9,6 +9,7 @@ namespace SpaxUtils
 	public class ItemDataAsset : ScriptableObject, IItemData, IBindingKeyProvider
 	{
 		public const string TT_UNIQUE = "Unique items cannot be stacked, and will always count as a new data entry when added to the inventory.";
+		public const float POWER_MASS_FACTOR = 0.1f;
 
 		/// <inheritdoc/>
 		public object BindingKey => $"ITEM:{ID}";

@@ -70,6 +70,8 @@ namespace SpaxUtils
 		[SerializeField] private float drainedRecoveryDelayPenalty = 1.5f;
 		[SerializeField, Tooltip(TT_isRecoverable)] private bool hasReserve;
 		[SerializeField, Conditional(nameof(hasReserve), hide: true), Tooltip(TT_overdraw)] private float overdraw = 0f;
+		[SerializeField, Conditional(nameof(hasReserve), hide: true), Range(0f, 1f),
+			Tooltip("Reserve cannot drop below this fraction of Max.")] private float minReservePercent = 0f;
 
 		[SerializeField, ConstDropdown(typeof(IStatIdentifiers), includeEmpty: true)] private string expStat;
 		[SerializeField] private float expGainMultiplier = 1f;
@@ -314,15 +316,15 @@ namespace SpaxUtils
 
 			if (HasReserve)
 			{
-				// Recoverable cannot exceed Max.
-				Reserve.BaseValue = Mathf.Min(Reserve, Max);
+				// Recoverable cannot exceed Max and cannot drop below minReservePercent of Max.
+				Reserve.BaseValue = Mathf.Clamp(Reserve, Max * minReservePercent, Max);
 			}
 		}
 
 		private void OnRecoverableChangedEvent()
 		{
-			// Recoverable cannot exceed Max.
-			Reserve.BaseValue = Mathf.Min(Reserve, Max);
+			// Recoverable cannot exceed Max and cannot drop below minReservePercent of Max.
+			Reserve.BaseValue = Mathf.Clamp(Reserve, Max * minReservePercent, Max);
 		}
 
 		public static implicit operator float(PointsStat pointsStat)
