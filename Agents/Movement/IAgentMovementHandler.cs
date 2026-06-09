@@ -81,5 +81,20 @@ namespace SpaxUtils
 		/// Calculates the resulting output speed for an input length of <paramref name="inputLength"/>.
 		/// </summary>
 		float CalculateSpeed(float inputLength);
+
+		/// <summary>
+		/// Predicts the distance the agent will slide before stopping from <paramref name="speed"/> under a
+		/// planted stop (Control = 0, e.g. while a performed act brakes the run). Used by AI to anticipate
+		/// how far momentum carries it during a strike's wind-up.
+		/// </summary>
+		float PredictBrakingDistance(float speed);
+
+		/// <summary>
+		/// Predicts the distance the agent slides before stopping from <paramref name="speed"/> while still
+		/// moving under control (Control = 1, e.g. a sprint coasting to a halt). Uses the weaker free-movement
+		/// deceleration (load reduces it; it rises with speed), so it is longer than <see cref="PredictBrakingDistance"/>.
+		/// Used by AI to judge how early to stop a run before overshooting (e.g. into an enemy's attack range).
+		/// </summary>
+		float PredictStoppingDistance(float speed);
 	}
 }

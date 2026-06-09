@@ -222,7 +222,10 @@ namespace SpaxUtils
 
 			if (!targetVelocity.HasValue)
 			{
-				Vector3 desiredTarget = InputSmooth == Vector3.zero
+				// Treat anything below MinimumInput as a full stop. == Vector3.zero was too strict: the SmoothDamp
+				// tail lingers just above zero, and normalizing that tiny noisy vector yields a wildly swinging
+				// direction (the in-place "indecisive" jitter) that the turnRate then snaps TargetVelocity onto.
+				Vector3 desiredTarget = InputSmooth.magnitude < inputSettings.MinimumInput
 					? Vector3.zero
 					: Quaternion.LookRotation(InputAxis) *
 					  InputSmooth.normalized *
@@ -408,7 +411,64 @@ namespace SpaxUtils
 					? MinSpeed.Lerp(HalfSpeed, input * 2f)
 					: input < 1f
 						? HalfSpeed.Lerp(FullSpeed * Mathf.Min(1f, (float)moveSpeedStat), (input - 0.5f) * 2f)
-						: FullSpeed * Mathf.Lerp(1f, moveSpeedStat * input, sprintBuildup);
+						// The sprintBuildup=0 (walking) anchor MUST equal the [0.5,1) branch's top — FullSpeed × Min(1,
+						// moveSpeedStat) — NOT FullSpeed × 1. With 1f, crossing |input|=1 silently drops moveSpeedStat
+						// (e.g. the strafe speed mod) and the speed snaps to full (the targeted-strafe spike). The Lerp
+						// then ramps toward the sprint speed (moveSpeedStat × input) as sprintBuildup rises.
+						: FullSpeed * Mathf.Lerp(Mathf.Min(1f, (float)moveSpeedStat), moveSpeedStat * input, sprintBuildup);
+		}
+
+		/// <inheritdoc/>
+		public float PredictBrakingDistance(float speed)
+		{
+			if (speed <= 0f)
+			{
+				return 0f;
+			}
+
+			// A performed act sets Control = 0, so ApplyMovement brakes toward zero at a force capped to
+			// maxBrake · Mobility (see UpdateMovement → ApplyMovement) → effectively constant deceleration.
+			// maxBrake = maxDeceleration · deFalloff(0) / loadSpeedMod (planted stops are stronger under load).
+			float effectiveLoad = Mathf.Max(0f, (float)loadStat - (float)strengthStat * strengthCapacityFactor);
+			float lsm = 1f / (1f + effectiveLoad * loadPenaltyFactor);
+			float maxBrake = maxDeceleration * decelerationFalloff.Evaluate(0f) / lsm;
+			float mass = Mathf.Max(rigidbodyWrapper.Mass, 0.0001f);
+			float decel = maxBrake * grounder.Mobility / mass;
+			return decel > 0.0001f ? (speed * speed) / (2f * decel) : 0f;
+		}
+
+		/// <inheritdoc/>
+		public float PredictStoppingDistance(float speed)
+		{
+			if (speed <= 0f)
+			{
+				return 0f;
+			}
+
+			// Free-movement deceleration (Control = 1: still steering, not planted). This is the "inertia" term
+			// ApplyMovement caps decel at while moving = maxDeceleration · deFalloff(speed/FullSpeed) · loadSpeedMod
+			// — note load WEAKENS it (·lsm), opposite of the planted brake. deFalloff rises with speed, so decel
+			// is not constant: integrate d = ∫ v/a(v) dv numerically (midpoint) so it tracks the actual curve.
+			float effectiveLoad = Mathf.Max(0f, (float)loadStat - (float)strengthStat * strengthCapacityFactor);
+			float lsm = 1f / (1f + effectiveLoad * loadPenaltyFactor);
+			float mass = Mathf.Max(rigidbodyWrapper.Mass, 0.0001f);
+			float baseDecel = maxDeceleration * lsm * grounder.Mobility / mass; // a(v) = baseDecel · deFalloff(v/FullSpeed)
+			if (baseDecel <= 0.0001f)
+			{
+				return 0f;
+			}
+
+			float fullSpeed = Mathf.Max(FullSpeed, 0.01f);
+			const int steps = 12;
+			float dv = speed / steps;
+			float distance = 0f;
+			for (int i = 0; i < steps; i++)
+			{
+				float v = speed - (i + 0.5f) * dv; // midpoint speed of this velocity slice
+				float a = baseDecel * Mathf.Max(0.0001f, decelerationFalloff.Evaluate(v / fullSpeed));
+				distance += v / a * dv; // dx = v · dt = v · (dv / a)
+			}
+			return distance;
 		}
 	}
 }
