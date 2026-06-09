@@ -20,10 +20,10 @@
 		/// </summary>
 		bool Interuptable { get; }
 
-		///// <summary>
-		///// The minimum required motivation for this behaviour to be triggered / considered valid.
-		///// </summary>
-		//Vector8 Trigger { get; }
+		/// <summary>
+		/// The elemental axis vector that drives this behaviour.
+		/// </summary>
+		Vector8 Trigger { get; }
 
 		/// <summary>
 		/// Evaluates whether this behaviour can run against <paramref name="candidate"/> and returns the chosen target and strength.

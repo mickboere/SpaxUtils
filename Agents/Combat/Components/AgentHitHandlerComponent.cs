@@ -207,8 +207,29 @@ namespace SpaxUtils
 				}
 			}
 
-			// Build Static
-			statHandler.PointStats.NE.Current.BaseValue += endured * force * 0.1f;
+			// Build Static (NE): reward the defender for actively defending. A parry/deflect refunds the most
+			// (it's the prime opening-creator for charged counters), a block half. Threat = the attack's POTENTIAL
+			// force (Mass × Power) — the resolved force is 0 on a neglected (parried/blocked) hit. Landing a hit
+			// rewards the attacker instead (handled in MeleeCombatBehaviourAsset.ProcessHit).
+			float staticThreat = hitData.Mass * hitData.Power * combatSettings.StaticGain;
+			if (parried || deflected)
+			{
+				statHandler.PointStats.NE.Current.BaseValue += staticThreat;
+			}
+			else if (blocked)
+			{
+				statHandler.PointStats.NE.Current.BaseValue += staticThreat * 0.5f;
+			}
+			else
+			{
+				// Partial guard: guard up but not a full block — still pays out at the block tier, scaled by how
+				// much guard absorbed the hit.
+				float guardWeight = hitData.Data.GetValue<float>(HitDataIdentifiers.GUARD_WEIGHT);
+				if (guardWeight > 0f)
+				{
+					statHandler.PointStats.NE.Current.BaseValue += staticThreat * 0.5f * Mathf.Clamp01(guardWeight);
+				}
+			}
 
 			// --- HIT PAUSE ---
 			hitPauseMod?.Dispose();

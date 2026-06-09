@@ -12,6 +12,7 @@ namespace SpaxUtils
 		public string Name => name;
 		public virtual int Priority => priority;
 		public virtual bool Interuptable { get; protected set; } = true;
+		public Vector8 Trigger => trigger;
 
 		protected IAgent Agent { get; private set; }
 		protected IMind Mind => Agent.Mind;
@@ -23,11 +24,20 @@ namespace SpaxUtils
 		protected CallbackService CallbackService { get; private set; }
 		protected AgentStatHandler StatHandler { get; private set; }
 		protected CombatSensesComponent CombatSenses { get; private set; }
+		protected AEMOISettings AEMOISettings { get; private set; }
 		protected PointStatOctad PointStats => StatHandler.PointStats;
+
+		/// <summary>Extra standoff distance a cautious agent (high Balance.S — e.g. low on the endurance/stamina
+		/// it needs to defend) keeps from a foe. Shared so every strafing/standoff behaviour widens spacing the
+		/// same way → the observable "backing away when vulnerable" tell. Remap extracts the cautious lean of the
+		/// normalized S↔N axis: zero at/below neutral S (0.5), ramping to the full CautiousSpacingMax at S=1.</summary>
+		protected float CautiousSpacingBonus => Mind.Balance.S.Remap(0f, 1f, 0.5f, 1f) * AEMOISettings.CautiousSpacingMax;
 
 		[SerializeField] new private string name;
 		[SerializeField] protected int priority;
 		[SerializeField, FormerlySerializedAs("motivation")] protected Vector8 trigger;
+		[SerializeField, Tooltip("Manual multiplier on this behaviour's final selection strength (applied after trigger/axis-count normalization). Default 1. Raise to make the behaviour win more readily, lower to make it recessive — without changing the trigger values or their activation thresholds.")]
+		protected float strengthMultiplier = 1f;
 
 		[SerializeField, Tooltip("Behaviour is only valid when the brain is already in the required state. Ignored when Enforce State is also true.")]
 		protected bool requireState;
@@ -40,12 +50,13 @@ namespace SpaxUtils
 
 		[SerializeField] private bool debug;
 
-		public void InjectDependencies(IAgent agent, CallbackService callbackService, AgentStatHandler agentStatHandler, CombatSensesComponent combatSenses)
+		public void InjectDependencies(IAgent agent, CallbackService callbackService, AgentStatHandler agentStatHandler, CombatSensesComponent combatSenses, AEMOISettings aemoiSettings)
 		{
 			Agent = agent;
 			CallbackService = callbackService;
 			StatHandler = agentStatHandler;
 			CombatSenses = combatSenses;
+			AEMOISettings = aemoiSettings;
 			EntityTimescale = Agent.Stats.GetStat(EntityStatIdentifiers.TIMESCALE, true, 1f);
 		}
 
@@ -89,15 +100,24 @@ namespace SpaxUtils
 				}
 			}
 
-			// Strength: sum of (stimuli[i] * trigger[i]) for triggered channels.
-			// Positive when they agree in sign, contributing meaningfully to behaviour selection.
+			// Strength: the AVERAGE of (stimuli[i] * trigger[i]) over the triggered channels — the sum divided by the
+			// channel COUNT (not by Σ|trigger|). So a higher trigger still means higher strength (magnitude scales it),
+			// but a multi-axis trigger is NOT inflated by its axis count: N channels at 1 reads the same as a single
+			// channel at 1. Positive when stimuli and trigger agree in sign.
+			int triggerCount = 0;
 			for (int i = 0; i < 8; i++)
 			{
 				if (!trigger[i].Approx(0))
 				{
 					strength += stimuli[i] * trigger[i];
+					triggerCount++;
 				}
 			}
+			if (triggerCount > 0)
+			{
+				strength /= triggerCount;
+			}
+			strength *= strengthMultiplier;
 
 			return true;
 		}

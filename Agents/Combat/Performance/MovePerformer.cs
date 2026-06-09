@@ -29,6 +29,23 @@ namespace SpaxUtils
 
 		public IPerformanceMove Move { get; private set; }
 		public float ChargeTime { get; private set; }
+
+		/// <summary>Surfaces the live charge from whichever behaviour provides one (e.g. the melee swing); 1 when none.</summary>
+		public float ChargeMultiplier
+		{
+			get
+			{
+				foreach (BehaviourAsset behaviour in behaviours)
+				{
+					if (behaviour is IChargeProvider charge)
+					{
+						return charge.ChargeMultiplier;
+					}
+				}
+				return 1f;
+			}
+		}
+
 		public bool Prolong { get; set; }
 		public bool Paused { get; set; }
 		public bool Canceled { get; private set; }

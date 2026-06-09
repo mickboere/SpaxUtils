@@ -563,7 +563,7 @@ namespace SpaxUtils
 				}
 
 				float level = Mathf.Abs(current[i]);
-				float damp = Mathf.Max(settings.StimDamping[i], 0f);
+				float damp = Mathf.Max(settings.StimDamping, 0f);
 
 				if (damp <= 0f)
 				{

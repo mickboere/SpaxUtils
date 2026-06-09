@@ -13,6 +13,9 @@ namespace SpaxUtils
 		public EnemySense EnemySense { get; private set; }
 		public ProjectileSense ProjectileSense { get; private set; }
 		public AllySense AllySense { get; private set; }
+		public IReadOnlyList<ITargetable> TrackedTargetables => trackedTargetablesBuffer;
+
+		private readonly List<ITargetable> trackedTargetablesBuffer = new List<ITargetable>();
 
 		[Header("Aggro")]
 		[SerializeField, Tooltip("Aggro level at which the agent transitions to Combat.")]
@@ -34,6 +37,7 @@ namespace SpaxUtils
 		private EntityStat aggroStat;
 		private bool inCombat;
 		private ITargetable lastTarget;
+		private bool trackingDirty;
 
 		public void InjectDependencies(IVisionComponent vision,
 			IHittable hittable, [Optional] ISpawnpoint spawnpoint,
@@ -76,6 +80,9 @@ namespace SpaxUtils
 			ProjectileSense = new ProjectileSense(Agent, projectileService);
 			AllySense = new AllySense(Agent, vision, settings, targetingService);
 
+			EnemySense.TrackedSetChanged += RebuildTrackedCache;
+			AllySense.TrackedSetChanged += RebuildTrackedCache;
+
 			if (focusHandler != null)
 			{
 				focusHandler.Register(FocusHandler.PRIORITY_COMBAT, GetCombatFocusPoint);
@@ -88,6 +95,10 @@ namespace SpaxUtils
 			Agent.Mind.MotivatedEvent -= OnMindMotivated;
 
 			hittable.Unsubscribe(this);
+
+			EnemySense.TrackedSetChanged -= RebuildTrackedCache;
+			AllySense.TrackedSetChanged -= RebuildTrackedCache;
+			trackedTargetablesBuffer.Clear();
 
 			EnemySense.Dispose();
 			ProjectileSense.Dispose();
@@ -107,6 +118,11 @@ namespace SpaxUtils
 			}
 
 			return Agent.Targeter.Target.Point;
+		}
+
+		private void RebuildTrackedCache()
+		{
+			trackingDirty = true;
 		}
 
 		private void OnMindMotivated()
@@ -154,6 +170,26 @@ namespace SpaxUtils
 			EnemySense.Sense(delta);
 			ProjectileSense.Sense(delta);
 			AllySense.Sense(delta);
+
+			if (trackingDirty)
+			{
+				trackingDirty = false;
+				trackedTargetablesBuffer.Clear();
+				foreach (ITargetable t in EnemySense.TrackedEnemies.Keys)
+				{
+					if (t != Agent.Targetable)
+					{
+						trackedTargetablesBuffer.Add(t);
+					}
+				}
+				foreach (ITargetable t in AllySense.TrackedAllies.Keys)
+				{
+					if (t != Agent.Targetable)
+					{
+						trackedTargetablesBuffer.Add(t);
+					}
+				}
+			}
 		}
 
 		private void OnReceivedHitEvent(HitData hitData)

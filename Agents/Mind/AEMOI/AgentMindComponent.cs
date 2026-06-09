@@ -84,8 +84,8 @@ namespace SpaxUtils
 				: Vector8.Half;
 
 			aemoi = new AEMOI(agent.DependencyManager, settings,
-				new StatOctad(agent, settings.Inclination, resolvedInclination),
-				new StatOctad(agent, settings.Personality, resolvedPersonality));
+				settings.Inclination.Initialize(agent, resolvedInclination),
+				settings.Personality.Initialize(agent, resolvedPersonality));
 
 			if (behaviour != null)
 			{

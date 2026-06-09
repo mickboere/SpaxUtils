@@ -33,6 +33,8 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public float ChargeTime => MainPerformer != null ? MainPerformer.ChargeTime : 0f;
 		/// <inheritdoc/>
+		public float ChargeMultiplier => MainPerformer != null ? MainPerformer.ChargeMultiplier : 1f;
+		/// <inheritdoc/>
 		public bool Prolong
 		{
 			get { return MainPerformer != null ? MainPerformer.Prolong : false; }

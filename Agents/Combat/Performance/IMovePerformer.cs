@@ -18,6 +18,12 @@ namespace SpaxUtils
 		float ChargeTime { get; }
 
 		/// <summary>
+		/// The current charge multiplier of the performance; 1 = uncharged, rising while charging (capped at the
+		/// move's max). Surfaced from the active <see cref="IChargeProvider"/> behaviour; 1 when none is charging.
+		/// </summary>
+		float ChargeMultiplier { get; }
+
+		/// <summary>
 		/// Whether the current performance should halt its the runtime once minimum duration has been reached.
 		/// </summary>
 		bool Prolong { get; set; }

@@ -61,6 +61,12 @@ namespace SpaxUtils
 		[SerializeField, Tooltip("Downward distance at which no ground counts as a cliff.")]
 		private float cliffDropThreshold = 1.5f;
 
+		[SerializeField, Range(0f, 1f), Tooltip("Extra personal space as a fraction of combined agent radii.")]
+		private float separationPadding = 0.25f;
+
+		[SerializeField, Tooltip("How strongly the separation force blends with the intended movement direction.")]
+		private float separationStrength = 1.5f;
+
 		[Header("Debug")]
 		[SerializeField] private bool debugGizmos;
 
@@ -212,36 +218,14 @@ namespace SpaxUtils
 
 		private void FollowNavMeshPath(Vector3 targetPosition, float speed)
 		{
-			if (!pathValid || Vector3.SqrMagnitude(targetPosition - pathTarget) > recalculationThreshold * recalculationThreshold)
+			Vector3? dir = GetNavMeshDirection(targetPosition, speed);
+			if (!dir.HasValue)
 			{
-				CalculatePath(targetPosition);
-			}
-
-			if (!pathValid || navMeshPath.corners.Length == 0)
-			{
-				// Path failed entirely, fall back to direct movement.
 				movementHandler.InputAxis = Direction(targetPosition);
 				movementHandler.InputRaw = Vector3.forward * speed;
 				return;
 			}
-
-			float tolerance = movementHandler.CalculateSpeed(speed) * cornerAdvanceTime;
-			while (cornerIndex < navMeshPath.corners.Length - 1 &&
-				   Vector3.Distance(agent.Transform.position, navMeshPath.corners[cornerIndex]) < tolerance)
-			{
-				cornerIndex++;
-			}
-
-			Vector3 cornerDirection = Direction(navMeshPath.corners[cornerIndex]);
-
-			// InputAxis rejects zero vectors, guard before assigning.
-			if (cornerDirection.sqrMagnitude < 0.001f)
-			{
-				ResetInput();
-				return;
-			}
-
-			movementHandler.InputAxis = cornerDirection;
+			movementHandler.InputAxis = dir.Value;
 			movementHandler.InputRaw = Vector3.forward * speed;
 		}
 
@@ -490,27 +474,192 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
-		/// TrySteerLocal with region boundary awareness. When the projected movement would exit the region,
-		/// the input is redirected toward the closest interior point instead.
+		/// TrySteerLocal with region boundary awareness. When the agent is already outside the region the
+		/// input is overridden to point back toward the nearest interior point. When inside, the projected
+		/// movement is checked against the boundary and redirected if it would exit.
+		/// Lookahead scales with input magnitude so faster movement gets more runway.
 		/// </summary>
 		public bool TrySteerLocal(Vector3 localInput, Vector3 lookDirection, IWorldRegion region,
 			float lookahead, out bool hardStop, bool applyAvoidance = true)
 		{
-			if (region != null && lookahead > 0f && localInput.sqrMagnitude > Mathf.Epsilon)
+			if (region != null && localInput.sqrMagnitude > Mathf.Epsilon)
 			{
-				Vector3 worldDir = (Quaternion.LookRotation(lookDirection.FlattenY().normalized) * localInput).FlattenY().normalized;
-				Vector3 projected = agent.Transform.position + worldDir * lookahead;
+				Quaternion lookRot = Quaternion.LookRotation(lookDirection.FlattenY().normalized);
 
-				if (!region.IsInside(projected))
+				if (!region.IsInside(agent.Transform.position))
 				{
-					Vector3 safe    = region.GetClosestPointWithinRegion(projected);
-					Vector3 safeDir = (safe - agent.Transform.position).normalized;
-					Vector3 newLocal = (Quaternion.Inverse(Quaternion.LookRotation(lookDirection.FlattenY().normalized)) * safeDir)
-						.FlattenY().normalized * localInput.magnitude;
-					return TrySteerLocal(newLocal, lookDirection, out hardStop, applyAvoidance);
+					Vector3 returnDir = (region.GetClosestPointWithinRegion(agent.Transform.position) - agent.Transform.position).normalized;
+					localInput = (Quaternion.Inverse(lookRot) * returnDir).FlattenY().normalized * localInput.magnitude;
+				}
+				else if (lookahead > 0f)
+				{
+					float effectiveLookahead = lookahead * Mathf.Max(1f, localInput.magnitude);
+					Vector3 worldDir = (lookRot * localInput).FlattenY().normalized;
+					Vector3 projected = agent.Transform.position + worldDir * effectiveLookahead;
+					if (!region.IsInside(projected))
+					{
+						Vector3 safeDir = (region.GetClosestPointWithinRegion(projected) - agent.Transform.position).normalized;
+						localInput = (Quaternion.Inverse(lookRot) * safeDir).FlattenY().normalized * localInput.magnitude;
+					}
 				}
 			}
 			return TrySteerLocal(localInput, lookDirection, out hardStop, applyAvoidance);
+		}
+
+		/// <summary>
+		/// TrySteerLocal with agent separation. Repels the input direction away from any tracked targetables
+		/// that are within combined radii + padding, then delegates to the base overload.
+		/// </summary>
+		public bool TrySteerLocal(Vector3 localInput, Vector3 lookDirection,
+			IReadOnlyList<ITargetable> separationTargets, out bool hardStop, bool applyAvoidance = true)
+		{
+			if (separationTargets != null && separationTargets.Count > 0)
+			{
+				Quaternion lookRot = Quaternion.LookRotation(lookDirection.FlattenY().normalized);
+				Vector3 worldDir = (lookRot * localInput).FlattenY().normalized;
+				ApplySeparation(ref worldDir, separationTargets);
+				localInput = (Quaternion.Inverse(lookRot) * worldDir).normalized * localInput.magnitude;
+			}
+			return TrySteerLocal(localInput, lookDirection, out hardStop, applyAvoidance);
+		}
+
+		/// <summary>
+		/// TrySteerLocal with both region boundary awareness and agent separation.
+		/// </summary>
+		public bool TrySteerLocal(Vector3 localInput, Vector3 lookDirection, IWorldRegion region,
+			float lookahead, IReadOnlyList<ITargetable> separationTargets, out bool hardStop, bool applyAvoidance = true)
+		{
+			if (region != null && localInput.sqrMagnitude > Mathf.Epsilon)
+			{
+				Quaternion lookRot = Quaternion.LookRotation(lookDirection.FlattenY().normalized);
+
+				if (!region.IsInside(agent.Transform.position))
+				{
+					Vector3 returnDir = (region.GetClosestPointWithinRegion(agent.Transform.position) - agent.Transform.position).normalized;
+					localInput = (Quaternion.Inverse(lookRot) * returnDir).FlattenY().normalized * localInput.magnitude;
+				}
+				else if (lookahead > 0f)
+				{
+					float effectiveLookahead = lookahead * Mathf.Max(1f, localInput.magnitude);
+					Vector3 worldDir = (lookRot * localInput).FlattenY().normalized;
+					Vector3 projected = agent.Transform.position + worldDir * effectiveLookahead;
+					if (!region.IsInside(projected))
+					{
+						Vector3 safeDir = (region.GetClosestPointWithinRegion(projected) - agent.Transform.position).normalized;
+						localInput = (Quaternion.Inverse(lookRot) * safeDir).FlattenY().normalized * localInput.magnitude;
+					}
+				}
+			}
+			return TrySteerLocal(localInput, lookDirection, separationTargets, out hardStop, applyAvoidance);
+		}
+
+		/// <summary>
+		/// Steers toward the target (or current Targeter target) within range, applying agent separation and
+		/// wall/cliff avoidance. Optionally uses NavMesh to route around level geometry.
+		/// Returns true when already within range.
+		/// </summary>
+		public bool SteerInRange(float range, float speed,
+			IReadOnlyList<ITargetable> separationTargets = null,
+			ITargetable exclude = null,
+			Vector3? target = null,
+			bool navMesh = false)
+		{
+			Vector3 targetPos = GetTargetPosition(target);
+
+			if (IsInRange(range, false, targetPos))
+			{
+				ResetInput();
+				return true;
+			}
+
+			Vector3 worldDir;
+			if (navMesh)
+			{
+				Vector3? navDir = GetNavMeshDirection(targetPos, speed);
+				worldDir = navDir.HasValue
+					? navDir.Value.FlattenY().normalized
+					: (targetPos - agent.Transform.position).FlattenY().normalized;
+			}
+			else
+			{
+				worldDir = (targetPos - agent.Transform.position).FlattenY().normalized;
+			}
+
+			if (separationTargets != null && separationTargets.Count > 0)
+			{
+				ApplySeparation(ref worldDir, separationTargets, exclude);
+			}
+
+			ApplySteering(ref worldDir, out bool hardStop, true);
+
+			if (hardStop)
+			{
+				ResetInput();
+				return false;
+			}
+
+			movementHandler.InputAxis = worldDir;
+			movementHandler.InputRaw = Vector3.forward * speed;
+			return false;
+		}
+
+		private void ApplySeparation(ref Vector3 flatWorldDir, IReadOnlyList<ITargetable> targets, ITargetable exclude = null)
+		{
+			Vector3 agentPos = agent.Transform.position;
+			Vector3 separation = Vector3.zero;
+
+			for (int i = 0; i < targets.Count; i++)
+			{
+				ITargetable t = targets[i];
+				if (t == exclude)
+				{
+					continue;
+				}
+				Vector3 delta = (agentPos - t.Position).FlattenY();
+				float dist = delta.magnitude;
+				float minDist = (targetable.Radius + t.Radius) * (1f + separationPadding);
+				if (dist < minDist && dist > Mathf.Epsilon)
+				{
+					separation += delta.normalized * (minDist - dist);
+				}
+			}
+
+			if (separation.sqrMagnitude > 0.001f)
+			{
+				flatWorldDir = (flatWorldDir + separation * separationStrength).normalized;
+			}
+		}
+
+		/// <summary>
+		/// Returns the world-space direction toward the next NavMesh corner for the given target position.
+		/// Returns null when no valid path exists (caller should fall back to direct steering).
+		/// </summary>
+		private Vector3? GetNavMeshDirection(Vector3 targetPosition, float speed)
+		{
+			if (!pathValid || Vector3.SqrMagnitude(targetPosition - pathTarget) > recalculationThreshold * recalculationThreshold)
+			{
+				CalculatePath(targetPosition);
+			}
+
+			if (!pathValid || navMeshPath.corners.Length == 0)
+			{
+				return null;
+			}
+
+			float tolerance = movementHandler.CalculateSpeed(speed) * cornerAdvanceTime;
+			while (cornerIndex < navMeshPath.corners.Length - 1 &&
+				Vector3.Distance(agent.Transform.position, navMeshPath.corners[cornerIndex]) < tolerance)
+			{
+				cornerIndex++;
+			}
+
+			Vector3 cornerDir = Direction(navMeshPath.corners[cornerIndex]);
+			if (cornerDir.sqrMagnitude < 0.001f)
+			{
+				return null;
+			}
+
+			return cornerDir;
 		}
 
 		/// <summary>

@@ -9,8 +9,11 @@ namespace SpaxUtils
 	/// Behaviour for melee IMeleeCombatMove that manages hit-detection during performance.
 	/// </summary>
 	[CreateAssetMenu(fileName = nameof(MeleeCombatBehaviourAsset), menuName = "Performance/Behaviour/" + nameof(MeleeCombatBehaviourAsset))]
-	public class MeleeCombatBehaviourAsset : BaseCombatMoveBehaviourAsset
+	public class MeleeCombatBehaviourAsset : BaseCombatMoveBehaviourAsset, IChargeProvider
 	{
+		/// <inheritdoc/>
+		public float ChargeMultiplier => totalCharge;
+
 		[Header("Hit Detection")]
 		[SerializeField] private LayerMask hitDetectionMask;
 
@@ -30,8 +33,7 @@ namespace SpaxUtils
 		[SerializeField] private float swingShakeMagnitude = 1f;
 
 		[Header("Charging")]
-		[SerializeField] float chargeConversionRatio = 0.005f; // 100 Points drained = +0.5x Multiplier (50% boost)
-		[SerializeField] float maxChargeMultiplier = 3.0f;     // Hard cap at 3x charge (prevent absurd forces)
+		// chargeConversionRatio + maxChargeMultiplier moved to CombatSettings (global Static→charge economy).
 		[SerializeField, Tooltip("How much extra crit chance rating per unit of extraCharge")]
 		private float chargeCritBonusFactor = 1f;
 		[SerializeField, Range(0f, 1f)] float chargeDamageEfficiency = 0.25f;
@@ -55,15 +57,13 @@ namespace SpaxUtils
 		protected ICommunicationChannel comms;
 		protected IStunHandler stunHandler;
 		protected AgentStatHandler statHandler;
-		protected AgentArmsComponent arms;
+		protected AgentCombatComponent combatComponent;
 		protected AgentImpactHandler agentImpactHandler;
 		protected AgentAudioHandler agentAudioHandler;
 
 		private EntityStat timescaleStat;
 		private EntityStat limbMassStat;
 		private EntityStat strengthStat;
-		private EntityStat piercingStat;
-		private EntityStat powerStat;
 		private EntityStat precisionStat;
 		private EntityStat luckStat;
 		private EntityStat chargeStat;
@@ -108,7 +108,7 @@ namespace SpaxUtils
 			ICommunicationChannel comms,
 			IStunHandler stunHandler,
 			AgentStatHandler statHandler,
-			[Optional] AgentArmsComponent arms,
+			AgentCombatComponent combatComponent,
 			AgentImpactHandler agentImpactHandler,
 			AgentAudioHandler agentAudioHandler)
 		{
@@ -124,15 +124,13 @@ namespace SpaxUtils
 			this.comms = comms;
 			this.stunHandler = stunHandler;
 			this.statHandler = statHandler;
-			this.arms = arms;
+			this.combatComponent = combatComponent;
 			this.agentImpactHandler = agentImpactHandler;
 			this.agentAudioHandler = agentAudioHandler;
 
 			timescaleStat = Agent.Stats.GetStat(EntityStatIdentifiers.TIMESCALE, true, 1f);
 			limbMassStat = Agent.Stats.GetStat(AgentStatIdentifiers.MASS.SubStat(this.move.Limb));
 			strengthStat = Agent.Stats.GetStat(AgentStatIdentifiers.STRENGTH);
-			piercingStat = Agent.Stats.GetStat(AgentStatIdentifiers.PIERCING);
-			powerStat = Agent.Stats.GetStat(AgentStatIdentifiers.POWER);
 			precisionStat = Agent.Stats.GetStat(AgentStatIdentifiers.PRECISION);
 			luckStat = Agent.Stats.GetStat(AgentStatIdentifiers.LUCK, true);
 			chargeStat = Agent.Stats.GetStat(move.ChargeCost.Stat);
@@ -224,8 +222,8 @@ namespace SpaxUtils
 				accumulatedChargePoints += damage;
 
 				// 4. Calculate Power Multiplier (Clamped)
-				float rawMultiplier = 1f + (accumulatedChargePoints * chargeConversionRatio);
-				totalCharge = Mathf.Min(rawMultiplier, maxChargeMultiplier);
+				float rawMultiplier = 1f + (accumulatedChargePoints * combatSettings.ChargeConversionRatio);
+				totalCharge = Mathf.Min(rawMultiplier, combatSettings.MaxChargeMultiplier);
 
 				if (drained)
 				{
@@ -463,30 +461,16 @@ namespace SpaxUtils
 					float phase = Mathf.Clamp01(Performer.RunTime / Move.MinDuration);
 					float phaseMult = GetPhaseInertiaMultiplier(phase);
 
-					// Body physics (x=Pierce, y=Power, z=Precision).
-					Vector3 bodyPhysics = new(piercingStat, powerStat, precisionStat);
-					Vector3 weaponDist = GetWeaponDistribution();
-					Vector3 moveDist = new(move.Piercing, move.Power, move.Precision);
+					// Per-axis base output (x=Pierce, y=Power, z=Precision) from the central authority
+					// (AgentCombatComponent): move sliders × equipped weapon × body physics, normalised.
+					// Runtime-only modifiers (strength, charge, phase, malice) are applied below.
+					Vector3 baseOutput = combatComponent.GetMoveOutput(move).Output;
 
-					// Single normalization pass: weapon and move distributions are never normalized separately,
-					// so a balanced weapon doesn't get 3× total output of a specialized one.
-					// Armed: combinedRaw = weaponDist * moveDist. Body move: combinedRaw = moveDist only.
-					Vector3 combinedRaw = move.UseArmament ? Vector3.Scale(weaponDist, moveDist) : moveDist;
-					float filterMag = combinedRaw.magnitude;
-					Vector3 filter = filterMag > 0f ? combinedRaw / filterMag : Vector3.zero;
-
-					// Move sliders >1 are scalar multipliers for special/finisher attacks.
-					float maxSlider = Mathf.Max(moveDist.x, moveDist.y, moveDist.z);
-					if (maxSlider > 1f)
-					{
-						filter *= maxSlider;
-					}
-
-					float basePower = bodyPhysics.y * filter.y * baseStrengthPowerFactor;
+					float basePower = baseOutput.y * baseStrengthPowerFactor;
 					float powerValue = basePower * totalCharge * phaseMult;
 
 					// --- MALICE LOGIC ---
-					float basePierce = bodyPhysics.x * filter.x;
+					float basePierce = baseOutput.x;
 					float maliceBonus = 0f;
 
 					if (basePierce > 0f)
@@ -507,7 +491,7 @@ namespace SpaxUtils
 					float finalPierce = basePierce + maliceBonus;
 
 					// Final precision = Base + Charge.
-					float finalPrecision = bodyPhysics.z * filter.z + (accumulatedChargePoints * chargeDamageEfficiency);
+					float finalPrecision = baseOutput.z + (accumulatedChargePoints * chargeDamageEfficiency);
 
 					HitData hitData = new HitData(
 						hittable,
@@ -528,25 +512,6 @@ namespace SpaxUtils
 			}
 		}
 
-		// Returns the weapon's physics distribution as (x=Pierce, y=Power, z=Precision).
-		// N=Fire/Power, NE=Light/Precision, NW=Void/Pierce — verify against physicsOctad inspector config.
-		private Vector3 GetWeaponDistribution()
-		{
-			if (!move.UseArmament || move.Limb.IsNullOrEmpty() || !arms)
-			{
-				return Vector3.zero;
-			}
-			RuntimeEquipedData weapon = move.Limb == EquipmentSlotTypes.LEFT_HAND
-				? arms.LeftEquip : arms.RightEquip;
-			if (weapon == null)
-			{
-				return Vector3.zero;
-			}
-			Vector8 dis = weapon.EquipmentData.PhysicsDistribution;
-			float scale = weapon.EquipmentData.PhysicsScaling;
-			return new Vector3(dis.NW * scale, dis.N * scale, dis.NE * scale);
-		}
-
 		protected virtual void ProcessHit(IHittable hittable, HitData hitData)
 		{
 			if (hittable.Hit(hitData))
@@ -559,11 +524,6 @@ namespace SpaxUtils
 				rigidbodyWrapper.AddForce(
 					-rigidbodyWrapper.Velocity * 0.5f,
 					ForceMode.VelocityChange);
-
-				if (chargeStat != null)
-				{
-					chargeStat.BaseValue += force * 0.001f;
-				}
 
 				if (hitData.Data.GetValue<bool>(HitDataIdentifiers.BLOCKED))
 				{
@@ -585,6 +545,13 @@ namespace SpaxUtils
 					statHandler.PointStats.W.Current.BaseValue = 0f;
 					rigidbodyWrapper.Push(-hitData.Direction * force, 1f);
 					stunHandler.EnterStun(hitData, combatSettings.DeflectedStunTime);
+				}
+				else if (chargeStat != null)
+				{
+					// Hit landed (not blocked/parried/deflected) → reward the attacker's Static (NE). Threat =
+					// Mass × Power, the same basis the defender's parry/block reward uses, so the tiers compare
+					// directly: landing = 25% of what a parry of the same attack refunds.
+					chargeStat.BaseValue += hitData.Mass * hitData.Power * combatSettings.StaticGain * 0.25f;
 				}
 
 				float impact = hitData.Data.GetValue<float>(HitDataIdentifiers.IMPACT);

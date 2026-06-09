@@ -6,6 +6,9 @@ namespace SpaxUtils
 {
 	public class AllySense : IDisposable
 	{
+		public event Action TrackedSetChanged;
+		public IReadOnlyDictionary<ITargetable, AllyInfo> TrackedAllies => allies;
+
 		private readonly Dictionary<ITargetable, AllyInfo> allies = new Dictionary<ITargetable, AllyInfo>();
 
 		private readonly IAgent agent;
@@ -94,6 +97,7 @@ namespace SpaxUtils
 				{
 					allies.Add(ally, new AllyInfo(allyAgent));
 					allyAgent.DiedEvent += OnAllyDiedEvent;
+					TrackedSetChanged?.Invoke();
 				}
 
 				UpdateAllyInfo(ally, allies[ally]);
@@ -128,10 +132,12 @@ namespace SpaxUtils
 					info.Agent.DiedEvent -= OnAllyDiedEvent;
 					agent.Mind.Satisfy(Vector8.One * AEMOI.MAX_STIM, info.Agent);
 					allies.Remove(lost);
+					TrackedSetChanged?.Invoke();
 				}
 				else
 				{
 					allies.Remove(lost);
+					TrackedSetChanged?.Invoke();
 				}
 			}
 		}
@@ -162,6 +168,7 @@ namespace SpaxUtils
 			{
 				allies[targetable].Agent.DiedEvent -= OnAllyDiedEvent;
 				allies.Remove(targetable);
+				TrackedSetChanged?.Invoke();
 			}
 		}
 
@@ -174,6 +181,7 @@ namespace SpaxUtils
 			{
 				allies[allyAgent.Targetable].Agent.DiedEvent -= OnAllyDiedEvent;
 				allies.Remove(allyAgent.Targetable);
+				TrackedSetChanged?.Invoke();
 			}
 		}
 

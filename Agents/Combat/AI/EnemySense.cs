@@ -15,6 +15,7 @@ namespace SpaxUtils
 		private const float MIN_APPROACH_SPEED = 0.1f;   // m/s, to avoid division by zero.
 		private const float MAX_TIME_TO_HIT = 5f;        // seconds; beyond this, proximity threat ~ 0.
 		private const float THREAT_SMOOTHING = 8f;       // higher = snappier.
+		private const float CLOSING_SMOOTH_RATE = 5f;    // ClosingSpeed EMA rate (higher = snappier; ~1/rate s time-constant).
 
 		// Threat composition weights (should sum to 1).
 		private const float THREAT_PROXIMITY_WEIGHT = 0.5f;
@@ -25,7 +26,15 @@ namespace SpaxUtils
 		private const float LETHALITY_POINTS_WEIGHT = 0.5f;
 		private const float LETHALITY_OFFENCE_WEIGHT = 0.3f;
 		private const float LETHALITY_POWER_WEIGHT = 0.2f;
+
+		// NE / Opportunity tuning.
+		private const float UTILIZE_WEIGHT = 0.5f;          // NE opportunity → danger scale (rise rate). Below MAX_STIM (W/E's responsiveness tool) but high enough to win an opening for a sharp agent; the opportunity-gated relax keeps it from lingering once the opening passes. TODO 14: calibrate all 8 from real frequency×magnitude data.
+		private const float UTILIZE_HOLD = 0.4f;            // NE drain fraction at FULL opportunity: low so the drive HOLDS while an opening is live (equilibrium ~ WEIGHT/HOLD ×MAX); ramps to full drain (1) as opportunity drops to 0.
+		private const float OPPORTUNITY_RETREAT_SPEED = 3f; // enemy retreat speed (m/s) that reads as a full "backing away" opening.
 		#endregion Constants
+
+		public event Action TrackedSetChanged;
+		public IReadOnlyDictionary<ITargetable, EnemyInfo> TrackedEnemies => enemies;
 
 		private readonly Dictionary<ITargetable, EnemyInfo> enemies = new Dictionary<ITargetable, EnemyInfo>();
 
@@ -139,6 +148,7 @@ namespace SpaxUtils
 					enemyData = new EnemyInfo(enemyAgent);
 					enemies.Add(enemy, enemyData);
 					enemyAgent.DiedEvent += OnEnemyDiedEvent;
+					TrackedSetChanged?.Invoke();
 				}
 				else
 				{
@@ -184,10 +194,12 @@ namespace SpaxUtils
 				{
 					info.Agent.DiedEvent -= OnEnemyDiedEvent;
 					enemies.Remove(lostTargetable);
+					TrackedSetChanged?.Invoke();
 				}
 				else
 				{
 					enemies.Remove(lostTargetable);
+					TrackedSetChanged?.Invoke();
 				}
 			}
 		}
@@ -198,6 +210,7 @@ namespace SpaxUtils
 			info.Resentment = -agent.Relations.Score(info.Agent.Identification);
 
 			// Visibility.
+			bool wasVisible = info.Visible;
 			if (visibleSet.Contains(enemy))
 			{
 				info.Visible = true;
@@ -209,9 +222,14 @@ namespace SpaxUtils
 				info.Distance = toEnemy.magnitude;
 				info.Direction = info.Distance > Mathf.Epsilon ? toEnemy / info.Distance : Vector3.zero;
 
-				// Relative velocity (enemy - self). ClosingSpeed > 0 when they are closing in.
+				// Relative velocity (enemy - self). ClosingSpeed > 0 when closing in. EMA-smoothed so a brief
+				// feint/strafe can't spike it — this is the single stable closing-speed source every consumer
+				// reads (anticipation lead + selection windup-risk). Snap to raw on first sight (no stale ramp).
 				Vector3 relVel = info.Agent.Body.RigidbodyWrapper.Velocity - agent.Body.RigidbodyWrapper.Velocity;
-				info.ClosingSpeed = -Vector3.Dot(relVel, info.Direction);
+				float rawClosing = -Vector3.Dot(relVel, info.Direction);
+				info.ClosingSpeed = wasVisible
+					? Mathf.Lerp(info.ClosingSpeed, rawClosing, Mathf.Clamp01(CLOSING_SMOOTH_RATE * delta))
+					: rawClosing;
 			}
 			else
 			{
@@ -221,11 +239,15 @@ namespace SpaxUtils
 			// Lethality of enemy to agent.
 			float enemyPointSum = info.StatHandler.PointStats.Vector8.Sum();
 			float pointRatio = enemyPointSum <= Mathf.Epsilon ? 0.5f : enemyPointSum / pointSum;
-			float offenseRatio = info.CombatComp.Offense / Mathf.Max(combatComponent.Proofing, 0.001f);
 			float powerRatio = info.CombatComp.Power / agent.Body.RigidbodyWrapper.Mass;
 
 			float pointLeth = pointRatio / (pointRatio + 1f);
-			float offenseLeth = offenseRatio / (offenseRatio + 1f);
+			// Offence lethality: expected physics damage the enemy's per-axis output (Offense) would deal
+			// against OUR per-axis Defense (Proofing/Pliancy mapping), relative to our health. This replaces
+			// the legacy "Offense / Proofing" — Proofing only defends Piercing (+half Power), not all output.
+			float expectedDamage = combatComponent.EstimateIncomingDamage(info.CombatComp.Offense);
+			float myMaxHealth = Mathf.Max(combatComponent.StatHandler.PointStats.SW.Max, 0.001f);
+			float offenseLeth = expectedDamage / (expectedDamage + myMaxHealth);
 			float powerLeth = powerRatio / (powerRatio + 1f);
 
 			info.Lethality = Mathf.Clamp01(
@@ -295,9 +317,30 @@ namespace SpaxUtils
 			float lerpFactor = 1f - Mathf.Exp(-THREAT_SMOOTHING * delta);
 			info.Threat = Mathf.Lerp(info.Threat, threat, lerpFactor);
 
-			// Opportunity (enemy open to offence).
-			float openness = info.CombatComp != null ? info.CombatComp.Openness : 0f;
-			info.Oppurtunity = info.Direction.NormalizedDot(info.Agent.Transform.forward) * openness * 2f;
+			// Opportunity: enemy open to a precise/charged strike. A windup AGAINST us is NOT opportunity (that's
+			// incoming danger → E/W/parry). Signals:
+			//  - committed to a swing (Performing) or recovering (Finishing) — danger passing, charge for the recovery;
+			//  - stunned; back turned;
+			//  - backing away (their own retreat velocity — the honest, observable tell);
+			//  - out of the resources to defend: low endurance (can't guard) and/or low stamina (can't evade).
+			float facingAway = Mathf.Clamp01(info.Direction.NormalizedDot(info.Agent.Transform.forward));
+			bool committed = info.Agent.Actor != null
+				&& (info.Agent.Actor.State == PerformanceState.Performing
+					|| info.Agent.Actor.State == PerformanceState.Finishing);
+			bool stunned = info.CombatComp != null && info.CombatComp.Stunned;
+			float backingAway = Mathf.Clamp01(
+				Vector3.Dot(info.Agent.Body.RigidbodyWrapper.Velocity, info.Direction) / OPPORTUNITY_RETREAT_SPEED);
+			float resourceOpenness = 0f;
+			if (info.CombatComp != null && info.CombatComp.StatHandler != null)
+			{
+				// W = endurance (guard), E = stamina (evade). Open when even their best defense is depleted.
+				float endFrac = info.CombatComp.StatHandler.PointStats.W.PercentageMax;
+				float staFrac = info.CombatComp.StatHandler.PointStats.E.PercentageMax;
+				resourceOpenness = 1f - Mathf.Max(endFrac, staFrac);
+			}
+			info.Oppurtunity = Mathf.Clamp01(Mathf.Max(
+				committed || stunned ? 1f : 0f,
+				Mathf.Max(facingAway, Mathf.Max(backingAway, resourceOpenness))));
 		}
 
 		private void OnEnemyTargetRemovedEvent(ITargetable targetable)
@@ -306,6 +349,7 @@ namespace SpaxUtils
 			{
 				enemies[targetable].Agent.DiedEvent -= OnEnemyDiedEvent;
 				enemies.Remove(targetable);
+				TrackedSetChanged?.Invoke();
 			}
 		}
 
@@ -320,6 +364,7 @@ namespace SpaxUtils
 			{
 				enemies[enemy.Targetable].Agent.DiedEvent -= OnEnemyDiedEvent;
 				enemies.Remove(enemy.Targetable);
+				TrackedSetChanged?.Invoke();
 			}
 		}
 
@@ -416,12 +461,14 @@ namespace SpaxUtils
 				float fightRelax = cur.N * sCalm * Mathf.Lerp(verySafe * 1.25f + 0.2f, 0.05f, Mathf.Clamp01(agent.Mind.Inclination.N));
 				float fight = fightDanger - fightRelax;
 
-				// NE (Utilize / anticipate opening).
-				float utilizeDanger = info.Oppurtunity * AEMOI.MAX_STIM * (1f - 0.5f * threat01);
-				float oppClosed = 1f - Mathf.Clamp01(Mathf.Abs(info.Oppurtunity));
-				float neSafe = Mathf.Max(calm, oppClosed * distanceSafe);
-				// High NE-inclination → precision drive drains slowly (patient fighters hold the drive).
-				float utilizeRelax = cur.NE * neSafe * Mathf.Lerp(1.0f, 0.1f, Mathf.Clamp01(agent.Mind.Inclination.NE));
+				// NE (Utilize / precision charged strikes): driven by OPPORTUNITY only — the impulse to spend Static
+				// on a strong charged hit when the enemy is open. NOT amplified by windupDanger (that responsiveness
+				// is the W/E tool); weighted below MAX_STIM so a full opening is a moderate pull on par with the
+				// threat drives, not a saturating spike.
+				float utilizeDanger = info.Oppurtunity * AEMOI.MAX_STIM * UTILIZE_WEIGHT;
+				// Reactive like Evade (NOT patient like Fight): hold the drive only while an opening is live, drain
+				// at full rate the instant there's nothing to utilize — so NE never lingers in anticipation.
+				float utilizeRelax = cur.NE * Mathf.Lerp(1f, UTILIZE_HOLD, info.Oppurtunity);
 				float utilize = utilizeDanger - utilizeRelax;
 
 				// E (Evade): base danger gated by reach proximity; windupDanger is self-scaling via InverseLerp so no extra gate.
