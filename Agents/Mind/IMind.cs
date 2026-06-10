@@ -80,6 +80,13 @@ namespace SpaxUtils
 		Vector8 Emotion { get; }
 
 		/// <summary>
+		/// <see cref="Emotion"/> mapped onto a normalized [0,1] range via a concave curve (see AEMOISettings.EmotionNormalizationAnchor).
+		/// Preferred over the raw [0,MAX_STIM] <see cref="Emotion"/> whenever emotion needs to sit alongside other normalized
+		/// signals (e.g. Inclination/Personality in Balance): a just-actionable emotion already reads as a meaningful fraction.
+		/// </summary>
+		Vector8 EmotionNormalized { get; }
+
+		/// <summary>
 		/// Behavioural lean as a Vector8 — per axis-pair lean combining base disposition (Inclination + Personality + Emotion)
 		/// and directed emotion toward <see cref="ActiveTarget"/>, dampened by inertia.
 		/// </summary>

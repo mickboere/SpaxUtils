@@ -36,6 +36,9 @@ namespace SpaxUtils
 		[Header("Emotion Aggregation")]
 		[Tooltip("Smooth rate for the Emotion aggregate (lerp factor per second). ~0.25 yields a 2-4s half-life.")]
 		public float EmotionSmoothRate = 0.25f;
+		[Range(0.1f, 0.9f), Tooltip("Normalized [0,1] weight a just-actionable emotion (raw stim = 1) maps to via EmotionNormalized's concave curve. " +
+			"Higher = actionable emotions carry more weight and the high end (1..MAX_STIM) is compressed harder. 0.1 ≈ linear; 0.3 ≈ sqrt.")]
+		public float EmotionNormalizationAnchor = 0.3f;
 
 		[Header("Balance")]
 		[Tooltip("Inertia dampener on the directed (per-target) component of Balance. Higher = slower Balance response to target stimuli.")]

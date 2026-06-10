@@ -39,6 +39,7 @@ namespace SpaxUtils
 		public IMindBehaviour ActiveBehaviour => aemoi.ActiveBehaviour;
 		public IEntity ActiveTarget => aemoi.ActiveTarget;
 		public Vector8 Emotion => aemoi.Emotion;
+		public Vector8 EmotionNormalized => aemoi.EmotionNormalized;
 		public Vector8 Balance => aemoi.Balance;
 
 		#endregion Properties

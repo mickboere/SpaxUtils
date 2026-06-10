@@ -18,6 +18,7 @@ namespace SpaxUtils
 		protected IMind Mind => Agent.Mind;
 		protected Vector8 Personality => Mind.Personality;
 		protected Vector8 Emotion => Mind.Emotion;
+		protected Vector8 EmotionNormalized => Mind.EmotionNormalized;
 		protected IEntity Target => Mind.ActiveTarget;
 
 		protected EntityStat EntityTimescale;

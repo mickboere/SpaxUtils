@@ -95,12 +95,18 @@ namespace SpaxUtils
 		float Precision { get; }
 
 		/// <summary>
-		/// How much balance is maintained while charging.
+		/// When true, this move uses its own <see cref="ChargeBalance"/>/<see cref="PerformBalance"/>
+		/// instead of the global defaults in <see cref="CombatSettings"/>.
+		/// </summary>
+		bool OverrideBalance { get; }
+
+		/// <summary>
+		/// How much balance is maintained while charging. Only used when <see cref="OverrideBalance"/> is true.
 		/// </summary>
 		float ChargeBalance { get; }
 
 		/// <summary>
-		/// How much balance is maintained while performing.
+		/// How much balance is maintained while performing. Only used when <see cref="OverrideBalance"/> is true.
 		/// </summary>
 		float PerformBalance { get; }
 

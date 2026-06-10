@@ -30,7 +30,7 @@ namespace SpaxUtils
 		// NE / Opportunity tuning.
 		private const float UTILIZE_WEIGHT = 0.5f;          // NE opportunity → danger scale (rise rate). Below MAX_STIM (W/E's responsiveness tool) but high enough to win an opening for a sharp agent; the opportunity-gated relax keeps it from lingering once the opening passes. TODO 14: calibrate all 8 from real frequency×magnitude data.
 		private const float UTILIZE_HOLD = 0.4f;            // NE drain fraction at FULL opportunity: low so the drive HOLDS while an opening is live (equilibrium ~ WEIGHT/HOLD ×MAX); ramps to full drain (1) as opportunity drops to 0.
-		private const float OPPORTUNITY_RETREAT_SPEED = 3f; // enemy retreat speed (m/s) that reads as a full "backing away" opening.
+		private const float OPPORTUNITY_RETREAT_SPEED = 2f; // enemy retreat speed (m/s) that reads as a full "backing away" opening.
 		#endregion Constants
 
 		public event Action TrackedSetChanged;
@@ -471,18 +471,27 @@ namespace SpaxUtils
 				float utilizeRelax = cur.NE * Mathf.Lerp(1f, UTILIZE_HOLD, info.Oppurtunity);
 				float utilize = utilizeDanger - utilizeRelax;
 
-				// E (Evade): base danger gated by reach proximity; windupDanger is self-scaling via InverseLerp so no extra gate.
+				// E (Evade): identical danger profile to Guard (W). The base stimulus is neutral/objective, so the
+				// evade-vs-guard choice comes purely from the agent's inclination — not from a thumb on this scale.
+				// Wind-up is reach-gated exactly like Guard.
 				float immediateThreat = threatStim * intent01;
-				float evadeDanger = (immediateThreat + threatStim * 0.5f) * reachProximity + windupDanger + approachDanger * 0.5f;
+				float evadeDanger = (threatStim * (0.25f + 0.75f * intent01) + windupDanger) * reachProximity + approachDanger * 0.5f;
 				// Normalise total active threat 0-1; Clamp01 guards against simultaneous immediateThreat+windupDanger > MAX_STIM.
 				float attackPressure = Mathf.Clamp01((immediateThreat + windupDanger) / AEMOI.MAX_STIM);
 				// 1f = full-drain rate when no attack: cur.E * 1.0 * delta → exponential decay to zero. Lerps to verySafe during active threat.
 				float evadeRelax = cur.E * Mathf.Lerp(1f, verySafe, attackPressure);
 				float evade = evadeDanger - evadeRelax;
 
-				// SE (Mercy) — back off when another agent is already handling this enemy.
+				// SE (Mercy) — back off when another agent is already handling this enemy. Halved from the full MAX_STIM
+				// scale to a moderate cede (2.5 at one other targeter, 5 at two+) rather than a hard stop. Inclination
+				// (SE) decides whether the agent actually yields — cooperative yields, ruthless doesn't.
 				int otherTargeters = Mathf.Max(0, targetingService.TargeterCount(info.Agent.Targetable) - 1);
-				float support = otherTargeters > 0 ? Mathf.Clamp01(otherTargeters * 0.5f) : 0f;
+				float crowding = Mathf.Clamp01(otherTargeters * 0.5f); // 0 alone, 0.5 one other, 1 two+
+				float supportDanger = crowding * AEMOI.MAX_STIM * 0.5f;
+				// Relax holds (~1.0, equilibrium ≈ danger) while crowded, then drains faster (1.5) as the crowd thins —
+				// so mercy fades shortly after allies peel off instead of lingering on the slow global decay.
+				float supportRelax = cur.SE * Mathf.Lerp(1.5f, 1f, crowding);
+				float support = supportDanger - supportRelax;
 
 				// Shared-target relaxation: drain all drives towards this enemy proportional to SE inclination.
 				// Ruthless agents (low SE inclination) are unaffected; cooperative ones naturally cede.
@@ -493,11 +502,14 @@ namespace SpaxUtils
 					agent.Mind.Satisfy(Vector8.One * sharedRelax, info.Agent);
 				}
 
-				// S (Retreat).
-				float baseRetreat = threatStim * (0.4f + 0.6f * lethality01);
-				float resourceFactor = 0.3f + 0.7f * resourceDef;
-				float retreatDanger = baseRetreat * resourceFactor;
-				float retreatRelax = cur.S * distanceSafe * calm * 1.5f;
+				// S (Retreat): situational space-making, NOT constant fleeing. Scales with whichever is worse — how
+				// outmatched we are (lethality) or how much our stats need recovering (resourceDef) — so a healthy,
+				// evenly-matched agent doesn't retreat at all. No floor: the old 0.4/0.3 floors left even a fine agent
+				// accruing a baseline (~0.12·threat) that tripped the lowered trigger. Max = "either reason is enough".
+				float retreatDanger = threatStim * Mathf.Max(lethality01, resourceDef);
+				// Bleed fear off DURING combat too — no 'calm' gate (it was ~0 while threatened, so S ratcheted up
+				// from hits and never drained). A base 0.5 always drains; distance accelerates it as space is gained.
+				float retreatRelax = cur.S * (0.5f + distanceSafe) * 1.5f;
 				float retreat = retreatDanger - retreatRelax;
 
 				// SW (Enhance / buffing).
@@ -507,8 +519,10 @@ namespace SpaxUtils
 
 				// W (Guard): gated by reach proximity — no pressure unless enemy is in engagement range.
 				float guardDanger = (threatStim * (0.25f + 0.75f * intent01) + windupDanger) * reachProximity + approachDanger * 0.5f;
-				// 1.5f: Guard drains 50% faster than Evade in safe conditions — sustained blocking should disengage sooner.
-				float guardRelax = cur.W * Mathf.Lerp(1.5f, verySafe * 1.5f, attackPressure);
+				// Guard drains 50% faster than Evade in SAFE conditions (1.5f — a held block should disengage sooner),
+				// but matches Evade's drain UNDER active threat (verySafe, not verySafe*1.5) so neither out-persists the
+				// other during a real attack — keeping the evade/guard split symmetric and inclination-decided.
+				float guardRelax = cur.W * Mathf.Lerp(1.5f, verySafe, attackPressure);
 				float guard = guardDanger - guardRelax;
 
 				// NW (Hate/Disgust/Relentlessness): driven by resentment as a slow-building emotional state.

@@ -25,6 +25,7 @@ namespace SpaxUtils
 		public float Piercing => piercing;
 		public float Power => power;
 		public float Precision => precision;
+		public bool OverrideBalance => overrideBalance;
 		public float ChargeBalance => chargeBalance;
 		public float PerformBalance => performBalance;
 
@@ -48,7 +49,8 @@ namespace SpaxUtils
 		[SerializeField, Range(0f, 2f), Tooltip("Percentage of user's Piercing transfered into hit."), FormerlySerializedAs("offence")] private float piercing = 1f;
 		[SerializeField, Range(0f, 2f), Tooltip("Percentage of user's Power transfered into hit.")] private float power = 1f;
 		[SerializeField, Range(0f, 2f), Tooltip("Percentage of user's Precision transfered into hit.")] private float precision = 1f;
-		[SerializeField, Range(0.01f, 1f), Tooltip("How much balance is maintained while charging.")] private float chargeBalance = 1f;
-		[SerializeField, Range(0.01f, 1f), Tooltip("How much balance is maintained while performing.")] private float performBalance = 1f;
+		[SerializeField, Tooltip("When enabled, this move uses its own balance values below instead of the global defaults in CombatSettings.")] private bool overrideBalance = false;
+		[SerializeField, Conditional(nameof(overrideBalance)), Range(0.01f, 1f), Tooltip("How much balance is maintained while charging.")] private float chargeBalance = 1f;
+		[SerializeField, Conditional(nameof(overrideBalance)), Range(0.01f, 1f), Tooltip("How much balance is maintained while performing.")] private float performBalance = 1f;
 	}
 }

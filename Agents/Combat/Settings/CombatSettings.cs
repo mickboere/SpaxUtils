@@ -14,6 +14,8 @@ namespace SpaxUtils
 		public float StaticGain => staticGain;
 		public float ChargeConversionRatio => chargeConversionRatio;
 		public float MaxChargeMultiplier => maxChargeMultiplier;
+		public float ChargeBalance => chargeBalance;
+		public float PerformBalance => performBalance;
 
 		[Header("Hit Pause Settings")]
 		[SerializeField, MinMaxRange(0f, 1f)] private Vector2 hitPauseReceiver = new Vector2(0.05f, 0.75f);
@@ -30,5 +32,11 @@ namespace SpaxUtils
 		private float chargeConversionRatio = 0.005f;
 		[SerializeField, Tooltip("Hard cap on the charge multiplier (e.g. 3 = up to 3× power / storm distance). Universal across charged moves.")]
 		private float maxChargeMultiplier = 3f;
+
+		[Header("Balance")]
+		[SerializeField, Range(0.01f, 1f), Tooltip("How much balance is maintained while charging a melee move. Universal across melee moves.")]
+		private float chargeBalance = 1f;
+		[SerializeField, Range(0.01f, 1f), Tooltip("How much balance is maintained while performing a melee move. Universal across melee moves.")]
+		private float performBalance = 1f;
 	}
 }

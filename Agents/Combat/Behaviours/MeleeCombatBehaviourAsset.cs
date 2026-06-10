@@ -312,9 +312,11 @@ namespace SpaxUtils
 				stormShake.Intensity = rigidbodyWrapper.Speed / stormSpeed;
 			}
 
+			float chargeBalance = move.OverrideBalance ? move.ChargeBalance : combatSettings.ChargeBalance;
+			float performBalance = move.OverrideBalance ? move.PerformBalance : combatSettings.PerformBalance;
 			float balance = Performer.State == PerformanceState.Preparing
-				? move.ChargeBalance
-				: move.PerformBalance;
+				? chargeBalance
+				: performBalance;
 
 			enduranceCostMod.SetValue((1f / balance).Lerp(1f, Weight.Invert()));
 		}

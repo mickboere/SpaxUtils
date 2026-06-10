@@ -29,6 +29,7 @@ namespace SpaxUtils
 		public float Remaining => Duration.HasValue ? Duration.Value - Time : 0f;
 
 		private CallbackService callbackService;
+		private bool expiredInvoked;
 
 		public TimerClass(float? duration = null, CallbackService callbackService = null, UpdateMode updateMode = UpdateMode.Update)
 		{
@@ -82,10 +83,12 @@ namespace SpaxUtils
 				return Expired;
 			}
 
-			bool wasExpired = Expired;
 			Time += delta * Timescale;
-			if (!wasExpired && Expired)
+			// Fire once when a finite-duration timer reaches its duration — including a 0-duration timer, which is
+			// expired from birth (the old !wasExpired && Expired edge never fired for it). Null duration = no expiry.
+			if (!expiredInvoked && Duration.HasValue && Time >= Duration.Value)
 			{
+				expiredInvoked = true;
 				TimerExpiredEvent?.Invoke();
 			}
 			UpdateEvent?.Invoke(delta);
@@ -108,6 +111,7 @@ namespace SpaxUtils
 		public TimerClass Reset()
 		{
 			Time = 0f;
+			expiredInvoked = false;
 			return this;
 		}
 
@@ -120,6 +124,7 @@ namespace SpaxUtils
 		{
 			Duration = duration;
 			Time = time;
+			expiredInvoked = false;
 			return this;
 		}
 

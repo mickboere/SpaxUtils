@@ -53,6 +53,9 @@ namespace SpaxUtils
 		public Vector8 Emotion { get; private set; }
 
 		/// <inheritdoc/>
+		public Vector8 EmotionNormalized { get; private set; }
+
+		/// <inheritdoc/>
 		public Vector8 Balance { get; private set; }
 
 		private IDependencyManager dependencyManager;
@@ -130,8 +133,9 @@ namespace SpaxUtils
 				stimuli[source] = v;
 			}
 
-			// 3. True internal emotional state (unsigned aggregate, smoothed).
+			// 3. True internal emotional state (unsigned aggregate, smoothed) + its normalized [0,1] form.
 			Emotion = ComputeEmotion(delta);
+			EmotionNormalized = NormalizeEmotion(Emotion);
 
 			// 4. Most salient entity by absolute magnitude.
 			Motivation = GetStrongestStimuli();
@@ -411,36 +415,85 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
+		/// Maps the raw emotion aggregate (unsigned, [0, MAX_STIM]) onto a normalized [0,1] range using a concave
+		/// power curve. A just-actionable emotion (raw 1) maps to settings.EmotionNormalizationAnchor rather than the
+		/// 0.1 a linear map would give it, so actionable emotions carry real weight while the high end saturates at 1.
+		/// </summary>
+		private Vector8 NormalizeEmotion(Vector8 raw)
+		{
+			float k = EmotionCurveExponent();
+			Vector8 result = Vector8.Zero;
+			for (int i = 0; i < 8; i++)
+			{
+				result[i] = CurveEmotion(raw[i], k);
+			}
+			return result;
+		}
+
+		/// <summary>
+		/// Exponent for the emotion normalization curve, derived from the configured anchor such that
+		/// curve(raw 1) == anchor and curve(MAX_STIM) == 1. anchor in (0.1, 1) yields k &lt; 1 (the intended concave shape).
+		/// </summary>
+		private float EmotionCurveExponent()
+		{
+			float anchor = Mathf.Clamp(settings.EmotionNormalizationAnchor, 0.0001f, 0.9999f);
+			// Solve pow(1 / MAX_STIM, k) == anchor  ->  k = ln(anchor) / ln(1 / MAX_STIM).
+			return Mathf.Log(anchor) / Mathf.Log(1f / MAX_STIM);
+		}
+
+		/// <summary>
+		/// Applies the normalization curve to a single unsigned magnitude in [0, MAX_STIM], returning a value in [0,1].
+		/// </summary>
+		private float CurveEmotion(float magnitude, float k)
+		{
+			if (magnitude <= 0f)
+			{
+				return 0f;
+			}
+			return Mathf.Pow(Mathf.Clamp01(magnitude / MAX_STIM), k);
+		}
+
+		/// <summary>
 		/// Computes behavioural lean from Inclination + Personality + Emotion + directed stim toward ActiveTarget.
 		/// Stored as a Vector8 where each pole holds its lean value (the losing pole is zero).
 		/// </summary>
 		private Vector8 ComputeBalance()
 		{
-			Vector8 inc        = inclination.Vector8;
-			Vector8 per        = personality.Vector8;
-			Vector8 emo        = Emotion;
-			Vector8 targetStim = ActiveTarget != null && stimuli.TryGetValue(ActiveTarget, out Vector8 s)
+			Vector8 inc = inclination.Vector8;
+			Vector8 per = personality.Vector8;
+			Vector8 emo = EmotionNormalized;
+
+			// Directed stim toward the active target, curved onto the same normalized [0,1] scale as emo
+			// so the directed term doesn't re-introduce the [0,MAX_STIM] imbalance the aggregate just shed.
+			Vector8 rawTargetStim = ActiveTarget != null && stimuli.TryGetValue(ActiveTarget, out Vector8 s)
 				? s : Vector8.Zero;
+			float curveK = EmotionCurveExponent();
+			Vector8 targetStim = Vector8.Zero;
+			for (int t = 0; t < 8; t++)
+			{
+				targetStim[t] = CurveEmotion(Mathf.Abs(rawTargetStim[t]), curveK);
+			}
 
 			Vector8 balance = Vector8.Zero;
 			for (int i = 0; i < 8; i++)
 			{
 				int opp = (i + 4) % 8;
 
-				float poleStrength = inc[i]   * settings.BalanceInclinationWeight
-				                   + per[i]   * settings.BalancePersonalityWeight
-				                   + emo[i]   * settings.BalanceEmotionWeight;
-				float oppStrength  = inc[opp] * settings.BalanceInclinationWeight
-				                   + per[opp] * settings.BalancePersonalityWeight
-				                   + emo[opp] * settings.BalanceEmotionWeight;
-				float axisInertia  = poleStrength + oppStrength;
+				float poleStrength = inc[i] * settings.BalanceInclinationWeight
+								   + per[i] * settings.BalancePersonalityWeight
+								   + emo[i] * settings.BalanceEmotionWeight;
+				float oppStrength = inc[opp] * settings.BalanceInclinationWeight
+								   + per[opp] * settings.BalancePersonalityWeight
+								   + emo[opp] * settings.BalanceEmotionWeight;
+				float axisInertia = poleStrength + oppStrength;
 
-				float poleEmo = Mathf.Abs(targetStim[i])   / (1f + axisInertia * settings.BalanceInertiaK);
-				float oppEmo  = Mathf.Abs(targetStim[opp]) / (1f + axisInertia * settings.BalanceInertiaK);
+				// targetStim is already an unsigned curved magnitude in [0,1].
+				float poleEmo = targetStim[i] / (1f + axisInertia * settings.BalanceInertiaK);
+				float oppEmo = targetStim[opp] / (1f + axisInertia * settings.BalanceInertiaK);
 
 				float poleTotal = poleStrength + poleEmo;
-				float oppTotal  = oppStrength  + oppEmo;
-				float sum       = poleTotal + oppTotal;
+				float oppTotal = oppStrength + oppEmo;
+				float sum = poleTotal + oppTotal;
 
 				balance[i] = sum > 0.001f ? Mathf.Clamp01(poleTotal / sum) : 0.5f;
 			}

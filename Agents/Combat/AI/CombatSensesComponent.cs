@@ -249,7 +249,7 @@ namespace SpaxUtils
 			stim.N = angerStim * (0.7f + 0.3f * fierceness) - fearStim * 0.2f;
 
 			// S (Retreat) - urge to back off.
-			stim.S = fearStim * (0.7f + 0.3f * carefulness);
+			stim.S = fearStim * (0.5f + Agent.Mind.Balance.S); // S BALANCE-scaled (was S personality): an angry agent (low S) shrugs fear off, a fearful one (high S) takes it harder.
 
 			// E (Evade) - reflexive evasiveness.
 			stim.E = fearStim * (0.3f + 0.4f * (1f - fightBias + carefulness));

@@ -423,8 +423,20 @@ namespace SpaxUtils
 				return false;
 			}
 
-			movementHandler.InputAxis = lookDirection.HasValue ? lookDirection.Value : flatWalkDir;
-			movementHandler.InputRaw = Vector3.forward * magnitude;
+			if (lookDirection.HasValue)
+			{
+				// Face the look direction but MOVE in the (possibly deflected) walk direction, expressed in the
+				// look frame — exactly like TrySteerLocal. Without this, InputRaw stays Vector3.forward and the
+				// agent drives toward whatever it faces (e.g. an Evade flank-dodge looking at the enemy would
+				// charge straight INTO it instead of going around).
+				movementHandler.InputAxis = lookDirection.Value;
+				movementHandler.InputRaw = (Quaternion.Inverse(Quaternion.LookRotation(lookDirection.Value.FlattenY().normalized)) * flatWalkDir) * magnitude;
+			}
+			else
+			{
+				movementHandler.InputAxis = flatWalkDir;
+				movementHandler.InputRaw = Vector3.forward * magnitude;
+			}
 			return clear;
 		}
 
