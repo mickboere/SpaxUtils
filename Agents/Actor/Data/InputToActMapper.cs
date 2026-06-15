@@ -21,35 +21,35 @@ namespace SpaxUtils
 			this.stateChecker = stateChecker;
 		}
 
-		public void Send(bool input, Action<IPerformer> callback = null)
+		public void Send(bool input, Action<IPerformer> callback = null, float? buffer = null)
 		{
 			if (input)
 			{
-				Hold(callback);
+				Hold(callback, buffer);
 			}
 			else
 			{
-				Release(callback);
+				Release(callback, buffer);
 			}
 		}
 
-		public void Hold(Action<IPerformer> callback = null)
+		public void Hold(Action<IPerformer> callback = null, float? buffer = null)
 		{
 			if (!holding && IsStateValid())
 			{
 				this.callback = callback;
 				holding = true;
-				actor.Send(NewAct(true, callback));
+				actor.Send(NewAct(true, callback, buffer));
 			}
 		}
 
-		public void Release(Action<IPerformer> callback = null)
+		public void Release(Action<IPerformer> callback = null, float? buffer = null)
 		{
 			if (holding)
 			{
 				this.callback = callback;
 				holding = false;
-				actor.Send(NewAct(false, callback));
+				actor.Send(NewAct(false, callback, buffer));
 			}
 		}
 
@@ -67,9 +67,13 @@ namespace SpaxUtils
 			Release();
 		}
 
-		private Act<bool> NewAct(bool value, Action<IPerformer> callback = null)
+		private Act<bool> NewAct(bool value, Action<IPerformer> callback = null, float? buffer = null)
 		{
-			return new Act<bool>(mapping, value, callback);
+			// NULL buffer copies the mapping's default; an explicit value (e.g. 0 for fire-or-drop AI inputs)
+			// overrides only the buffer while preserving the mapping's title / interuptable / interuptor.
+			return buffer.HasValue
+				? new Act<bool>(mapping.Title, value, mapping.Interuptable, mapping.Interuptor, buffer.Value, callback)
+				: new Act<bool>(mapping, value, callback);
 		}
 
 		/// <summary>

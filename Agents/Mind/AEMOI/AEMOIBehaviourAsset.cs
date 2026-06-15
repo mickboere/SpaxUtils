@@ -9,6 +9,13 @@ namespace SpaxUtils
 	/// </summary>
 	public abstract class AEMOIBehaviourAsset : BehaviourAsset, IMindBehaviour
 	{
+		/// <summary>
+		/// Wheel-neighbour coefficient: the fraction of a primary-axis impulse that bleeds onto its 45° wheel
+		/// neighbours / triad siblings. Was cos(45°) ≈ 0.707; tuned down to 0.5 for a less aggressive bleed.
+		/// Shared across every AEMOI behaviour so neighbour spread reads consistently.
+		/// </summary>
+		protected const float NEIGHBOUR_BLEED = 0.5f;
+
 		public string Name => name;
 		public virtual int Priority => priority;
 		public virtual bool Interuptable { get; protected set; } = true;

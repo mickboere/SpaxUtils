@@ -42,6 +42,7 @@ namespace SpaxUtils
 		private Vector3 posVelocity;
 		private Quaternion targetRotationSmooth;
 		private Quaternion rotVelocity;
+		private bool smoothInitialized; // false until pos/rot have been snapped to target on the first update.
 
 		public void InjectDependencies(RuntimeEquipedData equipedData, IAgent agent,
 			AgentArmsComponent arms, TransformLookup lookup, CallbackService callbackService,
@@ -72,6 +73,7 @@ namespace SpaxUtils
 			isLeft = equipedData.Slot.Type == EquipmentSlotTypes.LEFT_HAND;
 			hand = isLeft ? arms.LeftHand : arms.RightHand;
 			ikChain = isLeft ? IKChainConstants.LEFT_ARM : IKChainConstants.RIGHT_ARM;
+			smoothInitialized = false;
 
 			callbackService.SubscribeUpdate(UpdateMode.LateUpdate, this, OnUpdate);
 			callbackService.DrawGizmosCallback += OnDrawGizmos;
@@ -118,7 +120,7 @@ namespace SpaxUtils
 			// CALCULATE POSITION.
 			Vector3 targetPos = hand.position - agent.Transform.position;
 			targetPosSmooth =
-				targetPosSmooth == Vector3.zero ?
+				!smoothInitialized ?
 					targetPos :
 					targetPosSmooth.SmoothDamp(targetPos, ref posVelocity, time * posTimeMult, delta);
 
@@ -138,9 +140,12 @@ namespace SpaxUtils
 			// CALCULATE ROTATION.
 			Quaternion targetRotation = orientation.rot;
 			targetRotationSmooth =
-				targetRotationSmooth == Quaternion.identity ?
+				!smoothInitialized ?
 					targetRotation :
 					targetRotationSmooth.SmoothDamp(targetRotation, ref rotVelocity, time * rotTimeMult, delta);
+
+			// Pos & rot have now been snapped to target; subsequent frames smooth from there.
+			smoothInitialized = true;
 			targetRotationSmooth = targetRotationSmooth.SmoothClampForward(agent.Transform.forward, smoothMaxAngle, absoluteMaxAngle, smoothAnglePower * delta);
 
 			// APPLY INFLUENCE.
@@ -157,6 +162,8 @@ namespace SpaxUtils
 			// Reset variables.
 			targetPosSmooth = Vector3.zero;
 			posVelocity = Vector3.zero;
+			rotVelocity = default;
+			smoothInitialized = false;
 			ik.RemoveInfluencer(this, ikChain);
 			ElbowHintWeight = 0f;
 		}

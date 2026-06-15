@@ -115,30 +115,31 @@ namespace SpaxUtils
 		}
 
 		/// <inheritdoc/>
-		public void SendInput(string act, bool? value = null, Action<IPerformer> callback = null)
+		public void SendInput(string act, bool? value = null, Action<IPerformer> callback = null, float? buffer = null)
 		{
 			if (inputMappers.ContainsKey(act))
 			{
 				if (value.HasValue)
 				{
-					inputMappers[act].Send(value.Value, callback);
+					inputMappers[act].Send(value.Value, callback, buffer);
 				}
 				else
 				{
-					//inputMappers[act].Send(true, callback);
-					inputMappers[act].Send(false, callback);
+					//inputMappers[act].Send(true, callback, buffer);
+					inputMappers[act].Send(false, callback, buffer);
 				}
 			}
 			else
 			{
+				float resolvedBuffer = buffer ?? Act<bool>.DEFAULT_BUFFER;
 				if (value.HasValue)
 				{
-					Send(new Act<bool>(act, value.Value, callback: callback));
+					Send(new Act<bool>(act, value.Value, buffer: resolvedBuffer, callback: callback));
 				}
 				else
 				{
-					Send(new Act<bool>(act, true, callback: callback));
-					Send(new Act<bool>(act, false, callback: callback));
+					Send(new Act<bool>(act, true, buffer: resolvedBuffer, callback: callback));
+					Send(new Act<bool>(act, false, buffer: resolvedBuffer, callback: callback));
 				}
 			}
 		}

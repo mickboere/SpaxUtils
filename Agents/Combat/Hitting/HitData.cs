@@ -185,6 +185,11 @@ namespace SpaxUtils
 		/// </summary>
 		public const string FORCE = "Force";
 		/// <summary>
+		/// Return data: the world-space velocity-change the hitter must apply to itself to shed its
+		/// share of the closing momentum (inelastic inertia sharing). Applied as a VelocityChange.
+		/// </summary>
+		public const string INERTIA_BRAKE = "Inertia_Brake";
+		/// <summary>
 		/// The percentage of endurance-damage that was endured.
 		/// Examples:
 		///     0 = The endurance was already empty and thus nothing was endured, receiver is stunned.

@@ -31,6 +31,26 @@ namespace SpaxUtils
 		private const float UTILIZE_WEIGHT = 0.5f;          // NE opportunity → danger scale (rise rate). Below MAX_STIM (W/E's responsiveness tool) but high enough to win an opening for a sharp agent; the opportunity-gated relax keeps it from lingering once the opening passes. TODO 14: calibrate all 8 from real frequency×magnitude data.
 		private const float UTILIZE_HOLD = 0.4f;            // NE drain fraction at FULL opportunity: low so the drive HOLDS while an opening is live (equilibrium ~ WEIGHT/HOLD ×MAX); ramps to full drain (1) as opportunity drops to 0.
 		private const float OPPORTUNITY_RETREAT_SPEED = 2f; // enemy retreat speed (m/s) that reads as a full "backing away" opening.
+
+		// Storm-windup danger. An OVER-charged (storm) attack is committed from BEYOND melee range and dashes in, so
+		// the melee-reach gates (windupDanger range, reachProximity, the exponential distanceFalloff) all read ~0 for
+		// it and the agent barely reacts. Instead, the instant the enemy starts over-charging a storm-capable move,
+		// danger spikes to STORM_WINDUP_FLOOR (gated by the storm's POTENTIAL reach so it fires even from afar — they
+		// keep charging until it reaches), then grows toward MAX_STIM the longer the charge is held (live dash reach
+		// climbing). Fed into Evade + Guard equally so inclination decides the response.
+		private const float STORM_WINDUP_FLOOR = 0.5f; // immediate fraction of MAX_STIM the instant over-charging begins.
+
+		// Finisher instinct. As an enemy's health drops, an agent whose live Balance leans NW (ruthless/resentful) is
+		// increasingly drawn to press the kill — stimulating N (attack) and NW (relentlessness), plus a little NE
+		// (precision charged strike). Gated on the live Balance.NW lean (so it builds with bloodlust toward a hated
+		// foe); inclination is deliberately left out of the gate (inclination is purely stimulation weight). The
+		// health response is curved (FINISHER_HEALTH_POWER) so it stays negligible until very low health, and it
+		// carries a much gentler distance falloff than ordinary threat stim — a predator commits to the chase.
+		// TODO 14: calibrate alongside the other 8 drives from real frequency×magnitude data.
+		private const float FINISHER_WEIGHT = 0.35f;        // near-death × fully-ruthless adds this fraction of MAX_STIM to N & NW.
+		private const float FINISHER_NE_SHARE = 0.5f;       // NE gets this fraction of the finisher (a little precision pull).
+		private const float FINISHER_HEALTH_POWER = 4f;     // ease-in on health deficit: ~0 at half health (0.5^4≈0.06), bites near death.
+		private const float FINISHER_FALLOFF_POWER = 0.3f;  // <1 softens the shared distance falloff toward 1 (the chase reach); 1 = same as threat stim.
 		#endregion Constants
 
 		public event Action TrackedSetChanged;
@@ -413,11 +433,14 @@ namespace SpaxUtils
 				float staminaDef = statHandler.PointStats.E.PercentageMax.Invert().Remap(-1f, 1f);
 				float enduranceDef = statHandler.PointStats.W.PercentageMax.Invert();
 				float resourceDef = Mathf.Clamp01(Mathf.Max(healthDef, Mathf.Max(staminaDef, enduranceDef)));
-				float resourceOk = 1f - resourceDef;
+				float healthOk = 1f - healthDef;     // health-only; stamina/endurance stripped from the SW (Enhance) loop below.
 
 				// Spike when enemy is winding up an attack on us.
 				PerformanceState actorState = info.Agent.Actor.State;
 				float windupDanger = 0f;
+				float stormWindupDanger = 0f;   // over-charge spike, kept separate so it bypasses the melee-only gates below.
+				bool storming = false;          // enemy is over-charging a storm-capable move at us.
+				float stormPotentialReach = 0f; // max reach the building storm could attain (for the storm-aware falloff).
 				if (actorState == PerformanceState.Preparing &&
 					info.Agent.Actor.MainPerformer is IMovePerformer movePerformer &&
 					movePerformer.Move is ICombatMove combatMove)
@@ -430,6 +453,26 @@ namespace SpaxUtils
 
 					float t = Mathf.InverseLerp(range + range, range, info.Distance).InOutSine();
 					windupDanger = t * AEMOI.MAX_STIM;
+
+					// Over-charge (storm) escalation — see STORM_WINDUP_FLOOR. Only for a storm-capable move being
+					// over-charged (ChargeMultiplier > 1 builds a real dash); carries its OWN storm-reach gate.
+					if (info.CombatComp != null &&
+						info.CombatComp.CurrentChargeMultiplier > 1f &&
+						combatMove is IMeleeCombatMove stormMove && stormMove.StormDistance > 0f)
+					{
+						storming = true;
+						// Gate by the storm's POTENTIAL reach (max it could fund) so danger registers from the instant
+						// over-charging begins, even though the live dash is still short — they keep charging until it
+						// reaches. Fades out past 2× as usual.
+						stormPotentialReach = info.CombatComp.ProjectedStormReach;
+						float stormProximity = Mathf.InverseLerp(stormPotentialReach + stormPotentialReach, stormPotentialReach, info.Distance).InOutSine();
+
+						// Immediate floor, growing toward MAX_STIM as the held charge builds a longer live dash.
+						float enemyActiveReach = info.CombatComp.ActiveReach;
+						float dash = Mathf.Max(0f, info.CombatComp.CurrentStormReach - enemyActiveReach);
+						float chargeGrowth = Mathf.Clamp01(dash / Mathf.Max(enemyActiveReach, 0.01f));
+						stormWindupDanger = stormProximity * Mathf.Lerp(STORM_WINDUP_FLOOR, 1f, chargeGrowth) * AEMOI.MAX_STIM;
+					}
 				}
 
 				// Approach danger: enemy closing within time horizon, gated by intent (facing + closing).
@@ -475,9 +518,10 @@ namespace SpaxUtils
 				// evade-vs-guard choice comes purely from the agent's inclination — not from a thumb on this scale.
 				// Wind-up is reach-gated exactly like Guard.
 				float immediateThreat = threatStim * intent01;
-				float evadeDanger = (threatStim * (0.25f + 0.75f * intent01) + windupDanger) * reachProximity + approachDanger * 0.5f;
+				// stormWindupDanger is added OUTSIDE the melee reachProximity multiplier — it carries its own storm-reach gate.
+			float evadeDanger = (threatStim * (0.25f + 0.75f * intent01) + windupDanger) * reachProximity + approachDanger * 0.5f + stormWindupDanger;
 				// Normalise total active threat 0-1; Clamp01 guards against simultaneous immediateThreat+windupDanger > MAX_STIM.
-				float attackPressure = Mathf.Clamp01((immediateThreat + windupDanger) / AEMOI.MAX_STIM);
+				float attackPressure = Mathf.Clamp01((immediateThreat + windupDanger + stormWindupDanger) / AEMOI.MAX_STIM);
 				// 1f = full-drain rate when no attack: cur.E * 1.0 * delta → exponential decay to zero. Lerps to verySafe during active threat.
 				float evadeRelax = cur.E * Mathf.Lerp(1f, verySafe, attackPressure);
 				float evade = evadeDanger - evadeRelax;
@@ -512,13 +556,19 @@ namespace SpaxUtils
 				float retreatRelax = cur.S * (0.5f + distanceSafe) * 1.5f;
 				float retreat = retreatDanger - retreatRelax;
 
-				// SW (Enhance / buffing).
-				float enhanceDanger = AEMOI.MAX_STIM * lethality01 * (1f - threat01) * Mathf.Clamp01(resourceDef + 0.2f);
-				float enhanceRelax = cur.SW * resourceOk * calm * 1.0f;
+				// SW (Enhance / buffing): self-regarding power-up urge — fire when OUTMATCHED and SAFE, scaling with DISTANCE
+				// (distanceSafe: the more space from a strong foe, the stronger the urge). Health-only deficit for now
+				// (stamina/endurance stripped). Emitted as its own term so it is EXEMPT from the foe distance falloff,
+				// which would otherwise kill it exactly when the agent is safely far — the opposite of the intent.
+				float enhanceDanger = AEMOI.MAX_STIM * lethality01 * (1f - threat01) * Mathf.Clamp01(healthDef + 0.2f) * distanceSafe;
+				// Always-on base drain (mirrors Retreat's) so SW can never pin at ceiling without a satisfier; drains
+				// faster as health tops up. No 'calm' gate — a drive with no behaviour must still bleed during combat.
+				float enhanceRelax = cur.SW * (0.5f + healthOk);
 				float enhance = enhanceDanger - enhanceRelax;
+				Vector8 enhanceStim = Vector8.SouthWest * enhance; // single-axis SW; combined foe-falloff-exempt at Stimulate.
 
 				// W (Guard): gated by reach proximity — no pressure unless enemy is in engagement range.
-				float guardDanger = (threatStim * (0.25f + 0.75f * intent01) + windupDanger) * reachProximity + approachDanger * 0.5f;
+				float guardDanger = (threatStim * (0.25f + 0.75f * intent01) + windupDanger) * reachProximity + approachDanger * 0.5f + stormWindupDanger;
 				// Guard drains 50% faster than Evade in SAFE conditions (1.5f — a held block should disengage sooner),
 				// but matches Evade's drain UNDER active threat (verySafe, not verySafe*1.5) so neither out-persists the
 				// other during a real attack — keeping the evade/guard split symmetric and inclination-decided.
@@ -535,13 +585,30 @@ namespace SpaxUtils
 				float nwRelax = cur.NW * Mathf.Lerp(verySafe * 1.25f + 0.2f, verySafe * 0.25f + 0.05f, Mathf.Clamp01(agent.Mind.Inclination.NW));
 				float targetNW = nwDanger - nwRelax;
 
+				// Finisher instinct: as the enemy's health falls, an agent whose live Balance leans NW (ruthless/resentful)
+				// is drawn to press the kill — N (attack) + NW (relentlessness) + a little NE (precision). Health deficit
+				// is curved (FINISHER_HEALTH_POWER) so HALF health barely registers; it bites only at very low health.
+				// Kept OUT of rawStim so it can carry its own, much gentler distance falloff (the chase) below.
+				float enemyHealthDef = info.StatHandler.PointStats.SW.PercentageMax.Invert();
+				float finisher = enemyHealthDef.Pow(FINISHER_HEALTH_POWER) * agent.Mind.Balance.NW * AEMOI.MAX_STIM * FINISHER_WEIGHT;
+				Vector8 finisherStim = new Vector8(
+					finisher,                     // N
+					finisher * FINISHER_NE_SHARE, // NE
+					0f,                           // E
+					0f,                           // SE
+					0f,                           // S
+					0f,                           // SW
+					0f,                           // W
+					finisher                      // NW
+				);
+
 				Vector8 rawStim = new Vector8(
 					fight,    // N
 					utilize,  // NE
 					evade,    // E
 					support,  // SE
 					retreat,  // S
-					enhance,  // SW
+					0f,       // SW (self-regarding; emitted separately as enhanceStim below)
 					guard,    // W
 					targetNW  // NW
 				);
@@ -552,18 +619,26 @@ namespace SpaxUtils
 				rawStim += enemyBalance.Rotate(1) * AEMOI.MAX_STIM * settings.CrossStateScale;
 
 				// Foe-directed emotions are negative; flip sign before sending.
-				// Exponential decay from attack range boundary: full signal within reach, sharp falloff beyond.
-				float beyondRange = Mathf.Max(0f, info.Distance - activeReach);
+				// Exponential decay from attack range boundary: full signal within reach, sharp falloff beyond. While the
+				// enemy is over-charging a storm the boundary extends to the storm's POTENTIAL reach, so the storm-windup
+				// danger isn't decayed away before it can reach us (the whole point of reacting early to a building storm).
+				float falloffReach = storming ? Mathf.Max(activeReach, stormPotentialReach) : activeReach;
+				float beyondRange = Mathf.Max(0f, info.Distance - falloffReach);
 				float distanceFalloff = settings.ExponentialFalloffK > 0f
 					? Mathf.Exp(-settings.ExponentialFalloffK * beyondRange)
 					: 1f;
+				// The finisher reaches much further than close-range threat stim — once a predator smells weakness it
+				// commits to the chase. Soften the PURE-distance falloff toward 1 with a sub-1 power, and take it from
+				// before the actorState reduction so the enemy being mid-move doesn't dampen the urge to finish.
+				float finisherFalloff = distanceFalloff.Pow(FINISHER_FALLOFF_POWER);
+
 				distanceFalloff *= actorState switch
 				{
 					PerformanceState.Finishing  => 0.2f,
 					PerformanceState.Performing => 0.8f,
 					_                           => 1f,
 				};
-				agent.Mind.Stimulate(-rawStim * delta * distanceFalloff, info.Agent);
+				agent.Mind.Stimulate(-(rawStim * distanceFalloff + finisherStim * finisherFalloff + enhanceStim) * delta, info.Agent);
 			}
 		}
 

@@ -13,6 +13,9 @@ namespace SpaxUtils
 
 		public bool Invulnerable => agent.RuntimeData.GetValue(AgentDataIdentifiers.INVULNERABLE, false);
 
+		[SerializeField, Tooltip("When enabled, hits landing toward this agent's back raise effective Vulnerability toward 1 (shaped by CombatSettings.RearExposureCurve), letting crits land from behind even through guard. When disabled, only the base Vulnerability stat is used regardless of hit angle.")]
+		private bool backTurnWeakness = false;
+
 		private IAgent agent;
 		private IHittable hittable;
 		private RigidbodyWrapper rigidbodyWrapper;
@@ -79,8 +82,21 @@ namespace SpaxUtils
 			bool neglect = blocked || parried || deflected;
 
 			// --- 1. CRIT LAYER ---
+			// Rear exposure: hits landing toward the back raise effective Vulnerability toward 1. The angle of
+			// the hitter relative to our facing (front=0, side=0.5, rear=1) is shaped by the CombatSettings curve,
+			// then lerps the (guard-reduced) Vulnerability stat up toward 1. This keeps the rear exposed even
+			// while guarding, since guard only lowers the stat we lerp up from.
+			float vulnerability = vulnerabilityStat.Value;
+			if (backTurnWeakness)
+			{
+				Vector3 toHitter = (hitData.Hitter.Transform.position - rigidbodyWrapper.Position).FlattenY().normalized;
+				float rearParam = toHitter.NormalizedDot(rigidbodyWrapper.Forward).Invert();
+				float rearExposure = Mathf.Clamp01(combatSettings.RearExposureCurve.Evaluate(rearParam));
+				vulnerability = Mathf.Lerp(vulnerability, 1f, rearExposure);
+			}
+
 			float coupling = SpaxFormulas.CalculateCoupling(hitData.Precision, pliancyStat);
-			float critChance = SpaxFormulas.CalculateCritChance(coupling, vulnerabilityStat, hitData.Luck, luckStat);
+			float critChance = SpaxFormulas.CalculateCritChance(coupling, vulnerability, hitData.Luck, luckStat);
 			bool isCrit = !neglect &&
 				hitData.Precision > 0f &&
 				Random.value < critChance;
@@ -179,10 +195,31 @@ namespace SpaxUtils
 				rigidbodyWrapper.Push(hitData.Direction * force, 1f);
 			}
 
-			// Mandatory inertia transfer.
-			rigidbodyWrapper.Push(
-				hitData.Inertia * (endured.Invert() * 0.5f),
-				hitData.HitterMass);
+			// --- INERTIA SHARING (clash) ---
+			// Treat contact as a collision along the horizontal contact normal: the hitter's closing
+			// momentum is shared by mass. CombatSettings.Restitution sets the elasticity — 0 = perfectly
+			// inelastic (both end at the shared velocity, freezing the gap), 1 = fully elastic (they bounce
+			// apart). Both the receiver's gain and the hitter's brake scale by (1 + restitution). Landed
+			// hits only — a block/parry/deflect already arrests the attacker (ResetVelocity), so no creep there.
+			if (!neglect)
+			{
+				Vector3 normal = (rigidbodyWrapper.Position - hitData.Hitter.Transform.position)
+					.FlattenY().normalized;
+				float closing = Mathf.Max(0f, Vector3.Dot(hitData.Inertia, normal));
+				if (closing > 0f)
+				{
+					float totalMass = hitData.HitterMass + rigidbodyWrapper.Mass;
+					float elasticity = 1f + combatSettings.Restitution;
+					float receiverShare = hitData.HitterMass / totalMass * elasticity;
+					float hitterShare = rigidbodyWrapper.Mass / totalMass * elasticity;
+
+					// Receiver is brought up to the post-collision velocity along the contact normal.
+					rigidbodyWrapper.Push(normal * (closing * receiverShare));
+
+					// Hitter sheds its share of the closing velocity (applied on the hitter's side in ProcessHit).
+					hitData.Data.SetValue(HitDataIdentifiers.INERTIA_BRAKE, -normal * (closing * hitterShare));
+				}
+			}
 
 			// --- HP DAMAGE & MALICE ---
 			if (!Invulnerable)

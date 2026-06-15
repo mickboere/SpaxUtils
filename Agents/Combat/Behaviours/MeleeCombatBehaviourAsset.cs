@@ -49,6 +49,7 @@ namespace SpaxUtils
 		protected CallbackService callbackService;
 		protected TransformLookup transformLookup;
 		protected ITargeter targeter;
+		protected ITargetable agentTargetable;
 		protected IAgentMovementHandler movementHandler;
 		protected AgentNavigationHandler navigationHandler;
 		protected IEntityCollection entityCollection;
@@ -64,6 +65,12 @@ namespace SpaxUtils
 		private EntityStat timescaleStat;
 		private EntityStat limbMassStat;
 		private EntityStat strengthStat;
+
+		/// <summary>
+		/// Mass behind the striking limb. Falls back to the agent's whole-body mass when the move's limb has no
+		/// dedicated MASS substat (e.g. a limbless creature), so the limb-mass maths never dereferences a null stat.
+		/// </summary>
+		private float LimbMass => limbMassStat != null ? (float)limbMassStat : rigidbodyWrapper.Mass;
 		private EntityStat precisionStat;
 		private EntityStat luckStat;
 		private EntityStat chargeStat;
@@ -100,6 +107,7 @@ namespace SpaxUtils
 			CallbackService callbackService,
 			TransformLookup transformLookup,
 			ITargeter targeter,
+			ITargetable targetable,
 			IAgentMovementHandler movementHandler,
 			AgentNavigationHandler navigationHandler,
 			IEntityCollection entityCollection,
@@ -116,6 +124,7 @@ namespace SpaxUtils
 			this.callbackService = callbackService;
 			this.transformLookup = transformLookup;
 			this.targeter = targeter;
+			this.agentTargetable = targetable;
 			this.movementHandler = movementHandler;
 			this.navigationHandler = navigationHandler;
 			this.entityCollection = entityCollection;
@@ -155,7 +164,7 @@ namespace SpaxUtils
 			accumulatedChargePoints = 0f;
 
 			// Compute wield ratio and base factors once per behaviour instance.
-			float mass = limbMassStat;
+			float mass = LimbMass;
 			float strength = strengthStat;
 			wieldRatio = mass > 0f ? strength / mass : 1f;
 			if (wieldRatio < 0f)
@@ -319,6 +328,9 @@ namespace SpaxUtils
 				: performBalance;
 
 			enduranceCostMod.SetValue((1f / balance).Lerp(1f, Weight.Invert()));
+
+			// Keep the lunge from closing into the target's face.
+			EnforceSeparationFloor(delta);
 		}
 
 		/// <summary>
@@ -359,6 +371,63 @@ namespace SpaxUtils
 			float earlySlow = Mathf.Lerp(1f, minInertiaSpeedFactor, heaviness);
 
 			return Mathf.Lerp(earlySlow, 1f, Mathf.Clamp01(phase));
+		}
+
+		/// <summary>
+		/// Hard floor that stops the lunge from closing into the target's face. Two horizontal zones around
+		/// the target: the combined top-down radii (inner) is an impenetrable wall, and a padding ring out to
+		/// inner + <see cref="CombatSettings.MeleeFloorPadding"/> metres holds a critically-damped penalty
+		/// spring that pushes the attacker back out. The padding is absolute, so the ring stays a fixed width
+		/// regardless of target size (giant enemies). Outside the ring it's a pure no-op, so the approach is
+		/// never throttled — it only engages once the lunge would breach the buffer.
+		/// </summary>
+		private void EnforceSeparationFloor(float delta)
+		{
+			if (target == null || agentTargetable == null || delta <= 0f)
+			{
+				return;
+			}
+
+			Vector3 toTarget = (target.Position - rigidbodyWrapper.Position).FlattenY();
+			float distance = toTarget.magnitude;
+			if (distance <= 0.0001f)
+			{
+				return;
+			}
+
+			float inner = agentTargetable.Radius + target.Radius;
+			float outer = inner + combatSettings.MeleeFloorPadding;
+			if (distance >= outer)
+			{
+				// Outside the buffer: leave the approach untouched.
+				return;
+			}
+
+			Vector3 outward = -toTarget / distance;
+
+			// Critically-damped penalty spring (acceleration form, mass-independent): rests the attacker at
+			// 'outer', ramping the outward push with penetration depth so a hard lunge is bled off before 'inner'.
+			float penetration = outer - distance;
+			float outwardSpeed = Vector3.Dot(rigidbodyWrapper.Velocity, outward);
+			float stiffness = combatSettings.MeleeFloorStiffness;
+			float acceleration = stiffness * penetration - 2f * Mathf.Sqrt(stiffness) * outwardSpeed;
+			if (acceleration > 0f)
+			{
+				rigidbodyWrapper.AddForce(outward * (acceleration * delta), ForceMode.VelocityChange);
+			}
+
+			// Impenetrable inner wall: reposition out and kill any remaining closing velocity.
+			if (distance < inner)
+			{
+				Vector3 clamped = target.Position + outward * inner;
+				rigidbodyWrapper.Position = new Vector3(clamped.x, rigidbodyWrapper.Position.y, clamped.z);
+
+				float closing = Vector3.Dot(rigidbodyWrapper.Velocity, -outward);
+				if (closing > 0f)
+				{
+					rigidbodyWrapper.AddForce(outward * closing, ForceMode.VelocityChange);
+				}
+			}
 		}
 
 		protected void OnStartedPerformingEvent(IPerformer performer)
@@ -423,7 +492,7 @@ namespace SpaxUtils
 			}
 
 			// Play exertion audio.
-			float drained = statHandler.PointStats.N.Drain(Move.PerformCost.Cost * (limbMassStat / massNormalizer) * 100f);
+			float drained = statHandler.PointStats.N.Drain(Move.PerformCost.Cost * (LimbMass / massNormalizer) * 100f);
 			float fraction = drained / statHandler.PointStats.N.Reserve;
 			agentAudioHandler.PlayExertion(fraction);
 		}
@@ -456,10 +525,12 @@ namespace SpaxUtils
 					// Generate hit data.
 					Vector3 lookDir = (hittable.Entity.Transform.position - Agent.Transform.position)
 						.FlattenY().normalized;
-					Vector3 inertia = move.Inertia.Look(move.Inertia);
+					// Hitter's actual world-space closing velocity: shared with the receiver on contact
+					// (inelastic clash) and used as the parry pushback axis. Reflects real motion/facing.
+					Vector3 inertia = rigidbodyWrapper.Velocity;
 					Vector3 direction = move.CustomDirection ? move.HitDirection.Look(lookDir) : hit.Direction;
 
-					float mass = limbMassStat;
+					float mass = LimbMass;
 					float phase = Mathf.Clamp01(Performer.RunTime / Move.MinDuration);
 					float phaseMult = GetPhaseInertiaMultiplier(phase);
 
@@ -523,8 +594,10 @@ namespace SpaxUtils
 
 				float force = hitData.Data.GetValue<float>(HitDataIdentifiers.FORCE);
 
+				// Shed our share of the closing momentum from the inelastic clash (computed receiver-side).
+				// Zero on a neglected hit (block/parry/deflect handles braking explicitly below).
 				rigidbodyWrapper.AddForce(
-					-rigidbodyWrapper.Velocity * 0.5f,
+					hitData.Data.GetValue(HitDataIdentifiers.INERTIA_BRAKE, Vector3.zero),
 					ForceMode.VelocityChange);
 
 				if (hitData.Data.GetValue<bool>(HitDataIdentifiers.BLOCKED))

@@ -57,7 +57,7 @@ namespace SpaxUtils
 			return GetInstructions(position, (_) => time);
 		}
 
-		public IPoserInstructions GetInstructions(Vector3 position, Func<IPoseSequence, float> timeFunc)
+		public IPoserInstructions GetInstructions(Vector3 position, Func<IPoseSequence, float> timeFunc, float idleWeight = 1f)
 		{
 			switch (blendMethod)
 			{
@@ -68,10 +68,38 @@ namespace SpaxUtils
 					PoseTransition b = instructions.to.Evaluate(timeFunc(instructions.to));
 					return new PoserInstructions(a, b, instructions.interpolation);
 				case PoseBlendMethod.PolarGradientBlend:
-					return CreateInstructions(BlendPolarGradientBand(position), timeFunc);
+					return CreateInstructions(SuppressIdle(BlendPolarGradientBand(position, false), idleWeight), timeFunc);
 				case PoseBlendMethod.Obstructive:
 					return CreateInstructions(BlendObstructive(position), timeFunc);
 			}
+		}
+
+		/// <summary>
+		/// Scales the idle (center, <see cref="Vector3.zero"/>) entry's weight by <paramref name="idleWeight"/>
+		/// then (re)normalizes. Lets callers fade the idle pose out of the blend during locomotion so a blend
+		/// position passing through the origin (e.g. a direction reversal) cross-blends the surrounding
+		/// locomotion poses instead of snapping to the upright idle for a frame. Expects un-normalized weights;
+		/// an <paramref name="idleWeight"/> of 1 reproduces the standard normalized blend.
+		/// </summary>
+		private float[] SuppressIdle(float[] weights, float idleWeight)
+		{
+			float summed = 0f;
+			for (int i = 0; i < weights.Length; i++)
+			{
+				if (idleWeight < 1f && blendMap[i].Position == Vector3.zero)
+				{
+					weights[i] *= idleWeight;
+				}
+				summed += weights[i];
+			}
+			if (summed > 0f)
+			{
+				for (int i = 0; i < weights.Length; i++)
+				{
+					weights[i] /= summed;
+				}
+			}
+			return weights;
 		}
 
 		/// <summary>

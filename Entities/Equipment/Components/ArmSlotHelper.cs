@@ -29,6 +29,7 @@ namespace SpaxUtils
 
 		private Quaternion targetRotationSmooth;
 		private Quaternion rotVelocity;
+		private bool smoothInitialized; // false until pos/rot have been snapped to target on the first update.
 
 		public ArmSlotHelper(bool isLeft, int prio)
 		{
@@ -59,6 +60,8 @@ namespace SpaxUtils
 		{
 			targetPosSmooth = Vector3.zero;
 			posVelocity = Vector3.zero;
+			rotVelocity = default;
+			smoothInitialized = false;
 
 			ik.RemoveInfluencer(this, IKChain);
 			ElbowHintWeight = 0f;
@@ -79,7 +82,7 @@ namespace SpaxUtils
 			Vector3 targetPos = hand.position - agent.Transform.position;
 			targetPos -= rigidbodyWrapper.Acceleration * smoothTime;
 			targetPosSmooth =
-				targetPosSmooth == Vector3.zero ?
+				!smoothInitialized ?
 					targetPos :
 					targetPosSmooth.SmoothDamp(targetPos, ref posVelocity, smoothTime, delta);
 
@@ -99,9 +102,12 @@ namespace SpaxUtils
 			// CALCULATE ROTATION.
 			Quaternion targetRotation = orientation.rot;
 			targetRotationSmooth =
-				targetRotationSmooth == Quaternion.identity ?
+				!smoothInitialized ?
 					targetRotation :
 					targetRotationSmooth.SmoothDamp(targetRotation, ref rotVelocity, smoothTime, delta);
+
+			// Pos & rot have now been snapped to target; subsequent frames smooth from there.
+			smoothInitialized = true;
 
 			// APPLY INFLUENCE.
 			ElbowHintWeight = 0.5f * weight;

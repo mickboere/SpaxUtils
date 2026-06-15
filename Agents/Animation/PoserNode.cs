@@ -23,6 +23,13 @@ namespace SpiritAxis
 		/// </summary>
 		private const int LANDING_POSE_PRIORITY = 8;
 
+		/// <summary>
+		/// Below this raw-input magnitude the agent is treated as having no movement intent, fading the idle
+		/// pose into the locomotion blend. Keyed on intent (not velocity) so a reversal — velocity through
+		/// zero, intent still high — keeps the idle suppressed and doesn't flash the upright idle at the origin.
+		/// </summary>
+		private const float IDLE_INTENT_THRESHOLD = 0.1f;
+
 		private IAgent agent;
 		private RigidbodyWrapper rigidbodyWrapper;
 		private AnimatorPoser agentPoser;
@@ -37,6 +44,8 @@ namespace SpiritAxis
 		private Vector3 blendPosition;
 		private float slideWeight;
 		private float flyWeight;
+		private float targetingWeight;
+		private float idleWeight = 1f;
 		private float idleTime;
 
 		// Skid tracking (direction-change sliding, separate from slope sliding).
@@ -106,6 +115,9 @@ namespace SpiritAxis
 
 			targetingTimer = new TimerClass(moveset.TargetSwitchDuration, () => timescale, false);
 			targetingTimer.Progress = 1f;
+
+			// Assume stationary on entry so the idle pose is present until movement intent says otherwise.
+			idleWeight = 1f;
 
 			// Landing control modifier (always registered, value 1.0 = no effect when not landing).
 			landingControlMod = new FloatOperationModifier(ModMethod.Absolute, Operation.Multiply, 1f);
@@ -191,7 +203,14 @@ namespace SpiritAxis
 			// Update landing state.
 			UpdateLanding(scaledDelta);
 
-			UpdateWalkingPose();
+			// Idle pose belongs only when there's no movement INTENT. Keyed on raw input, not velocity: during a
+			// direction reversal velocity passes through zero while intent stays high, so this stays ~0 and the
+			// idle is held out of the blend, letting the origin crossing cross-blend locomotion poses instead of
+			// flashing the upright idle. Releasing input (a real stop) eases it back in.
+			float idleTarget = movementHandler.InputRaw.magnitude < IDLE_INTENT_THRESHOLD ? 1f : 0f;
+			idleWeight = idleWeight.FILerp(idleTarget, moveset.PoseTransitionSpeed * delta);
+
+			UpdateWalkingPose(delta);
 		}
 
 		private void OnTargetChangedEvent(ITargetable target)
@@ -258,17 +277,20 @@ namespace SpiritAxis
 			landingControlMod?.SetValue(control);
 		}
 
-		private void UpdateWalkingPose()
+		private void UpdateWalkingPose(float delta)
 		{
-			IPoserInstructions walking = GetWalkPose(ActiveGroundedTree, blendPosition);
+			IPoserInstructions walking = GetWalkPose(ActiveGroundedTree, blendPosition, idleWeight);
 			Poser.Pose(walking); // A main pose is required.
 
-			IPoserInstructions targeting = GetWalkPose(moveset.TargetingBlendTree, blendPosition);
-			agentPoser.ProvideInstructions(moveset.TargetingBlendTree, PoserLayerConstants.BODY, targeting, 1,
-				movementHandler.LockRotation &&
+			IPoserInstructions targeting = GetWalkPose(moveset.TargetingBlendTree, blendPosition, idleWeight);
+			// Targeting (locked-on strafe) overlay weight must EASE, not snap. LockRotation flips the instant
+			// sprint is pressed (raw input), so the old hard ternary popped this 1->0 in one frame, yanking the
+			// hunched strafe pose off and exposing the grounded tree mid-reversal. Lerp toward the desired weight.
+			float targetingTarget = movementHandler.LockRotation &&
 				agent.Brain.IsStateActive(AgentStateIdentifiers.COMBAT) ?
-					targetingTimer.Progress.Clamp01() :
-					targetingTimer.Progress.InvertClamped()); // HACK: This is ugly but fuck you, I'm making a game not a system.
+					targetingTimer.Progress.Clamp01() : 0f;
+			targetingWeight = targetingWeight.FILerp(targetingTarget, moveset.PoseTransitionSpeed * delta);
+			agentPoser.ProvideInstructions(moveset.TargetingBlendTree, PoserLayerConstants.BODY, targeting, 1, targetingWeight);
 
 			IPoserInstructions sliding = moveset.SlidingBlendTree.GetInstructions(0f,
 				grounder.Sliding ? blendPosition : -rigidbodyWrapper.RelativeVelocity.normalized);
@@ -300,24 +322,36 @@ namespace SpiritAxis
 			}
 		}
 
-		private IPoserInstructions GetWalkPose(PoseBlendMap blendTree, Vector3 position)
+		private IPoserInstructions GetWalkPose(PoseBlendMap blendTree, Vector3 position, float idleWeight)
 		{
+			// Find the idle (center) sequence so it can keep its own wall clock while locomotion
+			// sequences ride the surveyor gait phase. Switching the WHOLE blend's clock by blendPosition
+			// magnitude phase-jumped the pose every time velocity crossed ~zero (every stop / reversal),
+			// because the two clocks are uncorrelated. Per-sequence clocks remove the swap, and thus the pop.
+			PoseSequence idleSequence = null;
+			foreach (PoseBlendMapEntry entry in blendTree.BlendMap)
+			{
+				if (entry.Position == Vector3.zero)
+				{
+					idleSequence = entry.Sequence;
+					break;
+				}
+			}
+
 			return blendTree.GetInstructions(position, (IPoseSequence sequence) =>
 			{
-				sequence.GlobalData.TryGetFloat(AnimationFloatConstants.CYCLE_OFFSET, 0f, out float cycleOffset);
-				if (position.sqrMagnitude > 0.001f)
+				if (ReferenceEquals(sequence, idleSequence))
 				{
-					// Moving: use walk cycle time from surveyor.
-					return surveyorComponent.GetProgress(cycleOffset, false) * sequence.TotalDuration;
-				}
-				else
-				{
-					// Stationary: use real time for idle sequence.
+					// Idle/center pose: free-running wall clock so it breathes while stationary.
 					return sequence.TotalDuration > 0f
 						? Mathf.Repeat(idleTime, sequence.TotalDuration)
 						: 0f;
 				}
-			});
+
+				// Locomotion pose: surveyor gait phase so strides stay planted.
+				sequence.GlobalData.TryGetFloat(AnimationFloatConstants.CYCLE_OFFSET, 0f, out float cycleOffset);
+				return surveyorComponent.GetProgress(cycleOffset, false) * sequence.TotalDuration;
+			}, idleWeight);
 		}
 
 		/// <summary>

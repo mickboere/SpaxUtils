@@ -357,12 +357,16 @@ namespace SpaxUtils
 					if (!(rigidbodyWrapper.TargetVelocity == Vector3.zero || flatVelocity == Vector3.zero))
 					{
 						// Rotation isn't locked, look in velocity direction when at 100% grip
-						// and at target velocity direction when at 0% grip.
+						// and at target velocity direction when at 0% grip. Rotation is HELD entirely while the input
+						// is reversing — raw has flipped but the smoothed input (which velocity chases) still points
+						// the old way, so Dot(InputRaw, InputSmooth) < 0 — so the body doesn't whip around to chase the
+						// doomed old-direction velocity. Self-clears the instant smooth catches up to raw, and never
+						// triggers while merely circling (raw and smooth stay aligned there) → no moonwalk.
 						Vector3 a = flatVelocity.normalized;
 						Vector3 b = flatTargetVel.normalized;
 						Turn(
 							a.Slerp(b, rigidbodyWrapper.Grip.InvertClamped().InOutQuint()),
-							a.NormalizedDot(b).InOutSine());
+							a.NormalizedDot(b).InOutSine() * (Vector3.Dot(InputRaw, InputSmooth) < 0f ? 0f : 1f));
 					}
 				}
 			}

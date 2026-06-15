@@ -47,12 +47,22 @@ namespace SpaxUtils
 			target.w *= Multi;
 
 			// Smooth damp (nlerp approx),
-			var Result = new Vector4(
+			var Smoothed = new Vector4(
 				Mathf.SmoothDamp(rot.x, target.x, ref velocity.x, smoothTime, float.MaxValue, deltaTime),
 				Mathf.SmoothDamp(rot.y, target.y, ref velocity.y, smoothTime, float.MaxValue, deltaTime),
 				Mathf.SmoothDamp(rot.z, target.z, ref velocity.z, smoothTime, float.MaxValue, deltaTime),
 				Mathf.SmoothDamp(rot.w, target.w, ref velocity.w, smoothTime, float.MaxValue, deltaTime)
-			).normalized;
+			);
+
+			// Guard: a blend that's too small to normalize (e.g. damping from an uninitialized zero
+			// quaternion, or a momentary near-antipodal overshoot) would yield a degenerate (0,0,0,0)
+			// that asserts inside any downstream Quaternion.Lerp/Slerp. Snap to the target instead.
+			if (Smoothed.sqrMagnitude < 1e-10f)
+			{
+				return new Quaternion(target.x, target.y, target.z, target.w);
+			}
+
+			var Result = Smoothed.normalized;
 
 			// Ensure velocity is tangent.
 			var derivError = Vector4.Project(new Vector4(velocity.x, velocity.y, velocity.z, velocity.w), Result);

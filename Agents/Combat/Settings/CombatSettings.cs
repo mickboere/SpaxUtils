@@ -16,6 +16,10 @@ namespace SpaxUtils
 		public float MaxChargeMultiplier => maxChargeMultiplier;
 		public float ChargeBalance => chargeBalance;
 		public float PerformBalance => performBalance;
+		public float Restitution => restitution;
+		public float MeleeFloorPadding => meleeFloorPadding;
+		public float MeleeFloorStiffness => meleeFloorStiffness;
+		public AnimationCurve RearExposureCurve => rearExposureCurve;
 
 		[Header("Hit Pause Settings")]
 		[SerializeField, MinMaxRange(0f, 1f)] private Vector2 hitPauseReceiver = new Vector2(0.05f, 0.75f);
@@ -38,5 +42,17 @@ namespace SpaxUtils
 		private float chargeBalance = 1f;
 		[SerializeField, Range(0.01f, 1f), Tooltip("How much balance is maintained while performing a melee move. Universal across melee moves.")]
 		private float performBalance = 1f;
+
+		[Header("Physics")]
+		[SerializeField, Range(0f, 1f), Tooltip("Elasticity of the inertia-sharing clash when a hit lands. 0 = perfectly inelastic (both bodies hold the gap), 1 = fully elastic (they bounce apart). Scales both the receiver's knockback and the hitter's self-brake by (1 + restitution).")]
+		private float restitution = 0f;
+		[SerializeField, Range(0f, 3f), Tooltip("Melee separation floor: absolute width (metres) of the no-go ring added OUTSIDE the combined top-down radii. The lunge is sprung back out within this ring; the combined radii itself is an impenetrable wall. Absolute (not a fraction) so it stays a fixed buffer even against giant enemies. Keep below (reach − combined radii) or attacks can't connect.")]
+		private float meleeFloorPadding = 0.5f;
+		[SerializeField, Min(0f), Tooltip("Spring stiffness of the melee separation floor (auto critically-damped). Higher = the lunge is stopped sooner/harder before it reaches the inner wall.")]
+		private float meleeFloorStiffness = 150f;
+
+		[Header("Vulnerability")]
+		[SerializeField, Tooltip("Maps how exposed the receiver is to a hit based on the angle it lands from, into a 0..1 rear-exposure factor that lerps the receiver's Vulnerability toward 1 (full crit). INPUT (X, 0..1): the hit's angle relative to the receiver's facing - 0 = struck dead-on from the front, 0.5 = struck from the side, 1 = struck from directly behind. OUTPUT (Y, 0..1): exposure - 0 = no added vulnerability (use the receiver's base Vulnerability stat), 1 = fully exposed (Vulnerability forced to 1, guaranteeing a crit if the hit couples). Default shape: front/sides approx 0, ramping up to 1 at the rear.")]
+		private AnimationCurve rearExposureCurve = new AnimationCurve(new Keyframe(0f, 0f), new Keyframe(0.5f, 0f), new Keyframe(1f, 1f));
 	}
 }
