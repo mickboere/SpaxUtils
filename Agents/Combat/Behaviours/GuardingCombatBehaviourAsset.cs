@@ -28,6 +28,7 @@ namespace SpaxUtils
 
 		private PointsStat chargeStat;
 		private EntityStat vulnerabilityStat;
+		private EntityStat guardStat;
 		private FloatFuncModifier vulnerabilityMod;
 		private Vector3 entryForward;
 
@@ -45,12 +46,14 @@ namespace SpaxUtils
 		{
 			base.Start();
 
-			// Guard sacrifices mobility for focused invulnerability: it drives Vulnerability (and thus crit
-			// chance) toward 0 as guard weight rises, making crits impossible at full guard. The rear stays
-			// exposed - that exposure is applied situationally per-hit in AgentHitHandlerComponent, lerping
-			// back up from this guard-reduced value, so a guarding agent can still be critted from behind.
+			// Guard sacrifices mobility for focused steadiness: it divides Vulnerability (and thus crit chance)
+			// by the agent's guarding capacity (GUARD, amplified by a shield), ramped by guard weight. It never
+			// reaches 0 - bracing lowers your odds of being critted but never grants immunity; a shield's pliancy
+			// does the real work against precision. The rear stays exposed - that exposure is applied
+			// situationally per-hit in AgentHitHandlerComponent, lerping back up from this guard-reduced value.
 			vulnerabilityStat = Agent.Stats.GetStat(AgentStatIdentifiers.VULNERABILITY, true);
-			vulnerabilityMod = new FloatFuncModifier(ModMethod.Absolute, (v) => v * Weight.Invert());
+			guardStat = Agent.Stats.GetStat(AgentStatIdentifiers.GUARD, true);
+			vulnerabilityMod = new FloatFuncModifier(ModMethod.Absolute, (v) => v / (1f + guardStat.Value * Weight));
 			vulnerabilityStat.AddModifier(this, vulnerabilityMod);
 
 			// Capture the facing at guard-start so the turn-to-target travels from here in step with guard weight.

@@ -74,6 +74,13 @@ namespace SpaxUtils
 		string Limb { get; }
 
 		/// <summary>
+		/// Fraction of total body mass put behind a limb-less strike (kicks, body rams). Used as the hit mass
+		/// when no <see cref="Limb"/> is assigned, driving knockback/impact and exertion. Wield speed & power
+		/// are unaffected (treated as a natural, weapon-independent strike).
+		/// </summary>
+		float NaturalStrikeMassFraction { get; }
+
+		/// <summary>
 		/// When true, the weapon equipped on <see cref="Limb"/> contributes its PhysicsDistribution to the hit.
 		/// When false (pommel strikes, kicks, etc.), body physics only.
 		/// </summary>

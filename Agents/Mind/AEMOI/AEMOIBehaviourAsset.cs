@@ -14,7 +14,7 @@ namespace SpaxUtils
 		/// neighbours / triad siblings. Was cos(45°) ≈ 0.707; tuned down to 0.5 for a less aggressive bleed.
 		/// Shared across every AEMOI behaviour so neighbour spread reads consistently.
 		/// </summary>
-		protected const float NEIGHBOUR_BLEED = 0.5f;
+		protected const float NEIGHBOUR_BLEED = 0.577f;
 
 		public string Name => name;
 		public virtual int Priority => priority;

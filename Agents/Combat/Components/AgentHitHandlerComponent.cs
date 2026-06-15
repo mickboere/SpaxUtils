@@ -31,7 +31,6 @@ namespace SpaxUtils
 		private EntityStat pliancyStat;
 		private EntityStat protectionStat;
 		private EntityStat luckStat;
-		private EntityStat guardStat;
 
 		private TimedCurveModifier hitPauseMod;
 
@@ -64,7 +63,6 @@ namespace SpaxUtils
 			pliancyStat = agent.Stats.GetStat(AgentStatIdentifiers.PLIANCY, true);
 			protectionStat = agent.Stats.GetStat(AgentStatIdentifiers.PROTECTION, true);
 			luckStat = agent.Stats.GetStat(AgentStatIdentifiers.LUCK, true);
-			guardStat = agent.Stats.GetStat(AgentStatIdentifiers.GUARD, true);
 
 			hittable.Subscribe(this, OnHitEvent, 100);
 		}
@@ -131,19 +129,17 @@ namespace SpaxUtils
 
 			if (!neglect && hitData.Power > 0f)
 			{
-				// Impact is defined only by Coupling and Penetration.
-				impact = coupling * (1f - penetration) * 2f;
+				// Power sits at the centre of the octad, guarded by BOTH proofing and pliancy. It always
+				// transmits some blunt through the target's rigidity (hardness), increased when the hit stays
+				// blunt (low penetration) and when it connects cleanly (coupling). Penetration and coupling are
+				// already defended upstream (by proofing and pliancy respectively), so the wall here is the full
+				// proofing + pliancy - neither stat alone can ever fully negate the centre.
+				float bluntOffence = hitData.Power * (hardnessStat + (1f - penetration) + coupling);
+				bluntDamage = SpaxFormulas.CalculateDamage(bluntOffence, proofingStat + pliancyStat);
 
-				// Guard divides impact (and thus force and blunt damage) by guardStat * guardWeight.
-				float guardWeight = hitData.Data.GetValue<float>(HitDataIdentifiers.GUARD_WEIGHT);
-				if (guardWeight > 0f)
-				{
-					impact /= Mathf.Max(1f, guardStat.Value * guardWeight);
-				}
-
-				// Power is not defended; Impact determines how much Power couples into blunt damage.
-				float bluntOffence = hitData.Power * impact;
-				bluntDamage = SpaxFormulas.CalculateDamage(bluntOffence, (proofingStat + pliancyStat) * 0.5f);
+				// Normalised concussive transfer (0-1): the fraction of Power that landed as blunt. Reused for
+				// force, hit-pause and audio, so it's clamped to a clean 0-1 against very low-defence targets.
+				impact = Mathf.Clamp01(bluntDamage / hitData.Power);
 			}
 
 			hitData.Data.SetValue(HitDataIdentifiers.IMPACT, impact);
@@ -224,7 +220,13 @@ namespace SpaxUtils
 			// --- HP DAMAGE & MALICE ---
 			if (!Invulnerable)
 			{
-				float damageDealt = statHandler.PointStats.SW.Drain(totalDamage, out bool dead, out _);
+				// Bracing (guard) trades health for stance: the blunt that would bleed health is borne entirely
+				// by endurance instead (which already absorbed it via toEndure above), scaled by guard weight.
+				// Pierce and crit are untouched - only a shield (raising proofing/pliancy) defends those.
+				float guardWeight = Mathf.Clamp01(hitData.Data.GetValue<float>(HitDataIdentifiers.GUARD_WEIGHT));
+				float healthDamage = Mathf.Max(0f, totalDamage - bluntDamage * guardWeight);
+
+				float damageDealt = statHandler.PointStats.SW.Drain(healthDamage, out bool dead, out _);
 				hitData.Data.SetValue(HitDataIdentifiers.DAMAGE_DEALT, damageDealt);
 
 				// --- MALICE BUILDUP ---

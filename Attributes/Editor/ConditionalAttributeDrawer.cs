@@ -17,11 +17,32 @@ namespace SpaxUtils
 				// Enum
 				PropertyIsEnum(position, property, label, conditionalAttribute, toggleProperty);
 			}
+			else if (toggleProperty.propertyType == SerializedPropertyType.String)
+			{
+				// String (truthy = non-empty; inverse to show when empty)
+				PropertyIsString(position, property, label, conditionalAttribute, toggleProperty);
+			}
 			else
 			{
 				// Bool
 				PropertyIsBool(position, property, label, conditionalAttribute, toggleProperty);
 			}
+		}
+
+		private void PropertyIsString(Rect position, SerializedProperty property, GUIContent label,
+			ConditionalAttribute conditionalAttribute, SerializedProperty toggleProperty)
+		{
+			bool toggle = !string.IsNullOrEmpty(toggleProperty.stringValue);
+			if (conditionalAttribute.Hide && toggle == conditionalAttribute.Inverse)
+			{
+				return;
+			}
+
+			EditorGUI.BeginProperty(position, label, property);
+			EditorGUI.BeginDisabledGroup(toggle == conditionalAttribute.Inverse);
+			EditorGUI.PropertyField(position, property, label, true);
+			EditorGUI.EndDisabledGroup();
+			EditorGUI.EndProperty();
 		}
 
 		private void PropertyIsEnum(Rect position, SerializedProperty property, GUIContent label,
@@ -76,9 +97,21 @@ namespace SpaxUtils
 			ConditionalAttribute conditionalAttribute = attribute as ConditionalAttribute;
 			SerializedProperty toggleProperty = property.FindNeighbourProperty(conditionalAttribute.ToggleProperty);
 
-			if (conditionalAttribute.Hide &&
-				((conditionalAttribute.EnumValues.Length > 0 && conditionalAttribute.EnumValues.Contains(toggleProperty.enumValueIndex) == conditionalAttribute.Inverse) ||
-				(conditionalAttribute.EnumValues.Length == 0 && toggleProperty.boolValue == conditionalAttribute.Inverse)))
+			bool hidden;
+			if (conditionalAttribute.EnumValues.Length > 0)
+			{
+				hidden = conditionalAttribute.EnumValues.Contains(toggleProperty.enumValueIndex) == conditionalAttribute.Inverse;
+			}
+			else if (toggleProperty.propertyType == SerializedPropertyType.String)
+			{
+				hidden = !string.IsNullOrEmpty(toggleProperty.stringValue) == conditionalAttribute.Inverse;
+			}
+			else
+			{
+				hidden = toggleProperty.boolValue == conditionalAttribute.Inverse;
+			}
+
+			if (conditionalAttribute.Hide && hidden)
 			{
 				return 0f;
 			}

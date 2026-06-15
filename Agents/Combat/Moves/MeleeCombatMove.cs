@@ -21,6 +21,7 @@ namespace SpaxUtils
 		public bool PrelongCharge => prelongCharge;
 		public float ProlongThreshold => prolongThreshold;
 		public string Limb => limb;
+		public float NaturalStrikeMassFraction => naturalStrikeMassFraction;
 		public bool UseArmament => useArmament;
 		public float Piercing => piercing;
 		public float Power => power;
@@ -45,6 +46,8 @@ namespace SpaxUtils
 
 		[Header("Stats")]
 		[SerializeField, ConstDropdown(typeof(IEquipmentSlotTypeConstants), true)] private string limb;
+		[SerializeField, Conditional(nameof(limb), inverse: true), Range(0f, 1f), Tooltip("Fraction of total body mass put behind a limb-less strike (kicks, body rams). Used as the hit mass when no Limb is assigned, driving knockback/impact and exertion. Wield speed & power are unaffected (treated as a natural, weapon-independent strike).")]
+		private float naturalStrikeMassFraction = 0.1f;
 		[SerializeField] private bool useArmament = false;
 		[SerializeField, Range(0f, 2f), Tooltip("Percentage of user's Piercing transfered into hit."), FormerlySerializedAs("offence")] private float piercing = 1f;
 		[SerializeField, Range(0f, 2f), Tooltip("Percentage of user's Power transfered into hit.")] private float power = 1f;

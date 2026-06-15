@@ -67,10 +67,14 @@ namespace SpaxUtils
 		private EntityStat strengthStat;
 
 		/// <summary>
-		/// Mass behind the striking limb. Falls back to the agent's whole-body mass when the move's limb has no
-		/// dedicated MASS substat (e.g. a limbless creature), so the limb-mass maths never dereferences a null stat.
+		/// Mass behind the striking limb. When the move has no limb (kicks, body rams) there is no dedicated MASS
+		/// substat, so the strike mass falls back to a fraction of the agent's whole-body mass
+		/// (<see cref="IMeleeCombatMove.NaturalStrikeMassFraction"/>) - never the full body weight, and never a
+		/// null dereference.
 		/// </summary>
-		private float LimbMass => limbMassStat != null ? (float)limbMassStat : rigidbodyWrapper.Mass;
+		private float LimbMass => limbMassStat != null
+			? (float)limbMassStat
+			: rigidbodyWrapper.Mass * move.NaturalStrikeMassFraction;
 		private EntityStat precisionStat;
 		private EntityStat luckStat;
 		private EntityStat chargeStat;
@@ -164,12 +168,24 @@ namespace SpaxUtils
 			accumulatedChargePoints = 0f;
 
 			// Compute wield ratio and base factors once per behaviour instance.
-			float mass = LimbMass;
-			float strength = strengthStat;
-			wieldRatio = mass > 0f ? strength / mass : 1f;
-			if (wieldRatio < 0f)
+			if (limbMassStat != null)
 			{
-				wieldRatio = 0f;
+				// Armed/limbed strike: speed & power scale with how well the agent's strength wields the
+				// limb (+ any equipped weapon mass folded into the limb's MASS substat).
+				float mass = (float)limbMassStat;
+				float strength = strengthStat;
+				wieldRatio = mass > 0f ? strength / mass : 1f;
+				if (wieldRatio < 0f)
+				{
+					wieldRatio = 0f;
+				}
+			}
+			else
+			{
+				// Natural strike (kick, body ram): no limb/weapon to wield, so the strength-vs-mass relation is
+				// neutral - the move swings at its designed speed & power, independent of any equipped weapon.
+				// Its hit mass is instead a fraction of body mass (see LimbMass / NaturalStrikeMassFraction).
+				wieldRatio = 1f;
 			}
 
 			baseStrengthSpeedFactor = ComputeBaseStrengthSpeedFactor(wieldRatio);
