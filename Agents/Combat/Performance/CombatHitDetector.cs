@@ -10,7 +10,9 @@ namespace SpaxUtils
 	/// </summary>
 	public class CombatHitDetector : IDisposable
 	{
-		public const int DEFAULT_SCANS = 4;
+		// Upper clamp for the per-frame adaptive sub-scan count; CombatUtils.ColliderScan computes just enough
+		// to fill the gap between frames and only hits this ceiling on very fast swings.
+		public const int DEFAULT_SCANS = 16;
 
 		public List<HitScanHitData> Hits { get; private set; } = new List<HitScanHitData>();
 
@@ -47,29 +49,56 @@ namespace SpaxUtils
 		{
 		}
 
-		public bool Update(out List<HitScanHitData> newHits)
+		/// <summary>
+		/// Ticks the detector. When <paramref name="scan"/> is true it sweeps each collider from its previous
+		/// orientation to its current one and reports new hits; when false it only refreshes the stored
+		/// orientations. Call it every frame so the stored orientation is always one frame old - otherwise the
+		/// first sweep would span the whole wind-up back to the move's start pose.
+		/// <paramref name="sweepStart"/> (0..1) lerps the sweep's START point from the previous orientation toward
+		/// the current one - used on the first detection frame to begin exactly at the delay crossing rather than
+		/// the full previous frame, keeping the detection start frame-rate/timescale independent. 0 = full previous
+		/// frame (normal continuous sweep).
+		/// </summary>
+		public bool Update(bool scan, float sweepStart, out List<HitScanHitData> newHits)
 		{
 			newHits = new List<HitScanHitData>();
 
 			foreach (Collider collider in colliders)
 			{
-				List<HitScanHitData> hits = CombatUtils.ColliderScan(agent.Targetable.Center, collider, orientations[collider], DEFAULT_SCANS, layerMask);
-
-				foreach (HitScanHitData hit in hits)
+				if (scan)
 				{
-					if (!hit.Transform.HasParent(agent.Transform) &&
-						!newHits.Any(h => h.GameObject == hit.GameObject) &&
-						!Hits.Any(h => h.GameObject == hit.GameObject))
+					(Vector3 pos, Quaternion rot) start = orientations[collider];
+					if (sweepStart > 0f)
 					{
-						newHits.Add(hit);
+						start = (
+							Vector3.Lerp(start.pos, collider.transform.position, sweepStart),
+							Quaternion.Slerp(start.rot, collider.transform.rotation, sweepStart));
+					}
+
+					List<HitScanHitData> hits = CombatUtils.ColliderScan(agent.Targetable.Center, collider, start, DEFAULT_SCANS, layerMask);
+
+					foreach (HitScanHitData hit in hits)
+					{
+						if (!hit.Transform.HasParent(agent.Transform) &&
+							!newHits.Any(h => h.GameObject == hit.GameObject) &&
+							!Hits.Any(h => h.GameObject == hit.GameObject))
+						{
+							newHits.Add(hit);
+						}
 					}
 				}
 
+				// Always refresh - even when not scanning - so the next sweep spans a single frame rather than
+				// the stale gap back to the move's wind-up pose.
 				orientations[collider] = (collider.transform.position, collider.transform.rotation);
 			}
 
-			Hits.AddRange(newHits);
-			return newHits.Count > 0;
+			if (scan)
+			{
+				Hits.AddRange(newHits);
+				return newHits.Count > 0;
+			}
+			return false;
 		}
 	}
 }

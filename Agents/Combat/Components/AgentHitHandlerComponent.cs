@@ -16,6 +16,8 @@ namespace SpaxUtils
 		[SerializeField, Tooltip("When enabled, hits landing toward this agent's back raise effective Vulnerability toward 1 (shaped by CombatSettings.RearExposureCurve), letting crits land from behind even through guard. When disabled, only the base Vulnerability stat is used regardless of hit angle.")]
 		private bool backTurnWeakness = false;
 
+		[SerializeField] private bool debug;
+
 		private IAgent agent;
 		private IHittable hittable;
 		private RigidbodyWrapper rigidbodyWrapper;
@@ -291,7 +293,10 @@ namespace SpaxUtils
 				damageLedger[hitData.Hitter.ID] = totalDamage;
 			}
 
-			//SpaxDebug.Log($"{agent.ID} - HIT:", hitData.ToString() + "\nEntity Stats:\n" + Entity.Stats.GetSnapshot());
+			if (debug)
+			{
+				SpaxDebug.Log($"{agent.ID} - HIT:", hitData.ToString() + "\nEntity Stats:\n" + Entity.Stats.GetSnapshot());
+			}
 		}
 	}
 }

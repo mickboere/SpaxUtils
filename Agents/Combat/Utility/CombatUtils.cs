@@ -41,7 +41,7 @@ namespace SpaxUtils
 				if (DEBUG)
 				{
 					Color color = Color.HSVToRGB(UnityEngine.Random.value, 1f, 1f);
-					Debug.DrawLine(current.Center, next.Center, color, DEBUG_DURATION * Time.timeScale);
+					Debug.DrawLine(current.Center, next.Center, color, DEBUG_DURATION);
 				}
 #endif
 
@@ -69,7 +69,7 @@ namespace SpaxUtils
 			int scans, LayerMask layerMask)
 		{
 			Vector3 scale = collider.transform.lossyScale;
-			float scaleMag = scale.magnitude;
+			Vector3 absScale = new Vector3(Mathf.Abs(scale.x), Mathf.Abs(scale.y), Mathf.Abs(scale.z));
 
 			switch (collider)
 			{
@@ -78,28 +78,43 @@ namespace SpaxUtils
 						Vector3 offset = boxCollider.center.Multiply(scale);
 						var a = (lastOrientation.pos + lastOrientation.rot * offset, lastOrientation.rot);
 						var b = (collider.transform.position + collider.transform.rotation * offset, collider.transform.rotation);
-						return BoxScan(orbitPoint, boxCollider.size * scaleMag, a, b, scans, layerMask);
+						// Box size scales per-axis with lossy scale (not by its magnitude).
+						Vector3 boxSize = boxCollider.size.Multiply(absScale);
+						int boxScans = ComputeScanCount(a, b, Mathf.Min(boxSize.x, Mathf.Min(boxSize.y, boxSize.z)) * 0.5f, boxSize.magnitude * 0.5f, scans);
+						return BoxScan(orbitPoint, boxSize, a, b, boxScans, layerMask);
 					}
 				case SphereCollider sphereCollider:
 					{
 						Vector3 offset = sphereCollider.center.Multiply(scale);
 						var a = (lastOrientation.pos + lastOrientation.rot * offset, lastOrientation.rot);
 						var b = (collider.transform.position + collider.transform.rotation * offset, collider.transform.rotation);
-						return SphereScan(orbitPoint, sphereCollider.radius * scaleMag, a, b, scans, layerMask);
+						// Sphere radius scales with the largest axis (matches Unity).
+						float sphereRadius = sphereCollider.radius * Mathf.Max(absScale.x, Mathf.Max(absScale.y, absScale.z));
+						// Rotation doesn't change a sphere's swept volume, so extent is 0 - translation only.
+						int sphereScans = ComputeScanCount(a, b, sphereRadius, 0f, scans);
+						return SphereScan(orbitPoint, sphereRadius, a, b, sphereScans, layerMask);
 					}
 				case CapsuleCollider capsuleCollider:
 					{
 						Vector3 offset = capsuleCollider.center.Multiply(scale);
 						var a = (lastOrientation.pos + lastOrientation.rot * offset, lastOrientation.rot);
 						var b = (collider.transform.position + collider.transform.rotation * offset, collider.transform.rotation);
+						// Radius scales with the larger of the two axes PERPENDICULAR to the capsule direction;
+						// height scales with the axis ALONG the direction (matches Unity).
 						Vector3 axis;
+						float radiusScale;
+						float heightScale;
 						switch (capsuleCollider.direction)
 						{
-							case 2: axis = Vector3.forward; break;
-							case 1: axis = Vector3.up; break;
-							default: axis = Vector3.right; break;
+							case 2: axis = Vector3.forward; radiusScale = Mathf.Max(absScale.x, absScale.y); heightScale = absScale.z; break;
+							case 1: axis = Vector3.up; radiusScale = Mathf.Max(absScale.x, absScale.z); heightScale = absScale.y; break;
+							default: axis = Vector3.right; radiusScale = Mathf.Max(absScale.y, absScale.z); heightScale = absScale.x; break;
 						}
-						return CapsuleScan(orbitPoint, capsuleCollider.radius * scaleMag, capsuleCollider.height, axis, a, b, scans, layerMask);
+						float capsuleRadius = capsuleCollider.radius * radiusScale;
+						// Unity clamps a capsule's height to at least its diameter.
+						float capsuleHeight = Mathf.Max(capsuleCollider.height * heightScale, capsuleRadius * 2f);
+						int capsuleScans = ComputeScanCount(a, b, capsuleRadius, capsuleHeight * 0.5f, scans);
+						return CapsuleScan(orbitPoint, capsuleRadius, capsuleHeight, axis, a, b, capsuleScans, layerMask);
 					}
 				default:
 					SpaxDebug.Error($"Collider not supported:", $"'{collider.GetType().Name}' Please add support or change the collider type.");
@@ -198,13 +213,19 @@ namespace SpaxUtils
 						return new RaycastHit[0];
 					}
 
-					Vector3 direction = current.Rotation * axis * height * 0.5f;
+					// Sphere-centre offset from the capsule centre = half the cylinder length (half-height minus the
+					// radius), matching how Unity places a CapsuleCollider's end spheres. CapsuleCastAll takes the
+					// two sphere CENTRES, so this must not include the radius.
+					Vector3 direction = current.Rotation * axis * Mathf.Max(0f, height * 0.5f - radius);
 					RaycastHit[] hits = Physics.CapsuleCastAll(current.Center - direction, current.Center + direction, radius, toNext.normalized, toNext.magnitude, layerMask);
 #if UNITY_EDITOR
 					if (DEBUG)
 					{
-						// I believe the raycast is correct, but I can't figure out the proper corresponding debug rotation.
-						//DbgDraw.WireCapsule(current.Center, (current.Rotation * Vector3.up).LookRotation(axis), radius, height, Color.blue, DEBUG_DURATION);
+						// WireCapsule draws along its local up, so rotate local up onto the collider's capsule
+						// axis: rotation * FromToRotation(up, axis). radius/height are the real world dimensions,
+						// so the gizmo traces the true cast volume. One per scan point (like the box) - the next
+						// segment draws its own start, so drawing the end too would double up interior points.
+						DbgDraw.WireCapsule(current.Center, current.Rotation * Quaternion.FromToRotation(Vector3.up, axis), radius, height, Color.blue, DEBUG_DURATION);
 					}
 #endif
 					return hits;
@@ -217,6 +238,29 @@ namespace SpaxUtils
 		#endregion Hit Scans
 
 		#region Scan Points
+
+		/// <summary>
+		/// Adaptive sub-scan count for one frame's sweep: just enough linear sub-casts that the curved
+		/// (orbited + rotated) path between the two orientations has no gap a target could slip through - and no
+		/// more. Returns 2 (a single cast) when the shape barely moved, scaling up only as it moves faster.
+		/// </summary>
+		/// <param name="shapeRadius">Shape thickness, used as the per-segment overlap budget.</param>
+		/// <param name="shapeExtent">Distance from the shape centre to its furthest point, for the rotation arc.</param>
+		/// <param name="maxScans">Upper safety clamp.</param>
+		public static int ComputeScanCount(
+			(Vector3 pos, Quaternion rot) a, (Vector3 pos, Quaternion rot) b,
+			float shapeRadius, float shapeExtent, int maxScans)
+		{
+			// Worst-case travel of the shape's furthest point = centre translation + the arc it sweeps as the
+			// shape rotates. Each sub-cast already sweeps continuously along its own chord, so we only need
+			// enough chords that none exceeds ~the shape's thickness.
+			float translation = Vector3.Distance(a.pos, b.pos);
+			float rotationArc = shapeExtent * Quaternion.Angle(a.rot, b.rot) * Mathf.Deg2Rad;
+			float step = Mathf.Max(shapeRadius, 0.001f);
+
+			int segments = Mathf.CeilToInt((translation + rotationArc) / step);
+			return Mathf.Clamp(segments + 1, 2, maxScans);
+		}
 
 		public static List<HitScanPoint> GetHitScanPoints(
 			Vector3 orbitPoint,

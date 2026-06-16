@@ -88,6 +88,8 @@ namespace SpaxUtils
 		private FloatOperationModifier enduranceCostMod;
 
 		private CombatHitDetector hitDetector;
+		private bool wasScanning;
+		private float lastRunTime;
 		private TimerClass inertiaTimer;
 		private TimedCurveModifier hitPauseMod;
 		private float totalCharge;
@@ -164,6 +166,15 @@ namespace SpaxUtils
 			hitDetector = new CombatHitDetector(Agent, transformLookup, move, hitDetectionMask);
 			Performer.StartedPerformingEvent += OnStartedPerformingEvent;
 
+			// Hit detection runs in LateUpdate, AFTER Unity's Animator has baked this frame's swing pose into the
+			// skeleton. The pose is applied via Animator parameters whose bone transforms only get written during
+			// the Animator's internal pass (after every Update, before LateUpdate). The rest of this behaviour
+			// ticks in the Update phase, so casting there reads bones still holding the PREVIOUS frame's bake -
+			// lagging the gate/RunTime, and the visible blade, by one frame of RunTime (= dt x timescale). That
+			// lag is why detection started at a wildly different swing position per timescale. Reading post-bake
+			// keeps the cast synced with the rendered pose at every timescale.
+			callbackService.SubscribeUpdate(UpdateMode.LateUpdate, this, LateUpdateHitDetection);
+
 			totalCharge = 1f;
 			accumulatedChargePoints = 0f;
 
@@ -213,6 +224,7 @@ namespace SpaxUtils
 
 			hitDetector.Dispose();
 			Performer.StartedPerformingEvent -= OnStartedPerformingEvent;
+			callbackService.UnsubscribeUpdate(UpdateMode.LateUpdate, this);
 
 			chargeSpeedStat?.RemoveModifier(speedMod);
 			performSpeedStat?.RemoveModifier(speedMod);
@@ -267,12 +279,6 @@ namespace SpaxUtils
 					swingPhaseSpeedMod.SetValue(phaseMult);
 				}
 
-				if (Performer.RunTime >= move.HitDetectionDelay &&
-					hitDetector.Update(out List<HitScanHitData> newHits))
-				{
-					OnNewHitDetected(newHits);
-				}
-
 				// Apply inertia.
 				if (inertiaTimer != null && inertiaTimer.Expired)
 				{
@@ -320,6 +326,10 @@ namespace SpaxUtils
 				}
 			}
 
+			// Hit detection is ticked in LateUpdate (see LateUpdateHitDetection) so the collider sweep reads the
+			// skeleton after the Animator has baked this frame's swing pose, keeping the cast synced with the
+			// rendered blade at every timescale rather than lagging it by a frame of RunTime.
+
 			if (Performer.State is PerformanceState.Finishing)
 			{
 				movementHandler.AutoUpdateMovement = true;
@@ -347,6 +357,41 @@ namespace SpaxUtils
 
 			// Keep the lunge from closing into the target's face.
 			EnforceSeparationFloor(delta);
+		}
+
+		/// <summary>
+		/// Hit detection, ticked in LateUpdate so the collider sweep reads the skeleton AFTER Unity's Animator
+		/// has baked this frame's swing pose. The swing pose is applied via Animator parameters whose bone
+		/// transforms only get written during the Animator's internal pass (after every Update, before
+		/// LateUpdate), so casting from the Update phase reads the previous frame's bake - lagging the gate by
+		/// one frame of RunTime (= dt x timescale), which made detection start at a different swing position per
+		/// timescale.
+		/// Ticked every frame so the stored orientation stays one frame old; only actually casts for hits once
+		/// into the swing past the hit-detection delay. Tracking through the wind-up is what stops the first
+		/// sweep from spanning all the way back to the move's start pose.
+		/// </summary>
+		private void LateUpdateHitDetection(float delta)
+		{
+			bool detectHits = Performer.State == PerformanceState.Performing && Performer.RunTime >= move.HitDetectionDelay;
+			bool firstScan = detectHits && !wasScanning;
+
+			// On the first detection frame, begin the sweep from the interpolated pose at the EXACT delay
+			// crossing between last frame and this one - not the full previous frame. The previous frame can sit
+			// a big slice of the swing back at high timescale / low fps, which would make detection start earlier
+			// the coarser the frame step; interpolating the crossing makes the start frame-rate independent.
+			float sweepStart = 0f;
+			if (firstScan)
+			{
+				float span = Performer.RunTime - lastRunTime;
+				sweepStart = span > 0f ? Mathf.Clamp01((move.HitDetectionDelay - lastRunTime) / span) : 0f;
+			}
+			wasScanning = detectHits;
+			lastRunTime = Performer.RunTime;
+
+			if (hitDetector.Update(detectHits, sweepStart, out List<HitScanHitData> newHits))
+			{
+				OnNewHitDetected(newHits);
+			}
 		}
 
 		/// <summary>
