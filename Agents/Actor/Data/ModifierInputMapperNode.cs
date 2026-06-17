@@ -39,6 +39,12 @@ namespace SpaxUtils
 		// Per modifier action: list of unique listener objects created for each binding subscription.
 		private Dictionary<string, List<object>> bindingListeners = new();
 
+		// Buttons currently held down (per binding listener), and listeners kept alive past a modifier-release
+		// because their button was still held — they self-unsubscribe once their own button comes up, so releasing
+		// the modifier (e.g. Parry) never strands a mid-charge bound act (e.g. a charging kick).
+		private readonly HashSet<object> heldBindings = new();
+		private readonly HashSet<object> pendingUnsubscribe = new();
+
 		public void InjectDependencies(PlayerInputWrapper playerInputWrapper, IAgent agent)
 		{
 			this.playerInputWrapper = playerInputWrapper;
@@ -73,6 +79,13 @@ namespace SpaxUtils
 				UnsubscribeBindings(config);
 			}
 
+			// Force-clean any bindings deferred while their button was held — the state is exiting, so they go now.
+			foreach (object listener in pendingUnsubscribe)
+			{
+				playerInputWrapper.Unsubscribe(listener);
+			}
+			pendingUnsubscribe.Clear();
+			heldBindings.Clear();
 			bindingListeners.Clear();
 		}
 
@@ -91,8 +104,22 @@ namespace SpaxUtils
 				playerInputWrapper.Subscribe(listener, capturedInput, ctx =>
 				{
 					if (!agent.Actor.SupportsAct(capturedAct)) return false;
-					if (ctx.started) agent.Actor.SendInput(capturedAct, true);
-					else if (ctx.canceled) agent.Actor.SendInput(capturedAct, false);
+					if (ctx.started)
+					{
+						agent.Actor.SendInput(capturedAct, true);
+						heldBindings.Add(listener);
+					}
+					else if (ctx.canceled)
+					{
+						agent.Actor.SendInput(capturedAct, false);
+						heldBindings.Remove(listener);
+						// If the modifier was released while this button was still held, the binding was kept alive
+						// solely to deliver this release — now finish tearing it down.
+						if (pendingUnsubscribe.Remove(listener))
+						{
+							playerInputWrapper.Unsubscribe(listener);
+						}
+					}
 					return true;
 				}, config.bindingInputPriority);
 			}
@@ -104,7 +131,16 @@ namespace SpaxUtils
 
 			foreach (object listener in listeners)
 			{
-				playerInputWrapper.Unsubscribe(listener);
+				if (heldBindings.Contains(listener))
+				{
+					// Button still held (e.g. charging a kick) — keep the binding alive so its release still lands.
+					// The modifier only gates ACCESS to new bound acts; it must not cancel one already in progress.
+					pendingUnsubscribe.Add(listener);
+				}
+				else
+				{
+					playerInputWrapper.Unsubscribe(listener);
+				}
 			}
 			listeners.Clear();
 		}
