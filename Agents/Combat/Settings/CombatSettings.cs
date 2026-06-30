@@ -54,5 +54,30 @@ namespace SpaxUtils
 		[Header("Vulnerability")]
 		[SerializeField, Tooltip("Maps how exposed the receiver is to a hit based on the angle it lands from, into a 0..1 rear-exposure factor that lerps the receiver's Vulnerability toward 1 (full crit). INPUT (X, 0..1): the hit's angle relative to the receiver's facing - 0 = struck dead-on from the front, 0.5 = struck from the side, 1 = struck from directly behind. OUTPUT (Y, 0..1): exposure - 0 = no added vulnerability (use the receiver's base Vulnerability stat), 1 = fully exposed (Vulnerability forced to 1, guaranteeing a crit if the hit couples). Default shape: front/sides approx 0, ramping up to 1 at the rear.")]
 		private AnimationCurve rearExposureCurve = new AnimationCurve(new Keyframe(0f, 0f), new Keyframe(0.5f, 0f), new Keyframe(1f, 1f));
+
+		[Header("Wielding")]
+		[SerializeField, MinMaxRange(0.5f, 1.5f), Tooltip("Swing-speed multiplier by wield ratio (strength / limb+weapon mass): X = factor when badly under-strength (heavy weapon → slow), Y = max over-strength bonus. UNIVERSAL across all melee moves — the per-move difference comes from limb/weapon mass, not this curve; a natural strike (kick) has no limb mass so it reads ratio 1 → factor 1. Read by the move performer AND by AI move-selection / strike-timing so a heavy swing is anticipated as the slow swing it is.")]
+		private Vector2 strengthSpeedModRange = new Vector2(0.5f, 1.15f);
+		[SerializeField, Range(1f, 4f), Tooltip("Exponent for the under-strength speed curve. Higher = slower ramp-up before reaching mass-equal strength.")]
+		private float speedCurveExponent = 2f;
+		[SerializeField, Min(1f), Tooltip("Wield ratio (strength / limb mass) at which the over-strength speed bonus reaches strengthSpeedModRange.y. E.g. 10 = need 10x the limb mass in strength.")]
+		private float overStrengthFullRatio = 10f;
+
+		/// <summary>
+		/// Universal wield speed factor for a strength/limb-mass <paramref name="wieldRatio"/>: the multiplier a melee
+		/// swing runs at given how well the agent's strength wields the limb+weapon mass — &lt;1 when under-strength
+		/// (heavy → slow, down to <c>strengthSpeedModRange.x</c>), &gt;1 when over-strength (up to <c>.y</c>). A
+		/// mass-equal wield (ratio 1) or a natural strike (ratio 1) → 1. Single source of truth shared by the performer,
+		/// move-selection and the AI's strike-timing so they all model the same swing speed.
+		/// </summary>
+		public float WieldSpeedFactor(float wieldRatio)
+		{
+			if (wieldRatio <= 1f)
+			{
+				return Mathf.Lerp(strengthSpeedModRange.x, 1f, Mathf.Pow(Mathf.Clamp01(wieldRatio), speedCurveExponent));
+			}
+			float extra = Mathf.Clamp01((wieldRatio - 1f) / (overStrengthFullRatio - 1f));
+			return Mathf.Lerp(1f, strengthSpeedModRange.y, extra);
+		}
 	}
 }

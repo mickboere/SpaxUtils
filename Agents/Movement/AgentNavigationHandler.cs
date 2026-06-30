@@ -604,8 +604,10 @@ namespace SpaxUtils
 
 			ApplySteering(ref worldDir, out bool hardStop, true);
 
-			if (hardStop)
+			if (hardStop || worldDir.sqrMagnitude < 0.0001f)
 			{
+				// No meaningful horizontal steering direction this frame (e.g. degenerate/near-vertical
+				// target or separation cancelled the direction); hold position instead of feeding zero in.
 				ResetInput();
 				return false;
 			}
@@ -665,7 +667,9 @@ namespace SpaxUtils
 				cornerIndex++;
 			}
 
-			Vector3 cornerDir = Direction(navMeshPath.corners[cornerIndex]);
+			// Flatten before the guard: a corner nearly directly above/below the agent has a non-trivial 3D
+			// magnitude but a degenerate horizontal direction, which would collapse to zero downstream.
+			Vector3 cornerDir = Direction(navMeshPath.corners[cornerIndex]).FlattenY();
 			if (cornerDir.sqrMagnitude < 0.001f)
 			{
 				return null;

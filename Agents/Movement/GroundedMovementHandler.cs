@@ -74,6 +74,9 @@ namespace SpaxUtils
 		[field: SerializeField] public float HalfSpeed { get; set; } = 1.5f;
 		[field: SerializeField] public float FullSpeed { get; set; } = 4.5f;
 
+		/// <inheritdoc/>
+		public float MinimumInput => inputSettings.MinimumInput;
+
 		[Header("Physics")]
 		[SerializeField, Tooltip("The max amount of force that can be applied to reach the desired velocity.")]
 		protected float maxAcceleration = 2500f;

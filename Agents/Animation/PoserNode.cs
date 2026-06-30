@@ -24,11 +24,11 @@ namespace SpiritAxis
 		private const int LANDING_POSE_PRIORITY = 8;
 
 		/// <summary>
-		/// Below this raw-input magnitude the agent is treated as having no movement intent, fading the idle
-		/// pose into the locomotion blend. Keyed on intent (not velocity) so a reversal — velocity through
-		/// zero, intent still high — keeps the idle suppressed and doesn't flash the upright idle at the origin.
+		/// Raw-input magnitude (as a multiple of the movement deadzone) above which a HALTED agent is still treated
+		/// as mid-locomotion — chiefly a direction reversal, whose velocity/InputSmooth momentarily pass through
+		/// zero while intent stays high — so the idle pose stays suppressed instead of flashing at the origin.
 		/// </summary>
-		private const float IDLE_INTENT_THRESHOLD = 0.1f;
+		private const float REVERSAL_INTENT_FACTOR = 2f;
 
 		private IAgent agent;
 		private RigidbodyWrapper rigidbodyWrapper;
@@ -203,11 +203,17 @@ namespace SpiritAxis
 			// Update landing state.
 			UpdateLanding(scaledDelta);
 
-			// Idle pose belongs only when there's no movement INTENT. Keyed on raw input, not velocity: during a
-			// direction reversal velocity passes through zero while intent stays high, so this stays ~0 and the
-			// idle is held out of the blend, letting the origin crossing cross-blend locomotion poses instead of
-			// flashing the upright idle. Releasing input (a real stop) eases it back in.
-			float idleTarget = movementHandler.InputRaw.magnitude < IDLE_INTENT_THRESHOLD ? 1f : 0f;
+			// Idle ONLY when the movement is actually halted AND it isn't a mid-reversal. Two signals:
+			//  • halted    = InputSmooth below the deadzone — the SAME test GroundedMovementHandler uses to zero its
+			//    desired velocity (so it accounts for the input-ramp curve + smoothing). Keying on raw InputRaw
+			//    mismatched at the deadzone EDGE: the ramp pulls the effective input below the deadzone (movement
+			//    stops) while raw input still read above it → walk-in-place at a standstill.
+			//  • reversing = raw input still holds a clear direction (>= a small multiple of the deadzone). During a
+			//    reversal InputSmooth dips through zero while intent stays high, so this keeps the idle suppressed
+			//    and lets the origin crossing cross-blend locomotion poses instead of flashing the upright idle.
+			bool halted = movementHandler.InputSmooth.magnitude < movementHandler.MinimumInput;
+			bool reversing = movementHandler.InputRaw.magnitude >= movementHandler.MinimumInput * REVERSAL_INTENT_FACTOR;
+			float idleTarget = halted && !reversing ? 1f : 0f;
 			idleWeight = idleWeight.FILerp(idleTarget, moveset.PoseTransitionSpeed * delta);
 
 			UpdateWalkingPose(delta);

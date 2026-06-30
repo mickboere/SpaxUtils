@@ -55,6 +55,12 @@ namespace SpaxUtils
 		float FullSpeed { get; set; }
 
 		/// <summary>
+		/// Input-magnitude deadzone: an <see cref="InputRaw"/> shorter than this produces no movement
+		/// (treated as standstill). Pose/animation code should treat the agent as idle below it too.
+		/// </summary>
+		float MinimumInput { get; }
+
+		/// <summary>
 		/// Update agent's velocity to match target velocity.
 		/// </summary>
 		/// <param name="delta">The delta time between movement updates.</param>

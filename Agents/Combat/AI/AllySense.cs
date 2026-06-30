@@ -15,18 +15,20 @@ namespace SpaxUtils
 		private readonly IVisionComponent vision;
 		private readonly CombatSensesSettings settings;
 		private readonly TargetingService targetingService;
+		private readonly ISpawnpoint spawnpoint;
 
 		private readonly HashSet<ITargetable> visibleSet = new HashSet<ITargetable>();
 		private readonly List<ITargetable> forgetBuffer = new List<ITargetable>(16);
 
 		private string followingId;
 
-		public AllySense(IAgent agent, IVisionComponent vision, CombatSensesSettings settings, TargetingService targetingService)
+		public AllySense(IAgent agent, IVisionComponent vision, CombatSensesSettings settings, TargetingService targetingService, ISpawnpoint spawnpoint)
 		{
 			this.agent = agent;
 			this.vision = vision;
 			this.settings = settings;
 			this.targetingService = targetingService;
+			this.spawnpoint = spawnpoint;
 
 			agent.Targeter.Allies.RemovedComponentEvent += OnAllyRemovedEvent;
 		}
@@ -95,6 +97,11 @@ namespace SpaxUtils
 
 				if (!allies.ContainsKey(ally))
 				{
+					// Only begin tracking allies inside this agent's assigned region (mirrors EnemySense) — a
+					// region-bound agent shouldn't even register an out-of-region ally.
+					if (spawnpoint?.Region != null && !spawnpoint.Region.IsInside(allyAgent.Transform.position))
+						continue;
+
 					allies.Add(ally, new AllyInfo(allyAgent));
 					allyAgent.DiedEvent += OnAllyDiedEvent;
 					TrackedSetChanged?.Invoke();
@@ -195,6 +202,15 @@ namespace SpaxUtils
 
 			foreach (AllyInfo info in allies.Values)
 			{
+				// Region gate (mirrors EnemySense): an agent bound to a spawn region must NOT respond to allies outside
+				// it — a constrained guard shouldn't abandon its post to save (or follow) an out-of-region ally. Flood-
+				// satisfy so any accumulated ally drive drains to zero. Agents without an assigned region are unaffected.
+				if (spawnpoint?.Region != null && !spawnpoint.Region.IsInside(info.Agent.Transform.position))
+				{
+					agent.Mind.Satisfy(Vector8.One * delta, info.Agent);
+					continue;
+				}
+
 				bool inCombat = info.CombatComp?.InCombatMode ?? false;
 				bool isVulnerable = info.CombatComp?.IsVulnerable ?? false;
 				float recentDmg = info.CombatComp?.RecentDamageNormalized ?? 0f;

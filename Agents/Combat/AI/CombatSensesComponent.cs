@@ -78,7 +78,7 @@ namespace SpaxUtils
 
 			EnemySense = new EnemySense(Agent, vision, statHandler, combatComponent, settings, targetingService, spawnpoint);
 			ProjectileSense = new ProjectileSense(Agent, projectileService);
-			AllySense = new AllySense(Agent, vision, settings, targetingService);
+			AllySense = new AllySense(Agent, vision, settings, targetingService, spawnpoint);
 
 			EnemySense.TrackedSetChanged += RebuildTrackedCache;
 			AllySense.TrackedSetChanged += RebuildTrackedCache;
@@ -271,6 +271,11 @@ namespace SpaxUtils
 				if (Agent.Relations.Relations.TryGetValue(hitterId.ID, out float idScore) && idScore < -settings.MaxAggroRelation)
 					Agent.Relations.Set(hitterId.ID, -settings.MaxAggroRelation);
 			}
+
+			// Being hit is unambiguous awareness: force-track the attacker even if unseen / behind, so the danger block
+			// engages it and combat behaviours can actually retaliate (else an unspotted attacker is never tracked and
+			// the agent just stands there until it happens to see them). No-op when the hitter isn't an agent.
+			EnemySense?.ForceTrack(hitData.Hitter as IAgent);
 
 			// Foe-directed emotions are negative; flip sign before sending.
 			Agent.Mind.Stimulate(-stim, hitData.Hitter);

@@ -18,19 +18,15 @@ namespace SpaxUtils
 		[SerializeField] private LayerMask hitDetectionMask;
 
 		[Header("Swinging")]
-		[SerializeField, MinMaxRange(0.5f, 1.5f), Tooltip("Attack speed modifier by strength / weapon mass relation.")]
-		private Vector2 strengthSpeedModRange = new Vector2(0.7f, 1.15f);
-		[SerializeField, Range(1f, 4f), Tooltip("Exponent for under-strength speed curve. Higher = slower ramp-up before reaching mass-equal strength.")]
-		private float speedCurveExponent = 2f;
-		[SerializeField, Tooltip("Wield ratio at which the over-strength speed bonus reaches strengthSpeedModRange.y. E.g. 10 = need 10x the limb mass in strength.")]
-		private float overStrengthFullRatio = 10f;
+		// Wield speed curve (strengthSpeedModRange / speedCurveExponent / overStrengthFullRatio) lifted to CombatSettings
+		// — it's a universal mechanic and the AI's move-selection + strike-timing need to read it before the swing.
 		[SerializeField, Tooltip("Reference mass at which swing cost equals Move.PerformCost.Cost x 100.")]
-		private float massNormalizer = 50f;
+		private float massNormalizer = 2f;
 		[SerializeField, Range(0f, 1f), Tooltip("Minimum power factor when heavily under-strengthed.")]
 		private float minPowerFactor = 0.4f;
 		[SerializeField, Range(0f, 1f), Tooltip("Minimum swing speed factor at the start of a very heavy swing.")]
 		private float minInertiaSpeedFactor = 0.4f;
-		[SerializeField] private float swingShakeMagnitude = 1f;
+		[SerializeField] private float swingShakeMagnitude = 1.5f;
 
 		[Header("Charging")]
 		// chargeConversionRatio + maxChargeMultiplier moved to CombatSettings (global Static→charge economy).
@@ -42,7 +38,7 @@ namespace SpaxUtils
 		[SerializeField] private float maxAcceleration = 20000f;
 		[SerializeField] private float maxDeceleration = 2000f;
 		[SerializeField] private float power = 50f;
-		[SerializeField] private Vector3 stormShakeMagnitude = Vector3.one;
+		[SerializeField] private Vector3 stormShakeMagnitude = Vector3.one * 2;
 		[SerializeField] private float minStormDistance = 1f;
 
 		protected IMeleeCombatMove move;
@@ -199,7 +195,7 @@ namespace SpaxUtils
 				wieldRatio = 1f;
 			}
 
-			baseStrengthSpeedFactor = ComputeBaseStrengthSpeedFactor(wieldRatio);
+			baseStrengthSpeedFactor = combatSettings.WieldSpeedFactor(wieldRatio);
 			baseStrengthPowerFactor = ComputeBaseStrengthPowerFactor(wieldRatio);
 
 			// Base strength-speed modifier (constant over the swing).
@@ -391,22 +387,6 @@ namespace SpaxUtils
 			if (hitDetector.Update(detectHits, sweepStart, out List<HitScanHitData> newHits))
 			{
 				OnNewHitDetected(newHits);
-			}
-		}
-
-		/// <summary>
-		/// Computes base speed factor from strength/mass ratio.
-		/// </summary>
-		private float ComputeBaseStrengthSpeedFactor(float ratio)
-		{
-			if (ratio <= 1f)
-			{
-				return Mathf.Lerp(strengthSpeedModRange.x, 1f, Mathf.Pow(Mathf.Clamp01(ratio), speedCurveExponent));
-			}
-			else
-			{
-				float extra = Mathf.Clamp01((ratio - 1f) / (overStrengthFullRatio - 1f));
-				return Mathf.Lerp(1f, strengthSpeedModRange.y, extra);
 			}
 		}
 

@@ -129,6 +129,43 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
+		/// Projected heavy-arms wield speed factor for <paramref name="move"/> at the agent's CURRENT strength vs the
+		/// limb+weapon mass — the same multiplier the move applies mid-swing (<see cref="CombatSettings.WieldSpeedFactor"/>),
+		/// but readable BEFORE the swing so move-selection and the AI's strike-timing model the real (slower) heavy swing
+		/// instead of the un-penalised base speed. Natural strikes (kick/ram — no limb mass) → 1. 1 when no settings.
+		/// </summary>
+		public float WieldSpeedFactor(IPerformanceMove move)
+		{
+			return combatSettings != null ? combatSettings.WieldSpeedFactor(WieldRatio(move)) : 1f;
+		}
+
+		/// <summary>
+		/// Strength / limb-mass wield ratio for <paramref name="move"/> (mirrors the performer): a limbed/armed move
+		/// uses the limb's MASS substat (with any equipped weapon folded in); a natural strike with no such substat is
+		/// neutral (1), so a kick is never penalised by a heavy weapon it doesn't wield.
+		/// </summary>
+		private float WieldRatio(IPerformanceMove move)
+		{
+			if (move is not IMeleeCombatMove melee)
+			{
+				return 1f;
+			}
+			EntityStat limbMassStat = Agent.Stats.GetStat(AgentStatIdentifiers.MASS.SubStat(melee.Limb));
+			if (limbMassStat == null)
+			{
+				return 1f; // natural strike: no limb/weapon mass to wield.
+			}
+			float mass = (float)limbMassStat;
+			if (mass <= 0f)
+			{
+				return 1f;
+			}
+			float strength = Agent.Stats.GetStat(AgentStatIdentifiers.STRENGTH) ?? 1f;
+			float ratio = strength / mass;
+			return ratio < 0f ? 0f : ratio;
+		}
+
+		/// <summary>
 		/// Planned input chain (acts) to reach <see cref="PreferredMove"/>.
 		/// First entry is the opening act.
 		/// </summary>
@@ -417,9 +454,11 @@ namespace SpaxUtils
 				float outOfRange = Mathf.Max(0f, distance - maxReach);
 				float rangeScore = Mathf.InverseLerp(maxRangeError, 0f, outOfRange);
 
-				// Timing.
-				float chargeSpeed = Agent.Stats.GetStat(evalMove.ChargeSpeedMultiplierStat) ?? 1f;
-				float performSpeed = Agent.Stats.GetStat(evalMove.PerformSpeedMultiplierStat) ?? 1f;
+				// Timing. Fold in the heavy-arms wield penalty so a slow heavy swing is SCORED as slow (not as snappy
+				// as a light one); natural strikes (kicks) read 1, so they're unaffected.
+				float wieldFactor = WieldSpeedFactor(evalMove);
+				float chargeSpeed = (Agent.Stats.GetStat(evalMove.ChargeSpeedMultiplierStat) ?? 1f) * wieldFactor;
+				float performSpeed = (Agent.Stats.GetStat(evalMove.PerformSpeedMultiplierStat) ?? 1f) * wieldFactor;
 				float invChargeSpeed = 1f / Mathf.Max(chargeSpeed, 0.01f);
 				float invPerformSpeed = 1f / Mathf.Max(performSpeed, 0.01f);
 

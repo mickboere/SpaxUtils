@@ -27,27 +27,25 @@ namespace SpaxUtils
 		private const float LETHALITY_OFFENCE_WEIGHT = 0.3f;
 		private const float LETHALITY_POWER_WEIGHT = 0.2f;
 
-		// NE / Opportunity tuning.
-		private const float UTILIZE_WEIGHT = 0.5f;          // NE opportunity → danger scale (rise rate). Below MAX_STIM (W/E's responsiveness tool) but high enough to win an opening for a sharp agent; the opportunity-gated relax keeps it from lingering once the opening passes. TODO 14: calibrate all 8 from real frequency×magnitude data.
-		private const float UTILIZE_HOLD = 0.4f;            // NE drain fraction at FULL opportunity: low so the drive HOLDS while an opening is live (equilibrium ~ WEIGHT/HOLD ×MAX); ramps to full drain (1) as opportunity drops to 0.
-		private const float OPPORTUNITY_RETREAT_SPEED = 2f; // enemy retreat speed (m/s) that reads as a full "backing away" opening.
+		// NE / Opportunity. TODO 14: calibrate all 8 from real frequency×magnitude data.
+		private const float UTILIZE_WEIGHT = 0.5f;          // NE opportunity → danger scale.
+		private const float UTILIZE_HOLD = 0.4f;            // NE drain at FULL opportunity (low = holds while open; →1 as opportunity →0).
+		private const float OPPORTUNITY_RETREAT_SPEED = 2f; // enemy retreat speed (m/s) reading as a full "backing away" opening.
 
-		// Storm-windup danger. An OVER-charged (storm) attack is committed from BEYOND melee range and dashes in, so
-		// the melee-reach gates (windupDanger range, reachProximity, the exponential distanceFalloff) all read ~0 for
-		// it and the agent barely reacts. Instead, the instant the enemy starts over-charging a storm-capable move,
-		// danger spikes to STORM_WINDUP_FLOOR (gated by the storm's POTENTIAL reach so it fires even from afar — they
-		// keep charging until it reaches), then grows toward MAX_STIM the longer the charge is held (live dash reach
-		// climbing). Fed into Evade + Guard equally so inclination decides the response.
-		private const float STORM_WINDUP_FLOOR = 0.5f; // immediate fraction of MAX_STIM the instant over-charging begins.
+		// NW / Ruthless — pressure a STANDOFF: HOLD cue (steady) + lesser CHASE cue (retreating). N owns approach, NE owns retreat.
+		private const float RUTHLESS_WEIGHT = 0.5f;         // NW standoff → danger scale (parallel to UTILIZE_WEIGHT).
+		private const float NW_STANDOFF_SPEED = 2f;         // radial speed (m/s) that collapses the hold cue (enemy decisively charging/fleeing).
+		private const float NW_RETREAT_WEIGHT = 0.33f;      // how much a fleeing enemy feeds NW vs NE (<1 = NE stays primary retreat response).
 
-		// Finisher instinct. As an enemy's health drops, an agent whose live Balance leans NW (ruthless/resentful) is
-		// increasingly drawn to press the kill — stimulating N (attack) and NW (relentlessness), plus a little NE
-		// (precision charged strike). Gated on the live Balance.NW lean (so it builds with bloodlust toward a hated
-		// foe); inclination is deliberately left out of the gate (inclination is purely stimulation weight). The
-		// health response is curved (FINISHER_HEALTH_POWER) so it stays negligible until very low health, and it
-		// carries a much gentler distance falloff than ordinary threat stim — a predator commits to the chase.
-		// TODO 14: calibrate alongside the other 8 drives from real frequency×magnitude data.
-		private const float FINISHER_WEIGHT = 0.35f;        // near-death × fully-ruthless adds this fraction of MAX_STIM to N & NW.
+		// Hate empowers the whole offensive triad (N/NE/NW) as a shared GAIN, never an addend (×gain on a zero cue stays zero; cancels in neutral-balance).
+		private const float HATE_GAIN = 1.5f;               // offensive drive = (1 + hate01·HATE_GAIN)×.
+
+		// Storm-windup: over-charged attacks dash in from beyond melee range, so the melee gates read ~0 — spike danger directly (own storm-reach gate), fed to Evade + Guard.
+		private const float STORM_WINDUP_FLOOR = 0.5f;      // immediate fraction of MAX_STIM when over-charging begins (grows toward MAX as the dash builds).
+
+		// Finisher: as enemy health drops, press the kill — N + NW + a little NE. Aggression (Balance.N) presses always;
+		// bloodlust (Balance.NW) wanes near own death. TODO 14: calibrate alongside the other 8 drives.
+		private const float FINISHER_WEIGHT = 0.2f;         // near-death × (aggression+bloodlust) → up to ~2× this fraction of MAX_STIM on N & NW.
 		private const float FINISHER_NE_SHARE = 0.5f;       // NE gets this fraction of the finisher (a little precision pull).
 		private const float FINISHER_HEALTH_POWER = 4f;     // ease-in on health deficit: ~0 at half health (0.5^4≈0.06), bites near death.
 		private const float FINISHER_FALLOFF_POWER = 0.3f;  // <1 softens the shared distance falloff toward 1 (the chase reach); 1 = same as threat stim.
@@ -124,6 +122,50 @@ namespace SpaxUtils
 		}
 
 		#region Enemy Tracking
+
+		/// <summary>
+		/// Forces this agent to start tracking <paramref name="hitter"/> as an enemy, bypassing the vision and region
+		/// gates — being hit is unambiguous awareness, so an attacker striking from behind / off-screen must still be
+		/// engageable (otherwise it's never tracked, the danger block never runs for it, and combat behaviours can't
+		/// get an <see cref="EnemyInfo"/> to retaliate). Stamps <see cref="AgentTrackingInfo.LastSeen"/> so the forget
+		/// pass doesn't drop a never-actually-seen attacker the very next frame; each subsequent hit refreshes it, and
+		/// awareness then lingers for <c>ForgetTime</c> after the last hit. No-op for a non-agent / dead hitter; an
+		/// already-tracked hitter just gets its awareness refreshed.
+		/// </summary>
+		public void ForceTrack(IAgent hitter)
+		{
+			if (hitter == null || !hitter.Alive)
+			{
+				return;
+			}
+
+			ITargetable targetable = hitter.Targetable;
+			if (targetable == null || targetable == agent.Targetable)
+			{
+				return;
+			}
+
+			if (!enemies.TryGetValue(targetable, out EnemyInfo info))
+			{
+				info = new EnemyInfo(hitter);
+
+				// Seed spatial data from the actual positions (mirrors UpdateEnemyInfo's visible branch). UpdateEnemyInfo
+				// only refreshes Direction/Distance while the enemy is VISIBLE, so a never-yet-seen attacker would keep
+				// the constructor default Vector3.zero — which consumers (Hostile's OrbitStrafer → LookRotation, the
+				// movement InputAxis) reject with "viewing vector is zero" / "input axis cannot be zero". Seeding the
+				// hit direction also makes the agent turn toward where it was struck; vision then takes over on the turn.
+				Vector3 toHitter = hitter.Transform.position - agent.Transform.position;
+				info.Distance = toHitter.magnitude;
+				info.Direction = info.Distance > Mathf.Epsilon ? toHitter / info.Distance : agent.Transform.forward;
+				info.LastLocation = hitter.Transform.position;
+
+				enemies.Add(targetable, info);
+				hitter.DiedEvent += OnEnemyDiedEvent;
+				TrackedSetChanged?.Invoke();
+			}
+
+			info.LastSeen = Time.time;
+		}
 
 		private void GatherEnemyData(float delta)
 		{
@@ -495,20 +537,24 @@ namespace SpaxUtils
 				// Evade and guard only spike when the enemy can physically threaten us right now.
 				float reachProximity = Mathf.Clamp01(activeReach / Mathf.Max(info.Distance, activeReach));
 
-				// N (Fight/Anger): threat * courage * resources.
-				// hate01 removed from danger (subjective); expressed through relax duration instead.
-				// courage = 1-lethality is objective — fear of being outmatched reduces willingness to fight.
+				// Hate empowers the whole offensive triad (N/NE/NW) as a shared GAIN on each base cue — never an addend,
+				// so NE still needs its opening and the common factor cancels in the neutral-balance. =1 at zero hate.
+				float hateGain = 1f + hate01 * HATE_GAIN;
+
+				// N (Fight/Anger): threat (a CLOSING / in-reach danger — the "enemy approaching" cue) × courage × resources,
+				// empowered by hate. courage = 1-lethality is objective — fear of being outmatched reduces willingness to fight.
 				float courage = 1f - lethality01;
-				float fightDanger = threatStim * Mathf.Clamp01(courage + 0.3f) * (1f - 0.5f * resourceDef);
+				float fightDanger = threatStim * Mathf.Clamp01(courage + 0.3f) * (1f - 0.5f * resourceDef) * hateGain;
 				// High N-inclination → N drains slowly (determined fighters stay angry longer).
 				float fightRelax = cur.N * sCalm * Mathf.Lerp(verySafe * 1.25f + 0.2f, 0.05f, Mathf.Clamp01(agent.Mind.Inclination.N));
 				float fight = fightDanger - fightRelax;
 
-				// NE (Utilize / precision charged strikes): driven by OPPORTUNITY only — the impulse to spend Static
-				// on a strong charged hit when the enemy is open. NOT amplified by windupDanger (that responsiveness
-				// is the W/E tool); weighted below MAX_STIM so a full opening is a moderate pull on par with the
-				// threat drives, not a saturating spike.
-				float utilizeDanger = info.Oppurtunity * AEMOI.MAX_STIM * UTILIZE_WEIGHT;
+				// NE (Utilize / precision charged strikes): driven by OPPORTUNITY only — the impulse to spend Static on a
+				// strong charged hit when the enemy is open (committed / stunned / back-turned / RETREATING / resource-
+				// open — so the "enemy opening the gap" regime already lives here). NOT amplified by windupDanger (that
+				// responsiveness is the W/E tool); weighted below MAX_STIM so a full opening is on par with the threat
+				// drives. Empowered by the shared hateGain (×1 at zero hate, so the timed incentive stays intact).
+				float utilizeDanger = info.Oppurtunity * AEMOI.MAX_STIM * UTILIZE_WEIGHT * hateGain;
 				// Reactive like Evade (NOT patient like Fight): hold the drive only while an opening is live, drain
 				// at full rate the instant there's nothing to utilize — so NE never lingers in anticipation.
 				float utilizeRelax = cur.NE * Mathf.Lerp(1f, UTILIZE_HOLD, info.Oppurtunity);
@@ -575,22 +621,29 @@ namespace SpaxUtils
 				float guardRelax = cur.W * Mathf.Lerp(1.5f, verySafe, attackPressure);
 				float guard = guardDanger - guardRelax;
 
-				// NW (Hate/Disgust/Relentlessness): driven by resentment as a slow-building emotional state.
-				// hate01 (resentment) encodes accumulated relationship history — unlike N (anger), NW does
-				// not spike with moment-to-moment threat. Scales to 30% of MAX_STIM at full hate so it is
-				// meaningful but does not trivially dominate the trigger landscape.
-				float nwDanger = hate01 * AEMOI.MAX_STIM * 0.3f;
-				// High NW-inclination → NW drains slowly (relentless agents hold grudges longest).
-				// Floor matches N's structure: low-inclination floor 0.2, high-inclination floor 0.05.
-				float nwRelax = cur.NW * Mathf.Lerp(verySafe * 1.25f + 0.2f, verySafe * 0.25f + 0.05f, Mathf.Clamp01(agent.Mind.Inclination.NW));
+				// NW (Pierce/Pressure): pressure a SAFE STANDOFF. enemyRadial = enemy's OWN radial velocity (isolated from
+				// ours): <0 approaching (N's job), ~0 holding (steady → pressure), >0 retreating (lesser chase, NE's tell
+				// weighted down). `harmful` = the enemy winding up a strike at us — they plant, so steady would read 1, so
+				// gate the cue by (1 - harmful) AND add harmful to the relax (opposite effect): under a windup NW stops
+				// building and bleeds off, yielding to Guard/Evade. hateGain empowers; bloodlust health-damped.
+				float enemyRadial = Vector3.Dot(info.Agent.Body.RigidbodyWrapper.Velocity, info.Direction);
+				float steady = 1f - Mathf.Clamp01(Mathf.Abs(enemyRadial) / NW_STANDOFF_SPEED);                  // 1 holding/jockeying, →0 on a decisive charge/flee
+				float retreating = Mathf.Clamp01(Mathf.Max(0f, enemyRadial) / OPPORTUNITY_RETREAT_SPEED);       // 0 holding/closing, →1 as they flee (NE's cue)
+				float harmful = Mathf.Clamp01((windupDanger + stormWindupDanger) / AEMOI.MAX_STIM);             // incoming windup (NOT mere proximity/recovery)
+				float nwCue = Mathf.Clamp01(steady + retreating * NW_RETREAT_WEIGHT) * (1f - harmful);
+				float nwDanger = nwCue * AEMOI.MAX_STIM * RUTHLESS_WEIGHT * hateGain * (1f - healthDef);
+				// Drains slowly while safe (high NW-inclination → slowest; floors 0.2/0.05), faster as healthDef rises
+				// (wounded → bloodlust wanes) and as harmful rises (under a windup → bleed off, yield to Guard/Evade).
+				float nwRelax = cur.NW * (Mathf.Lerp(verySafe * 1.25f + 0.2f, verySafe * 0.25f + 0.05f, Mathf.Clamp01(agent.Mind.Inclination.NW)) + healthDef + harmful);
 				float targetNW = nwDanger - nwRelax;
 
-				// Finisher instinct: as the enemy's health falls, an agent whose live Balance leans NW (ruthless/resentful)
-				// is drawn to press the kill — N (attack) + NW (relentlessness) + a little NE (precision). Health deficit
-				// is curved (FINISHER_HEALTH_POWER) so HALF health barely registers; it bites only at very low health.
-				// Kept OUT of rawStim so it can carry its own, much gentler distance falloff (the chase) below.
+				// Finisher: enemy near death → press the kill (N + NW + a little NE). Aggression (Balance.N) presses always;
+				// bloodlust (Balance.NW) wanes near our own death; curved by FINISHER_HEALTH_POWER (only bites very low).
+				// Kept OUT of rawStim so it carries its own gentler distance falloff (the chase) below.
 				float enemyHealthDef = info.StatHandler.PointStats.SW.PercentageMax.Invert();
-				float finisher = enemyHealthDef.Pow(FINISHER_HEALTH_POWER) * agent.Mind.Balance.NW * AEMOI.MAX_STIM * FINISHER_WEIGHT;
+				float aggression = agent.Mind.Balance.N;                    // presses the kill regardless of own state
+				float bloodlust = agent.Mind.Balance.NW * (1f - healthDef); // ruthless but not blind: wanes near death
+				float finisher = enemyHealthDef.Pow(FINISHER_HEALTH_POWER) * (aggression + bloodlust) * AEMOI.MAX_STIM * FINISHER_WEIGHT;
 				Vector8 finisherStim = new Vector8(
 					finisher,                     // N
 					finisher * FINISHER_NE_SHARE, // NE
