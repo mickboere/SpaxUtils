@@ -277,7 +277,8 @@ namespace SpaxUtils
 				stim *= supportiveness;
 				stim.E = followE;
 
-				agent.Mind.Stimulate(stim * delta, info.Agent); // POSITIVE — ally-directed
+				// POSITIVE — ally-directed. Continuous Demand LEVEL scaled to [0,MAX] to match EnemySense's convention (was a 0..1 per-frame impulse).
+				agent.Mind.SetDemand(stim * AEMOI.MAX_STIM, info.Agent);
 			}
 		}
 

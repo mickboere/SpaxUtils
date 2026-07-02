@@ -33,13 +33,17 @@ namespace SpaxUtils
 		protected AgentStatHandler StatHandler { get; private set; }
 		protected CombatSensesComponent CombatSenses { get; private set; }
 		protected AEMOISettings AEMOISettings { get; private set; }
+		protected CombatSensesSettings CombatSensesSettings { get; private set; }
 		protected PointStatOctad PointStats => StatHandler.PointStats;
 
-		/// <summary>Extra standoff distance a cautious agent (high Balance.S — e.g. low on the endurance/stamina
-		/// it needs to defend) keeps from a foe. Shared so every strafing/standoff behaviour widens spacing the
-		/// same way → the observable "backing away when vulnerable" tell. Remap extracts the cautious lean of the
-		/// normalized S↔N axis: zero at/below neutral S (0.5), ramping to the full CautiousSpacingMax at S=1.</summary>
-		protected float CautiousSpacingBonus => Mind.Balance.S.Remap(0f, 1f, 0.5f, 1f) * AEMOISettings.CautiousSpacingMax;
+		/// <summary>Extra standoff distance a vulnerable agent keeps from a foe — the shared "back away when I can't
+		/// afford to trade" tell used by every strafing/standoff behaviour. Reached by whichever is greater: the
+		/// cautious lean of the S↔N axis (Balance.S — zero at/below neutral S 0.5, ramping to full at S=1) OR endurance
+		/// depletion (zero at full W, full at empty W). So a worn-down agent of ANY temperament holds recovery distance
+		/// — WITHOUT fleeing (that stays fear's job) — turning standoff time into the W it needs to guard again.</summary>
+		protected float CautiousSpacingBonus =>
+			Mathf.Max(Mind.Balance.S.Remap(0f, 1f, 0.5f, 1f), 1f - PointStats.W.PercentageRecoverable)
+			* CombatSensesSettings.CautiousSpacingMax;
 
 		[SerializeField] new private string name;
 		[SerializeField] protected int priority;
@@ -58,13 +62,14 @@ namespace SpaxUtils
 
 		[SerializeField] private bool debug;
 
-		public void InjectDependencies(IAgent agent, CallbackService callbackService, AgentStatHandler agentStatHandler, CombatSensesComponent combatSenses, AEMOISettings aemoiSettings)
+		public void InjectDependencies(IAgent agent, CallbackService callbackService, AgentStatHandler agentStatHandler, CombatSensesComponent combatSenses, AEMOISettings aemoiSettings, CombatSensesSettings combatSensesSettings)
 		{
 			Agent = agent;
 			CallbackService = callbackService;
 			StatHandler = agentStatHandler;
 			CombatSenses = combatSenses;
 			AEMOISettings = aemoiSettings;
+			CombatSensesSettings = combatSensesSettings;
 			EntityTimescale = Agent.Stats.GetStat(EntityStatIdentifiers.TIMESCALE, true, 1f);
 		}
 

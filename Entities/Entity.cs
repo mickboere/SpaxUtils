@@ -203,6 +203,9 @@ namespace SpaxUtils
 				Identification.IdentificationUpdatedEvent += OnIdentificationUpdatedEvent;
 				entityCollection.Add(this);
 			}
+
+			// Resume optimized-update dispatch if we still have subscribers (paused on the last disable).
+			RefreshOptimizedSubscription();
 		}
 
 		protected virtual void OnDisable()
@@ -214,6 +217,8 @@ namespace SpaxUtils
 			}
 #endif
 
+			// Deactivated/disabled entity must stop receiving optimized updates entirely (unsubscribe, not just skip).
+			RefreshOptimizedSubscription();
 			Deactivate();
 		}
 
@@ -313,9 +318,27 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public void SubscribeOptimizedUpdate(Action<float> callback)
 		{
-			if (optimizedUpdateCallbacks.Count == 0)
+			optimizedUpdateCallbacks.Add(callback);
+			RefreshOptimizedSubscription();
+		}
+
+		/// <inheritdoc/>
+		public void UnsubscribeOptimizedUpdate(Action<float> callback)
+		{
+			optimizedUpdateCallbacks.Remove(callback);
+			RefreshOptimizedSubscription();
+		}
+
+		/// <summary>
+		/// The entity is registered with the <see cref="optimizationService"/> IFF it has ≥1 subscriber AND is active+enabled.
+		/// Driven from (un)subscribe and from <see cref="OnEnable"/>/<see cref="OnDisable"/> so that a deactivated entity is
+		/// truly REMOVED from the central pump — not merely skipped — because the service invokes callbacks directly and
+		/// ignores Unity's GameObject active state. (Subscribe/Unsubscribe are idempotent, so no local tracking is needed.)
+		/// </summary>
+		private void RefreshOptimizedSubscription()
+		{
+			if (optimizedUpdateCallbacks.Count > 0 && isActiveAndEnabled)
 			{
-				// Begin listening to optimized update callbacks.
 				optimizationService.Subscribe(this, priority, OnOptimizedUpdate);
 				if (dynamicPriority)
 				{
@@ -323,16 +346,8 @@ namespace SpaxUtils
 					optimizationService.Subscribe(GameObject, entityOptimizationSettings.EntityOptimizationInterval, OnOptimizationPing);
 				}
 			}
-			optimizedUpdateCallbacks.Add(callback);
-		}
-
-		/// <inheritdoc/>
-		public void UnsubscribeOptimizedUpdate(Action<float> callback)
-		{
-			optimizedUpdateCallbacks.Remove(callback);
-			if (optimizedUpdateCallbacks.Count == 0)
+			else
 			{
-				// Entity no longer needs to be listening to optimized updates.
 				optimizationService.Unsubscribe(this);
 				if (dynamicPriority)
 				{

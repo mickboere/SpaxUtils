@@ -53,7 +53,8 @@ namespace SpaxUtils
 		Vector8 Personality { get; }
 
 		/// <summary>
-		/// Collection of active stimuli being processed and the entities responsible for them.
+		/// Per-entity behaviour-facing Motivation: the persistent Stimulation reservoir clamped under the
+		/// Emotion envelope (cap = min(Emotion + BaseFloor, MAX_STIM)). This is what behaviours evaluate against.
 		/// </summary>
 		IReadOnlyDictionary<IEntity, Vector8> Stimuli { get; }
 
@@ -110,16 +111,33 @@ namespace SpaxUtils
 		void Update(float delta);
 
 		/// <summary>
-		/// Retrieves the current stimuli stored for <paramref name="source"/>.
+		/// Retrieves the current behaviour-facing Motivation (clamped) stored for <paramref name="source"/>.
 		/// </summary>
 		Vector8 RetrieveStimuli(IEntity source);
+
+		/// <summary>
+		/// Retrieves the raw situational Demand registered for <paramref name="source"/> this tick (debug/inspection).
+		/// Zero if none. Persists through the tick; reset at the start of the next update.
+		/// </summary>
+		Vector8 RetrieveDemand(IEntity source);
 
 		#region Stimulation
 
 		/// <summary>
-		/// Stimulates the mind to spur its emotions and form a motivation.
+		/// CONTINUOUS input: sets (accumulates within the frame) the situational Demand toward <paramref name="source"/>.
+		/// Stimulation tracks toward this Demand at the difficulty-scaled tracker rate; the buffer resets each tick.
+		/// Senses (and secondary sense-behaviours) call this every frame with a per-axis level — NOT multiplied by delta.
 		/// </summary>
-		/// <param name="stimulation">The stimulation to apply.</param>
+		/// <param name="demand">The situational demand level (signed; foe-directed is negative).</param>
+		/// <param name="source">The entity this demand concerns.</param>
+		void SetDemand(Vector8 demand, IEntity source);
+
+		/// <summary>
+		/// IMPULSE input: adds directly into the persistent Stimulation reservoir for <paramref name="source"/>
+		/// (hard-clamped to ±MAX_STIM). Use for discrete events (e.g. being hit). Bounded by the Emotion envelope
+		/// in the behaviour-facing Motivation, so an impulse builds the response rather than bypassing the cap.
+		/// </summary>
+		/// <param name="stimulation">The impulse to apply.</param>
 		/// <param name="source">The entity responsible for this stimulation.</param>
 		void Stimulate(Vector8 stimulation, IEntity source);
 
@@ -138,19 +156,6 @@ namespace SpaxUtils
 		/// </summary>
 		/// <param name="source">The entity whose stimuli should be cleared.</param>
 		void ClearStimuli(IEntity source);
-
-		/// <summary>
-		/// Adds a stimulation filter to stimuli from <paramref name="entity"/>.
-		/// </summary>
-		/// <param name="entity">The source of stimuli to filter.</param>
-		/// <param name="filter">The stimulation multiplier.</param>
-		void SetFilter(IEntity entity, Vector8 filter);
-
-		/// <summary>
-		/// Removes a stimulation filter to no longer filter <paramref name="entity"/>'s stimuli.
-		/// </summary>
-		/// <param name="entity">The source of stimuli to no longer filter.</param>
-		void RemoveFilter(IEntity entity);
 
 		#endregion
 

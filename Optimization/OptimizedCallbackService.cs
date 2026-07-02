@@ -20,6 +20,7 @@ namespace SpaxUtils
 		private Dictionary<object, (int prio, Action<float> callback)> subscribers;
 		private List<object> topPrio;
 		private List<object> culledPrio;
+		private readonly List<object> updateBuffer = new List<object>();
 		private Dictionary<int, FrameSmearer> smearers;
 
 		public OptimizedCallbackService(CallbackService callbackService)
@@ -151,9 +152,16 @@ namespace SpaxUtils
 		private void OnUpdate()
 		{
 			// Only TOP priority subscribers are invoked every single frame.
-			foreach (object subscriber in topPrio)
+			// Iterate a snapshot: a callback may (un)subscribe mid-loop (e.g. an agent deactivating on death unsubscribes
+			// itself), which mutates topPrio/subscribers. Skip any subscriber removed earlier this frame.
+			updateBuffer.Clear();
+			updateBuffer.AddRange(topPrio);
+			for (int i = 0; i < updateBuffer.Count; i++)
 			{
-				subscribers[subscriber].callback(Time.deltaTime);
+				if (subscribers.TryGetValue(updateBuffer[i], out var entry))
+				{
+					entry.callback(Time.deltaTime);
+				}
 			}
 		}
 	}

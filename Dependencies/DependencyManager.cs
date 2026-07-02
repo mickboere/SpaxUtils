@@ -225,14 +225,20 @@ namespace SpaxUtils
 				return true;
 			}
 
-			// Assignable match
-			foreach (KeyValuePair<object, object> binding in bindings)
+			// Assignable match — ONLY for Type keys (request a base/interface, resolve to a bound implementation).
+			// A string BindingIdentifier must match its exact key: falling back to "any binding of the same type"
+			// silently resolves e.g. a "MIND/Inclination" Vector8 request to an unrelated Vector8 (the distribution),
+			// which also defeats [Optional] (the miss should return null -> default, not a stray binding).
+			if (key is Type)
 			{
-				if (valueType.IsAssignableFrom(binding.Value.GetType()))
+				foreach (KeyValuePair<object, object> binding in bindings)
 				{
-					value = binding.Value;
-					SpaxDebug.Notify(IdentifierPrefix + "TryGetBinding: ", $"Found <b>assignable</b> binding: ({binding.Key}, {binding.Value})");
-					return true;
+					if (valueType.IsAssignableFrom(binding.Value.GetType()))
+					{
+						value = binding.Value;
+						SpaxDebug.Notify(IdentifierPrefix + "TryGetBinding: ", $"Found <b>assignable</b> binding: ({binding.Key}, {binding.Value})");
+						return true;
+					}
 				}
 			}
 

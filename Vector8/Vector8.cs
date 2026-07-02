@@ -136,6 +136,7 @@ namespace SpaxUtils
 		/// Clamps the member values between <paramref name="min"/> and <paramref name="max"/>.
 		/// </summary>
 		public Vector8 Clamp(float min, float max) => Clamp(this, min, max);
+		public Vector8 ClampMagnitude(Vector8 cap) => ClampMagnitude(this, cap);
 
 		/// <summary>
 		/// Clamps the members values between 0 and 1.
@@ -404,6 +405,21 @@ namespace SpaxUtils
 				Mathf.Clamp(v.SW, min, max),
 				Mathf.Clamp(v.W, min, max),
 				Mathf.Clamp(v.NW, min, max));
+		}
+
+		/// <summary>
+		/// Clamps each member of <paramref name="v"/> to the sign-preserving magnitude range [-|cap[i]|, |cap[i]|].
+		/// Used to gate a signed value under a per-axis magnitude ceiling without discarding its sign.
+		/// </summary>
+		public static Vector8 ClampMagnitude(Vector8 v, Vector8 cap)
+		{
+			Vector8 result = Zero;
+			for (int i = 0; i < 8; i++)
+			{
+				float c = Mathf.Abs(cap[i]);
+				result[i] = Mathf.Clamp(v[i], -c, c);
+			}
+			return result;
 		}
 
 		/// <summary>

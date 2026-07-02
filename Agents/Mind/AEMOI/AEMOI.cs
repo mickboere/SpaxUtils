@@ -32,13 +32,13 @@ namespace SpaxUtils
 		public bool Active { get; private set; }
 
 		/// <inheritdoc/>
-		public Vector8 Inclination => inclination.Vector8;
+		public Vector8 Inclination => inclination;
 
 		/// <inheritdoc/>
-		public Vector8 Personality => personality.Vector8;
+		public Vector8 Personality => personality;
 
 		/// <inheritdoc/>
-		public IReadOnlyDictionary<IEntity, Vector8> Stimuli => stimuli;
+		public IReadOnlyDictionary<IEntity, Vector8> Stimuli => motivations;
 
 		/// <inheritdoc/>
 		public (Vector8 emotion, IEntity target) Motivation { get; private set; }
@@ -60,21 +60,36 @@ namespace SpaxUtils
 
 		private IDependencyManager dependencyManager;
 		private AEMOISettings settings;
-		private IOctad inclination;
-		private IOctad personality;
+		private Vector8 inclination;
+		private Vector8 personality;
 		private List<IMindBehaviour> behaviours;
 
-		private Dictionary<IEntity, Vector8> stimuli = new Dictionary<IEntity, Vector8>();
-		private Dictionary<IEntity, Vector8> filters = new Dictionary<IEntity, Vector8>();
-		private Vector8 emotionSmoothed;
+		// Persistent per-foe Stimulation reservoir (uncapped except hard ±MAX); tracks toward Demand + receives impulses.
+		private Dictionary<IEntity, Vector8> stimulation = new Dictionary<IEntity, Vector8>();
+		// Per-frame Demand accumulator (summed within a tick, cleared at its end).
+		private Dictionary<IEntity, Vector8> demandBuffer = new Dictionary<IEntity, Vector8>();
+		// Behaviour-facing per-foe Motivation: Stimulation clamped under the Emotion envelope. Recomputed each tick.
+		private Dictionary<IEntity, Vector8> motivations = new Dictionary<IEntity, Vector8>();
+		// Internal raw Emotion state (the slow envelope) that the public Emotion is published from.
+		private Vector8 emotionState;
 
-		public AEMOI(IDependencyManager dependencyManager, AEMOISettings settings, IOctad inclination, IOctad personality, IEnumerable<IMindBehaviour> behaviours = null)
+		public AEMOI(IDependencyManager dependencyManager, AEMOISettings settings, Vector8 inclination, Vector8 personality, IEnumerable<IMindBehaviour> behaviours = null)
 		{
 			this.dependencyManager = dependencyManager;
 			this.settings = settings;
 			this.inclination = inclination;
 			this.personality = personality;
 			this.behaviours = behaviours == null ? new List<IMindBehaviour>() : new List<IMindBehaviour>(behaviours);
+		}
+
+		/// <summary>
+		/// Sets the (static snapshot) Inclination and Personality traits. Called once after the agent's stats have
+		/// initialized, since the stat distributions these derive from aren't available at construction time.
+		/// </summary>
+		public void SetTraits(Vector8 inclination, Vector8 personality)
+		{
+			this.inclination = inclination;
+			this.personality = personality;
 		}
 
 		public void Dispose()
@@ -94,7 +109,10 @@ namespace SpaxUtils
 
 			if (reset)
 			{
-				stimuli.Clear();
+				stimulation.Clear();
+				demandBuffer.Clear();
+				motivations.Clear();
+				emotionState = Vector8.Zero;
 			}
 
 			Active = true;
@@ -118,38 +136,89 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public void Update(float delta)
 		{
-			// 1. Gather senses.
+			// A deactivated mind must never tick (e.g. a stray pump after the agent dies but before its state exits).
+			if (!Active)
+			{
+				return;
+			}
+
+			// Clear last tick's Demand at the START (not the end) so it survives the tick for debug/HUD inspection.
+			demandBuffer.Clear();
+
+			// 1. Gather senses: continuous senses fill demandBuffer via SetDemand; impulses/Satisfy hit Stimulation.
 			UpdatingEvent?.Invoke(delta);
 
-			// 2. Per-entity overflow redistribution + decay + clamp.
-			List<IEntity> sources = new List<IEntity>(stimuli.Keys);
+			// 2. Track Stimulation toward Demand per foe, per axis, with an inclination-asymmetric rate: strong-inclination
+			//    axes rise fast + fall slow (the drive builds and lingers = retentive/grudge → it dominates selection);
+			//    weak axes rise slow + fall fast (they leak between bursts and never accumulate → stay suppressed).
+			//    Also aggregate the Emotion envelope target as MAX |Stimulation| across foes (highest threat sets arousal).
+			Vector8 incl = inclination;
+			float bias = Mathf.Clamp01(settings.StimulationInclinationBias);
+			Vector8 emotionTarget = Vector8.Zero;
+			List<IEntity> sources = new List<IEntity>(stimulation.Keys);
+			foreach (IEntity source in demandBuffer.Keys)
+			{
+				if (!stimulation.ContainsKey(source))
+				{
+					sources.Add(source);
+				}
+			}
 			for (int s = 0; s < sources.Count; s++)
 			{
 				IEntity source = sources[s];
-				Vector8 v = stimuli[source];
-				v = RedistributeOverflow(v, delta);
-				v = v.FILerp(Vector8.Zero, settings.EmotionDecay * delta);
-				v = v.Clamp(-MAX_STIM, MAX_STIM);
-				stimuli[source] = v;
+				Vector8 demand = demandBuffer.TryGetValue(source, out Vector8 d) ? d : Vector8.Zero;
+				Vector8 stim = stimulation.TryGetValue(source, out Vector8 st) ? st : Vector8.Zero;
+
+				for (int i = 0; i < 8; i++)
+				{
+					float inc = Mathf.Clamp01(incl[i]);
+					// Rising = drive growing toward a stronger demand; falling = demand dropped below the current drive.
+					bool rising = Mathf.Abs(demand[i]) >= Mathf.Abs(stim[i]);
+					float incFactor = rising
+						? Mathf.Lerp(1f - bias, 1f, inc)   // strong → full rise, weak → damped
+						: Mathf.Lerp(1f, 1f - bias, inc);  // strong → damped fall (lingers), weak → full fall (leaks)
+					float rate = settings.StimulationRate * incFactor;
+					stim[i] = Mathf.Lerp(stim[i], demand[i], 1f - Mathf.Exp(-Mathf.Max(rate, 0f) * delta));
+				}
+				stim = RedistributeOverflow(stim, delta).Clamp(-MAX_STIM, MAX_STIM);
+				stimulation[source] = stim;
+
+				for (int i = 0; i < 8; i++)
+				{
+					float a = Mathf.Abs(stim[i]);
+					if (a > emotionTarget[i])
+					{
+						emotionTarget[i] = a;
+					}
+				}
 			}
 
-			// 3. True internal emotional state (unsigned aggregate, smoothed) + its normalized [0,1] form.
-			Emotion = ComputeEmotion(delta);
+			// 3. Emotion follower: uniform symmetric envelope chasing |Stimulation| at EmotionRate (the softcap ramp).
+			Emotion = ComputeEmotion(emotionTarget, delta);
 			EmotionNormalized = NormalizeEmotion(Emotion);
 
-			// 4. Most salient entity by absolute magnitude.
+			// 4. Derive behaviour-facing Motivation per foe: Stimulation clamped under the Emotion envelope.
+			Vector8 cap = (Emotion + Vector8.One * settings.BaseFloor).Clamp(0f, MAX_STIM);
+			motivations.Clear();
+			for (int s = 0; s < sources.Count; s++)
+			{
+				IEntity source = sources[s];
+				motivations[source] = stimulation[source].ClampMagnitude(cap);
+			}
+
+			// 5. Most salient entity by absolute magnitude (from clamped Motivation).
 			Motivation = GetStrongestStimuli();
 
-			// 5. Behaviour reassessment — sets ActiveBehaviour and ActiveTarget.
+			// 6. Behaviour reassessment — sets ActiveBehaviour and ActiveTarget.
 			ReassessBehaviour();
 
-			// 6. Balance needs ActiveTarget from step 5.
+			// 7. Balance needs ActiveTarget from step 6.
 			Balance = ComputeBalance();
 
-			// 7. Fire MotivatedEvent AFTER ActiveTarget and Balance are up-to-date.
+			// 8. Fire MotivatedEvent AFTER ActiveTarget and Balance are up-to-date.
 			MotivatedEvent?.Invoke();
 
-			// 8. Mind fully updated.
+			// 9. Mind fully updated. (Demand buffer is cleared at the start of the next tick.)
 			UpdatedEvent?.Invoke();
 		}
 
@@ -158,68 +227,52 @@ namespace SpaxUtils
 		#region Stimulation
 
 		/// <inheritdoc/>
+		public void SetDemand(Vector8 demand, IEntity source)
+		{
+			// Continuous input: sum contributions from all sources within the frame; the buffer resets each tick.
+			// Clamped to ±MAX so Demand stays a true level — an overshooting target would let the tracker cover more
+			// than the distance to the real ceiling, saturating Stimulation faster than the StimulationRate·inclination
+			// rate intends (which would let big threats bypass the difficulty-remapped rate-gate).
+			Vector8 sum = demandBuffer.TryGetValue(source, out Vector8 existing) ? existing + demand : demand;
+			demandBuffer[source] = sum.Clamp(-MAX_STIM, MAX_STIM);
+		}
+
+		/// <inheritdoc/>
 		public void Stimulate(Vector8 stimulation, IEntity source)
 		{
-			// Current emotional charge towards this source (after previous frames).
-			Vector8 current = stimuli.TryGetValue(source, out Vector8 existing) ? existing : Vector8.Zero;
-
-			// Apply per-channel damping, plus axis-aware satisfaction shaping.
-			stimulation = DampStimulation(stimulation, current);
-
-			Vector8 filtered(Vector8 stim)
-			{
-				if (filters.ContainsKey(source))
-				{
-					return stim * filters[source];
-				}
-				return stim;
-			}
-
-			if (!stimuli.ContainsKey(source))
-			{
-				stimuli.Add(source, filtered(stimulation * Inclination).Clamp(-MAX_STIM, MAX_STIM));
-			}
-			else
-			{
-				stimuli[source] = (stimuli[source] + filtered(stimulation * Inclination)).Clamp(-MAX_STIM, MAX_STIM);
-			}
+			// Impulse input: add straight into the persistent Stimulation reservoir (hard-clamped ±MAX). Bounded by
+			// the Emotion envelope downstream in Motivation, so it builds the response rather than bypassing the cap.
+			Vector8 current = this.stimulation.TryGetValue(source, out Vector8 existing) ? existing : Vector8.Zero;
+			this.stimulation[source] = (current + stimulation).Clamp(-MAX_STIM, MAX_STIM);
 		}
 
 		/// <inheritdoc/>
 		public void Satisfy(Vector8 satisfaction, IEntity source)
 		{
-			if (stimuli.ContainsKey(source))
+			if (stimulation.ContainsKey(source))
 			{
-				stimuli[source] = stimuli[source].MoveTowardZero(satisfaction);
+				stimulation[source] = stimulation[source].MoveTowardZero(satisfaction);
 			}
 		}
 
 		/// <inheritdoc/>
 		public void ClearStimuli(IEntity source)
 		{
-			stimuli.Remove(source);
-			filters.Remove(source);
+			stimulation.Remove(source);
+			demandBuffer.Remove(source);
+			motivations.Remove(source);
 		}
 
 		/// <inheritdoc/>
 		public Vector8 RetrieveStimuli(IEntity source)
 		{
-			return Stimuli.ContainsKey(source) ? Stimuli[source] : Vector8.Zero;
+			return motivations.TryGetValue(source, out Vector8 m) ? m : Vector8.Zero;
 		}
 
 		/// <inheritdoc/>
-		public void SetFilter(IEntity entity, Vector8 filter)
+		public Vector8 RetrieveDemand(IEntity source)
 		{
-			filters[entity] = filter;
-		}
-
-		/// <inheritdoc/>
-		public void RemoveFilter(IEntity entity)
-		{
-			if (filters.ContainsKey(entity))
-			{
-				filters.Remove(entity);
-			}
+			return demandBuffer.TryGetValue(source, out Vector8 d) ? d : Vector8.Zero;
 		}
 
 		#endregion
@@ -286,11 +339,11 @@ namespace SpaxUtils
 			// Evaluate every behaviour against every stimulated entity so that
 			// ally-directed and enemy-directed behaviours can each find their own best candidate,
 			// rather than all competing over the single globally-strongest entity.
-			List<IEntity> candidates = new(stimuli.Keys);
+			List<IEntity> candidates = new(motivations.Keys);
 			for (int c = 0; c < candidates.Count; c++)
 			{
 				IEntity candidate = candidates[c];
-				Vector8 candidateStim = stimuli[candidate];
+				Vector8 candidateStim = motivations[candidate];
 
 				for (int i = 0; i < behaviours.Count; i++)
 				{
@@ -369,7 +422,7 @@ namespace SpaxUtils
 		#endregion Behaviour
 
 		/// <summary>
-		/// Returns the stimuli with the highest absolute magnitude across all tracked entities.
+		/// Returns the clamped Motivation with the highest absolute magnitude across all tracked entities.
 		/// </summary>
 		private (Vector8 stimuli, IEntity source) GetStrongestStimuli()
 		{
@@ -377,7 +430,7 @@ namespace SpaxUtils
 			IEntity target = null;
 			float highest = 0f;
 
-			foreach (KeyValuePair<IEntity, Vector8> kvp in stimuli)
+			foreach (KeyValuePair<IEntity, Vector8> kvp in motivations)
 			{
 				float mag = Mathf.Abs(kvp.Value.HighestAbs(out _));
 				if (mag > highest)
@@ -392,26 +445,27 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
-		/// Computes the agent's true internal emotional state: unsigned, slow-smoothed average of |stim[i]| across all entities.
+		/// Advances the internal Emotion envelope toward <paramref name="target"/> (the MAX |Stimulation| across foes),
+		/// inclination-MIRRORED: strong-inclination axes RISE fast and FALL slow (build & linger), weak axes rise slow and
+		/// fall fast (barely build, leak). So emotion only accumulates on the axes the agent actually cares about — a weak
+		/// axis can't crest alongside its strong opposite and flatten Balance toward 0.5. Framerate-independent per axis.
 		/// </summary>
-		private Vector8 ComputeEmotion(float delta)
+		private Vector8 ComputeEmotion(Vector8 target, float delta)
 		{
-			Vector8 target = Vector8.Zero;
-			if (stimuli.Count > 0)
+			Vector8 incl = inclination;
+			float bias = Mathf.Clamp01(settings.EmotionInclinationBias);
+			Vector8 result = Vector8.Zero;
+			for (int i = 0; i < 8; i++)
 			{
-				foreach (KeyValuePair<IEntity, Vector8> kv in stimuli)
-				{
-					for (int i = 0; i < 8; i++)
-					{
-						target[i] += Mathf.Abs(kv.Value[i]);
-					}
-				}
-				for (int i = 0; i < 8; i++)
-				{
-					target[i] /= stimuli.Count;
-				}
+				float cur = emotionState[i];
+				float tgt = target[i];
+				float inc = Mathf.Clamp01(incl[i]);
+				float rate = tgt > cur
+					? settings.EmotionRate * Mathf.Lerp(1f - bias, 1f, inc)   // rise: strong fast, weak slow
+					: settings.EmotionRate * Mathf.Lerp(1f, 1f - bias, inc);  // fall: strong slow, weak fast
+				result[i] = Mathf.Lerp(cur, tgt, 1f - Mathf.Exp(-Mathf.Max(rate, 0f) * delta));
 			}
-			return emotionSmoothed = emotionSmoothed.LerpClamped(target, settings.EmotionSmoothRate * delta);
+			return emotionState = result;
 		}
 
 		/// <summary>
@@ -459,13 +513,13 @@ namespace SpaxUtils
 		/// </summary>
 		private Vector8 ComputeBalance()
 		{
-			Vector8 inc = inclination.Vector8;
-			Vector8 per = personality.Vector8;
+			Vector8 inc = inclination;
+			Vector8 per = personality;
 			Vector8 emo = EmotionNormalized;
 
-			// Directed stim toward the active target, curved onto the same normalized [0,1] scale as emo
+			// Directed motivation toward the active target, curved onto the same normalized [0,1] scale as emo
 			// so the directed term doesn't re-introduce the [0,MAX_STIM] imbalance the aggregate just shed.
-			Vector8 rawTargetStim = ActiveTarget != null && stimuli.TryGetValue(ActiveTarget, out Vector8 s)
+			Vector8 rawTargetStim = ActiveTarget != null && motivations.TryGetValue(ActiveTarget, out Vector8 s)
 				? s : Vector8.Zero;
 			float curveK = EmotionCurveExponent();
 			Vector8 targetStim = Vector8.Zero;
@@ -496,6 +550,8 @@ namespace SpaxUtils
 				float sum = poleTotal + oppTotal;
 
 				balance[i] = sum > 0.001f ? Mathf.Clamp01(poleTotal / sum) : 0.5f;
+				// Lean: sharpen the deviation from neutral. Symmetric around 0.5, so the axis and its opposite still sum to 1.
+				balance[i] = Mathf.Clamp01(0.5f + (balance[i] - 0.5f) * settings.BalanceLean);
 			}
 			return balance;
 		}
@@ -554,7 +610,7 @@ namespace SpaxUtils
 						continue;
 					}
 
-					float baseW = personality.Vector8[dst];
+					float baseW = personality[dst];
 					if (baseW <= 0f)
 					{
 						continue;
@@ -592,97 +648,6 @@ namespace SpaxUtils
 			}
 
 			return v;
-		}
-
-		/// <summary>
-		/// Damps impulses channel-wise based on current level and per-channel damping.
-		/// Away-from-zero impulses (same sign as current) slow down near MAX_STIM.
-		/// Toward-zero impulses (opposite sign to current) are shaped so that:
-		/// - high levels are more inert (harder to drain in one go)
-		/// - axis balance (this dir vs its opposite) can strongly slow or accelerate draining.
-		/// </summary>
-		private Vector8 DampStimulation(Vector8 impulses, Vector8 current)
-		{
-			Vector8 result = Vector8.Zero;
-			Vector8 incl = inclination.Vector8;
-
-			for (int i = 0; i < 8; i++)
-			{
-				float impulse = impulses[i];
-				if (Mathf.Approximately(impulse, 0f))
-				{
-					result[i] = 0f;
-					continue;
-				}
-
-				float level = Mathf.Abs(current[i]);
-				float damp = Mathf.Max(settings.StimDamping, 0f);
-
-				if (damp <= 0f)
-				{
-					result[i] = impulse;
-					continue;
-				}
-
-				float lowDamp = damp * 0.25f;
-
-				// Away from zero: same sign as current (or current is zero).
-				bool awayFromZero = impulse * current[i] >= 0f || Mathf.Approximately(current[i], 0f);
-
-				if (awayFromZero)
-				{
-					// Fast under 1, heavily damped near MAX_STIM.
-					float denom;
-					if (level <= 1f)
-					{
-						denom = 1f + level * lowDamp;
-					}
-					else
-					{
-						float over = Mathf.Clamp(level - 1f, 0f, MAX_STIM - 1f);
-						float overNorm = over / (MAX_STIM - 1f);
-						denom = 1f + lowDamp + damp * overNorm * overNorm;
-					}
-
-					result[i] = impulse / denom;
-				}
-				else
-				{
-					// Toward zero: satisfaction / relaxation.
-					// Goal: dominant directions drain slowly, opposed drain quickly.
-					// High levels are more "inert" (can't be erased instantly).
-
-					float levelNorm = Mathf.Clamp01(level / MAX_STIM);
-					float denomNeg = 1f + levelNorm * damp;
-
-					float axisMult = 1f;
-
-					if (settings.AxisBalanceSatisfactionStrength > 0f)
-					{
-						int opposite = (i + 4) % 8;
-						float a = Mathf.Max(incl[i], 0f);
-						float b = Mathf.Max(incl[opposite], 0f);
-						float sum = a + b;
-
-						if (sum > Mathf.Epsilon)
-						{
-							float axisBalance = (a - b) / sum;
-							float t = (axisBalance + 1f) * 0.5f;
-
-							float baseMult = Mathf.Lerp(
-								settings.AxisBalanceSatisfactionRange.y,
-								settings.AxisBalanceSatisfactionRange.x,
-								t);
-
-							axisMult = Mathf.Lerp(1f, baseMult, settings.AxisBalanceSatisfactionStrength);
-						}
-					}
-
-					result[i] = (impulse / denomNeg) * axisMult;
-				}
-			}
-
-			return result;
 		}
 	}
 }

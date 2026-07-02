@@ -54,5 +54,9 @@ namespace SpaxUtils
 
 		[Tooltip("Maximum negative relation that can be accumulated against a single attacker's ID.")]
 		public float MaxAggroRelation = 2.0f;
+
+		[Header("Combat Spacing")]
+		[Tooltip("Max extra standoff distance (world units) a vulnerable agent keeps from a foe — the shared 'back away when I can't afford to trade' spacing tell used by every standoff/strafe behaviour. Reached by whichever is greater: cautious temperament (Balance.S, scaling from 0 at neutral S to full at S=1) OR endurance depletion (0 at full W, full at empty W — so a worn-down agent of ANY temperament holds recovery distance without fleeing).")]
+		public float CautiousSpacingMax = 5f;
 	}
 }
