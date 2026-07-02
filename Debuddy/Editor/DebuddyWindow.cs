@@ -1,5 +1,6 @@
 #if UNITY_EDITOR
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
@@ -30,6 +31,17 @@ namespace Debuddy
 		private float prefixColumnWidth = 88f;
 		private bool draggingColumn;
 		private const string PrefixWidthPrefKey = "Debuddy.PrefixColumnWidth";
+
+		// Virtualized list: cache the filtered snapshot and only redraw the visible rows,
+		// so cost is constant regardless of how many entries are buffered.
+		private readonly List<DebuddyCore.Entry> filtered = new List<DebuddyCore.Entry>();
+		private DebuddyCore.Entry[] snapshot = new DebuddyCore.Entry[0];
+		private int filteredVersion = -1;
+		private string lastSearch = null;
+		private const float RowHeight = 18f;
+
+		// Per-type counts of the buffered entries, shown on the toolbar toggles (like the Console).
+		private int infoCount, warnCount, errorCount;
 
 		private GUIContent infoIcon, warnIcon, errorIcon;
 
@@ -118,9 +130,9 @@ namespace Debuddy
 			}
 
 			GUILayout.Space(8);
-			edited.captureInfo = GUILayout.Toggle(edited.captureInfo, infoIcon, EditorStyles.toolbarButton, GUILayout.Width(30));
-			edited.captureWarnings = GUILayout.Toggle(edited.captureWarnings, warnIcon, EditorStyles.toolbarButton, GUILayout.Width(30));
-			edited.captureErrors = GUILayout.Toggle(edited.captureErrors, errorIcon, EditorStyles.toolbarButton, GUILayout.Width(30));
+			edited.captureInfo = GUILayout.Toggle(edited.captureInfo, new GUIContent(" " + infoCount, infoIcon.image), EditorStyles.toolbarButton, GUILayout.Width(52));
+			edited.captureWarnings = GUILayout.Toggle(edited.captureWarnings, new GUIContent(" " + warnCount, warnIcon.image), EditorStyles.toolbarButton, GUILayout.Width(52));
+			edited.captureErrors = GUILayout.Toggle(edited.captureErrors, new GUIContent(" " + errorCount, errorIcon.image), EditorStyles.toolbarButton, GUILayout.Width(52));
 
 			GUILayout.FlexibleSpace();
 
@@ -153,32 +165,82 @@ namespace Debuddy
 		private void DrawList(DebuddyConfig edited)
 		{
 			DrawColumnHeader();
+			RefreshFilteredIfNeeded();
 
-			DebuddyCore.Entry[] all = DebuddyCore.GetEntries();
+			Rect viewRect = GUILayoutUtility.GetRect(0f, 0f, GUILayout.ExpandWidth(true), GUILayout.ExpandHeight(true));
+			float contentHeight = filtered.Count * RowHeight;
+			Rect content = new Rect(0f, 0f, viewRect.width - 16f, contentHeight);
 
-			listScroll = EditorGUILayout.BeginScrollView(listScroll);
-			for (int i = 0; i < all.Length; i++)
+			listScroll = GUI.BeginScrollView(viewRect, listScroll, content);
+
+			// Only iterate the rows currently on screen.
+			int first = Mathf.Max(0, Mathf.FloorToInt(listScroll.y / RowHeight));
+			int last = Mathf.Min(filtered.Count, first + Mathf.CeilToInt(viewRect.height / RowHeight) + 1);
+
+			Event ev = Event.current;
+			for (int i = first; i < last; i++)
 			{
-				DebuddyCore.Entry e = all[i];
-				if (!string.IsNullOrEmpty(search) && (e.message == null || e.message.IndexOf(search, StringComparison.OrdinalIgnoreCase) < 0))
+				DebuddyCore.Entry e = filtered[i];
+				Rect row = new Rect(0f, i * RowHeight, content.width, RowHeight);
+
+				if (ReferenceEquals(e, selected))
+				{
+					EditorGUI.DrawRect(row, new Color(0.24f, 0.48f, 0.90f, 0.35f));
+				}
+				else if ((i & 1) == 1)
+				{
+					EditorGUI.DrawRect(row, new Color(1f, 1f, 1f, 0.03f));
+				}
+
+				if (ev.type == EventType.MouseDown && row.Contains(ev.mousePosition))
+				{
+					selected = e;
+					ev.Use();
+					Repaint();
+				}
+
+				Rect iconR = new Rect(row.x + 2f, row.y, 18f, RowHeight);
+				Rect prefixR = new Rect(iconR.xMax + 2f, row.y, prefixColumnWidth, RowHeight);
+				Rect msgR = new Rect(prefixR.xMax + 4f, row.y, Mathf.Max(0f, content.width - prefixR.xMax - 4f), RowHeight);
+
+				GUI.Label(iconR, IconFor(e.type));
+				GUI.Label(prefixR, $"<color=#888888>[{e.time:0.00}s f{e.frame}]</color>", RichLabel);
+				GUI.Label(msgR, FirstLine(e.message), RichLabel);
+			}
+
+			GUI.EndScrollView();
+		}
+
+		private void RefreshFilteredIfNeeded()
+		{
+			int v = DebuddyCore.Version;
+			if (v == filteredVersion && search == lastSearch) { return; }
+			filteredVersion = v;
+			lastSearch = search;
+
+			snapshot = DebuddyCore.GetEntries();
+			filtered.Clear();
+			infoCount = warnCount = errorCount = 0;
+			bool hasSearch = !string.IsNullOrEmpty(search);
+			for (int i = 0; i < snapshot.Length; i++)
+			{
+				DebuddyCore.Entry e = snapshot[i];
+
+				switch (e.type)
+				{
+					case LogType.Warning: warnCount++; break;
+					case LogType.Error:
+					case LogType.Exception:
+					case LogType.Assert: errorCount++; break;
+					default: infoCount++; break;
+				}
+
+				if (hasSearch && (e.message == null || e.message.IndexOf(search, StringComparison.OrdinalIgnoreCase) < 0))
 				{
 					continue;
 				}
-
-				bool isSel = ReferenceEquals(e, selected);
-				Rect row = EditorGUILayout.BeginHorizontal(isSel ? Selected : (i % 2 == 0 ? RowEven : RowOdd));
-				GUILayout.Label(IconFor(e.type), GUILayout.Width(20), GUILayout.Height(18));
-				GUILayout.Label($"<color=#888888>[{e.time:0.00}s f{e.frame}]</color>", RichLabel, GUILayout.Width(prefixColumnWidth));
-				GUILayout.Label(FirstLine(e.message), RichLabel);
-				EditorGUILayout.EndHorizontal();
-
-				if (Event.current.type == EventType.MouseDown && row.Contains(Event.current.mousePosition))
-				{
-					selected = e;
-					Repaint();
-				}
+				filtered.Add(e);
 			}
-			EditorGUILayout.EndScrollView();
 		}
 
 		private void DrawDetail()
@@ -281,24 +343,8 @@ namespace Debuddy
 
 		// --- text styles (rich text so <color>/<b> tags render like the Console) ---
 		private static GUIStyle richLabel, richWrap;
-		private static GUIStyle RichLabel => richLabel ?? (richLabel = new GUIStyle(EditorStyles.label) { richText = true });
+		private static GUIStyle RichLabel => richLabel ?? (richLabel = new GUIStyle(EditorStyles.label) { richText = true, alignment = TextAnchor.MiddleLeft, clipping = TextClipping.Clip });
 		private static GUIStyle RichWrap => richWrap ?? (richWrap = new GUIStyle(EditorStyles.label) { richText = true, wordWrap = true });
-
-		// --- row styles ---
-		private static GUIStyle rowEven, rowOdd, rowSelected;
-		private static GUIStyle RowEven => rowEven ?? (rowEven = MakeRow(new Color(0f, 0f, 0f, 0f)));
-		private static GUIStyle RowOdd => rowOdd ?? (rowOdd = MakeRow(new Color(1f, 1f, 1f, 0.03f)));
-		private static GUIStyle Selected => rowSelected ?? (rowSelected = MakeRow(new Color(0.24f, 0.48f, 0.90f, 0.35f)));
-
-		private static GUIStyle MakeRow(Color bg)
-		{
-			Texture2D tex = new Texture2D(1, 1) { hideFlags = HideFlags.HideAndDontSave };
-			tex.SetPixel(0, 0, bg);
-			tex.Apply();
-			GUIStyle s = new GUIStyle { margin = new RectOffset(0, 0, 0, 0), padding = new RectOffset(2, 2, 1, 1) };
-			s.normal.background = tex;
-			return s;
-		}
 	}
 }
 #endif
