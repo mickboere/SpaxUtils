@@ -1,4 +1,4 @@
-﻿using Newtonsoft.Json.Linq;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -13,9 +13,16 @@ namespace SpaxUtils
 	public class RuntimeDataService : IService
 	{
 		public const string PROFILE_FILE_TYPE = ".save";
+		public const string GLOBAL_FILE_TYPE = ".data";
 		public static readonly string PROFILES_PATH = $"{Application.persistentDataPath}/Profiles/";
 		public const string GLOBAL_DATA_ID = "GLOBAL";
 		public const string DEFAULT_PROFILE_ID = "DEFAULT";
+
+		/// <summary>
+		/// ID of the metadata collection stored within each profile (name, last save time, playtime, ...).
+		/// Kept inside the profile file itself so the file is self-describing and survives external copies/reverts.
+		/// </summary>
+		public const string META_DATA_ID = "PROFILE/Meta";
 
 		/// <summary>
 		/// Invoked once <see cref="CurrentProfile"/> has changed.
@@ -58,18 +65,24 @@ namespace SpaxUtils
 		private RuntimeDataCollection _currentProfile;
 
 		/// <summary>
-		/// All available profiles.
+		/// All available profiles, keyed by their unique (GUID) identity.
 		/// Not all profiles are guaranteed to have data as the data is loaded on demand.
 		/// </summary>
 		public Dictionary<string, RuntimeDataCollection> Profiles { get; private set; }
 
 		/// <summary>
-		/// Data collection stored under <see cref="GlobalDataIdentifiers.PROFILES"/> within the <see cref="GlobalData"/>.
-		/// Contains summarized data for all cached profiles, so that the entire profile need not be loaded to retrieve surface-level data.
+		/// Derived, display-only index of all discovered profiles' metadata, keyed by profile ID.
+		/// Rebuilt from the profiles' own on-disk metadata each launch, so it can never desync from the files.
 		/// Each entry within this collection is in itself a <see cref="RuntimeDataCollection"/>.
 		/// </summary>
 		public RuntimeDataCollection ProfilesMetaData => _profilesMetaData;
 		private RuntimeDataCollection _profilesMetaData;
+
+		/// <summary>
+		/// Maps each known profile ID (GUID) to the file it was discovered at / is saved to.
+		/// The filename is human-readable ("{Name} [{id}]") but identity is always the GUID.
+		/// </summary>
+		private Dictionary<string, string> profileFilePaths;
 
 		public RuntimeDataService()
 		{
@@ -79,69 +92,69 @@ namespace SpaxUtils
 				Directory.CreateDirectory(PROFILES_PATH);
 			}
 
-			// Collect profiles, but don't load them.
-			Profiles = Directory.GetFiles(PROFILES_PATH).ToDictionary<string, string, RuntimeDataCollection>(k => Path.GetFileNameWithoutExtension(k), v => null);
-			if (Profiles.ContainsKey(GLOBAL_DATA_ID)) Profiles.Remove(GLOBAL_DATA_ID);
+			// Migrate a legacy global data file to its dedicated extension, if present.
+			MigrateLegacyGlobalFile();
 
-			// Load/Create Global data profile.
+			// Initialize collections up-front so LoadProfile can run during construction.
+			Profiles = new Dictionary<string, RuntimeDataCollection>();
+			profileFilePaths = new Dictionary<string, string>();
+			_profilesMetaData = new RuntimeDataCollection(GlobalDataIdentifiers.PROFILES);
+
+			// Load/Create Global data profile (holds cross-profile settings; not a player profile).
 			if (LoadProfile(GLOBAL_DATA_ID, out RuntimeDataCollection globalData, false, true))
 			{
 				GlobalData = globalData;
-
-				// Initialize profile meta data.
-				if (!globalData.TryGetEntry(GlobalDataIdentifiers.PROFILES, out _profilesMetaData))
-				{
-					// Cache does not exist yet, generate it.
-					_profilesMetaData = new RuntimeDataCollection(GlobalDataIdentifiers.PROFILES);
-					if (Profiles.Count > 0)
-					{
-						foreach (string profile in Profiles.Keys)
-						{
-							_profilesMetaData.TryAdd(new RuntimeDataCollection(profile));
-						}
-					}
-					globalData.TryAdd(_profilesMetaData);
-				}
 			}
 			else
 			{
 				SpaxDebug.Error("Global data could not be loaded!");
 			}
+
+			// Discover profiles from disk: resolve their GUID identity, migrate legacy (name-keyed) saves,
+			// de-duplicate copies, and build the derived metadata index. Profile files are the source of truth.
+			CollectProfiles();
 		}
 
 		#region Profiles
 
 		/// <summary>
-		/// Creates a new profile / root <see cref="RuntimeDataCollection"/>.
+		/// Creates a new profile / root <see cref="RuntimeDataCollection"/> with a unique (GUID) identity.
 		/// </summary>
-		/// <param name="profileId">The unique ID to name this profile.</param>
+		/// <param name="name">The display name for this profile (the player's chosen character name). Not the identity.</param>
 		/// <param name="setAsCurrent">Once created, should the new profile be set as the <see cref="CurrentProfile"/>?</param>
 		/// <param name="saveToDisk">Once created, should the new profile immediately be saved to disk? <seealso cref="SaveProfileToDisk(string)"/></param>
 		/// <param name="profile">The resulting profile <see cref="RuntimeDataCollection"/>.</param>
 		/// <returns>Whether the profile was created successfully.</returns>
-		public bool CreateProfile(string profileId, out RuntimeDataCollection profile, bool setAsCurrent = false, bool saveToDisk = false)
+		public bool CreateProfile(string name, out RuntimeDataCollection profile, bool setAsCurrent = false, bool saveToDisk = false)
 		{
 			profile = null;
 
-			// Prevent duplicate profiles.
-			if (Profiles.ContainsKey(profileId))
+			// The global data profile keeps its reserved literal ID; player profiles get a unique GUID
+			// so their identity can never collide with a chosen character name.
+			bool isGlobal = name == GLOBAL_DATA_ID;
+			string id = isGlobal ? GLOBAL_DATA_ID : Guid.NewGuid().ToString();
+
+			// Prevent duplicate profiles (GUID collisions are effectively impossible, but stay safe).
+			if (Profiles.ContainsKey(id))
 			{
-				SpaxDebug.Error("Couldn't create profile.", $"Profile with ID \"{profileId}\" already exists.");
+				SpaxDebug.Error("Couldn't create profile.", $"Profile with ID \"{id}\" already exists.");
 				return false;
 			}
 
 			// Create new profile.
-			profile = new RuntimeDataCollection(profileId);
-			profile.SetValue(ProfileDataIdentifiers.NAME, profileId);
-			profile.SetValue(ProfileDataIdentifiers.SEED, profileId.GetDeterministicHashCode());
+			profile = new RuntimeDataCollection(id);
 
-			// If profile isn't global, store it in profile collection.
-			if (profileId != GLOBAL_DATA_ID)
+			// If profile isn't global, store it in the profile collection and set up its metadata.
+			if (!isGlobal)
 			{
-				Profiles.Add(profileId, profile);
+				profile.SetValue(ProfileDataIdentifiers.SEED, name.GetDeterministicHashCode());
 
-				var metaData = new RuntimeDataCollection(profileId);
-				ProfilesMetaData.TryAdd(metaData);
+				RuntimeDataCollection meta = profile.GetEntry<RuntimeDataCollection>(META_DATA_ID, new RuntimeDataCollection(META_DATA_ID));
+				meta.SetValue(ProfileDataIdentifiers.NAME, name);
+
+				Profiles.Add(id, profile);
+				profileFilePaths[id] = GetCanonicalProfilePath(name, id);
+				IndexProfileMeta(id, meta);
 
 				if (setAsCurrent)
 				{
@@ -151,7 +164,7 @@ namespace SpaxUtils
 
 			if (saveToDisk)
 			{
-				SaveProfileToDisk(profileId);
+				SaveProfileToDisk(id);
 			}
 
 			return true;
@@ -206,18 +219,20 @@ namespace SpaxUtils
 			}
 
 			// Load from disk.
-			data = SpaxJsonUtils.StreamRead<RuntimeDataCollection>(PROFILES_PATH + profileId + PROFILE_FILE_TYPE);
+			string path = GetProfilePath(profileId);
+			data = path != null ? SpaxJsonUtils.StreamRead<RuntimeDataCollection>(path) : null;
 			if (data != null)
 			{
 				if (profileId != GLOBAL_DATA_ID)
 				{
 					Profiles[profileId] = data;
 				}
-				SpaxDebug.Log($"Loaded profile from \"{PROFILES_PATH + profileId + PROFILE_FILE_TYPE}\":\n", data.ToString());
+				SpaxDebug.Log($"Loaded profile from \"{path}\":\n", data.ToString());
 			}
 			else if (createIfNull)
 			{
-				// No data exists yet, create it.
+				// No data exists yet, create it. Note: for a non-global ID this treats it as a name
+				// and mints a fresh GUID identity (used for the default fallback profile).
 				CreateProfile(profileId, out data, false, false);
 			}
 
@@ -266,7 +281,7 @@ namespace SpaxUtils
 		/// Ensure a current profile is loaded.
 		/// </summary>
 		/// <param name="useLastSave">Whether to try and load the last saved profile if there is no current profile.</param>
-		/// <param name="defaultIfNull">The default profile ID to load if there is no available profile.</param>
+		/// <param name="defaultIfNull">The default profile name to create if there is no available profile.</param>
 		/// <returns>The current loaded profile.</returns>
 		public RuntimeDataCollection EnsureCurrentProfile(bool useLastSave = true, string defaultIfNull = DEFAULT_PROFILE_ID)
 		{
@@ -290,6 +305,7 @@ namespace SpaxUtils
 				}
 			}
 
+			// Nothing to load - create a fresh, default-named profile (gets its own GUID identity).
 			if (LoadProfile(defaultIfNull, out RuntimeDataCollection data, true, true))
 			{
 				return data;
@@ -317,7 +333,31 @@ namespace SpaxUtils
 				}
 			}
 
+			// If the profile is loaded, return its own (live) metadata collection so that writes
+			// (e.g. playtime, last save) persist with the profile itself - this is the source of truth.
+			RuntimeDataCollection profile = GetLoadedProfile(profileId);
+			if (profile != null)
+			{
+				return profile.GetEntry<RuntimeDataCollection>(META_DATA_ID, new RuntimeDataCollection(META_DATA_ID));
+			}
+
+			// Otherwise fall back to the derived (display-only) index entry.
 			return ProfilesMetaData.GetEntry<RuntimeDataCollection>(profileId);
+		}
+
+		/// <summary>
+		/// Returns the display name of profile <paramref name="profileId"/> (<see cref="CurrentProfile"/> if null).
+		/// This is the player's chosen character name, which is distinct from the profile's (GUID) identity.
+		/// </summary>
+		public string GetProfileName(string profileId = null)
+		{
+			RuntimeDataCollection meta = GetMetaData(profileId);
+			string name = meta?.GetValue<string>(ProfileDataIdentifiers.NAME);
+			if (!string.IsNullOrEmpty(name))
+			{
+				return name;
+			}
+			return profileId ?? (CurrentProfile != null ? CurrentProfile.ID : null);
 		}
 
 		/// <summary>
@@ -335,19 +375,19 @@ namespace SpaxUtils
 			DateTime lastSave = new DateTime(0);
 			foreach (RuntimeDataCollection metaData in ProfilesMetaData.Data)
 			{
-				DateTime saveTime;
-
 				RuntimeDataEntry saveTimeEntry = metaData.GetEntry(GlobalDataIdentifiers.LAST_SAVE);
 				if (saveTimeEntry == null)
 				{
+					// Metadata without a save time is not a valid candidate (freshly discovered profile,
+					// regenerated global data, or an externally-added file); skip it rather than crash.
 					SpaxDebug.Error("Profile does not contain last save time.\n", metaData.ToString());
-					if (result != null) continue;
+					continue;
 				}
 
-				if (!DateTime.TryParse((string)saveTimeEntry.Value, out saveTime))
+				if (!DateTime.TryParse(saveTimeEntry.Value as string, out DateTime saveTime))
 				{
 					SpaxDebug.Error($"Could not parse last save time: {saveTimeEntry.Value}", metaData.ToString());
-					if (result != null) continue;
+					continue;
 				}
 
 				if (result == null || saveTime > lastSave)
@@ -355,6 +395,12 @@ namespace SpaxUtils
 					result = metaData;
 					lastSave = saveTime;
 				}
+			}
+
+			if (result == null)
+			{
+				// No profile with a valid last save time was found.
+				return false;
 			}
 
 			if (loadResultAsCurrent)
@@ -406,10 +452,11 @@ namespace SpaxUtils
 
 				profileData = Profiles[profileId];
 
-				// Save profile meta data to global data.
-				RuntimeDataCollection metaData = ProfilesMetaData.GetEntry<RuntimeDataCollection>(profileId);
+				// Stamp the last-save time into the profile's own metadata (the source of truth), then
+				// refresh the display index so the load screen stays current within this session.
+				RuntimeDataCollection metaData = profileData.GetEntry<RuntimeDataCollection>(META_DATA_ID, new RuntimeDataCollection(META_DATA_ID));
 				metaData.SetValue(GlobalDataIdentifiers.LAST_SAVE, DateTime.UtcNow.ToString());
-				SaveProfileToDisk(GLOBAL_DATA_ID);
+				IndexProfileMeta(profileId, metaData);
 			}
 			else
 			{
@@ -417,14 +464,19 @@ namespace SpaxUtils
 			}
 
 			SavingToDiskEvent?.Invoke(profileData);
-			if (profileId == CurrentProfile.ID)
+			if (CurrentProfile != null && profileId == CurrentProfile.ID)
 			{
 				SavingCurrentToDiskEvent?.Invoke(profileData);
 			}
 
-			// Save data to disk.
+			// Save data to disk under its canonical "{Name} [{id}]" filename (or the global data file).
+			string savePath = GetSaveTargetPath(profileData);
 			SpaxDebug.Log($"Saving profile to disk: {profileId}\n{profileData.ToStringOptimized()}");
-			SpaxJsonUtils.StreamWrite(profileData, PROFILES_PATH + profileData.ID + PROFILE_FILE_TYPE);
+			SpaxJsonUtils.StreamWrite(profileData, savePath);
+			if (profileData.ID != GLOBAL_DATA_ID)
+			{
+				profileFilePaths[profileData.ID] = savePath;
+			}
 			return true;
 		}
 
@@ -477,6 +529,196 @@ namespace SpaxUtils
 		}
 
 		#endregion Writing
+
+		#region Files
+
+		/// <summary>
+		/// Discovers all profile files on disk, keying them by their GUID identity, de-duplicating copies of the
+		/// same identity, and (re)builds the metadata index. Files without a GUID identity are ignored.
+		/// </summary>
+		private void CollectProfiles()
+		{
+			Profiles.Clear();
+			profileFilePaths.Clear();
+			_profilesMetaData = new RuntimeDataCollection(GlobalDataIdentifiers.PROFILES);
+
+			foreach (string path in Directory.GetFiles(PROFILES_PATH, "*" + PROFILE_FILE_TYPE))
+			{
+				string fileName = Path.GetFileNameWithoutExtension(path);
+				if (fileName == GLOBAL_DATA_ID || IsIgnoredFileName(fileName))
+				{
+					continue;
+				}
+
+				RuntimeDataCollection profile = SpaxJsonUtils.StreamRead<RuntimeDataCollection>(path);
+				if (profile == null)
+				{
+					SpaxDebug.Error("Couldn't read profile file; skipping.", path);
+					continue;
+				}
+
+				// Identity is the GUID root ID. Backwards compatibility isn't required, so any file that
+				// isn't in the GUID-identity format (legacy/foreign) is ignored rather than migrated.
+				if (!Guid.TryParse(profile.ID, out _))
+				{
+					SpaxDebug.Log("Skipping profile file without a GUID identity (legacy/foreign save):", path);
+					continue;
+				}
+
+				string id = profile.ID;
+				RuntimeDataCollection meta = profile.GetEntry<RuntimeDataCollection>(META_DATA_ID);
+				string name = meta?.GetValue<string>(ProfileDataIdentifiers.NAME);
+
+				// De-duplicate identical identities (e.g. a copied save file): the canonical filename wins,
+				// otherwise the most recently saved file; the loser is left on disk untouched.
+				if (Profiles.ContainsKey(id))
+				{
+					if (DuplicateReplacesKept(id, name, path, meta))
+					{
+						SpaxDebug.Error("Duplicate profile - keeping newer/canonical file.", $"now \"{path}\", ignoring \"{profileFilePaths[id]}\"");
+					}
+					else
+					{
+						SpaxDebug.Error("Duplicate profile ignored (same identity).", $"kept \"{profileFilePaths[id]}\", ignoring \"{path}\"");
+						continue;
+					}
+				}
+
+				Profiles[id] = null; // Discovered, but not loaded (data is loaded on demand).
+				profileFilePaths[id] = path;
+				IndexProfileMeta(id, meta);
+			}
+		}
+
+		/// <summary>
+		/// Decides whether a newly-discovered duplicate of an already-indexed identity should replace it.
+		/// The canonical "{Name} [{id}]" filename wins; otherwise the most recently saved file wins.
+		/// </summary>
+		private bool DuplicateReplacesKept(string id, string name, string newPath, RuntimeDataCollection newMeta)
+		{
+			string keptPath = profileFilePaths[id];
+			bool keptCanonical = IsCanonicalFileName(keptPath, name, id);
+			bool newCanonical = IsCanonicalFileName(newPath, name, id);
+			if (keptCanonical != newCanonical)
+			{
+				return newCanonical;
+			}
+			return SaveTimeOf(newMeta) > SaveTimeOf(ProfilesMetaData.GetEntry<RuntimeDataCollection>(id));
+		}
+
+		/// <summary>
+		/// Adds/overwrites the display index entry for <paramref name="id"/> with a copy of its metadata.
+		/// </summary>
+		private void IndexProfileMeta(string id, RuntimeDataCollection meta)
+		{
+			ProfilesMetaData.TryAdd(meta != null ? meta.CloneCollection(id) : new RuntimeDataCollection(id), true);
+		}
+
+		/// <summary>
+		/// Parses the last-save time out of a metadata collection, or <see cref="DateTime.MinValue"/> if absent/invalid.
+		/// </summary>
+		private static DateTime SaveTimeOf(RuntimeDataCollection meta)
+		{
+			if (meta != null && DateTime.TryParse(meta.GetValue<string>(GlobalDataIdentifiers.LAST_SAVE), out DateTime time))
+			{
+				return time;
+			}
+			return DateTime.MinValue;
+		}
+
+		/// <summary>
+		/// Returns the full disk path for the profile with ID <paramref name="profileId"/>, or null if unknown.
+		/// The global data profile has a fixed path; player profiles are resolved via <see cref="profileFilePaths"/>.
+		/// </summary>
+		private string GetProfilePath(string profileId)
+		{
+			if (profileId == GLOBAL_DATA_ID)
+			{
+				return PROFILES_PATH + GLOBAL_DATA_ID + GLOBAL_FILE_TYPE;
+			}
+			return profileFilePaths.TryGetValue(profileId, out string path) ? path : null;
+		}
+
+		/// <summary>
+		/// Returns the canonical path a profile should be written to given its display name and identity.
+		/// </summary>
+		private string GetSaveTargetPath(RuntimeDataCollection profile)
+		{
+			if (profile.ID == GLOBAL_DATA_ID)
+			{
+				return GetProfilePath(GLOBAL_DATA_ID);
+			}
+			string name = profile.GetEntry<RuntimeDataCollection>(META_DATA_ID)?.GetValue<string>(ProfileDataIdentifiers.NAME);
+			return GetCanonicalProfilePath(name, profile.ID);
+		}
+
+		/// <summary>
+		/// Builds the canonical, human-readable profile path: "{PROFILES_PATH}{Name} [{id}]{PROFILE_FILE_TYPE}".
+		/// </summary>
+		private string GetCanonicalProfilePath(string name, string id)
+		{
+			return PROFILES_PATH + BuildProfileFileName(name, id) + PROFILE_FILE_TYPE;
+		}
+
+		/// <summary>
+		/// Builds the canonical file name (without extension) for a profile: "{Name} [{id}]".
+		/// The name is for humans; the bracketed id is the authoritative identity and guarantees uniqueness.
+		/// </summary>
+		private static string BuildProfileFileName(string name, string id)
+		{
+			string prefix = string.IsNullOrWhiteSpace(name) ? string.Empty : name.Trim() + " ";
+			return $"{prefix}[{id}]";
+		}
+
+		/// <summary>
+		/// Whether the file at <paramref name="path"/> uses the canonical name for the given identity.
+		/// </summary>
+		private static bool IsCanonicalFileName(string path, string name, string id)
+		{
+			return string.Equals(Path.GetFileNameWithoutExtension(path), BuildProfileFileName(name, id), StringComparison.OrdinalIgnoreCase);
+		}
+
+		/// <summary>
+		/// Whether a file named <paramref name="fileName"/> should be skipped during profile collection.
+		/// Files parked with a leading '_' or '.' are treated as backups/disabled saves and never loaded as profiles.
+		/// </summary>
+		private static bool IsIgnoredFileName(string fileName)
+		{
+			return string.IsNullOrEmpty(fileName) || fileName[0] == '_' || fileName[0] == '.';
+		}
+
+		/// <summary>
+		/// Returns the loaded (in-memory) profile with ID <paramref name="profileId"/>, or null if it isn't loaded.
+		/// </summary>
+		private RuntimeDataCollection GetLoadedProfile(string profileId)
+		{
+			if (CurrentProfile != null && CurrentProfile.ID == profileId)
+			{
+				return CurrentProfile;
+			}
+			if (profileId == GLOBAL_DATA_ID)
+			{
+				return GlobalData;
+			}
+			return Profiles.TryGetValue(profileId, out RuntimeDataCollection profile) ? profile : null;
+		}
+
+		/// <summary>
+		/// Migrates a legacy global data file (previously saved with <see cref="PROFILE_FILE_TYPE"/>) to its
+		/// dedicated <see cref="GLOBAL_FILE_TYPE"/>, so it is no longer enumerated alongside the profiles.
+		/// </summary>
+		private void MigrateLegacyGlobalFile()
+		{
+			string legacyPath = PROFILES_PATH + GLOBAL_DATA_ID + PROFILE_FILE_TYPE;
+			string currentPath = PROFILES_PATH + GLOBAL_DATA_ID + GLOBAL_FILE_TYPE;
+			if (File.Exists(legacyPath) && !File.Exists(currentPath))
+			{
+				File.Move(legacyPath, currentPath);
+				SpaxDebug.Log("Migrated legacy global data file:", $"{legacyPath} -> {currentPath}");
+			}
+		}
+
+		#endregion Files
 
 	}
 }

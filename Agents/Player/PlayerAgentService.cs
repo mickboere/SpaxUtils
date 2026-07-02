@@ -276,7 +276,7 @@ namespace SpaxUtils
 					deterministicPlayerId,
 					new List<RuntimeDataEntry>()
 					{
-						new RuntimeDataEntry(EntityDataIdentifiers.NAME, runtimeDataService.CurrentProfile != null ? runtimeDataService.CurrentProfile.ID : string.Empty)
+						new RuntimeDataEntry(EntityDataIdentifiers.NAME, runtimeDataService.CurrentProfile != null ? runtimeDataService.GetProfileName() : string.Empty)
 					});
 				playerDependencies.Bind(entityData);
 
@@ -285,7 +285,7 @@ namespace SpaxUtils
 			}
 
 			// Create player setup with deterministic ID and profile-based name.
-			string desiredPlayerName = runtimeDataService.CurrentProfile != null ? runtimeDataService.CurrentProfile.ID : config.AgentSetup.Identification.Name;
+			string desiredPlayerName = runtimeDataService.CurrentProfile != null ? runtimeDataService.GetProfileName() : config.AgentSetup.Identification.Name;
 
 			IIdentification identification =
 				entityData == null ?
