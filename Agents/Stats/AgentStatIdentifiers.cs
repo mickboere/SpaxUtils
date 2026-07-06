@@ -87,7 +87,7 @@
 		public const string GRAVITY_EXP = SOUL_EXP + "Gravity"; // Make heavy; improves knockback resistance and effectiveness of heavy forces.
 		public const string GRAVITY_LVL = SOUL_LVL + "Gravity";
 		// Void
-		public const string HOSTILITY_EXP = SOUL_EXP + "Hostility"; // Raises combat danger and experience gain.
+		public const string HOSTILITY_EXP = SOUL_EXP + "Hostility"; // Raises combat danger and malice gain.
 		public const string HOSTILITY_LVL = SOUL_LVL + "Hostility";
 		#endregion Soul Attributes
 
@@ -167,6 +167,7 @@
 		private const string BODY_EARTH = BODY_STAT + "EARTH/";
 		public const string ENDURANCE = BODY_EARTH + "Endurance"; // POINTSTAT: Amount absorbable force points before being stunned.
 		public const string PROOFING = BODY_EARTH + "Proofing"; // PHYSIC: The body's resistance to piercing (sharp defence).
+		public const string POISE = BODY_EARTH + "Poise"; // PHYSIC: Composure; dampens the off-balance endurance-drain penalty while moving/attacking (never below x1).
 		public const string GUARD = BODY_EARTH + "Guard"; // Total amount of active guarding defence.
 
 		// Void

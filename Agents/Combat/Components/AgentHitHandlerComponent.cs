@@ -82,10 +82,7 @@ namespace SpaxUtils
 			bool neglect = blocked || parried || deflected;
 
 			// --- 1. CRIT LAYER ---
-			// Rear exposure: hits landing toward the back raise effective Vulnerability toward 1. The angle of
-			// the hitter relative to our facing (front=0, side=0.5, rear=1) is shaped by the CombatSettings curve,
-			// then lerps the (guard-reduced) Vulnerability stat up toward 1. This keeps the rear exposed even
-			// while guarding, since guard only lowers the stat we lerp up from.
+			// Rear exposure: hits toward the back lerp Vulnerability up toward 1 (guard only lowers the base lerped from).
 			float vulnerability = vulnerabilityStat.Value;
 			if (backTurnWeakness)
 			{
@@ -115,10 +112,8 @@ namespace SpaxUtils
 
 			if (!neglect && hitData.Piercing > 0f)
 			{
-				// Proofing defends against Piercing.
+				// Proofing defends piercing; penetration = fraction that landed.
 				pierceDamage = SpaxFormulas.CalculateDamage(hitData.Piercing, proofingStat);
-
-				// Penetration is defined by how much of the incoming piercing becomes actual piercing damage.
 				penetration = Mathf.Clamp01(pierceDamage / hitData.Piercing);
 			}
 
@@ -131,16 +126,11 @@ namespace SpaxUtils
 
 			if (!neglect && hitData.Power > 0f)
 			{
-				// Power sits at the centre of the octad, guarded by BOTH proofing and pliancy. It always
-				// transmits some blunt through the target's rigidity (hardness), increased when the hit stays
-				// blunt (low penetration) and when it connects cleanly (coupling). Penetration and coupling are
-				// already defended upstream (by proofing and pliancy respectively), so the wall here is the full
-				// proofing + pliancy - neither stat alone can ever fully negate the centre.
+				// Power sits centre-octad, walled by proofing+pliancy; hardness, low penetration and clean coupling raise transfer.
 				float bluntOffence = hitData.Power * (hardnessStat + (1f - penetration) + coupling);
 				bluntDamage = SpaxFormulas.CalculateDamage(bluntOffence, proofingStat + pliancyStat);
 
-				// Normalised concussive transfer (0-1): the fraction of Power that landed as blunt. Reused for
-				// force, hit-pause and audio, so it's clamped to a clean 0-1 against very low-defence targets.
+				// Fraction of Power landed as blunt (0-1); reused for force, hit-pause and audio.
 				impact = Mathf.Clamp01(bluntDamage / hitData.Power);
 			}
 
@@ -149,19 +139,6 @@ namespace SpaxUtils
 
 			// --- 4. TOTAL PHYSICS DAMAGE ---
 			float totalDamage = critDamage + pierceDamage + bluntDamage;
-
-			// --- 5. GRACE INTERVENTION ---
-			// Applied AFTER physics calculation. It absorbs damage, it does not act as armor.
-			if (totalDamage > 0f)
-			{
-				// Drain Grace
-				float drained = statHandler.PointStats.SE.Drain(totalDamage);
-				hitData.Data.SetValue(HitDataIdentifiers.GRACE, drained);
-
-				// Reduce final damage by amount successfully drained from Grace
-				totalDamage -= drained;
-			}
-
 			hitData.Data.SetValue(HitDataIdentifiers.DAMAGE_TOTAL, totalDamage);
 
 			// --- IMPACT & FORCE ---
@@ -169,7 +146,8 @@ namespace SpaxUtils
 			hitData.Data.SetValue(HitDataIdentifiers.FORCE, force);
 
 			// --- ENDURANCE DAMAGE ---
-			float toEndure = neglect ? 0f : totalDamage + force;
+			// Stun draws on sharp + crit + force; force carries the blunt (Mass x bluntDamage), counted once.
+			float toEndure = neglect ? 0f : pierceDamage + critDamage + force;
 			float enduranceDamage = statHandler.PointStats.W.Drain(
 				toEndure,
 				out bool stunned,
@@ -194,11 +172,7 @@ namespace SpaxUtils
 			}
 
 			// --- INERTIA SHARING (clash) ---
-			// Treat contact as a collision along the horizontal contact normal: the hitter's closing
-			// momentum is shared by mass. CombatSettings.Restitution sets the elasticity — 0 = perfectly
-			// inelastic (both end at the shared velocity, freezing the gap), 1 = fully elastic (they bounce
-			// apart). Both the receiver's gain and the hitter's brake scale by (1 + restitution). Landed
-			// hits only — a block/parry/deflect already arrests the attacker (ResetVelocity), so no creep there.
+			// Contact clash along the horizontal normal: closing momentum shared by mass, elasticity from Restitution. Landed hits only.
 			if (!neglect)
 			{
 				Vector3 normal = (rigidbodyWrapper.Position - hitData.Hitter.Transform.position)
@@ -211,10 +185,8 @@ namespace SpaxUtils
 					float receiverShare = hitData.HitterMass / totalMass * elasticity;
 					float hitterShare = rigidbodyWrapper.Mass / totalMass * elasticity;
 
-					// Receiver is brought up to the post-collision velocity along the contact normal.
 					rigidbodyWrapper.Push(normal * (closing * receiverShare));
-
-					// Hitter sheds its share of the closing velocity (applied on the hitter's side in ProcessHit).
+					// Hitter's brake is applied on its side in ProcessHit.
 					hitData.Data.SetValue(HitDataIdentifiers.INERTIA_BRAKE, -normal * (closing * hitterShare));
 				}
 			}
@@ -222,21 +194,28 @@ namespace SpaxUtils
 			// --- HP DAMAGE & MALICE ---
 			if (!Invulnerable)
 			{
-				// Bracing (guard) trades health for stance: the blunt that would bleed health is borne entirely
-				// by endurance instead (which already absorbed it via toEndure above), scaled by guard weight.
-				// Pierce and crit are untouched - only a shield (raising proofing/pliancy) defends those.
+				// Guard trades health for stance: blunt that would bleed health goes to endurance instead, scaled by guard weight. Pierce/crit untouched.
 				float guardWeight = Mathf.Clamp01(hitData.Data.GetValue<float>(HitDataIdentifiers.GUARD_WEIGHT));
 				float healthDamage = Mathf.Max(0f, totalDamage - bluntDamage * guardWeight);
+
+				// Grace absorbs only the mortal overflow, leaving at least 1 HP while it lasts.
+				float mortal = healthDamage - Mathf.Max(0f, statHandler.PointStats.SW.Value - 1f);
+				if (mortal > 0f)
+				{
+					float drained = statHandler.PointStats.SE.Drain(mortal);
+					healthDamage -= drained;
+					hitData.Data.SetValue(HitDataIdentifiers.GRACE, drained);
+				}
 
 				float damageDealt = statHandler.PointStats.SW.Drain(healthDamage, out bool dead, out _);
 				hitData.Data.SetValue(HitDataIdentifiers.DAMAGE_DEALT, damageDealt);
 
 				// --- MALICE BUILDUP ---
+				// Only builds on actual HP lost.
 				if (damageDealt > 0f &&
 					hitData.Hitter != null &&
 					hitData.Hitter is IAgent)
 				{
-					// Only builds if HP was actually lost (Grace prevents Malice gain)
 					statHandler.PointStats.NW.Gain(damageDealt);
 				}
 
@@ -248,10 +227,7 @@ namespace SpaxUtils
 				}
 			}
 
-			// Build Static (NE): reward the defender for actively defending. A parry/deflect refunds the most
-			// (it's the prime opening-creator for charged counters), a block half. Threat = the attack's POTENTIAL
-			// force (Mass × Power) — the resolved force is 0 on a neglected (parried/blocked) hit. Landing a hit
-			// rewards the attacker instead (handled in MeleeCombatBehaviourAsset.ProcessHit).
+			// Build Static (NE) for defending: parry/deflect full, block half, partial guard scaled. Threat = potential force (Mass x Power).
 			float staticThreat = hitData.Mass * hitData.Power * combatSettings.StaticGain;
 			if (parried || deflected)
 			{
@@ -263,8 +239,6 @@ namespace SpaxUtils
 			}
 			else
 			{
-				// Partial guard: guard up but not a full block — still pays out at the block tier, scaled by how
-				// much guard absorbed the hit.
 				float guardWeight = hitData.Data.GetValue<float>(HitDataIdentifiers.GUARD_WEIGHT);
 				if (guardWeight > 0f)
 				{

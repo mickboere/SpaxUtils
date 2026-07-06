@@ -18,17 +18,19 @@ namespace SpaxUtils
 		[Header("Tracker / Envelope")]
 		[Tooltip("Always-actionable headroom motivation keeps above the Emotion envelope (cap = min(Emotion + BaseFloor, MAX_STIM)). 1 = base behaviours always available; raise to gate them harder.")]
 		public float BaseFloor = 1f;
-		[Tooltip("Base speed at which Stimulation tracks toward Demand (framerate-independent). Reaction speed for a fully-inclined axis at full difficulty; difficulty scales this via the remapped inclination that drives it (no separate multiplier). Higher = snappier.")]
-		public float StimulationRate = 6f;
-		[Range(0f, 1f), Tooltip("How hard inclination splits the Stimulation tracker's rise vs fall. Strong inclination → fast rise / slow fall (drive builds & lingers = grudge); weak → slow rise / fast fall (leaks, never accumulates). 0 = inclination has no effect; 1 = weak/reluctant direction frozen. THIS is the drive-selection differentiator.")]
+		[MinMaxRange(0f, 12f), Tooltip("Stimulation tracker speed as a [min,max] range, interpolated per axis by RateCurve.Evaluate(inclination). Low inclination (= low difficulty, via the trait remap) → min (sluggish); full inclination → max (snappy). x=min, y=max.")]
+		public Vector2 StimulationRate = new Vector2(1f, 6f);
+		[Range(0f, 1f), Tooltip("Per-axis rise/fall asymmetry keyed on each axis's INCLINATION (NOT a global rise-vs-fall split). Strongly-inclined axes rise fast + fall slow (build & linger = grudge); weakly-inclined axes rise slow + fall fast (leak, never accumulate). Higher = stronger split; 0 = inclination ignored (every axis rises AND falls at full rate); 1 = weak axes can't rise, strong axes can't fall.")]
 		public float StimulationInclinationBias = 0.75f;
-		[Tooltip("Base Emotion envelope speed toward |Stimulation|, before the inclination mirror. THE ramp knob: how fast the softcap lifts / rage builds on a fully-inclined axis (difficulty scales it via the remapped inclination).")]
-		public float EmotionRate = 0.5f;
+		[MinMaxRange(0f, 2f), Tooltip("Emotion envelope speed as a [min,max] range, interpolated per axis by RateCurve.Evaluate(inclination) — same difficulty mechanism as StimulationRate. x=min, y=max.")]
+		public Vector2 EmotionRate = new Vector2(0.1f, 0.6f);
+		[Tooltip("Maps inclination [0,1] → [0,1] before it interpolates the Stimulation/Emotion rate ranges. Inclination bottoms at ~0.19 (difficulty floor 0.1 × remap floor 0.1), so make this CONVEX (flat-low, steep near 1) to keep everything below high difficulty genuinely slow — only near-max inclination reaches the max rate.")]
+		public AnimationCurve RateCurve = AnimationCurve.Linear(0f, 0f, 1f, 1f);
 		[Range(0f, 1f), Tooltip("Inclination MIRROR on the emotion rate: a strong-inclination axis rises fast (EmotionRate) and falls slow (×(1-bias)) — it builds and lingers; a weak axis rises slow (×(1-bias)) and falls fast — it barely accumulates. So emotion only climbs on axes the agent cares about (keeps Balance from flattening on a co-active opposite pole). 0 = no inclination effect (uniform); 1 = weak axes never rise / strong axes never fall.")]
 		public float EmotionInclinationBias = 0.75f;
 
 		[Header("Overflow")]
-		[Tooltip("Above this value, stimulation is considered overflow and will be redistributed. 0 disables overflow handling.")]
+		[Tooltip("Stimulation above this bleeds out to other axes instead of accumulating. Effectively the ceiling on a single drive — and since Emotion chases max|Stimulation|, the ceiling on Emotion too (raise toward MAX_STIM to let a drive climb higher). 0 disables overflow.")]
 		[Range(0f, AEMOI.MAX_STIM)]
 		public float OverflowThreshold = 1f;
 		[Tooltip("Fraction of overflow moved per second into other directions. Higher = faster spread, lower = more lingering peaks.")]
@@ -51,7 +53,7 @@ namespace SpaxUtils
 		public float BalancePersonalityWeight = 1f;
 		[Range(0f, 1f), Tooltip("Weight of Emotion in the Balance computation. 0 = no emotional colouring; tune up to taste.")]
 		public float BalanceEmotionWeight = 0.5f;
-		[Range(1f, 4f), Tooltip("Lean: contrast gain that sharpens each Balance axis away from neutral (0.5). Applied symmetrically so a pole and its opposite still sum to 1. 1 = no change; 2 = a 0.6 lean becomes 0.7, a 0.55 becomes 0.6. Makes genuine leans read strong without touching the weights.")]
+		[Range(1f, 4f), Tooltip("Contrast gain (center steepness) of the soft logistic sigmoid sharpening each Balance axis away from neutral (0.5). Asymptotes toward 0/1 instead of hard-clipping, so strong leans stay distinct and the extremes never quite reach 0/1. Symmetric — a pole and its opposite still sum to 1. Higher = steeper / more decisive.")]
 		public float BalanceLean = 2f;
 
 		[Header("Behaviour Switching")]

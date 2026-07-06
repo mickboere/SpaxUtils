@@ -57,6 +57,7 @@ namespace SpaxUtils
 		private const float FINISHER_HEALTH_POWER = 4f;     // ease-in on health deficit: ~0 at half health (0.5^4≈0.06), bites near death.
 		// SE / Mercy — Trust. A beaten (low-health) foe invokes the urge to spare; DENIED by hate (×(1-hate01)). Counters the finisher for the un-hated.
 		private const float SE_MERCY_WEIGHT = 0.3f;         // enemy health-deficit → mercy fraction of MAX_STIM (linear).
+		private const float RETREAT_WEIGHT = 0.5f;          // S fear/space-making scale (parallel to the other drive weights).
 		private const float FINISHER_FALLOFF_POWER = 0.3f;  // <1 softens the shared distance falloff toward 1 (the chase reach); 1 = same as threat stim.
 		#endregion Constants
 
@@ -594,7 +595,7 @@ namespace SpaxUtils
 				// outmatched we are (lethality) or how much our stats need recovering (resourceDef) — so a healthy,
 				// evenly-matched agent doesn't retreat at all. No floor: the old 0.4/0.3 floors left even a fine agent
 				// accruing a baseline (~0.12·threat) that tripped the lowered trigger. Max = "either reason is enough".
-				float retreat = threatStim * Mathf.Max(lethality01, resourceDef);
+				float retreat = threatStim * Mathf.Max(lethality01, resourceDef) * RETREAT_WEIGHT;
 
 				// SW (Enhance / buffing): self-regarding power-up urge — fire when OUTMATCHED and SAFE, scaling with DISTANCE
 				// (distanceSafe: the more space from a strong foe, the stronger the urge). Health-only deficit for now

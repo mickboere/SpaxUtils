@@ -94,6 +94,20 @@ namespace SpaxUtils
 		Vector8 Balance { get; }
 
 		/// <summary>
+		/// <see cref="Balance"/> re-centred to signed [-1,1] (0 = neutral): `(Balance-0.5)·2`. Same difficulty-blind fight-or-flight
+		/// lean as Balance, just signed — for consumers that want direction/sign rather than a [0,1] pole value.
+		/// </summary>
+		Vector8 SignedBalance { get; }
+
+		/// <summary>
+		/// Per-pole disposition strength: the weighted average of Inclination, Personality and EmotionNormalized (Balance's
+		/// numerator BEFORE the pole-vs-opposite normalization). Unlike <see cref="Balance"/> it does NOT cancel against the
+		/// opposite pole, so it keeps trait magnitude — and therefore **carries difficulty** (traits are difficulty-remapped).
+		/// Use for competence decisions that don't hinge on the opposite pole (spacing precision, stamina back-off, jitter speed).
+		/// </summary>
+		Vector8 Drive { get; }
+
+		/// <summary>
 		/// Activates the mind to allow it to process stimuli and act upon them.
 		/// </summary>
 		/// <param name="reset">Whether the mind's emotions should be reset before activating.</param>

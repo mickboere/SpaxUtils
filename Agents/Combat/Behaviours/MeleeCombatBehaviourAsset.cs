@@ -78,6 +78,7 @@ namespace SpaxUtils
 		private EntityStat performSpeedStat;
 		private EntityStat stormSpeedStat;
 		private EntityStat enduranceCostStat;
+		private EntityStat poiseStat;
 
 		private FloatFuncModifier speedMod;
 		private FloatOperationModifier swingPhaseSpeedMod;
@@ -149,6 +150,7 @@ namespace SpaxUtils
 			performSpeedStat = Agent.Stats.GetStat(move.PerformSpeedMultiplierStat, false);
 			stormSpeedStat = Agent.Stats.GetStat(AgentStatIdentifiers.STORM_SPEED, false);
 			enduranceCostStat = Agent.Stats.GetStat(AgentStatIdentifiers.ENDURANCE.SubStat(AgentStatIdentifiers.SUB_DRAIN));
+			poiseStat = Agent.Stats.GetStat(AgentStatIdentifiers.POISE, true);
 
 			attackRange = this.move.Range +
 				Agent.Stats.GetStat(AgentStatIdentifiers.REACH) +
@@ -349,7 +351,10 @@ namespace SpaxUtils
 				? chargeBalance
 				: performBalance;
 
-			enduranceCostMod.SetValue((1f / balance).Lerp(1f, Weight.Invert()));
+			// Poise divides the imbalance excess over 1 (Guard-style), clamping toward x1.
+			float imbalance = 1f / balance;
+			float composed = 1f + (imbalance - 1f) / (1f + poiseStat.Value);
+			enduranceCostMod.SetValue(composed.Lerp(1f, Weight.Invert()));
 
 			// Keep the lunge from closing into the target's face.
 			EnforceSeparationFloor(delta);

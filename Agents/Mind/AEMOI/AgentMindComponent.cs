@@ -40,6 +40,8 @@ namespace SpaxUtils
 		public Vector8 Emotion => aemoi.Emotion;
 		public Vector8 EmotionNormalized => aemoi.EmotionNormalized;
 		public Vector8 Balance => aemoi.Balance;
+		public Vector8 SignedBalance => aemoi.SignedBalance;
+		public Vector8 Drive => aemoi.Drive;
 
 		#endregion IMind Properties
 
@@ -79,6 +81,8 @@ namespace SpaxUtils
 					aemoi.AddBehaviour(b);
 				}
 			}
+
+			aemoi.UpdatedEvent += DebugLog;
 		}
 
 		#region IMind Methods
@@ -122,8 +126,7 @@ namespace SpaxUtils
 			Vector8 bodyDist = statHandler != null ? statHandler.BodyDistribution : Vector8.Zero;
 			Vector8 soulDist = statHandler != null ? statHandler.SoulDistribution : Vector8.Zero;
 
-			// Difficulty (cognitive only, never combat stats) remaps each trait toward its floor as it drops — its only
-			// handle; the remapped inclination then drives the AEMOI rates. An explicit MIND binding still wins.
+			// Difficulty (cognitive only, never combat stats) remaps each trait toward its floor as it drops; drives the AEMOI rates. An explicit MIND binding wins.
 			Vector8 resolvedPersonality = explicitPersonality != Vector8.Zero ? explicitPersonality
 				: bodyDist != Vector8.Zero ? RemapToFloor(bodyDist, settings.PersonalityFloor, difficulty)
 				: Vector8.Half;
@@ -140,5 +143,24 @@ namespace SpaxUtils
 		{
 			return Vector8.One * floor + distribution * ((1f - floor) * Mathf.Clamp01(difficulty));
 		}
+
+		/// <summary>Per-tick watch log (Debuddy tag "AEMOI-DBG"), gated on <see cref="IAgent.Debug"/>. Salient foe's demand/motivation + global emotion.</summary>
+		private void DebugLog()
+		{
+			if (!Agent.Debug)
+			{
+				return;
+			}
+			IEntity target = Motivation.target;
+			Vector8 dem = target != null ? RetrieveDemand(target) : Vector8.Zero;
+			Vector8 mot = target != null ? RetrieveStimuli(target) : Vector8.Zero;
+			float diff = Agent.RuntimeData.GetValue(EntityDataIdentifiers.DIFFICULTY, 0.5f);
+			Debug.Log($"[AEMOI-DBG] {Agent.Identification.Name} diff={diff:F2} beh={ActiveBehaviour?.Name ?? "none"} " +
+				$"inc={Fmt(Inclination)} per={Fmt(Personality)} emo={Fmt(Emotion)} emoN={Fmt(EmotionNormalized)} " +
+				$"bal={Fmt(Balance)} sbal={Fmt(SignedBalance)} drv={Fmt(Drive)} dem={Fmt(dem)} mot={Fmt(mot)}");
+		}
+
+		private static string Fmt(Vector8 v) =>
+			$"N{v.N:F1}|NE{v.NE:F1}|E{v.E:F1}|SE{v.SE:F1}|S{v.S:F1}|SW{v.SW:F1}|W{v.W:F1}|NW{v.NW:F1}";
 	}
 }

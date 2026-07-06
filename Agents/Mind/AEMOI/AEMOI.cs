@@ -58,6 +58,12 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public Vector8 Balance { get; private set; }
 
+		/// <inheritdoc/>
+		public Vector8 SignedBalance => (Balance - Vector8.Half) * 2f;
+
+		/// <inheritdoc/>
+		public Vector8 Drive { get; private set; }
+
 		private IDependencyManager dependencyManager;
 		private AEMOISettings settings;
 		private Vector8 inclination;
@@ -177,7 +183,9 @@ namespace SpaxUtils
 					float incFactor = rising
 						? Mathf.Lerp(1f - bias, 1f, inc)   // strong → full rise, weak → damped
 						: Mathf.Lerp(1f, 1f - bias, inc);  // strong → damped fall (lingers), weak → full fall (leaks)
-					float rate = settings.StimulationRate * incFactor;
+					// Base rate: inclination (difficulty-carrying) curved, interpolating [min,max]. incFactor is the separate grudge asymmetry.
+					float baseRate = Mathf.Lerp(settings.StimulationRate.x, settings.StimulationRate.y, settings.RateCurve.Evaluate(inc));
+					float rate = baseRate * incFactor;
 					stim[i] = Mathf.Lerp(stim[i], demand[i], 1f - Mathf.Exp(-Mathf.Max(rate, 0f) * delta));
 				}
 				stim = RedistributeOverflow(stim, delta).Clamp(-MAX_STIM, MAX_STIM);
@@ -212,8 +220,10 @@ namespace SpaxUtils
 			// 6. Behaviour reassessment — sets ActiveBehaviour and ActiveTarget.
 			ReassessBehaviour();
 
-			// 7. Balance needs ActiveTarget from step 6.
+			// 7. Balance needs ActiveTarget from step 6. Drive shares Balance's inputs (inclination/personality/
+			//    EmotionNormalized) — compute once here rather than recomputing on every behaviour access.
 			Balance = ComputeBalance();
+			Drive = ComputeDrive();
 
 			// 8. Fire MotivatedEvent AFTER ActiveTarget and Balance are up-to-date.
 			MotivatedEvent?.Invoke();
@@ -460,9 +470,11 @@ namespace SpaxUtils
 				float cur = emotionState[i];
 				float tgt = target[i];
 				float inc = Mathf.Clamp01(incl[i]);
+				// Base rate: inclination (difficulty-carrying) curved, interpolating [min,max]. The inclination mirror is the separate asymmetry.
+				float baseRate = Mathf.Lerp(settings.EmotionRate.x, settings.EmotionRate.y, settings.RateCurve.Evaluate(inc));
 				float rate = tgt > cur
-					? settings.EmotionRate * Mathf.Lerp(1f - bias, 1f, inc)   // rise: strong fast, weak slow
-					: settings.EmotionRate * Mathf.Lerp(1f, 1f - bias, inc);  // fall: strong slow, weak fast
+					? baseRate * Mathf.Lerp(1f - bias, 1f, inc)   // rise: strong fast, weak slow
+					: baseRate * Mathf.Lerp(1f, 1f - bias, inc);  // fall: strong slow, weak fast
 				result[i] = Mathf.Lerp(cur, tgt, 1f - Mathf.Exp(-Mathf.Max(rate, 0f) * delta));
 			}
 			return emotionState = result;
@@ -508,6 +520,21 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
+		/// Per-pole disposition strength (Balance's numerator before the pole-vs-opposite normalization): the weighted
+		/// avg of Inclination, Personality and EmotionNormalized. Keeps trait magnitude, so it carries difficulty.
+		/// </summary>
+		private Vector8 ComputeDrive()
+		{
+			float wI = settings.BalanceInclinationWeight;
+			float wP = settings.BalancePersonalityWeight;
+			float wE = settings.BalanceEmotionWeight;
+			float sum = wI + wP + wE;
+			return sum > 0.0001f
+				? (inclination * wI + personality * wP + EmotionNormalized * wE) * (1f / sum)
+				: Vector8.Half;
+		}
+
+		/// <summary>
 		/// Computes behavioural lean from Inclination + Personality + Emotion + directed stim toward ActiveTarget.
 		/// Stored as a Vector8 where each pole holds its lean value (the losing pole is zero).
 		/// </summary>
@@ -550,15 +577,17 @@ namespace SpaxUtils
 				float sum = poleTotal + oppTotal;
 
 				balance[i] = sum > 0.001f ? Mathf.Clamp01(poleTotal / sum) : 0.5f;
-				// Lean: sharpen the deviation from neutral. Symmetric around 0.5, so the axis and its opposite still sum to 1.
-				balance[i] = Mathf.Clamp01(0.5f + (balance[i] - 0.5f) * settings.BalanceLean);
+				// Lean: soft-sharpen the deviation from neutral via a logistic sigmoid (4·Lean = center slope matching the old
+				// linear gain) — asymptotes toward 0/1 instead of hard-clipping, so strong leans stay distinct. Symmetric, so
+				// a pole and its opposite still sum to 1.
+				balance[i] = 1f / (1f + Mathf.Exp(-4f * settings.BalanceLean * (balance[i] - 0.5f)));
 			}
 			return balance;
 		}
 
 		/// <summary>
-		/// Clips emotion above OverflowThreshold and redistributes the overflow
-		/// using Personality and octagonal distance as weights. Below the threshold, nothing happens.
+		/// Bleeds per-axis Stimulation above OverflowThreshold out to other axes, weighted by Personality and octagonal
+		/// distance. Caps a single drive near the threshold (excess spills to neighbours); below it, nothing happens.
 		/// </summary>
 		private Vector8 RedistributeOverflow(Vector8 v, float delta)
 		{

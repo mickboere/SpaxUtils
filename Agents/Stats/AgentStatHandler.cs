@@ -61,29 +61,40 @@ namespace SpaxUtils
 			SoulExperience = soulExperience.Initialize(agent);
 
 			// --- BODY INITIALIZATION ---
+			bool bodyRanked = false;
 			if (BodyDistribution != Vector8.Zero &&
 				agent.Stats.TryGetStat(AgentStatIdentifiers.BODY_RANK, out EntityStat bodyRank) &&
 				bodyRank.BaseValue > 0f)
 			{
 				ApplyBudgetDistribution(bodyRank.BaseValue, BodyDistribution, BodyExperience, BodyLevels, bodyAttributeMap);
 				bodyRank.BaseValue = 0f;
+				bodyRanked = true;
 			}
 
 			// --- SOUL INITIALIZATION ---
+			bool soulRanked = false;
 			if (SoulDistribution != Vector8.Zero &&
 				agent.Stats.TryGetStat(AgentStatIdentifiers.SOUL_RANK, out EntityStat soulRank) &&
 				soulRank.BaseValue > 0f)
 			{
 				ApplyBudgetDistribution(soulRank.BaseValue, SoulDistribution, SoulExperience, SoulLevels, soulAttributeMap);
 				soulRank.BaseValue = 0f;
+				soulRanked = true;
 			}
 
 			pointStatOctad.Initialize(agent);
 			Physics = physicsOctad.Initialize(agent);
 
-			// Recompute distributions from the actual initialized levels so they reflect true attribute investment.
-			BodyDistribution = BodyLevels.Vector8.NormalizeMax();
-			SoulDistribution = SoulLevels.Vector8.NormalizeMax();
+			// Recompute from the initialized levels ONLY for a pool that was actually rank-shaped — otherwise flat base
+			// levels would NormalizeMax to a meaningless uniform vector and wipe the injected general distribution.
+			if (bodyRanked)
+			{
+				BodyDistribution = BodyLevels.Vector8.NormalizeMax();
+			}
+			if (soulRanked)
+			{
+				SoulDistribution = SoulLevels.Vector8.NormalizeMax();
+			}
 
 			// Modify recovery stat with control (so that recovery only occurs when agent is in control).
 			if (agent.Body.HasRigidbody && agent.Stats.TryGetStat(AgentStatIdentifiers.RECOVERY, out recoveryStat))

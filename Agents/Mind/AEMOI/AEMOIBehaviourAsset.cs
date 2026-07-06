@@ -27,8 +27,6 @@ namespace SpaxUtils
 		protected Vector8 Emotion => Mind.Emotion;
 		protected Vector8 EmotionNormalized => Mind.EmotionNormalized;
 		protected IEntity Target => Mind.ActiveTarget;
-
-		protected EntityStat EntityTimescale;
 		protected CallbackService CallbackService { get; private set; }
 		protected AgentStatHandler StatHandler { get; private set; }
 		protected CombatSensesComponent CombatSenses { get; private set; }
@@ -36,14 +34,42 @@ namespace SpaxUtils
 		protected CombatSensesSettings CombatSensesSettings { get; private set; }
 		protected PointStatOctad PointStats => StatHandler.PointStats;
 
-		/// <summary>Extra standoff distance a vulnerable agent keeps from a foe — the shared "back away when I can't
-		/// afford to trade" tell used by every strafing/standoff behaviour. Reached by whichever is greater: the
-		/// cautious lean of the S↔N axis (Balance.S — zero at/below neutral S 0.5, ramping to full at S=1) OR endurance
-		/// depletion (zero at full W, full at empty W). So a worn-down agent of ANY temperament holds recovery distance
-		/// — WITHOUT fleeing (that stays fear's job) — turning standoff time into the W it needs to guard again.</summary>
-		protected float CautiousSpacingBonus =>
-			Mathf.Max(Mind.Balance.S.Remap(0f, 1f, 0.5f, 1f), 1f - PointStats.W.PercentageRecoverable)
-			* CombatSensesSettings.CautiousSpacingMax;
+		/// <summary>Shared skill-gated back-off distance (world units, ≥0) — the OUT reasons only, no N/S. For behaviours
+		/// that already have their own N/S band (Hostile) and just want the winded/outmatched/mercy push-out on top.</summary>
+		protected float StandoffBackoff => OutDesire * CombatSensesSettings.StandoffMax;
+
+		/// <summary>Shared signed standoff shift (world units) for behaviours WITHOUT their own N/S band. Positive = back
+		/// off, negative = press in. Primal N/S (Balance) dominates; the OUT reasons layer on, but aggression suppresses them.</summary>
+		protected float StandoffOffset
+		{
+			get
+			{
+				float ns = (Mind.Balance.S - 0.5f) * 2f; // [-1,1] primal in(-)/out(+)
+				float o = OutDesire;
+				float offset = ns >= 0f ? ns.Max(o) : ns + o * (1f + ns); // aggression suppresses back-off
+				return offset * CombatSensesSettings.StandoffMax;
+			}
+		}
+
+		/// <summary>0-1 strafe t from mobility (Drive.E, carries difficulty), driving BOTH perlin polarization (intensity)
+		/// and frequency — easy/steadfast agents strafe gentler and change direction slower.</summary>
+		protected float StrafeMobilityT => Mind.Drive.E.Clamp01();
+
+		/// <summary>0-1 repositioning-input scale from mobility (Drive.E, shaped by MovementScaleCurve): a mobile agent
+		/// repositions freely, a dull one barely does — so low-difficulty agents hold still and get caught. Scales strafe/
+		/// orbit steer, NOT lunges/chases. The curve lets high-E agents plateau at full power; floored so the low end creeps.</summary>
+		protected float MovementScale =>
+			Mathf.Lerp(CombatSensesSettings.MovementScaleFloor, 1f, CombatSensesSettings.MovementScaleCurve.Evaluate(Mind.Drive.E));
+
+		/// <summary>[0,1] strongest single reason to hold OUT (Max, not summed): W winded/defensive (Drive), SE mercy
+		/// (Emotion), and outmatch ((1−Balance.NE)·Drive.NE — bounded & competence-gated, so dumb agents ignore it).
+		/// Raw SW stays out: its distance-growing demand has no satisfier and diverges.</summary>
+		private float OutDesire =>
+			(Mind.Drive.W * (1f - PointStats.W.PercentageRecoverable))
+				.Max(Mind.EmotionNormalized.SE)
+				.Max((1f - Mind.Balance.NE) * Mind.Drive.NE);
+
+		protected EntityStat EntityTimescale;
 
 		[SerializeField] new private string name;
 		[SerializeField] protected int priority;
@@ -150,6 +176,22 @@ namespace SpaxUtils
 		{
 			base.Stop();
 			Log("Stop", index: 2);
+		}
+
+		/// <summary>Spacing tracker: lags <paramref name="held"/> toward <paramref name="target"/> at a rate set by
+		/// competence (Drive.NE, carries difficulty). A sharp agent tracks the distance crisply; a dull one lags and
+		/// wobbles off it — regardless of the tactical situation. WHERE it wants to stand is the target's job, not the
+		/// rate's. Pass a sentinel &lt;0 held to snap on the first call. Framerate-independent.</summary>
+		protected float LagDistance(float target, ref float held, float delta)
+		{
+			if (held < 0f)
+			{
+				held = target;
+				return held;
+			}
+			float rate = CombatSensesSettings.TrackingRate.Lerp(Mind.Drive.NE);
+			held = Mathf.Lerp(held, target, 1f - Mathf.Exp(-rate * delta));
+			return held;
 		}
 
 		protected void Log(string a, string b = "", Color? color = null, int index = 1)

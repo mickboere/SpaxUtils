@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -22,6 +23,12 @@ namespace SpaxUtils
 		public OrbitStrafer(PerlinHelperSettings settings, float polarization, float frequency)
 		{
 			lateral = new PerlinHelper(settings, polarization, frequency, -1f, 1f);
+		}
+
+		/// <summary>Fully dynamic variant: <paramref name="polarizationT"/> and <paramref name="frequencyT"/> each yield a 0-1 t sampled live (e.g. Drive.E).</summary>
+		public OrbitStrafer(PerlinHelperSettings settings, Func<float> polarizationT, Func<float> frequencyT)
+		{
+			lateral = new PerlinHelper(settings, polarizationT, frequencyT, -1f, 1f);
 		}
 
 		public void Dispose()

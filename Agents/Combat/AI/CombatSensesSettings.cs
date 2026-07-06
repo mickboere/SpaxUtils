@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace SpaxUtils
 {
@@ -56,7 +57,19 @@ namespace SpaxUtils
 		public float MaxAggroRelation = 2.0f;
 
 		[Header("Combat Spacing")]
-		[Tooltip("Max extra standoff distance (world units) a vulnerable agent keeps from a foe — the shared 'back away when I can't afford to trade' spacing tell used by every standoff/strafe behaviour. Reached by whichever is greater: cautious temperament (Balance.S, scaling from 0 at neutral S to full at S=1) OR endurance depletion (0 at full W, full at empty W — so a worn-down agent of ANY temperament holds recovery distance without fleeing).")]
-		public float CautiousSpacingMax = 5f;
+		[FormerlySerializedAs("CautiousSpacingMax")]
+		[Tooltip("World-unit scale of the shared trait-driven StandoffOffset (AEMOIBehaviourAsset). At ±1 the standoff shifts this far in (aggressive) or out (cautious/winded/outmatched/merciful). Used by every standoff/strafe behaviour.")]
+		public float StandoffMax = 5f;
+
+		[Tooltip("How fast the held spacing distance chases its target, as [dull, sharp] interpolated over Drive.NE. HIGHER = snappier (hugs the ideal spacing); LOWER = laggier (wobbles off it). x = rate at Drive.NE 0 (dull), y = at Drive.NE 1 (sharp).")]
+		[MinMaxRange(0f, 20f)]
+		public Vector2 TrackingRate = new Vector2(2f, 12f);
+
+		[Tooltip("Repositioning-input scale at MIN mobility (Drive.E = 0): low = a dull agent barely strafes/backs off and gets caught. Floored above 0 so it still creeps, not freezes. Reaches full input at curve = 1.")]
+		[Range(0f, 1f)]
+		public float MovementScaleFloor = 0.25f;
+
+		[Tooltip("Shapes Drive.E -> movement scale (x = Drive.E, y feeds the floor lerp). Rise fast and PLATEAU at 1 so mobile agents move at full power and only the low end is damped. NOTE: x is Drive.E, which is difficulty-COMPRESSED — read the Debuddy 'drv E' value to place the plateau; it sits well below raw difficulty.")]
+		public AnimationCurve MovementScaleCurve = new AnimationCurve(new Keyframe(0f, 0f), new Keyframe(0.66f, 1f), new Keyframe(1f, 1f));
 	}
 }
