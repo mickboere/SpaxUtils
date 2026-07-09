@@ -40,6 +40,7 @@ namespace SpiritAxis
 
 		private EntityStat timescale;
 		private EntityStat moveSpeedStat;
+		private EntityStat sprintSpeedStat;
 		private TimerClass targetingTimer;
 		private Vector3 blendPosition;
 		private float slideWeight;
@@ -100,6 +101,7 @@ namespace SpiritAxis
 
 			timescale = agent.Stats.GetStat(EntityStatIdentifiers.TIMESCALE);
 			moveSpeedStat = agent.Stats.GetStat(AgentStatIdentifiers.MOVEMENT_SPEED, true, 1f);
+			sprintSpeedStat = agent.Stats.GetStat(AgentStatIdentifiers.SPRINT_SPEED, true, 1f);
 
 			// Build runtime blend maps with idle overrides.
 			BuildIdleOverrides();
@@ -168,7 +170,7 @@ namespace SpiritAxis
 			float scaledDelta = delta * (timescale != null ? (float)timescale : 1f);
 
 			Vector3 velocity = rigidbodyWrapper.RelativeVelocity * surveyorComponent.Influence.OutQuad();
-			float max = movementHandler.FullSpeed * moveSpeedStat.ModdedBaseValue;
+			float max = movementHandler.FullSpeed * sprintSpeedStat.ModdedBaseValue * moveSpeedStat.ModdedBaseValue;
 			blendPosition = blendPosition.FILerp(velocity / max,
 				moveset.PositionBlendSpeed * delta);
 			slideWeight = grounder.SlidingAmount;

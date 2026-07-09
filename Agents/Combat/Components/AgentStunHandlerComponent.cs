@@ -35,11 +35,23 @@ namespace SpaxUtils
 		protected virtual void OnEnable()
 		{
 			rigidbodyWrapper.Control.AddModifier(this, controlMod);
+			Agent.ReviveEvent += OnRevive;
 		}
 
 		protected virtual void OnDisable()
 		{
 			rigidbodyWrapper.Control.RemoveModifier(this);
+			Agent.ReviveEvent -= OnRevive;
+		}
+
+		// A stun active at the moment of death has its timer frozen by the death slow-mo, so on revive it would resume
+		// and keep control locked (and the Actor blocked) until it expires. Clear it so revival starts unstunned.
+		private void OnRevive()
+		{
+			if (Stunned)
+			{
+				ExitStun();
+			}
 		}
 
 		protected virtual void FixedUpdate()

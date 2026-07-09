@@ -12,6 +12,17 @@ namespace SpaxUtils
 			Sphere = 1
 		}
 
+		/// <summary>
+		/// Activity level of a region, mirrored onto agents bound to it via their spawnpoint.
+		/// Active (default 0, backward compatible) = agents behave normally; Sleep = present but dormant; Inactive = disabled.
+		/// </summary>
+		public enum RegionActivity
+		{
+			Active = 0,
+			Sleep = 1,
+			Inactive = 2
+		}
+
 		[Serializable]
 		public class Region
 		{
@@ -32,6 +43,12 @@ namespace SpaxUtils
 
 		public int Prio => prio;
 
+		/// <summary>Current activity level; agents bound to this region mirror it via <see cref="ActivityChangedEvent"/>.</summary>
+		public RegionActivity Activity => activity;
+
+		/// <summary>Invoked when <see cref="Activity"/> changes.</summary>
+		public event Action<RegionActivity> ActivityChangedEvent;
+
 		/// <summary>Read-only access to the region list, used by the editor.</summary>
 		public IReadOnlyList<Region> Regions => regions;
 
@@ -39,6 +56,7 @@ namespace SpaxUtils
 		public IReadOnlyList<PointOfInterest> POIs => pois;
 
 		[SerializeField] private int prio;
+		[SerializeField] private RegionActivity activity = RegionActivity.Active;
 		[SerializeField] private List<Region> regions = new List<Region>();
 		[SerializeField] private Color gizmosColor = Color.cyan;
 		[SerializeField] private bool alwaysDrawGizmos;
@@ -95,6 +113,17 @@ namespace SpaxUtils
 			{
 				GlobalDependencyManager.Instance.Get<WorldRegionService>().Remove(this);
 			}
+		}
+
+		/// <summary>Sets the region's activity level, notifying bound agents. No-op if unchanged.</summary>
+		public void SetActivity(RegionActivity value)
+		{
+			if (activity == value)
+			{
+				return;
+			}
+			activity = value;
+			ActivityChangedEvent?.Invoke(value);
 		}
 
 		/// <inheritdoc/>

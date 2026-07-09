@@ -5,6 +5,7 @@ namespace SpaxUtils
 	public class AgentStateIdentifiers : IStateIdentifiers
 	{
 		public const string INACTIVE = "Inactive";
+		public const string SLEEP = "Sleep";
 		public const string ACTIVE = "Active";
 		public const string CONTROL = "Control";
 		public const string PASSIVE = "Passive";

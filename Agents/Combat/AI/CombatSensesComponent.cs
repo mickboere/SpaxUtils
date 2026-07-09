@@ -35,7 +35,6 @@ namespace SpaxUtils
 		private TargetingService targetingService;
 
 		private EntityStat aggroStat;
-		private bool inCombat;
 		private ITargetable lastTarget;
 		private bool trackingDirty;
 
@@ -152,14 +151,15 @@ namespace SpaxUtils
 			}
 			aggroStat.BaseValue = rawAggro;
 
+			// Derive combat status from the actual brain state so it self-heals against external transitions (Sleep,
+			// Cutscene, Dead) that leave Combat without going through the aggro-exit path — a latch would wedge here.
+			bool inCombat = Agent.Brain.IsStateActive(AgentStateIdentifiers.COMBAT);
 			if (!inCombat && aggroStat >= aggroEnterThreshold)
 			{
-				inCombat = true;
 				Agent.Brain.TryTransition(AgentStateIdentifiers.COMBAT);
 			}
 			else if (inCombat && aggroStat <= aggroExitThreshold)
 			{
-				inCombat = false;
 				Agent.Brain.TryTransition(AgentStateIdentifiers.PASSIVE);
 			}
 		}

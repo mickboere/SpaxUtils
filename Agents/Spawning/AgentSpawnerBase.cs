@@ -37,9 +37,8 @@ namespace SpaxUtils
 		[SerializeField, Tooltip("Cycles before a dead agent may respawn. 0 = immediate, -1 = never.")]
 		private int respawnCooldown;
 
-		private IDependencyManager dependencyManager;
-		private RuntimeDataService runtimeDataService;
-		private WorldService worldService;
+		protected RuntimeDataService runtimeDataService;
+		protected WorldService worldService;
 		private FlagService flagService;
 
 		private bool requirementsMet;
@@ -49,20 +48,31 @@ namespace SpaxUtils
 		protected Dictionary<string, Agent> spawned = new Dictionary<string, Agent>();
 
 		public void InjectDependencies(
-			IDependencyManager dependencyManager,
 			RuntimeDataService runtimeDataService,
 			WorldService worldService,
 			FlagService flagService)
 		{
-			this.dependencyManager = dependencyManager;
 			this.runtimeDataService = runtimeDataService;
 			this.worldService = worldService;
 			this.flagService = flagService;
 		}
 
+		/// <summary>The setup to spawn. Override to select at runtime; null means "nothing to spawn (yet)".</summary>
+		protected virtual AgentSetupAsset ActiveSetup => agentSetup;
+
+		/// <summary>Brain state to spawn agents into; defaults to mirroring the spawnpoint's region activity.</summary>
+		protected virtual string GetSpawnBrainState(ISpawnpoint spawnpoint)
+		{
+			WorldRegion region = spawnpoint?.Region;
+			return region != null ? Agent.RegionActivityToBrainState(region.Activity) : AgentStateIdentifiers.ACTIVE;
+		}
+
+		/// <summary>Whether a missing <see cref="ActiveSetup"/> at Start is a fatal misconfiguration (true) or a valid empty state (false).</summary>
+		protected virtual bool RequireSetup => true;
+
 		protected virtual void Start()
 		{
-			if (agentSetup == null || spawnData == null)
+			if (spawnData == null || (RequireSetup && ActiveSetup == null))
 			{
 				SpaxDebug.Error("Spawner missing setup/spawnData.", $"Spawner='{Entity.ID}'", gameObject);
 				return;
@@ -196,7 +206,7 @@ namespace SpaxUtils
 
 		private void EnsureSpawnedOrActivated()
 		{
-			if (!requirementsMet)
+			if (!requirementsMet || ActiveSetup == null)
 			{
 				return;
 			}
@@ -316,21 +326,29 @@ namespace SpaxUtils
 
 		private Agent SpawnSlot(string slotId, ISpawnpoint spawnpoint)
 		{
-			DependencyManager agentDependencyManager = new DependencyManager(dependencyManager, slotId);
+			// Parent to the global DM (like a scene-placed entity) rather than the spawner entity's DM — otherwise the
+			// agent's hierarchical injection walks up and inherits the spawner's local bindings (e.g. its IInteractable).
+			DependencyManager agentDependencyManager = new DependencyManager(GlobalDependencyManager.Instance, slotId);
 			agentDependencyManager.Bind(spawnpoint);
 
 			// Override identification to use deterministic slot id.
+			AgentSetupAsset activeSetup = ActiveSetup;
 			IIdentification id = new Identification(
 				slotId,
-				agentSetup.Identification.Name,
-				agentSetup.Identification.Labels,
+				activeSetup.Identification.Name,
+				activeSetup.Identification.Labels,
 				null);
 
-			IAgentSetup setup = new AgentSetup(agentSetup, id, data: null);
+			IAgentSetup setup = new AgentSetup(activeSetup, id, data: null);
 
 			Agent agent = spawnData.Spawn(setup, agentDependencyManager,
 				spawnpoint.Position, spawnpoint.Rotation, worldService.WorldActive);
-			agent.Brain.TryTransition(AgentStateIdentifiers.ACTIVE);
+			string spawnState = GetSpawnBrainState(spawnpoint);
+			// Guard so we don't re-enter (and tear down) a state the agent is already in.
+			if (!agent.Brain.IsStateActive(spawnState))
+			{
+				agent.Brain.TryTransition(spawnState);
+			}
 			return agent;
 		}
 
@@ -449,6 +467,40 @@ namespace SpaxUtils
 		}
 
 		#endregion Death Flags
+
+		/// <summary>Hard-respawns every slot: destroys owned agents, clears their persisted data, and respawns fresh.</summary>
+		public void Respawn()
+		{
+			RebuildSlots(clearData: true);
+		}
+
+		/// <summary>Destroys all owned agents (optionally clearing their persisted slot data) then respawns from the current <see cref="ActiveSetup"/>.</summary>
+		protected void RebuildSlots(bool clearData = true)
+		{
+			DestroyAllOwnedAgents();
+			if (clearData)
+			{
+				ClearSlotData();
+			}
+			if (worldService.WorldActive)
+			{
+				EnsureSpawnedOrActivated();
+			}
+		}
+
+		/// <summary>Removes each slot's persisted data from the current profile, so the next spawn starts pristine.</summary>
+		protected void ClearSlotData()
+		{
+			if (runtimeDataService == null || runtimeDataService.CurrentProfile == null)
+			{
+				return;
+			}
+			int slots = GetSlotCount();
+			for (int i = 0; i < slots; i++)
+			{
+				runtimeDataService.CurrentProfile.TryRemove(GetSlotId(i), dispose: true);
+			}
+		}
 
 		protected string GetSlotId(int slotIndex)
 		{

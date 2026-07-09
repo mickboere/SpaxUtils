@@ -56,18 +56,20 @@ namespace SpaxUtils
 		[SerializeField] private List<BrainGraph> brainGraphs;
 
 		private IRelationData[] relationData;
+		private WorldRegion region;
 
 		public void InjectDependencies(
 			IAgentBody body, ITargetable targetableComponent, ITargeter targeterComponent, ICommunicationChannel comms,
 			CallbackService callbackService, InputToActMap inputToActMap,
 			IPerformer[] performers, IRelationData[] relationData, BrainGraph[] brainGraphs,
-			[Optional] IMind mind)
+			[Optional] IMind mind, [Optional] ISpawnpoint spawnpoint)
 		{
 			Body = body;
 			Targetable = targetableComponent;
 			Targeter = targeterComponent;
 			Comms = comms;
 			Mind = mind;
+			region = spawnpoint?.Region;
 
 			this.relationData = relationData;
 
@@ -109,6 +111,12 @@ namespace SpaxUtils
 			// Start the Brain to come to life.
 			Brain.EnteredStateEvent += OnEnteredStateEvent;
 			Brain.Start();
+
+			// Mirror the activity of the region this agent was spawned in, if any.
+			if (region != null)
+			{
+				region.ActivityChangedEvent += OnRegionActivityChanged;
+			}
 		}
 
 		protected override void Update()
@@ -123,6 +131,10 @@ namespace SpaxUtils
 
 		protected override void OnDestroy()
 		{
+			if (region != null)
+			{
+				region.ActivityChangedEvent -= OnRegionActivityChanged;
+			}
 			((Actor)Actor)?.Dispose();
 			Brain?.Dispose();
 			Mind?.Dispose();
@@ -172,15 +184,18 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public void Revive()
 		{
-			if (!Alive && (Brain.IsStateActive(AgentStateIdentifiers.ACTIVE) || Brain.TryTransition(AgentStateIdentifiers.ACTIVE)))
+			// Restore from the death state (clearing the death timescale/control/fade modifiers) BEFORE transitioning,
+			// so state-entry behaviours (e.g. arm sheathing) run at normal speed instead of the lingering death slow-mo.
+			Recover();
+			ReviveEvent?.Invoke();
+
+			// Target Control (Active's autonomous default child), not Active: Dead is a child of Active, so
+			// IsStateActive(Active) is true while dead and a transition to Active would no-op, stranding us in Dead.
+			if (!Alive && (Brain.IsStateActive(AgentStateIdentifiers.CONTROL) || Brain.TryTransition(AgentStateIdentifiers.CONTROL)))
 			{
 				Alive = true;
 				Actor.RemoveBlocker(this);
 			}
-
-			Recover();
-
-			ReviveEvent?.Invoke();
 		}
 
 		/// <inheritdoc/>
@@ -224,6 +239,34 @@ namespace SpaxUtils
 		{
 			this.state = state.ID;
 			//SpaxDebug.Notify($"[{Identification.Name}]", $"OnEnteredStateEvent({string.Join(", ", Brain.StateHierarchy.Select(s => s.ID))})");
+		}
+
+		private void OnRegionActivityChanged(WorldRegion.RegionActivity activity)
+		{
+			// Only mirror region activity while alive; dead agents stay dead until respawned.
+			if (!Alive)
+			{
+				return;
+			}
+			string target = RegionActivityToBrainState(activity);
+			// Guard so we don't re-enter (and tear down) a state the agent is already in.
+			if (!Brain.IsStateActive(target))
+			{
+				Brain.TryTransition(target);
+			}
+		}
+
+		/// <summary>Maps a <see cref="WorldRegion.RegionActivity"/> to the brain state that mirrors it.</summary>
+		public static string RegionActivityToBrainState(WorldRegion.RegionActivity activity)
+		{
+			switch (activity)
+			{
+				case WorldRegion.RegionActivity.Sleep: return AgentStateIdentifiers.SLEEP;
+				case WorldRegion.RegionActivity.Inactive: return AgentStateIdentifiers.INACTIVE;
+				// Active maps to Control (Active's default child) rather than Active itself: since Sleep is
+				// also a child of Active, targeting Active would read as "already active" and skip the wake.
+				default: return AgentStateIdentifiers.CONTROL;
+			}
 		}
 	}
 }

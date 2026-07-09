@@ -16,6 +16,7 @@ namespace SpaxUtils
 		private bool regionsFoldout = true;
 
 		private SerializedProperty prioProperty;
+		private SerializedProperty activityProperty;
 		private SerializedProperty regionsProperty;
 		private SerializedProperty gizmosColorProperty;
 		private SerializedProperty alwaysDrawGizmosProperty;
@@ -26,6 +27,7 @@ namespace SpaxUtils
 		{
 			worldRegion = (WorldRegion)target;
 			prioProperty = serializedObject.FindProperty("prio");
+			activityProperty = serializedObject.FindProperty("activity");
 			regionsProperty = serializedObject.FindProperty("regions");
 			gizmosColorProperty = serializedObject.FindProperty("gizmosColor");
 			alwaysDrawGizmosProperty = serializedObject.FindProperty("alwaysDrawGizmos");
@@ -41,6 +43,7 @@ namespace SpaxUtils
 			serializedObject.Update();
 
 			EditorGUILayout.PropertyField(prioProperty);
+			EditorGUILayout.PropertyField(activityProperty);
 			EditorGUILayout.PropertyField(gizmosColorProperty);
 			EditorGUILayout.PropertyField(alwaysDrawGizmosProperty);
 

@@ -110,6 +110,10 @@ namespace SpaxUtils
 				SpaxDebug.Error("Global data could not be loaded!");
 			}
 
+			// Seed any bundled (dev-build) profiles into the save directory BEFORE discovery, so they appear as
+			// normal loadable profiles this launch. Seed-once: a deleted seed is not resurrected.
+			SeedBundledProfiles();
+
 			// Discover profiles from disk: resolve their GUID identity, migrate legacy (name-keyed) saves,
 			// de-duplicate copies, and build the derived metadata index. Profile files are the source of truth.
 			CollectProfiles();
@@ -456,6 +460,7 @@ namespace SpaxUtils
 				// refresh the display index so the load screen stays current within this session.
 				RuntimeDataCollection metaData = profileData.GetEntry<RuntimeDataCollection>(META_DATA_ID, new RuntimeDataCollection(META_DATA_ID));
 				metaData.SetValue(GlobalDataIdentifiers.LAST_SAVE, DateTime.UtcNow.ToString());
+				metaData.SetValue(GlobalDataIdentifiers.BUILD_VERSION, Application.version);
 				IndexProfileMeta(profileId, metaData);
 			}
 			else
@@ -531,6 +536,61 @@ namespace SpaxUtils
 		#endregion Writing
 
 		#region Files
+
+		/// <summary>
+		/// Copies bundled profile saves (StreamingAssets/SeedProfiles) into the save directory on first launch, so
+		/// they show up as normal loadable profiles. Dev builds only. Seed-once, keyed by GUID in <see cref="GlobalData"/>:
+		/// a seed the player deletes or progresses is never re-copied, and player-created saves are never affected.
+		/// </summary>
+		private void SeedBundledProfiles()
+		{
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+			string seedDir = Path.Combine(Application.streamingAssetsPath, "SeedProfiles");
+			if (!Directory.Exists(seedDir))
+			{
+				return;
+			}
+
+			RuntimeDataCollection seeded = GlobalData.GetEntry<RuntimeDataCollection>(
+				GlobalDataIdentifiers.SEEDED_PROFILES, new RuntimeDataCollection(GlobalDataIdentifiers.SEEDED_PROFILES));
+
+			bool dirty = false;
+			foreach (string src in Directory.GetFiles(seedDir, "*" + PROFILE_FILE_TYPE))
+			{
+				RuntimeDataCollection seedProfile = SpaxJsonUtils.StreamRead<RuntimeDataCollection>(src);
+				if (seedProfile == null || !Guid.TryParse(seedProfile.ID, out _))
+				{
+					SpaxDebug.Error("Skipping seed profile without a GUID identity.", src);
+					continue;
+				}
+
+				// Seed-once: skip if this identity has ever been seeded, even if the player has since deleted it.
+				if (seeded.GetValue<bool>(seedProfile.ID))
+				{
+					continue;
+				}
+
+				try
+				{
+					// Never overwrite an existing save (File.Copy throws if the destination exists).
+					File.Copy(src, PROFILES_PATH + Path.GetFileName(src), false);
+					SpaxDebug.Log("Seeded bundled profile:", seedProfile.ID);
+				}
+				catch (IOException e)
+				{
+					SpaxDebug.Log("Seed profile destination already exists; leaving it untouched.", e.Message);
+				}
+
+				seeded.SetValue(seedProfile.ID, true);
+				dirty = true;
+			}
+
+			if (dirty)
+			{
+				SaveProfileToDisk(GLOBAL_DATA_ID);
+			}
+#endif
+		}
 
 		/// <summary>
 		/// Discovers all profile files on disk, keying them by their GUID identity, de-duplicating copies of the

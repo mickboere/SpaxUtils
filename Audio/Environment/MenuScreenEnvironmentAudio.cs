@@ -33,6 +33,9 @@ namespace SpaxUtils
 		protected void OnEnable()
 		{
 			screenManager.ContextChangedEvent += OnContextChanged;
+
+			// Apply the current context; the initial switch may have occured before we subscribed.
+			OnContextChanged(screenManager.CurrentContext);
 		}
 
 		protected void OnDisable()

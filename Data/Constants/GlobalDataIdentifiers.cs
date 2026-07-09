@@ -15,7 +15,12 @@ namespace SpaxUtils
 		public const string INITIAL_TIME = PROFILES + "InitialTime";
 		public const string PLAYTIME_UNSCALED = PROFILES + "UnscaledPlaytime";
 		public const string PLAYTIME_SCALED = PROFILES + "ScaledPlaytime";
-		
+		// Build the profile was last saved under (Application.version), for future save-upgrade/compat decisions.
+		public const string BUILD_VERSION = PROFILES + "BuildVersion";
+
+		// Collection of GUIDs of bundled profiles already seeded into this install, so a deleted seed stays deleted.
+		public const string SEEDED_PROFILES = GLOBAL + "SeededProfiles";
+
 
 		//private const string SETTINGS = "SETTINGS/";
 	}

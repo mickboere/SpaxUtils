@@ -66,7 +66,7 @@ namespace SpaxUtils
 						// Apply sprint cost (same as base).
 						statHandler.PointStats.E.Drain(
 							sprintCost * rigidbodyWrapper.Mass *
-							(rigidbodyWrapper.Speed / (FullSpeed * 1.5f * moveSpeedStat)) *
+							(rigidbodyWrapper.Speed / (FullSpeed * 1.5f * sprintSpeedStat * moveSpeedStat)) *
 							rigidbodyWrapper.Control * delta);
 					}
 				}
@@ -80,7 +80,7 @@ namespace SpaxUtils
 					float target = (downQ * (Quaternion.LookRotation(InputAxis) * InputSmooth).ProjectOnPlane(downhill)).x;
 					float scale = (rigidbodyWrapper.Velocity.y * slideSpeedSteerDamp).Abs().Clamp01().InOutSine();
 					Vector3 force = right * current.CalculateForce(
-						target * moveSpeedStat * slideSteeringSpeed * scale,
+						target * sprintSpeedStat * moveSpeedStat * slideSteeringSpeed * scale,
 						power * EntityTimeScale * scale,
 						maxAcceleration * EntityTimeScale * scale);
 					rigidbodyWrapper.AddForce(force);

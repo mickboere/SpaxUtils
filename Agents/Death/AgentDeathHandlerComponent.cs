@@ -10,6 +10,7 @@ namespace SpaxUtils
 		private const int DEATH_FADE_PRIO = 200;
 
 		[SerializeField] private float dissolveDuration = 4f;
+		[SerializeField, Tooltip("Duration of the fade-in when revived.")] private float resolveDuration = 1f;
 		[SerializeField] private float rewardPercentage = 0.01f;
 		[SerializeField] private AetherWisp wispPrefab;
 
@@ -26,7 +27,12 @@ namespace SpaxUtils
 		private AgentLegsComponent legs;
 		private GrounderComponent grounder;
 
+		/// <summary>When true, the dissolve still plays but the cairn + deactivation are held until <see cref="FinalizeDeath"/>
+		/// is called — lets the game-over screen offer Resurrect without the body already being cairned/deactivated.</summary>
+		public bool DeferDissolveFinalize { get; set; }
+
 		private bool rewarded;
+		private bool finalized;
 		private EntityStat timeScale;
 		private FloatOperationModifier timeScaleMod;
 		private TimerClass timer;
@@ -67,6 +73,11 @@ namespace SpaxUtils
 
 		protected void OnDestroy()
 		{
+			// Dispose any running dissolve/resolve timer first: it lives on the global CallbackService and would
+			// otherwise keep ticking after this agent is destroyed, firing FinalizeDeath() on a dead GameObject.
+			timer?.Dispose();
+			timer = null;
+
 			Agent.DiedEvent -= OnAgentDied;
 			Agent.ReviveEvent -= OnAgentRevived;
 		}
@@ -105,6 +116,7 @@ namespace SpaxUtils
 			timeScaleMod = new FloatOperationModifier(ModMethod.Absolute, Operation.Multiply, 1f);
 			timeScale.AddModifier(this, timeScaleMod);
 
+			timer?.Dispose();
 			timer = new TimerClass(dissolveDuration, 1f, true);
 			timer.UpdateEvent += OnTimerUpdate;
 
@@ -123,9 +135,13 @@ namespace SpaxUtils
 			timeScale.RemoveModifier(this);
 			timeScaleMod.Dispose();
 
+			// Fade the agent back in gradually rather than snapping visible.
 			timer?.Dispose();
+			timer = new TimerClass(resolveDuration, 1f, true);
+			timer.UpdateEvent += OnResolveTimerUpdate;
 
-			appearanceEffects.Clear(this);
+			finalized = false;
+			DeferDissolveFinalize = false;
 		}
 
 		private void OnTimerUpdate(float delta)
@@ -143,12 +159,51 @@ namespace SpaxUtils
 			if (timer.Expired)
 			{
 				timer.Dispose();
+				timer = null;
 				OnAgentDissolved();
+			}
+		}
+
+		private void OnResolveTimerUpdate(float delta)
+		{
+			// Fade alpha from invisible (1) back to visible (0) over the resolve duration.
+			appearanceEffects.RequestFade(this, DEATH_FADE_PRIO, 1f, timer.Progress.InvertClamped());
+
+			if (timer.Expired)
+			{
+				timer.Dispose();
+				timer = null;
+				appearanceEffects.Clear(this);
 			}
 		}
 
 		private void OnAgentDissolved()
 		{
+			if (DeferDissolveFinalize)
+			{
+				// Held for the game-over screen to decide (resurrect vs respawn/reload); it calls FinalizeDeath() on choice.
+				return;
+			}
+
+			FinalizeDeath();
+		}
+
+		/// <summary>Registers the cairn (player only) and deactivates the agent. Deferred while the game-over screen gates the flow.</summary>
+		public void FinalizeDeath()
+		{
+			if (finalized)
+			{
+				return;
+			}
+			finalized = true;
+
+			// Stop the dissolve if it is still running (e.g. respawn picked before it completes).
+			if (timer != null)
+			{
+				timer.Dispose();
+				timer = null;
+			}
+
 			if (Agent.Identification.HasAny(EntityLabels.PLAYER))
 			{
 				// Only register a cairn if agent is a player.

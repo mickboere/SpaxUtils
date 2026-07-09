@@ -203,9 +203,10 @@ namespace SpaxUtils
 
 				IAgent enemyAgent = enemy.Entity as IAgent;
 
-				if (enemyAgent == null || !enemyAgent.Alive || (!enemies.ContainsKey(enemy) && !visibleSet.Contains(enemy)))
+				if (enemyAgent == null || enemyAgent.Brain == null || !enemyAgent.Brain.IsStateActive(AgentStateIdentifiers.CONTROL) ||
+					(!enemies.ContainsKey(enemy) && !visibleSet.Contains(enemy)))
 				{
-					// Enemy is not an agent, is dead, or invisible and not being tracked; skip.
+					// Enemy is not an agent, isn't autonomously active (asleep/cutscene/dead), or invisible and untracked; skip.
 					continue;
 				}
 
@@ -455,6 +456,13 @@ namespace SpaxUtils
 		{
 			foreach (EnemyInfo info in enemies.Values)
 			{
+				// Ignore enemies that aren't autonomously active (asleep, in a cutscene, dead); drain toward them so we disengage.
+				if (info.Agent.Brain == null || !info.Agent.Brain.IsStateActive(AgentStateIdentifiers.CONTROL))
+				{
+					agent.Mind.Satisfy(Vector8.One * delta, info.Agent);
+					continue;
+				}
+
 				// When enemy leaves spawn region, flood-satisfy drives so they drain to zero,
 				// allowing Hostile to win selection and return the agent.
 				if (spawnpoint?.Region != null &&

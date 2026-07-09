@@ -71,12 +71,6 @@ namespace SpaxUtils
 			Action<Callback> progressCallback = null,
 			bool activate = true)
 		{
-			if (!dependencyManager.TryGetBinding(typeof(ICommunicationChannel), typeof(ICommunicationChannel), false, out _))
-			{
-				// Create and bind a new communication channel.
-				dependencyManager.Bind(new CommunicationChannel($"AGENT_COMMS_{identification.ID}"));
-			}
-
 			// Instantiate the Agent Frame deactivated.
 			GameObject rootGo = DependencyUtils.InstantiateDeactivated(frame.gameObject, position, rotation);
 
@@ -104,6 +98,12 @@ namespace SpaxUtils
 				identification.Add(labels);
 			}
 			dependencyManager.Bind(identification);
+
+			// Bind comms channel after identity is resolved, so its name uses the final (GUID-fallback) ID.
+			if (!dependencyManager.TryGetBinding(typeof(ICommunicationChannel), typeof(ICommunicationChannel), false, out _))
+			{
+				dependencyManager.Bind(new CommunicationChannel($"AGENT_COMMS_{identification.ID}"));
+			}
 
 			// Ensure agent has runtime data.
 			// IMPORTANT: dependencyManager may already have a RuntimeDataCollection bound upstream (e.g. spawner entity data).

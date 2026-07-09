@@ -131,10 +131,10 @@ namespace SpaxUtils.UI
 				option.Enable(playerInputWrapper);
 			}
 
-			// Visuals.
-			if (menuTitle != null && !string.IsNullOrEmpty(title))
+			// Visuals. Always assign so a nameless target clears the previous title instead of showing it stale.
+			if (menuTitle != null)
 			{
-				menuTitle.text = title;
+				menuTitle.text = string.IsNullOrEmpty(title) ? string.Empty : title;
 			}
 
 			Menu.Populate(menuOptions);

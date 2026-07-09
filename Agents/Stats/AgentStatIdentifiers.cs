@@ -139,6 +139,7 @@
 		private const string BODY_AIR = BODY_STAT + "AIR/";
 		public const string STAMINA = BODY_AIR + "Stamina"; // POINTSTAT: Amount of spendable movement points.
 		public const string PLIANCY = BODY_AIR + "Pliancy"; // PHYSIC: The ability to roll with hits (crit glancing / impact padding).
+		public const string SPRINT_SPEED = BODY_AIR + "Sprint_Speed"; // Sprint top-speed multiplier.
 		public const string DASH_SPEED = BODY_AIR + "Dash_Speed"; // Speed of the initial dash burst.
 		public const string GLIDE_SPEED = BODY_AIR + "Glide_Speed"; // Speed of the gliding state (after dashing).
 		public const string JUMP_SPEED = BODY_AIR + "Jump_Speed"; // Speed multiplier of the jump performance.

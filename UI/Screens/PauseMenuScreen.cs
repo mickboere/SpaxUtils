@@ -47,6 +47,12 @@ namespace SpaxUtils.UI
 				// Add Resume option.
 				msg.AddOption(new Option("Resume", "", (option) => screenManager.SwitchContext(null)));
 
+				// Add all other options.
+				foreach (string option in options)
+				{
+					msg.AddOption(new Option(option, "", (_) => screenManager.SwitchContext(option)));
+				}
+
 				// Add saving option.
 				msg.AddOption(new Option("Save", "", (option) =>
 				{
@@ -59,11 +65,16 @@ namespace SpaxUtils.UI
 						});
 				}));
 
-				// Add all other options.
-				foreach (string option in options)
+				// Add Reload option.
+				msg.AddOption(new Option("Reload", "", (option) =>
 				{
-					msg.AddOption(new Option(option, "", (_) => screenManager.SwitchContext(option)));
-				}
+					dialogueBoxService.ShowConfirmCancel("Reload Save", null, "Warning; all unsaved progress will be lost.\n\nReload the last save?",
+						() =>
+						{
+							screenManager.SwitchContext(null);
+							gameService.ReloadSave();
+						});
+				}));
 
 				// Add Main Menu option.
 				msg.AddOption(new Option("Main Menu", "", (option) =>
@@ -88,5 +99,6 @@ namespace SpaxUtils.UI
 				}));
 			}
 		}
+
 	}
 }

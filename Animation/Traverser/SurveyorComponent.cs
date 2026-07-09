@@ -53,6 +53,7 @@ namespace SpaxUtils
 		private GrounderComponent grounder;
 		private IAgentMovementHandler movementHandler;
 		private EntityStat moveSpeedStat;
+		private EntityStat sprintSpeedStat;
 
 		private float smoothAccel;
 
@@ -66,6 +67,7 @@ namespace SpaxUtils
 			this.movementHandler = movementHandler;
 
 			moveSpeedStat = Entity.Stats.GetStat(AgentStatIdentifiers.MOVEMENT_SPEED, true, 1f);
+			sprintSpeedStat = Entity.Stats.GetStat(AgentStatIdentifiers.SPRINT_SPEED, true, 1f);
 		}
 
 		public void ResetSurveyor(float progress = 0f)
@@ -132,7 +134,7 @@ namespace SpaxUtils
 			Influence *= Mathf.Lerp(1f, grounder.Mobility, mobilityStrideInfluence);
 			// 2. Acceleration Influence
 			float accel = (rigidbodyWrapper.Acceleration.magnitude * accelerationScale).Clamp01() * 
-				(relativeSpeed * (1f / moveSpeedStat) * 0.5f).InvertClamped();
+				(relativeSpeed * (1f / (float)sprintSpeedStat / moveSpeedStat) * 0.5f).InvertClamped();
 			smoothAccel = smoothAccel.FILerp(accel,
 				(accel > smoothAccel ? accelerationSmoothing.x : accelerationSmoothing.y) * delta);
 			Influence *= Mathf.Lerp(1f, smoothAccel.Invert(), accelerationStrideInfluence);

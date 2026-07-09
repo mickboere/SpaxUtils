@@ -43,10 +43,12 @@ namespace SpaxUtils
 				else
 				{
 					_inputRaw = value;
+					lastInputTime = Time.time;
 				}
 			}
 		}
 		private Vector3 _inputRaw;
+		private float lastInputTime;
 
 		/// <inheritdoc/>
 		public Vector3 InputSmooth { get { return _inputSmooth; } set { _inputSmooth = value; } }
@@ -70,9 +72,14 @@ namespace SpaxUtils
 		public bool AutoUpdateRotation { get; set; } = true;
 
 		[Header("Movement")]
-		[field: SerializeField] public float MinSpeed { get; set; } = 1f;
-		[field: SerializeField] public float HalfSpeed { get; set; } = 1.5f;
-		[field: SerializeField] public float FullSpeed { get; set; } = 4.5f;
+		[field: SerializeField, Tooltip("Speed at minimum input magnitude.")]
+		public float MinSpeed { get; set; } = 1f;
+		[field: SerializeField, Tooltip("Speed at half (0.5) input magnitude.")]
+		public float HalfSpeed { get; set; } = 1.5f;
+		[field: SerializeField, Tooltip("Speed at full (1) input magnitude, scaled by the movement speed stat.")]
+		public float FullSpeed { get; set; } = 4.5f;
+		[SerializeField, Tooltip("Safety net: if no input is written for this many seconds, InputRaw auto-resets to zero. Catches behaviours that stop driving movement without zeroing it (e.g. on state exit).")]
+		protected float inputTimeout = 0.3f;
 
 		/// <inheritdoc/>
 		public float MinimumInput => inputSettings.MinimumInput;
@@ -90,12 +97,12 @@ namespace SpaxUtils
 		protected float power = 50f;
 
 		[Header("Rotation")]
-		[SerializeField] protected float rotationSmoothing = 30f;
+		[SerializeField, Tooltip("Rotation turn-rate smoothing; higher is snappier.")] protected float rotationSmoothing = 30f;
 
 		[Header("Stats")]
-		[SerializeField, Range(0f, 1f)] protected float velocityRecoveryMod = 0.5f;
-		[SerializeField] protected float sprintCost = 0.25f;
-		[SerializeField] protected float tiredInputLimiter = 0.75f;
+		[SerializeField, Range(0f, 1f), Tooltip("How much running slows recovery-stat regen. 0 = no slowdown, 1 = full stop at top speed.")] protected float velocityRecoveryMod = 0.5f;
+		[SerializeField, Tooltip("Endurance drained per second while sprinting, scaled by mass, relative speed and grip.")] protected float sprintCost = 0.25f;
+		[SerializeField, Tooltip("Input magnitude cap applied while recovering from zero endurance.")] protected float tiredInputLimiter = 0.75f;
 		[SerializeField, Tooltip("Rate at which sprint speed builds up toward max sprint speed (0..1 per second).")]
 		protected float sprintRampRate = 0.5f;
 		[SerializeField, Tooltip("Rate at which sprint buildup decays when not sprinting (0..1 per second).")]
@@ -110,8 +117,8 @@ namespace SpaxUtils
 		protected Vector2 turnSmoothingRange = new Vector2(10f, 50f);
 
 		[Header("Sliding")]
-		[SerializeField] protected float slideSteeringSpeed = 4f;
-		[SerializeField, Range(0f, 1f)] protected float slideSpeedSteerDamp = 0.2f;
+		[SerializeField, Tooltip("Lateral steering speed while sliding on a slope.")] protected float slideSteeringSpeed = 4f;
+		[SerializeField, Range(0f, 1f), Tooltip("Damps slide steering by vertical speed. 0 = no damping, 1 = full.")] protected float slideSpeedSteerDamp = 0.2f;
 
 		[Header("Air Control")]
 		[SerializeField, Tooltip("Maximum air control force. Actual force is scaled by the agent's air control stat.")]
@@ -122,7 +129,7 @@ namespace SpaxUtils
 		protected string airControlStat;
 
 		[Header("Debugging")]
-		[SerializeField] protected bool debug;
+		[SerializeField, Tooltip("Log movement debug info to the console.")] protected bool debug;
 
 		protected RigidbodyWrapper rigidbodyWrapper;
 		protected GrounderComponent grounder;
@@ -132,6 +139,7 @@ namespace SpaxUtils
 		protected Vector3 processedInput;
 		protected MovementInputHelper inputHelper;
 		protected EntityStat moveSpeedStat;
+		protected EntityStat sprintSpeedStat;
 		protected EntityStat recoveryStat;
 		protected EntityStat airControlStatValue;
 		protected EntityStat loadStat;
@@ -152,6 +160,7 @@ namespace SpaxUtils
 			this.statHandler = statHandler;
 
 			moveSpeedStat = Agent.Stats.GetStat(AgentStatIdentifiers.MOVEMENT_SPEED, true, 1f);
+			sprintSpeedStat = Agent.Stats.GetStat(AgentStatIdentifiers.SPRINT_SPEED, true, 1f);
 			recoveryStat = Agent.Stats.GetStat(AgentStatIdentifiers.RECOVERY, true, 1f);
 			loadStat = Agent.Stats.GetStat(AgentStatIdentifiers.LOAD, true, 0f);
 			strengthStat = Agent.Stats.GetStat(AgentStatIdentifiers.STRENGTH, true, 0f);
@@ -179,6 +188,13 @@ namespace SpaxUtils
 
 		protected void Update()
 		{
+			// Safety net: if nothing has driven input for inputTimeout seconds, force a stop. Prevents agents running
+			// off when a movement behaviour stops writing input without zeroing it (e.g. on brain-state exit).
+			if (_inputRaw != Vector3.zero && Time.time - lastInputTime > inputTimeout)
+			{
+				_inputRaw = Vector3.zero;
+			}
+
 			// Calculate appropriate input value according to stats.
 			processedInput =
 				statHandler.PointStats.E.IsRecoveringFromZero && InputRaw != Vector3.zero
@@ -188,9 +204,9 @@ namespace SpaxUtils
 			// Update smooth input value.
 			InputSmooth = inputHelper.Update(processedInput, Time.deltaTime);
 
-			// Slow down recovery while running.
+			// Slow down recovery while running; full slowdown only at sprint top speed.
 			recoveryMod.SetValue(
-				1f - Mathf.InverseLerp(HalfSpeed, FullSpeed * moveSpeedStat, rigidbodyWrapper.Speed)
+				1f - Mathf.InverseLerp(HalfSpeed, FullSpeed * 1.5f * sprintSpeedStat * moveSpeedStat, rigidbodyWrapper.Speed)
 					.InOutSine() * velocityRecoveryMod);
 		}
 
@@ -265,7 +281,7 @@ namespace SpaxUtils
 						// Apply sprint cost.
 						statHandler.PointStats.E.Drain(
 							sprintCost * rigidbodyWrapper.Mass *
-							(rigidbodyWrapper.Speed / (FullSpeed * 1.5f * moveSpeedStat)) *
+							(rigidbodyWrapper.Speed / (FullSpeed * 1.5f * sprintSpeedStat * moveSpeedStat)) *
 							rigidbodyWrapper.Control * delta);
 					}
 				}
@@ -286,7 +302,7 @@ namespace SpaxUtils
 						float target = (downQ * (Quaternion.LookRotation(InputAxis) * InputSmooth).ProjectOnPlane(downhill)).x;
 						float scale = (rigidbodyWrapper.Velocity.y * slideSpeedSteerDamp).Abs().Clamp01().InOutSine();
 						Vector3 force = right * current.CalculateForce(
-							target * moveSpeedStat * slideSteeringSpeed * scale,
+							target * sprintSpeedStat * moveSpeedStat * slideSteeringSpeed * scale,
 							power * EntityTimeScale * scale,
 							maxAcceleration * EntityTimeScale * scale);
 						rigidbodyWrapper.AddForce(force);
@@ -314,7 +330,7 @@ namespace SpaxUtils
 			else if (airControlStatValue != null && airControlStatValue > 0.01f && InputSmooth.sqrMagnitude > 0.01f)
 			{
 				// Airborne: apply air control force toward input direction, scaled by stat.
-				Vector3 airTarget = Quaternion.LookRotation(InputAxis) * InputSmooth.ClampMagnitude(1f) * FullSpeed * moveSpeedStat;
+				Vector3 airTarget = Quaternion.LookRotation(InputAxis) * InputSmooth.ClampMagnitude(1f) * FullSpeed * sprintSpeedStat * moveSpeedStat;
 				float control = Mathf.Clamp01(airControlStatValue);
 				rigidbodyWrapper.ApplyMovement(
 					airTarget,
@@ -412,17 +428,20 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public float CalculateSpeed(float input)
 		{
-			return input < inputSettings.MinimumInput
-				? MinSpeed * (input / inputSettings.MinimumInput)
-				: input < 0.5f
-					? MinSpeed.Lerp(HalfSpeed, input * 2f)
-					: input < 1f
-						? HalfSpeed.Lerp(FullSpeed * Mathf.Min(1f, (float)moveSpeedStat), (input - 0.5f) * 2f)
-						// The sprintBuildup=0 (walking) anchor MUST equal the [0.5,1) branch's top — FullSpeed × Min(1,
-						// moveSpeedStat) — NOT FullSpeed × 1. With 1f, crossing |input|=1 silently drops moveSpeedStat
-						// (e.g. the strafe speed mod) and the speed snaps to full (the targeted-strafe spike). The Lerp
-						// then ramps toward the sprint speed (moveSpeedStat × input) as sprintBuildup rises.
-						: FullSpeed * Mathf.Lerp(Mathf.Min(1f, (float)moveSpeedStat), moveSpeedStat * input, sprintBuildup);
+			// SPRINT_SPEED shapes the top speed; MOVEMENT_SPEED is the overall multiplier applied to every tier.
+			float sprint = (float)sprintSpeedStat;
+			float speed =
+				input < inputSettings.MinimumInput
+					? MinSpeed * (input / inputSettings.MinimumInput)
+					: input < 0.5f
+						? MinSpeed.Lerp(HalfSpeed, input * 2f)
+						: input < 1f
+							? HalfSpeed.Lerp(FullSpeed * Mathf.Min(1f, sprint), (input - 0.5f) * 2f)
+							// The sprintBuildup=0 (walking) anchor MUST equal the [0.5,1) branch's top — FullSpeed × Min(1,
+							// sprint) — NOT FullSpeed × 1. With 1f, crossing |input|=1 silently drops SPRINT_SPEED and the
+							// speed snaps to full. The Lerp then ramps toward the sprint speed (sprint × input) as sprintBuildup rises.
+							: FullSpeed * Mathf.Lerp(Mathf.Min(1f, sprint), sprint * input, sprintBuildup);
+			return speed * moveSpeedStat;
 		}
 
 		/// <inheritdoc/>

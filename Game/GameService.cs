@@ -49,6 +49,7 @@ namespace SpaxUtils
 		private GameData gameData;
 		private CallbackService callbackService;
 		private SceneService sceneService;
+		private RuntimeDataService runtimeDataService;
 
 		private Coroutine coroutine;
 
@@ -60,12 +61,14 @@ namespace SpaxUtils
 			GameData gameData,
 			IDependencyManager dependencyManager,
 			CallbackService callbackService,
-			SceneService sceneService)
+			SceneService sceneService,
+			RuntimeDataService runtimeDataService)
 		{
 			this.loadingScreenService = loadingScreenService;
 			this.gameData = gameData;
 			this.callbackService = callbackService;
 			this.sceneService = sceneService;
+			this.runtimeDataService = runtimeDataService;
 
 			EventSystem = GameObject.Instantiate(gameData.EventSystem);
 			GameObject.DontDestroyOnLoad(EventSystem.gameObject);
@@ -108,13 +111,16 @@ namespace SpaxUtils
 		/// <param name="duration">The duration override for the loading screen UI transition. &lt;0 uses prefab defaults, 0 is immediate.</param>
 		/// <param name="scene">An optional desired scene to load.</param>
 		/// <param name="reason">Why the switch is happening.</param>
+		/// <param name="forceReload">Force a full reload even into the state/scene we are already in: reloads the scene and re-enters the state (so state-scoped entities like the player are torn down and respawned).</param>
 		public void SwitchState(
 			string state,
 			float duration = -1f,
 			string scene = "",
-			GameStateSwitchReason reason = GameStateSwitchReason.Unknown)
+			GameStateSwitchReason reason = GameStateSwitchReason.Unknown,
+			bool forceReload = false)
 		{
-			if (Brain.HeadState != null &&
+			if (!forceReload &&
+				Brain.HeadState != null &&
 				Brain.HeadState.ID == state &&
 				(scene.IsNullOrEmpty() || sceneService.CurrentScene == scene))
 			{
@@ -150,7 +156,7 @@ namespace SpaxUtils
 				// Screen is now fully blocking the view.
 				LoadingScreenShownEvent?.Invoke(state, scene, reason);
 
-				BeginLoadAndEnterState(version, state, scene, reason);
+				BeginLoadAndEnterState(version, state, scene, reason, forceReload: forceReload);
 			}
 			else
 			{
@@ -164,7 +170,7 @@ namespace SpaxUtils
 					// Screen is now fully blocking the view.
 					LoadingScreenShownEvent?.Invoke(state, scene, reason);
 
-					BeginLoadAndEnterState(version, state, scene, reason);
+					BeginLoadAndEnterState(version, state, scene, reason, forceReload: forceReload);
 				}, duration);
 			}
 		}
@@ -172,9 +178,42 @@ namespace SpaxUtils
 		/// <summary>
 		/// Switches game state to <see cref="GameStateIdentifiers.GAME"/> and loads <paramref name="scene"/> as the active scene.
 		/// </summary>
-		public void SwitchLevel(string scene, float duration = -1f, GameStateSwitchReason reason = GameStateSwitchReason.LevelChange)
+		public void SwitchLevel(string scene, float duration = -1f, GameStateSwitchReason reason = GameStateSwitchReason.LevelChange, bool forceReload = false)
 		{
-			SwitchState(GameStateIdentifiers.GAME, duration, scene, reason);
+			SwitchState(GameStateIdentifiers.GAME, duration, scene, reason, forceReload);
+		}
+
+		/// <summary>
+		/// Discards the runtime session and reloads the current save from disk, re-entering the level stored in the save.
+		/// </summary>
+		public void ReloadSave()
+		{
+			string profileId = runtimeDataService.CurrentProfile?.ID;
+			if (string.IsNullOrEmpty(profileId))
+			{
+				return;
+			}
+
+			// Drop the in-memory copy so LoadProfile re-reads the saved state from disk.
+			runtimeDataService.UnloadProfile(profileId, false);
+			if (!runtimeDataService.LoadProfile(profileId, out RuntimeDataCollection reloaded, true, true))
+			{
+				return;
+			}
+
+			// The target scene comes from the save; the player may have saved in a different level than the current one.
+			string scene = null;
+			if (reloaded.TryGetEntry(PlayerAgentService.GetPlayerId(0), out RuntimeDataCollection playerData))
+			{
+				scene = playerData.GetValue<string>(EntityDataIdentifiers.SCENE);
+			}
+			if (string.IsNullOrEmpty(scene))
+			{
+				SpaxDebug.Error("Cannot reload: no saved scene found in profile.", profileId);
+				return;
+			}
+
+			SwitchLevel(scene, forceReload: true);
 		}
 
 		/// <summary>
@@ -191,16 +230,16 @@ namespace SpaxUtils
 			SwitchLevel(gameData.Levels.Keys.ElementAt(levelIndex), duration, reason);
 		}
 
-		private void BeginLoadAndEnterState(int version, string state, string scene, GameStateSwitchReason reason, float duration = -1f)
+		private void BeginLoadAndEnterState(int version, string state, string scene, GameStateSwitchReason reason, float duration = -1f, bool forceReload = false)
 		{
 			if (version != switchVersion)
 			{
 				return;
 			}
 
-			if (!scene.IsNullOrEmpty() && sceneService.CurrentScene != scene)
+			if (!scene.IsNullOrEmpty() && (forceReload || sceneService.CurrentScene != scene))
 			{
-				// Load new scene behind the loading screen.
+				// Load (or force-reload) the scene behind the loading screen.
 				sceneService.LoadScene(scene, () =>
 				{
 					if (version != switchVersion)
@@ -208,21 +247,28 @@ namespace SpaxUtils
 						return;
 					}
 
-					EnterTargetStateAndHide(version, state, scene, reason, duration);
+					EnterTargetStateAndHide(version, state, scene, reason, duration, forceReload);
 				});
 			}
 			else
 			{
 				// Already in correct scene, enter new state.
-				EnterTargetStateAndHide(version, state, scene, reason, duration);
+				EnterTargetStateAndHide(version, state, scene, reason, duration, forceReload);
 			}
 		}
 
-		private void EnterTargetStateAndHide(int version, string state, string scene, GameStateSwitchReason reason, float duration = -1f)
+		private void EnterTargetStateAndHide(int version, string state, string scene, GameStateSwitchReason reason, float duration = -1f, bool forceReload = false)
 		{
 			if (version != switchVersion)
 			{
 				return;
+			}
+
+			// When reloading into the state we are already in, leave it first so it fully re-enters
+			// (re-running state-scoped spawners like MaintainPlayerEntities, which only fire on enter/exit).
+			if (forceReload && Brain.HeadState != null && Brain.HeadState.ID == state)
+			{
+				Brain.TryTransition(GameStateIdentifiers.LOADING);
 			}
 
 			bool transitioned = Brain.TryTransition(state);

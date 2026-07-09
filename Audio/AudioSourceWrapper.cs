@@ -106,6 +106,11 @@ namespace SpaxUtils
 		protected void Awake()
 		{
 			EnsureAudioSource();
+
+			// Seed the composites from the serialized source, else Update() stamps 1 over the authored values.
+			Volume.BaseValue = audioSource.volume;
+			Pitch.BaseValue = audioSource.pitch;
+
 			UpdateTimeScaleModifier();
 		}
 

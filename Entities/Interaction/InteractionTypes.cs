@@ -18,5 +18,14 @@
 
 		public const string CAIRN = "Cairn";
 		public const string CAIRN_COLLECT = CAIRN + "/Collect";
+
+		public const string ARENA_HOTSPOT = "ArenaHotspot";
+		public const string ARENA_HOTSPOT_SPAWN = ARENA_HOTSPOT + "/Spawn"; // Followed by "/{setupName}".
+		public const string ARENA_HOTSPOT_CLEAR = ARENA_HOTSPOT + "/Clear";
+
+		public const string ARENA = "Arena";
+		public const string ARENA_START = ARENA + "/Start";
+		public const string ARENA_STOP = ARENA + "/Stop";
+		public const string ARENA_RESET = ARENA + "/Reset";
 	}
 }

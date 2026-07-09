@@ -24,7 +24,6 @@ namespace SpaxUtils
 		[SerializeField] private float horizontalFlyThreshold = 15f;
 		[SerializeField] private float verticalFlyThreshold = 1f;
 		[SerializeField] private AnimationClip airbornePoseClip;
-		[SerializeField] private float minAirborneLength = 0.7f;
 		[SerializeField] private AnimationClip flooredPoseClip;
 		[SerializeField] private float getUpTime = 0.5f;
 		[SerializeField] private AnimationClip fallPoseClip;
@@ -54,10 +53,12 @@ namespace SpaxUtils
 		private FloatOperationModifier armsMod;
 		private FloatOperationModifier gravityMod;
 
-		private bool flying;
-		private float smoothedGroundedAmount;
+		// Low anchor (fraction of horizontalFlyThreshold) where the horizontal launch pose starts ramping in.
+		private const float HorizontalPoseSoftness = 0.75f;
 
-		private TimerClass airborneTimer;
+		private bool flying;
+		private float smoothedFlyingAmount;
+
 		private TimerClass getUpTimer;
 		private TimerClass crashTimer;
 		private RaycastHit crashHit;
@@ -107,33 +108,34 @@ namespace SpaxUtils
 				return;
 			}
 
-			// Smooth grounded amount so pose logic does not snap when rotation changes affect the ground checks.
-			float targetGroundedAmount = grounder != null ? grounder.GroundedAmount : 0f;
+			float horizontalSpeed = rigidbodyWrapper.Velocity.FlattenY().magnitude;
+
+			// One unified "flying amount": how far off the ground we are, OR how hard we're launched horizontally.
+			// Rotation and the flying pose are both driven from this, so they can never fall out of sync.
+			float airborneAmount = grounder != null ? grounder.GroundedAmount.Invert() : 1f;
+			float launchedAmount = Mathf.InverseLerp(horizontalFlyThreshold * HorizontalPoseSoftness, horizontalFlyThreshold, horizontalSpeed);
+			float flyingAmount = Mathf.Max(airborneAmount, launchedAmount);
+
+			// Smooth so the pose does not snap when grounding/velocity flickers.
 			if (groundedAmountSmoothing <= 0f)
 			{
-				smoothedGroundedAmount = targetGroundedAmount;
+				smoothedFlyingAmount = flyingAmount;
 			}
 			else
 			{
-				smoothedGroundedAmount = Mathf.MoveTowards(
-					smoothedGroundedAmount,
-					targetGroundedAmount,
+				smoothedFlyingAmount = Mathf.MoveTowards(
+					smoothedFlyingAmount,
+					flyingAmount,
 					groundedAmountSmoothing * Time.fixedDeltaTime);
 			}
 
 			// Decide if we should enter/keep flying mode.
 			bool shouldFly =
 				(grounder != null && !grounder.Grounded) ||
-				rigidbodyWrapper.Velocity.FlattenY().magnitude > horizontalFlyThreshold ||
+				horizontalSpeed > horizontalFlyThreshold ||
 				rigidbodyWrapper.Velocity.y > verticalFlyThreshold;
 
 			flying = flying || shouldFly;
-
-			// Ensure airborne timer exists before any flying logic uses it.
-			if (flying && airborneTimer == null)
-			{
-				airborneTimer = new TimerClass(minAirborneLength, () => EntityTimeScale, callbackService, UpdateMode.FixedUpdate);
-			}
 
 			UpdateGroundedStun();
 
@@ -158,7 +160,7 @@ namespace SpaxUtils
 			flying = false;
 			CleanTimers();
 
-			smoothedGroundedAmount = grounder != null ? grounder.GroundedAmount : 0f;
+			smoothedFlyingAmount = grounder != null ? grounder.GroundedAmount.Invert() : 1f;
 
 			if (Debug)
 			{
@@ -214,14 +216,10 @@ namespace SpaxUtils
 
 		private void UpdateFlyingStun()
 		{
-			// Airborne timer is used to prevent "horizontal launches" from staying fully grounded visually.
-			// Guard against it being null (it can be nulled by ExitStun in the same FixedUpdate if not careful).
-			float airProg = airborneTimer != null ? airborneTimer.Progress.Clamp01() : 1f;
+			// "How grounded" for pose and direction purposes — the inverse of our unified flying amount.
+			float groundedAmount = smoothedFlyingAmount.Invert();
 
-			// Use smoothed grounded amount to avoid pose snaps when rotation affects grounding checks.
-			float groundedAmount = smoothedGroundedAmount * airProg.InOutQuad();
-
-			// Apply terrain normal / grounding influence to the direction.
+			// Flatten the vertical direction while grounded so a small upward pop can't pitch the body into the floor.
 			Vector3 direction = -rigidbodyWrapper.Velocity.MultY(groundedAmount.Invert());
 
 			if (Debug)
@@ -259,8 +257,8 @@ namespace SpaxUtils
 				direction = Vector3.Lerp(crashHit.normal, direction, crashProg);
 			}
 
-			// Force rotation towards movement direction.
-			movementHandler.ForceRotation(direction);
+			// Rotate toward the launch direction only as far as we're actually flying — matches the pose weight below.
+			movementHandler.ForceRotation(direction, smoothedFlyingAmount);
 
 			// Pose construction.
 			PoseTransition blastedPose = new PoseTransition(airbornePose, flooredPose, groundedAmount);
@@ -292,7 +290,7 @@ namespace SpaxUtils
 					" crashTimer=" + (crashTimer != null ? crashTimer.Time.ToString("0.###") : "NULL") +
 					" getUpTimer=" + (getUpTimer != null ? getUpTimer.Time.ToString("0.###") : "NULL") +
 					"\nrawGround=" + (grounder != null ? grounder.GroundedAmount.ToString("0.###") : "NULL") +
-					" smGround=" + smoothedGroundedAmount.ToString("0.###") +
+					" fly=" + smoothedFlyingAmount.ToString("0.###") +
 					" grounded=" + groundedAmount.ToString("0.###") +
 					" fall=" + fallAmount.ToString("0.###") +
 					" blend=" + blend.ToString("0.###") +
@@ -300,9 +298,8 @@ namespace SpaxUtils
 					" weight=" + stunWeight.ToString("0.###"));
 			}
 
-			// Apply pose.
-			float groundedInvert = (grounder != null ? grounder.GroundedAmount.Invert() : 1f);
-			stunWeight *= groundedInvert;
+			// Apply pose — same flying amount that drives the rotation, so pose and orientation stay in sync.
+			stunWeight *= smoothedFlyingAmount;
 
 			animatorPoser.ProvideInstructions(airbornePose, PoserLayerConstants.BODY, pose, 11, stunWeight);
 			armsMod.SetValue(stunWeight.Invert());
@@ -320,9 +317,6 @@ namespace SpaxUtils
 
 			crashTimer?.Dispose();
 			crashTimer = null;
-
-			airborneTimer?.Dispose();
-			airborneTimer = null;
 		}
 	}
 }
