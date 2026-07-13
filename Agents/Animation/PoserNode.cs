@@ -170,7 +170,10 @@ namespace SpiritAxis
 			float scaledDelta = delta * (timescale != null ? (float)timescale : 1f);
 
 			Vector3 velocity = rigidbodyWrapper.RelativeVelocity * surveyorComponent.Influence.OutQuad();
-			float max = movementHandler.FullSpeed * sprintSpeedStat.ModdedBaseValue * moveSpeedStat.ModdedBaseValue;
+			// Anchor blend 1.0 to the JOG top speed, which mirrors CalculateSpeed's Min(1, SPRINT_SPEED) cap.
+			// Normalizing by the uncapped sprint speed would make a high-agility jog blend below 1 (walk pose).
+			float max = movementHandler.FullSpeed *
+				Mathf.Min(1f, sprintSpeedStat.ModdedBaseValue) * moveSpeedStat.ModdedBaseValue;
 			blendPosition = blendPosition.FILerp(velocity / max,
 				moveset.PositionBlendSpeed * delta);
 			slideWeight = grounder.SlidingAmount;

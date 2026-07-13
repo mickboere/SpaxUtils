@@ -96,6 +96,7 @@ namespace SpaxUtils
 		public void Deactivate() => aemoi.Deactivate();
 		void IMind.Update(float delta) => aemoi.Update(delta);
 		public Vector8 RetrieveStimuli(IEntity source) => aemoi.RetrieveStimuli(source);
+		public Vector8 RetrieveStimulation(IEntity source) => aemoi.RetrieveStimulation(source);
 		public Vector8 RetrieveDemand(IEntity source) => aemoi.RetrieveDemand(source);
 		public void SetDemand(Vector8 demand, IEntity source) => aemoi.SetDemand(demand, source);
 		public void Stimulate(Vector8 stim, IEntity source) => aemoi.Stimulate(stim, source);

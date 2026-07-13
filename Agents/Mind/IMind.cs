@@ -130,6 +130,12 @@ namespace SpaxUtils
 		Vector8 RetrieveStimuli(IEntity source);
 
 		/// <summary>
+		/// Retrieves the raw persistent Stimulation reservoir for <paramref name="source"/> — BEFORE the Emotion clamp
+		/// that produces Motivation (<see cref="RetrieveStimuli"/>). Signed, hard-bounded ±MAX_STIM. Debug/inspection only.
+		/// </summary>
+		Vector8 RetrieveStimulation(IEntity source);
+
+		/// <summary>
 		/// Retrieves the raw situational Demand registered for <paramref name="source"/> this tick (debug/inspection).
 		/// Zero if none. Persists through the tick; reset at the start of the next update.
 		/// </summary>

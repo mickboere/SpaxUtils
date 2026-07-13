@@ -125,6 +125,19 @@ namespace SpaxUtils
 
 		private void ResolveAgent()
 		{
+			// Revive at the last safe location instead of where we died (a pit, hazard or void) — same position the
+			// cairn uses. Done before the fade-in below, which starts fully faded out, so the move is never seen.
+			// The grounder picks the jump up on its own and re-bases its smoothed state accordingly.
+			if (grounder != null)
+			{
+				rigidbodyWrapper.Position = grounder.LastSafePosition;
+			}
+
+			// Clear momentum from the death: TargetVelocity survives the death (AutoUpdateMovement was off, so nothing
+			// decayed it), and would otherwise lurch the agent off in its dying direction the moment movement resumes.
+			rigidbodyWrapper.ResetVelocity();
+			rigidbodyWrapper.TargetVelocity = Vector3.zero;
+
 			// Its a miracle! The agent returned from the dead, re-enable everything.
 			hittable.IsHittable = true;
 			rigidbodyWrapper.Control.RemoveModifier(this);
@@ -132,16 +145,21 @@ namespace SpaxUtils
 			movement.AutoUpdateRotation = true;
 			if (grounder) grounder.Ground = true;
 
-			timeScale.RemoveModifier(this);
-			timeScaleMod.Dispose();
+			// Null-safe: a resolve may run without a preceding dissolve having set these up.
+			timeScale?.RemoveModifier(this);
+			timeScaleMod?.Dispose();
+			timeScaleMod = null;
 
 			// Fade the agent back in gradually rather than snapping visible.
 			timer?.Dispose();
 			timer = new TimerClass(resolveDuration, 1f, true);
 			timer.UpdateEvent += OnResolveTimerUpdate;
 
+			// NOTE: DeferDissolveFinalize is a policy owned by the game-over screen, not per-death state — do NOT
+			// reset it here. Clearing it meant a re-death relied on the screen's OnEnable re-firing to set it again;
+			// if the screen never disabled in between, the next dissolve would finalize (cairn + SetActive(false)),
+			// leaving the player deactivated and invisible.
 			finalized = false;
-			DeferDissolveFinalize = false;
 		}
 
 		private void OnTimerUpdate(float delta)

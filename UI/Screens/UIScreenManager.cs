@@ -62,6 +62,7 @@ namespace SpaxUtils.UI
 			playerInputWrapper.CompleteActionMapRequest(subscriberA);
 			playerInputWrapper.CompleteActionMapRequest(subscriberB);
 			timeService.CompletePauseRequest(this);
+			cursorService.CompleteRequest(this);
 			comms.StopListening(this);
 			playerInputWrapper.ControlSchemeChangedEvent -= OnControlSchemeChanged;
 			foreach (Option shortcut in shortcuts)

@@ -280,6 +280,12 @@ namespace SpaxUtils
 		}
 
 		/// <inheritdoc/>
+		public Vector8 RetrieveStimulation(IEntity source)
+		{
+			return stimulation.TryGetValue(source, out Vector8 s) ? s : Vector8.Zero;
+		}
+
+		/// <inheritdoc/>
 		public Vector8 RetrieveDemand(IEntity source)
 		{
 			return demandBuffer.TryGetValue(source, out Vector8 d) ? d : Vector8.Zero;

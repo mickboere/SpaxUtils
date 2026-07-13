@@ -235,6 +235,12 @@ namespace SpaxUtils
 
 		// Landing detection.
 		private bool wasGrounded = true;
+		[SerializeField, Tooltip("Single-step displacement (m) beyond what velocity explains that counts as a teleport, re-basing the grounder's smoothed state onto the new position.")]
+		private float teleportThreshold = 1f;
+
+		private Vector3 lastKnownPosition;
+		private bool trackingPosition;
+
 		private float peakFallingSpeed;
 		private bool landedThisFrame;
 		private float airborneDuration;
@@ -265,6 +271,7 @@ namespace SpaxUtils
 
 		protected void FixedUpdate()
 		{
+			DetectTeleport();
 			GroundCheck();
 			UpdateJumpState();
 			StepCheck();
@@ -274,6 +281,9 @@ namespace SpaxUtils
 			UpdateSlidingState();
 			ApplyForces();
 			CheckIfSafe();
+
+			// Sampled last, after the ground snap, so next step's delta is purely what happened since.
+			lastKnownPosition = rigidbodyWrapper.Position;
 		}
 
 		private void GroundCheck()
@@ -379,6 +389,51 @@ namespace SpaxUtils
 			}
 
 			wasGrounded = groundContact;
+		}
+
+		/// <summary>
+		/// Detects an externally-applied position discontinuity (a teleport via <see cref="RigidbodyWrapper.Position"/>)
+		/// by comparing this step's displacement against what the agent's velocity could actually have produced.
+		/// The grounder caches SMOOTHED world-space state (notably <see cref="StepPoint"/>, which the ground snap
+		/// lerps the agent's Y toward); left stale across a jump it drags the agent back toward the old location,
+		/// parking them at a height between the two. On detection that state is re-based onto the new position.
+		/// </summary>
+		private void DetectTeleport()
+		{
+			Vector3 position = rigidbodyWrapper.Position;
+
+			if (!trackingPosition)
+			{
+				trackingPosition = true;
+				lastKnownPosition = position;
+				return;
+			}
+
+			// Displacement physics could plausibly have produced this step, plus a margin. RigidbodyWrapper rewrites
+			// the position each step to apply the local timescale, so a step covers Velocity * timeScale * delta.
+			// Bound by Max(1, timeScale): a slowed agent moves less than the raw integration (so 1 stays a safe
+			// ceiling), while a hastened one moves more — without that term a fast agent reads as teleporting.
+			float scale = Mathf.Max(1f, EntityTimeScale);
+			float plausible = rigidbodyWrapper.Velocity.magnitude * scale * Time.fixedDeltaTime + teleportThreshold;
+			if (Vector3.SqrMagnitude(position - lastKnownPosition) <= plausible * plausible)
+			{
+				return;
+			}
+
+			// Re-base smoothed spatial state onto the new location so nothing eases back toward the old one.
+			// StepPoint sits Elevation below the agent, so the ground snap resolves to exactly this position.
+			StepPoint = position - rigidbodyWrapper.Up * Elevation;
+			StepSupport = 1f;
+			SurfaceNormal = rigidbodyWrapper.Up;
+			TerrainNormal = rigidbodyWrapper.Up;
+			wasGrounded = true;
+
+			// Drop the pending fall: its peak speed would otherwise be cashed in as a landing impact
+			// (and falling damage) on first ground contact at the destination.
+			peakFallingSpeed = 0f;
+			airborneDuration = 0f;
+			IsJumping = false;
+			IsLanding = false;
 		}
 
 		private void StepCheck()

@@ -1,4 +1,5 @@
 ﻿using UnityEngine;
+using System;
 using System.Collections.Generic;
 
 namespace SpaxUtils
@@ -6,14 +7,29 @@ namespace SpaxUtils
 	/// <summary>
 	/// Service that allows other classes to request the cursor.
 	/// </summary>
-	public class CursorService : IService
+	public class CursorService : IService, IDisposable
 	{
 		public List<object> requests;
 
-		public CursorService()
+		private CallbackService callbackService;
+
+		public CursorService(CallbackService callbackService)
 		{
+			this.callbackService = callbackService;
+
 			requests = new List<object>();
+
+			callbackService.ApplicationFocusCallback += OnApplicationFocus;
+
 			RefreshCursorState();
+		}
+
+		public void Dispose()
+		{
+			if (callbackService != null)
+			{
+				callbackService.ApplicationFocusCallback -= OnApplicationFocus;
+			}
 		}
 
 		public void LockCursor(object context, bool lockCursor)
@@ -46,6 +62,17 @@ namespace SpaxUtils
 			}
 
 			RefreshCursorState();
+		}
+
+		/// <summary>
+		/// Unity resets the cursor state when the application loses focus (or when ESC is pressed in a build), so we reapply it on regain.
+		/// </summary>
+		private void OnApplicationFocus(bool hasFocus)
+		{
+			if (hasFocus)
+			{
+				RefreshCursorState();
+			}
 		}
 
 		private void RefreshCursorState()

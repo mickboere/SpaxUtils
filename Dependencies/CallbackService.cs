@@ -32,6 +32,11 @@ namespace SpaxUtils
 		/// </summary>
 		public event Action DrawGizmosCallback;
 
+		/// <summary>
+		/// OnApplicationFocus() callback. True when focus was gained.
+		/// </summary>
+		public event Action<bool> ApplicationFocusCallback;
+
 		private Dictionary<int, Dictionary<object, Action<float>>> loops = new Dictionary<int, Dictionary<object, Action<float>>>();
 		private Dictionary<int, Coroutine> coroutines = new Dictionary<int, Coroutine>();
 
@@ -74,6 +79,11 @@ namespace SpaxUtils
 		protected void OnDrawGizmos()
 		{
 			DrawGizmosCallback?.Invoke();
+		}
+
+		protected void OnApplicationFocus(bool hasFocus)
+		{
+			ApplicationFocusCallback?.Invoke(hasFocus);
 		}
 
 		#endregion

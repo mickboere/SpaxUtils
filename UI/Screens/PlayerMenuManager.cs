@@ -98,6 +98,7 @@ namespace SpaxUtils.UI
 			comms.StopListening(this);
 
 			Pause(false);
+			cursorService.CompleteRequest(this);
 		}
 
 		//public PlayerMenu GetPlayerMenu(string menuType)

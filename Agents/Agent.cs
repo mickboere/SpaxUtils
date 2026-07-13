@@ -184,6 +184,13 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public void Revive()
 		{
+			if (Alive)
+			{
+				// Already alive; ReviveEvent fires unconditionally below, so without this a second Revive would run
+				// the death handler's resolve again (double-disposing its modifiers).
+				return;
+			}
+
 			// Restore from the death state (clearing the death timescale/control/fade modifiers) BEFORE transitioning,
 			// so state-entry behaviours (e.g. arm sheathing) run at normal speed instead of the lingering death slow-mo.
 			Recover();
