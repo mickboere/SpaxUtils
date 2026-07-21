@@ -48,8 +48,8 @@ namespace SpaxUtils
 
 			// Guard sacrifices mobility for focused steadiness: it divides Vulnerability (and thus crit chance)
 			// by the agent's guarding capacity (GUARD, amplified by a shield), ramped by guard weight. It never
-			// reaches 0 - bracing lowers your odds of being critted but never grants immunity; a shield's pliancy
-			// does the real work against precision. The rear stays exposed - that exposure is applied
+			// reaches 0 - bracing lowers your odds of being critted but never grants immunity; a shield's yield
+			// does the real work against pierce. The rear stays exposed - that exposure is applied
 			// situationally per-hit in AgentHitHandlerComponent, lerping back up from this guard-reduced value.
 			vulnerabilityStat = Agent.Stats.GetStat(AgentStatIdentifiers.VULNERABILITY, true);
 			guardStat = Agent.Stats.GetStat(AgentStatIdentifiers.GUARD, true);

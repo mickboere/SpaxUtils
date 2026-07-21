@@ -87,9 +87,9 @@ namespace SpaxUtils
 		bool UseArmament { get; }
 
 		/// <summary>
-		/// Percentage of user's Piercing that gets transfered into the attack.
+		/// Percentage of user's Slash that gets transfered into the attack.
 		/// </summary>
-		float Piercing { get; }
+		float Slash { get; }
 
 		/// <summary>
 		/// Percentage of user's Power that gets transfered into the attack.
@@ -97,9 +97,9 @@ namespace SpaxUtils
 		float Power { get; }
 
 		/// <summary>
-		/// Percentage of user's Precision that gets transfered into the attack.
+		/// Percentage of user's Pierce that gets transfered into the attack.
 		/// </summary>
-		float Precision { get; }
+		float Pierce { get; }
 
 		/// <summary>
 		/// When true, this move uses its own <see cref="ChargeBalance"/>/<see cref="PerformBalance"/>

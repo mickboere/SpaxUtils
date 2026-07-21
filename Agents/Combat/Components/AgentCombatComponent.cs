@@ -48,7 +48,7 @@ namespace SpaxUtils
 		public float ActiveReach => CurrentCombatMove == null ? BaseReach : ComputeEffectiveReach(CurrentCombatMove);
 
 		/// <summary>
-		/// The agent's per-axis offensive output (x=Pierce, y=Power, z=Precision) of its dominant hand.
+		/// The agent's per-axis offensive output (x=Slash, y=Power, z=Pierce) of its dominant hand.
 		/// Symmetric with <see cref="Defense"/>; feed into a defender's <see cref="EstimateIncomingDamage"/>.
 		/// </summary>
 		public Vector3 Offense { get; private set; }
@@ -56,17 +56,17 @@ namespace SpaxUtils
 		/// <summary>The current raw POWER stat (e.g. for knockback force / mass coupling), not damage output.</summary>
 		public float Power => powerStat.Value;
 
-		/// <summary>Piercing-defence stat (also half of blunt defence).</summary>
-		public float Proofing => proofingStat.Value;
+		/// <summary>Slash-defence stat (also half of blunt defence).</summary>
+		public float Armor => armorStat.Value;
 
-		/// <summary>Crit/precision-defence stat (also half of blunt defence).</summary>
-		public float Pliancy => pliancyStat.Value;
+		/// <summary>Crit/pierce-defence stat (also half of blunt defence).</summary>
+		public float Yield => yieldStat.Value;
 
 		/// <summary>
-		/// Per-axis defence (x=vs Pierce, y=vs Power, z=vs Precision), mirroring the hit layers in
-		/// <see cref="AgentHitHandlerComponent"/>: Pierce←Proofing, Power←(Proofing+Pliancy)/2, Precision←Pliancy.
+		/// Per-axis defence (x=vs Slash, y=vs Power, z=vs Pierce), mirroring the hit layers in
+		/// <see cref="AgentHitHandlerComponent"/>: Slash←Armor, Power←(Armor+Yield)/2, Pierce←Yield.
 		/// </summary>
-		public Vector3 Defense => new Vector3(Proofing, (Proofing + Pliancy) * 0.5f, Pliancy);
+		public Vector3 Defense => new Vector3(Armor, (Armor + Yield) * 0.5f, Yield);
 
 		/// <summary>Live moveless offensive output through the left-hand weapon (or fists). For UI / queries.</summary>
 		public CombatOutput LeftHandOutput { get; private set; }
@@ -189,7 +189,7 @@ namespace SpaxUtils
 
 		[Header("Move Selection — Output & Variety")]
 		[SerializeField, Range(0f, 1f),
-		 Tooltip("How strongly a move's damage type must match the agent's NW/N/NE (Pierce/Power/Precision) alignment.")]
+		 Tooltip("How strongly a move's damage type must match the agent's NW/N/NE (Slash/Power/Pierce) alignment.")]
 		private float alignmentWeight = 0.6f;
 		[SerializeField, Range(0.05f, 5f),
 		 Tooltip("Body-normalised output-per-second at which the offence factor saturates to 0.5. " +
@@ -223,10 +223,10 @@ namespace SpaxUtils
 		private IHittable hittable;
 
 		private EntityStat powerStat;
-		private EntityStat proofingStat;
-		private EntityStat pliancyStat;
-		private EntityStat piercingStat;
-		private EntityStat precisionStat;
+		private EntityStat armorStat;
+		private EntityStat yieldStat;
+		private EntityStat slashStat;
+		private EntityStat pierceStat;
 		private AgentArmsComponent arms;
 
 		private ICombatMove lastFrameCombatMove;
@@ -259,10 +259,10 @@ namespace SpaxUtils
 			this.arms = arms;
 
 			powerStat = Agent.Stats.GetStat(AgentStatIdentifiers.POWER);
-			proofingStat = Agent.Stats.GetStat(AgentStatIdentifiers.PROOFING);
-			pliancyStat = Agent.Stats.GetStat(AgentStatIdentifiers.PLIANCY);
-			piercingStat = Agent.Stats.GetStat(AgentStatIdentifiers.PIERCING);
-			precisionStat = Agent.Stats.GetStat(AgentStatIdentifiers.PRECISION);
+			armorStat = Agent.Stats.GetStat(AgentStatIdentifiers.ARMOR);
+			yieldStat = Agent.Stats.GetStat(AgentStatIdentifiers.YIELD);
+			slashStat = Agent.Stats.GetStat(AgentStatIdentifiers.SLASH);
+			pierceStat = Agent.Stats.GetStat(AgentStatIdentifiers.PIERCE);
 		}
 
 		protected void OnEnable()
@@ -316,7 +316,7 @@ namespace SpaxUtils
 					Agent.Stats.GetStat(AgentStatIdentifiers.REACH.SubStat(AgentStatIdentifiers.SUB_RIGHT_HAND)) ?? 0f);
 
 			// LETHALITY: live moveless damage output per equipped weapon (or fists). Central authority
-			// for UI/queries; replaces the old per-hand PIERCING-substat approximation.
+			// for UI/queries; replaces the old per-hand SLASH-substat approximation.
 			LeftHandOutput = new CombatOutput(BodyPhysics, DistributionOf(arms == null ? null : arms.LeftEquip, Vector3.one));
 			RightHandOutput = new CombatOutput(BodyPhysics, DistributionOf(arms == null ? null : arms.RightEquip, Vector3.one));
 			Offense = (LeftHandOutput.Magnitude >= RightHandOutput.Magnitude ? LeftHandOutput : RightHandOutput).Output;
@@ -388,7 +388,7 @@ namespace SpaxUtils
 			// Clamp so a noise floor always remains (otherwise sharp/low-SW agents become 100% deterministic).
 			float predictability = Mathf.Min(1f - Agent.Mind.Balance.SW, maxPredictability);
 
-			// Agent's live damage-type lean (Pierce/Power/Precision) for move alignment, plus the body
+			// Agent's live damage-type lean (Slash/Power/Pierce) for move alignment, plus the body
 			// output magnitude used to make the offence/DPS term level-invariant (it scales with level,
 			// so dividing by it cancels the level scaling and keeps offenceHalf meaningful at any level).
 			Vector3 agentDir = AlignmentDir();
@@ -655,7 +655,7 @@ namespace SpaxUtils
 					{
 						if (fuCombat is IMeleeCombatMove melee)
 						{
-							score += melee.Power + melee.Piercing;
+							score += melee.Power + melee.Slash;
 						}
 						else
 						{
@@ -731,13 +731,13 @@ namespace SpaxUtils
 
 		/// <summary>
 		/// Moveless offensive output of the agent through a given weapon (or fists): the body's per-axis
-		/// physics (x=Pierce, y=Power, z=Precision) scaled by the weapon's distribution (NW/N/NE).
+		/// physics (x=Slash, y=Power, z=Pierce) scaled by the weapon's distribution (NW/N/NE).
 		/// </summary>
 		public readonly struct CombatOutput
 		{
-			/// <summary>Body offensive physics (x=Pierce, y=Power, z=Precision).</summary>
+			/// <summary>Body offensive physics (x=Slash, y=Power, z=Pierce).</summary>
 			public readonly Vector3 BodyPhysics;
-			/// <summary>Weapon distribution (x=NW/Pierce, y=N/Power, z=NE/Precision) * PhysicsScaling; (1,1,1) = fists.</summary>
+			/// <summary>Weapon distribution (x=NW/Slash, y=N/Power, z=NE/Pierce) * PhysicsScaling; (1,1,1) = fists.</summary>
 			public readonly Vector3 WeaponDistribution;
 			/// <summary>Per-axis output = BodyPhysics ⊙ WeaponDistribution.</summary>
 			public readonly Vector3 Output;
@@ -749,9 +749,9 @@ namespace SpaxUtils
 				Output = Vector3.Scale(bodyPhysics, weaponDistribution);
 			}
 
-			public float Pierce => Output.x;
+			public float Slash => Output.x;
 			public float Power => Output.y;
-			public float Precision => Output.z;
+			public float Pierce => Output.z;
 			public float Magnitude => Output.magnitude;
 		}
 
@@ -764,7 +764,7 @@ namespace SpaxUtils
 		{
 			/// <summary>The moveless weapon output this derives from.</summary>
 			public readonly CombatOutput Weapon;
-			/// <summary>Move sliders (x=Piercing, y=Power, z=Precision).</summary>
+			/// <summary>Move sliders (x=Slash, y=Power, z=Pierce).</summary>
 			public readonly Vector3 MoveSliders;
 			/// <summary>UseArmament ? weapon⊙move : move (raw, pre-normalisation).</summary>
 			public readonly Vector3 CombinedRaw;
@@ -782,18 +782,18 @@ namespace SpaxUtils
 				Output = output;
 			}
 
-			public float Pierce => Output.x;
+			public float Slash => Output.x;
 			public float Power => Output.y;
-			public float Precision => Output.z;
+			public float Pierce => Output.z;
 			public float Magnitude => Output.magnitude;
-			/// <summary>Normalised output direction in (Pierce, Power, Precision) space, for alignment.</summary>
+			/// <summary>Normalised output direction in (Slash, Power, Pierce) space, for alignment.</summary>
 			public Vector3 TypeDirection => Filter.sqrMagnitude > 0f ? Filter.normalized : Vector3.zero;
 		}
 
-		/// <summary>Body offensive physics as (x=Pierce, y=Power, z=Precision).</summary>
-		private Vector3 BodyPhysics => new Vector3(piercingStat ?? 0f, powerStat ?? 0f, precisionStat ?? 0f);
+		/// <summary>Body offensive physics as (x=Slash, y=Power, z=Pierce).</summary>
+		private Vector3 BodyPhysics => new Vector3(slashStat ?? 0f, powerStat ?? 0f, pierceStat ?? 0f);
 
-		/// <summary>The agent's live NW/N/NE (Pierce/Power/Precision) damage-type lean from Balance, normalised.</summary>
+		/// <summary>The agent's live NW/N/NE (Slash/Power/Pierce) damage-type lean from Balance, normalised.</summary>
 		private Vector3 AlignmentDir()
 		{
 			Vector8 b = Agent.Mind.Balance;
@@ -846,7 +846,7 @@ namespace SpaxUtils
 				return new MoveOutput(new CombatOutput(body, Vector3.one), Vector3.one, Vector3.one, neutral, body);
 			}
 
-			Vector3 moveDist = new Vector3(melee.Piercing, melee.Power, melee.Precision);
+			Vector3 moveDist = new Vector3(melee.Slash, melee.Power, melee.Pierce);
 			Vector3 weaponDist = melee.UseArmament ? DistributionOf(weapon, Vector3.zero) : Vector3.one;
 			Vector3 combinedRaw = melee.UseArmament ? Vector3.Scale(weaponDist, moveDist) : moveDist;
 			float filterMag = combinedRaw.magnitude;
@@ -864,8 +864,8 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
-		/// Heuristic estimate of the raw physics damage an incoming <paramref name="offence"/> (x=Pierce,
-		/// y=Power, z=Precision) would deal to THIS agent, mirroring <see cref="AgentHitHandlerComponent"/>'s
+		/// Heuristic estimate of the raw physics damage an incoming <paramref name="offence"/> (x=Slash,
+		/// y=Power, z=Pierce) would deal to THIS agent, mirroring <see cref="AgentHitHandlerComponent"/>'s
 		/// per-layer defence mapping via <see cref="SpaxFormulas.CalculateDamage"/>. Simplified for AI threat
 		/// assessment: ignores crit-chance and the impact/penetration coupling on the blunt layer, so it reads
 		/// as a representative (upper-ish) threat rather than an exact expected value.
@@ -873,9 +873,9 @@ namespace SpaxUtils
 		public float EstimateIncomingDamage(Vector3 offence)
 		{
 			Vector3 def = Defense;
-			return SpaxFormulas.CalculateDamage(offence.x, def.x)   // Pierce    vs Proofing
-				 + SpaxFormulas.CalculateDamage(offence.y, def.y)   // Power     vs (Proofing+Pliancy)/2
-				 + SpaxFormulas.CalculateDamage(offence.z, def.z);  // Precision vs Pliancy
+			return SpaxFormulas.CalculateDamage(offence.x, def.x)   // Slash  vs Armor
+				 + SpaxFormulas.CalculateDamage(offence.y, def.y)   // Power  vs (Armor+Yield)/2
+				 + SpaxFormulas.CalculateDamage(offence.z, def.z);  // Pierce vs Yield
 		}
 
 		#endregion Combat Output

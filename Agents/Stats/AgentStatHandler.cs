@@ -11,15 +11,16 @@ namespace SpaxUtils
 	{
 		public const string BODY_BACKUP_ID = "BODY_BACKUP";
 
-		public StatOctad BodyLevels { get; private set; }
-		public StatOctad BodyExperience { get; private set; }
-		public StatOctad Physics { get; private set; }
-		public Vector8 BodyDistribution { get; private set; }
-		public PointStatOctad PointStats => pointStatOctad;
+		// All data accessors self-initialize; stat data is valid regardless of component Awake order.
+		public StatOctad BodyLevels { get { EnsureInitialized(); return _bodyLevels; } private set { _bodyLevels = value; } }
+		public StatOctad BodyExperience { get { EnsureInitialized(); return _bodyExperience; } private set { _bodyExperience = value; } }
+		public StatOctad Physics { get { EnsureInitialized(); return _physics; } private set { _physics = value; } }
+		public Vector8 BodyDistribution { get { EnsureInitialized(); return _bodyDistribution; } private set { _bodyDistribution = value; } }
+		public PointStatOctad PointStats { get { EnsureInitialized(); return pointStatOctad; } }
 
-		public StatOctad SoulLevels { get; private set; }
-		public StatOctad SoulExperience { get; private set; }
-		public Vector8 SoulDistribution { get; private set; }
+		public StatOctad SoulLevels { get { EnsureInitialized(); return _soulLevels; } private set { _soulLevels = value; } }
+		public StatOctad SoulExperience { get { EnsureInitialized(); return _soulExperience; } private set { _soulExperience = value; } }
+		public Vector8 SoulDistribution { get { EnsureInitialized(); return _soulDistribution; } private set { _soulDistribution = value; } }
 
 		[Header("BODY")]
 		[SerializeField] private StatOctadAsset bodyLevels;
@@ -33,6 +34,15 @@ namespace SpaxUtils
 		[SerializeField] private StatMap soulAttributeMap;
 
 		private IAgent agent;
+
+		private StatOctad _bodyLevels;
+		private StatOctad _bodyExperience;
+		private StatOctad _physics;
+		private Vector8 _bodyDistribution;
+		private StatOctad _soulLevels;
+		private StatOctad _soulExperience;
+		private Vector8 _soulDistribution;
+		private bool initialized;
 
 		private EntityStat recoveryStat;
 		private FloatOperationModifier recoveryMod;
@@ -49,8 +59,25 @@ namespace SpaxUtils
 
 		protected void Awake()
 		{
-			InitializeStats();
+			EnsureInitialized();
 			agent.RecoverEvent += RecoverAll;
+		}
+
+		/// <summary>
+		/// Initializes the stat data if it hasn't been already. Safe to call any number of times.
+		/// Lets consumers pull valid stats before this component's own Awake has run.
+		/// </summary>
+		public void EnsureInitialized()
+		{
+			// Bail without latching when dependencies aren't injected yet, so a later call still initializes.
+			if (initialized || agent == null)
+			{
+				return;
+			}
+
+			// Latch before initializing; InitializeStats reads these same accessors.
+			initialized = true;
+			InitializeStats();
 		}
 
 		private void InitializeStats()

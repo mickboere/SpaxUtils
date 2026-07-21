@@ -44,9 +44,9 @@ namespace SpaxUtils
 		public float Mass { get; }
 
 		/// <summary>
-		/// The total piercing power of the hit, defines penetration damage.
+		/// The total slashing power of the hit, defines penetration damage.
 		/// </summary>
-		public float Piercing { get; }
+		public float Slash { get; }
 
 		/// <summary>
 		/// Total power behind the hit (before mass).
@@ -56,7 +56,7 @@ namespace SpaxUtils
 		/// <summary>
 		/// Total crit quality behind the hit.
 		/// </summary>
-		public float Precision { get; }
+		public float Pierce { get; }
 
 		/// <summary>
 		/// Total luck of the hitter.
@@ -76,9 +76,9 @@ namespace SpaxUtils
 			Vector3 point,
 			Vector3 direction,
 			float mass,
-			float piercing,
+			float slash,
 			float power,
-			float precision,
+			float pierce,
 			float luck,
 			RuntimeDataCollection data = null)
 		{
@@ -89,9 +89,9 @@ namespace SpaxUtils
 			Point = point;
 			Direction = direction;
 			Mass = mass;
-			Piercing = piercing;
+			Slash = slash;
 			Power = power;
-			Precision = precision;
+			Pierce = pierce;
 			Luck = luck;
 			Data = data ?? new RuntimeDataCollection(null);
 		}
@@ -106,9 +106,9 @@ namespace SpaxUtils
 				$"\nPoint={Point}," +
 				$"\nDirection={Direction}," +
 				$"\nMass={Mass}," +
-				$"\nPiercing={Piercing}," +
+				$"\nSlash={Slash}," +
 				$"\nPower={Power}," +
-				$"\nPrecision={Precision}," +
+				$"\nPierce={Pierce}," +
 				$"\n\nData:\n{Data},";
 		}
 	}
@@ -157,9 +157,9 @@ namespace SpaxUtils
 		/// </summary>
 		public const string PENETRATION = "Penetration";
 		/// <summary>
-		/// Return data defining the amount of piercing damage.
+		/// Return data defining the amount of slashing damage.
 		/// </summary>
-		public const string PIERCING_DAMAGE = "Piercing_Damage";
+		public const string SLASH_DAMAGE = "Slash_Damage";
 		/// <summary>
 		/// Return data defining percentage of impact dealt to receiver (0-1~).
 		/// </summary>

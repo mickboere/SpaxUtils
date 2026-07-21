@@ -23,9 +23,9 @@ namespace SpaxUtils
 		public string Limb => limb;
 		public float NaturalStrikeMassFraction => naturalStrikeMassFraction;
 		public bool UseArmament => useArmament;
-		public float Piercing => piercing;
+		public float Slash => slash;
 		public float Power => power;
-		public float Precision => precision;
+		public float Pierce => pierce;
 		public bool OverrideBalance => overrideBalance;
 		public float ChargeBalance => chargeBalance;
 		public float PerformBalance => performBalance;
@@ -49,9 +49,9 @@ namespace SpaxUtils
 		[SerializeField, Conditional(nameof(limb), inverse: true), Range(0f, 1f), Tooltip("Fraction of total body mass put behind a limb-less strike (kicks, body rams). Used as the hit mass when no Limb is assigned, driving knockback/impact and exertion. Wield speed & power are unaffected (treated as a natural, weapon-independent strike).")]
 		private float naturalStrikeMassFraction = 0.1f;
 		[SerializeField] private bool useArmament = false;
-		[SerializeField, Range(0f, 2f), Tooltip("Percentage of user's Piercing transfered into hit."), FormerlySerializedAs("offence")] private float piercing = 1f;
+		[SerializeField, Range(0f, 2f), Tooltip("Percentage of user's Slash transfered into hit."), FormerlySerializedAs("offence"), FormerlySerializedAs("piercing")] private float slash = 1f;
 		[SerializeField, Range(0f, 2f), Tooltip("Percentage of user's Power transfered into hit.")] private float power = 1f;
-		[SerializeField, Range(0f, 2f), Tooltip("Percentage of user's Precision transfered into hit.")] private float precision = 1f;
+		[SerializeField, Range(0f, 2f), Tooltip("Percentage of user's Pierce transfered into hit."), FormerlySerializedAs("precision")] private float pierce = 1f;
 		[SerializeField, Tooltip("When enabled, this move uses its own balance values below instead of the global defaults in CombatSettings.")] private bool overrideBalance = false;
 		[SerializeField, Conditional(nameof(overrideBalance)), Range(0.01f, 1f), Tooltip("How much balance is maintained while charging.")] private float chargeBalance = 1f;
 		[SerializeField, Conditional(nameof(overrideBalance)), Range(0.01f, 1f), Tooltip("How much balance is maintained while performing.")] private float performBalance = 1f;

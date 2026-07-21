@@ -29,9 +29,9 @@ namespace SpaxUtils
 		private EntityStat timescaleStat;
 		private EntityStat hardnessStat;
 		private EntityStat vulnerabilityStat;
-		private EntityStat proofingStat;
-		private EntityStat pliancyStat;
-		private EntityStat protectionStat;
+		private EntityStat armorStat;
+		private EntityStat yieldStat;
+		private EntityStat wardStat;
 		private EntityStat luckStat;
 
 		private TimedCurveModifier hitPauseMod;
@@ -61,9 +61,9 @@ namespace SpaxUtils
 			timescaleStat = agent.Stats.GetStat(EntityStatIdentifiers.TIMESCALE, true);
 			hardnessStat = agent.Stats.GetStat(AgentStatIdentifiers.HARDNESS, true);
 			vulnerabilityStat = agent.Stats.GetStat(AgentStatIdentifiers.VULNERABILITY, true);
-			proofingStat = agent.Stats.GetStat(AgentStatIdentifiers.PROOFING, true);
-			pliancyStat = agent.Stats.GetStat(AgentStatIdentifiers.PLIANCY, true);
-			protectionStat = agent.Stats.GetStat(AgentStatIdentifiers.PROTECTION, true);
+			armorStat = agent.Stats.GetStat(AgentStatIdentifiers.ARMOR, true);
+			yieldStat = agent.Stats.GetStat(AgentStatIdentifiers.YIELD, true);
+			wardStat = agent.Stats.GetStat(AgentStatIdentifiers.WARD, true);
 			luckStat = agent.Stats.GetStat(AgentStatIdentifiers.LUCK, true);
 
 			hittable.Subscribe(this, OnHitEvent, 100);
@@ -92,33 +92,33 @@ namespace SpaxUtils
 				vulnerability = Mathf.Lerp(vulnerability, 1f, rearExposure);
 			}
 
-			float coupling = SpaxFormulas.CalculateCoupling(hitData.Precision, pliancyStat);
+			float coupling = SpaxFormulas.CalculateCoupling(hitData.Pierce, yieldStat);
 			float critChance = SpaxFormulas.CalculateCritChance(coupling, vulnerability, hitData.Luck, luckStat);
 			bool isCrit = !neglect &&
-				hitData.Precision > 0f &&
+				hitData.Pierce > 0f &&
 				Random.value < critChance;
 
 			float critDamage = isCrit
-				? SpaxFormulas.CalculateDamage(hitData.Precision, pliancyStat)
+				? SpaxFormulas.CalculateDamage(hitData.Pierce, yieldStat)
 				: 0f;
 
 			hitData.Data.SetValue(HitDataIdentifiers.CRIT, isCrit);
 			hitData.Data.SetValue(HitDataIdentifiers.COUPLING, coupling);
 			hitData.Data.SetValue(HitDataIdentifiers.CRIT_DAMAGE, critDamage);
 
-			// --- 2. PIERCE LAYER ---
-			float pierceDamage = 0f;
+			// --- 2. SLASH LAYER ---
+			float slashDamage = 0f;
 			float penetration = 0f;
 
-			if (!neglect && hitData.Piercing > 0f)
+			if (!neglect && hitData.Slash > 0f)
 			{
-				// Proofing defends piercing; penetration = fraction that landed.
-				pierceDamage = SpaxFormulas.CalculateDamage(hitData.Piercing, proofingStat);
-				penetration = Mathf.Clamp01(pierceDamage / hitData.Piercing);
+				// Armor defends slashing; penetration = fraction that landed.
+				slashDamage = SpaxFormulas.CalculateDamage(hitData.Slash, armorStat);
+				penetration = Mathf.Clamp01(slashDamage / hitData.Slash);
 			}
 
 			hitData.Data.SetValue(HitDataIdentifiers.PENETRATION, penetration);
-			hitData.Data.SetValue(HitDataIdentifiers.PIERCING_DAMAGE, pierceDamage);
+			hitData.Data.SetValue(HitDataIdentifiers.SLASH_DAMAGE, slashDamage);
 
 			// --- 3. BLUNT LAYER ---
 			float impact = 0f;
@@ -126,9 +126,9 @@ namespace SpaxUtils
 
 			if (!neglect && hitData.Power > 0f)
 			{
-				// Power sits centre-octad, walled by proofing+pliancy; hardness, low penetration and clean coupling raise transfer.
+				// Power sits centre-octad, walled by armor+yield; hardness, low penetration and clean coupling raise transfer.
 				float bluntOffence = hitData.Power * (hardnessStat + (1f - penetration) + coupling);
-				bluntDamage = SpaxFormulas.CalculateDamage(bluntOffence, proofingStat + pliancyStat);
+				bluntDamage = SpaxFormulas.CalculateDamage(bluntOffence, armorStat + yieldStat);
 
 				// Fraction of Power landed as blunt (0-1); reused for force, hit-pause and audio.
 				impact = Mathf.Clamp01(bluntDamage / hitData.Power);
@@ -138,7 +138,7 @@ namespace SpaxUtils
 			hitData.Data.SetValue(HitDataIdentifiers.BLUNT_DAMAGE, bluntDamage);
 
 			// --- 4. TOTAL PHYSICS DAMAGE ---
-			float totalDamage = critDamage + pierceDamage + bluntDamage;
+			float totalDamage = critDamage + slashDamage + bluntDamage;
 			hitData.Data.SetValue(HitDataIdentifiers.DAMAGE_TOTAL, totalDamage);
 
 			// --- IMPACT & FORCE ---
@@ -147,7 +147,7 @@ namespace SpaxUtils
 
 			// --- ENDURANCE DAMAGE ---
 			// Stun draws on sharp + crit + force; force carries the blunt (Mass x bluntDamage), counted once.
-			float toEndure = neglect ? 0f : pierceDamage + critDamage + force;
+			float toEndure = neglect ? 0f : slashDamage + critDamage + force;
 			float enduranceDamage = statHandler.PointStats.W.Drain(
 				toEndure,
 				out bool stunned,

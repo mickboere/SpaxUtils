@@ -71,7 +71,7 @@ namespace SpaxUtils
 		private float LimbMass => limbMassStat != null
 			? (float)limbMassStat
 			: rigidbodyWrapper.Mass * move.NaturalStrikeMassFraction;
-		private EntityStat precisionStat;
+		private EntityStat pierceStat;
 		private EntityStat luckStat;
 		private EntityStat chargeStat;
 		private EntityStat chargeSpeedStat;
@@ -90,7 +90,7 @@ namespace SpaxUtils
 		private TimerClass inertiaTimer;
 		private TimedCurveModifier hitPauseMod;
 		private float totalCharge;
-		private float accumulatedChargePoints; // New: Tracks raw drain for precision
+		private float accumulatedChargePoints; // New: Tracks raw drain for pierce
 		private float attackRange;
 		private ITargetable target;
 		private bool hasStorm;
@@ -143,7 +143,7 @@ namespace SpaxUtils
 			timescaleStat = Agent.Stats.GetStat(EntityStatIdentifiers.TIMESCALE, true, 1f);
 			limbMassStat = Agent.Stats.GetStat(AgentStatIdentifiers.MASS.SubStat(this.move.Limb));
 			strengthStat = Agent.Stats.GetStat(AgentStatIdentifiers.STRENGTH);
-			precisionStat = Agent.Stats.GetStat(AgentStatIdentifiers.PRECISION);
+			pierceStat = Agent.Stats.GetStat(AgentStatIdentifiers.PIERCE);
 			luckStat = Agent.Stats.GetStat(AgentStatIdentifiers.LUCK, true);
 			chargeStat = Agent.Stats.GetStat(move.ChargeCost.Stat);
 			chargeSpeedStat = Agent.Stats.GetStat(move.ChargeSpeedMultiplierStat, false);
@@ -247,13 +247,13 @@ namespace SpaxUtils
 
 			if (Performer.State == PerformanceState.Preparing && Performer.ChargeTime >= Move.MinCharge)
 			{
-				// 1. Calculate Drain Rate based on PRECISION (PhysicStat)
-				float actualDrain = precisionStat * delta * (chargeSpeedStat != null ? chargeSpeedStat.Value : 1f);
+				// 1. Calculate Drain Rate based on PIERCE (PhysicStat)
+				float actualDrain = pierceStat * delta * (chargeSpeedStat != null ? chargeSpeedStat.Value : 1f);
 
 				// 2. Drain the Static (PointStat)
 				float damage = statHandler.PointStats.NE.Drain(actualDrain, out bool drained);
 
-				// 3. Store raw drain for Precision calc (Uncapped)
+				// 3. Store raw drain for Pierce calc (Uncapped)
 				accumulatedChargePoints += damage;
 
 				// 4. Calculate Power Multiplier (Clamped)
@@ -580,7 +580,7 @@ namespace SpaxUtils
 					float phase = Mathf.Clamp01(Performer.RunTime / Move.MinDuration);
 					float phaseMult = GetPhaseInertiaMultiplier(phase);
 
-					// Per-axis base output (x=Pierce, y=Power, z=Precision) from the central authority
+					// Per-axis base output (x=Slash, y=Power, z=Pierce) from the central authority
 					// (AgentCombatComponent): move sliders × equipped weapon × body physics, normalised.
 					// Runtime-only modifiers (strength, charge, phase, malice) are applied below.
 					Vector3 baseOutput = combatComponent.GetMoveOutput(move).Output;
@@ -589,28 +589,28 @@ namespace SpaxUtils
 					float powerValue = basePower * totalCharge * phaseMult;
 
 					// --- MALICE LOGIC ---
-					float basePierce = baseOutput.x;
+					float baseSlash = baseOutput.x;
 					float maliceBonus = 0f;
 
-					if (basePierce > 0f)
+					if (baseSlash > 0f)
 					{
-						// Attempt to drain Malice equal to the Pierce of the attack (The conduit capacity).
+						// Attempt to drain Malice equal to the Slash of the attack (The conduit capacity).
 						// Damage() returns the Cost (base * multiplier), handling overdraw if pool is low.
-						float drained = statHandler.PointStats.NW.Drain(basePierce, true);
+						float drained = statHandler.PointStats.NW.Drain(baseSlash, true);
 
 						// Calculate coverage ratio. If we paid 100% of the cost, we get 100% bonus.
-						float coverage = drained / basePierce;
+						float coverage = drained / baseSlash;
 
-						// The Malice added is equal to the BASE PIERCE * Coverage.
+						// The Malice added is equal to the BASE SLASH * Coverage.
 						// (Symmetrical to Grace: You get out what you put in, scaled by resource availability).
-						maliceBonus = basePierce * coverage;
+						maliceBonus = baseSlash * coverage;
 					}
 
-					// Final Pierce = Base + Malice.
-					float finalPierce = basePierce + maliceBonus;
+					// Final Slash = Base + Malice.
+					float finalSlash = baseSlash + maliceBonus;
 
-					// Final precision = Base + Charge.
-					float finalPrecision = baseOutput.z + (accumulatedChargePoints * chargeDamageEfficiency);
+					// Final pierce = Base + Charge.
+					float finalPierce = baseOutput.z + (accumulatedChargePoints * chargeDamageEfficiency);
 
 					HitData hitData = new HitData(
 						hittable,
@@ -620,9 +620,9 @@ namespace SpaxUtils
 						hit.Point,
 						direction,
 						mass,
-						finalPierce,
+						finalSlash,
 						powerValue,
-						finalPrecision,
+						finalPierce,
 						luckStat
 					);
 

@@ -76,38 +76,34 @@ namespace SpaxUtils
 
 		/// <summary>
 		/// Calculates the coupling factor (0..1) representing how cleanly a hit can couple into the target.
-		/// Higher attackerPrecision increases coupling, higher defenderPliancy decreases it.
+		/// Higher attacker Pierce increases coupling, higher defender Yield decreases it.
 		/// </summary>
-		/// <param name="precision">Attacker Precision (>= 0).</param>
-		/// <param name="pliancy">Defender Pliancy (>= 0).</param>
+		/// <param name="pierce">Attacker Pierce (>= 0).</param>
+		/// <param name="yield">Defender Yield (>= 0).</param>
 		/// <param name="physicsPivot">Pivot constant for the contest (typically SCALE=100).</param>
 		/// <returns>Coupling factor in 0..1.</returns>
-		public static float CalculateCoupling(float precision, float pliancy, float physicsPivot = SCALE)
+		public static float CalculateCoupling(float pierce, float yield, float physicsPivot = SCALE)
 		{
-			float pr = Mathf.Max(0f, precision);
-			float pl = Mathf.Max(0f, pliancy);
+			float pi = Mathf.Max(0f, pierce);
+			float yi = Mathf.Max(0f, yield);
 
-			float coupling = pr / (pr + pl + physicsPivot);
+			float coupling = pi / (pi + yi + physicsPivot);
 			return Mathf.Clamp01(coupling);
 		}
 
 		/// <summary>
-		/// Calculates the final critical-hit chance using a Precision vs Pliancy coupling contest,
+		/// Calculates the final critical-hit chance using a Pierce vs Yield coupling contest,
 		/// a smoothed Luck contest, and an anatomy-driven Vulnerability remap.
 		/// Vulnerability anchors the output: 0 -> 0% crit, 0.5 -> base chance, 1 -> 100% crit.
 		/// The returned value is clamped to 0..1.
 		/// </summary>
-		/// <param name="attackerPrecision">Attacker Precision (>= 0). Higher increases coupling.</param>
-		/// <param name="defenderPliancy">Defender Pliancy (>= 0). Higher reduces coupling.</param>
+		/// <param name="coupling">Coupling factor from <see cref="CalculateCoupling"/> (0..1).</param>
 		/// <param name="vulnerability01">
 		/// Anatomy vulnerability in 0..1. Remaps chance so 0 disables crits, 0.5 leaves base chance unchanged,
 		/// and 1 guarantees a crit.
 		/// </param>
 		/// <param name="attackerLuck">Attacker Luck (>= 0). Competes with defenderLuck in the luck contest.</param>
 		/// <param name="defenderLuck">Defender Luck (>= 0). Competes with attackerLuck in the luck contest.</param>
-		/// <param name="physicsPivot">
-		/// Pivot constant for the coupling contest (typically SCALE=100). Higher pivots reduce sensitivity.
-		/// </param>
 		/// <param name="luckPivot">
 		/// Smoothing constant for the luck contest (default 0.1). Lower makes luck differences matter more.
 		/// </param>

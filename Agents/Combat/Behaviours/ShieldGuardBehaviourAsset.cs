@@ -20,15 +20,15 @@ namespace SpaxUtils
 		private float physic_SW;
 
 		private EntityStat guardStat;
-		private EntityStat proofingStat;
-		private EntityStat pliancyStat;
-		private EntityStat protectionStat;
-		private EntityStat preservationStat;
+		private EntityStat armorStat;
+		private EntityStat yieldStat;
+		private EntityStat wardStat;
+		private EntityStat comfortStat;
 
-		private FloatFuncModifier proofingMod;
-		private FloatFuncModifier pliancyMod;
-		private FloatFuncModifier protectionMod;
-		private FloatFuncModifier preservationMod;
+		private FloatFuncModifier armorMod;
+		private FloatFuncModifier yieldMod;
+		private FloatFuncModifier wardMod;
+		private FloatFuncModifier comfortMod;
 
 		public void InjectDependencies(IAgent agent, RuntimeItemData runtimeItemData, AgentStatHandler agentStatHandler)
 		{
@@ -45,22 +45,22 @@ namespace SpaxUtils
 			runtimeItemData.RuntimeData.DataUpdatedEvent += OnDataUpdated;
 
 			guardStat = agent.Stats.GetStat(AgentStatIdentifiers.GUARD, true);
-			proofingStat = agent.Stats.GetStat(AgentStatIdentifiers.PROOFING, true);
-			pliancyStat = agent.Stats.GetStat(AgentStatIdentifiers.PLIANCY, true);
-			protectionStat = agent.Stats.GetStat(AgentStatIdentifiers.PROTECTION, true);
-			preservationStat = agent.Stats.GetStat(AgentStatIdentifiers.PRESERVATION, true);
+			armorStat = agent.Stats.GetStat(AgentStatIdentifiers.ARMOR, true);
+			yieldStat = agent.Stats.GetStat(AgentStatIdentifiers.YIELD, true);
+			wardStat = agent.Stats.GetStat(AgentStatIdentifiers.WARD, true);
+			comfortStat = agent.Stats.GetStat(AgentStatIdentifiers.COMFORT, true);
 
 			float GetWeight() => agent.RuntimeData.GetValue<float>(AgentDataIdentifiers.GUARD_WEIGHT, 0f);
 
-			proofingMod = new FloatFuncModifier(ModMethod.Additive, (v) => v + physic_W * guardStat.Value * GetWeight());
-			pliancyMod = new FloatFuncModifier(ModMethod.Additive, (v) => v + physic_E * guardStat.Value * GetWeight());
-			protectionMod = new FloatFuncModifier(ModMethod.Additive, (v) => v + physic_SE * guardStat.Value * GetWeight());
-			preservationMod = new FloatFuncModifier(ModMethod.Additive, (v) => v + physic_SW * guardStat.Value * GetWeight());
+			armorMod = new FloatFuncModifier(ModMethod.Additive, (v) => v + physic_W * guardStat.Value * GetWeight());
+			yieldMod = new FloatFuncModifier(ModMethod.Additive, (v) => v + physic_E * guardStat.Value * GetWeight());
+			wardMod = new FloatFuncModifier(ModMethod.Additive, (v) => v + physic_SE * guardStat.Value * GetWeight());
+			comfortMod = new FloatFuncModifier(ModMethod.Additive, (v) => v + physic_SW * guardStat.Value * GetWeight());
 
-			proofingStat.AddModifier(this, proofingMod);
-			pliancyStat.AddModifier(this, pliancyMod);
-			protectionStat.AddModifier(this, protectionMod);
-			preservationStat.AddModifier(this, preservationMod);
+			armorStat.AddModifier(this, armorMod);
+			yieldStat.AddModifier(this, yieldMod);
+			wardStat.AddModifier(this, wardMod);
+			comfortStat.AddModifier(this, comfortMod);
 		}
 
 		public override void Stop()
@@ -69,15 +69,15 @@ namespace SpaxUtils
 
 			runtimeItemData.RuntimeData.DataUpdatedEvent -= OnDataUpdated;
 
-			proofingStat.RemoveModifier(this);
-			pliancyStat.RemoveModifier(this);
-			protectionStat.RemoveModifier(this);
-			preservationStat.RemoveModifier(this);
+			armorStat.RemoveModifier(this);
+			yieldStat.RemoveModifier(this);
+			wardStat.RemoveModifier(this);
+			comfortStat.RemoveModifier(this);
 
-			proofingMod.Dispose();
-			pliancyMod.Dispose();
-			protectionMod.Dispose();
-			preservationMod.Dispose();
+			armorMod.Dispose();
+			yieldMod.Dispose();
+			wardMod.Dispose();
+			comfortMod.Dispose();
 		}
 
 		private void CachePhysics()
