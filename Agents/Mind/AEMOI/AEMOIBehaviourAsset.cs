@@ -158,6 +158,25 @@ namespace SpaxUtils
 			}
 			strength *= strengthMultiplier;
 
+			// Drive-gate ally-directed behaviours (positive triggers, per the sign convention) by the agent's Drive on the
+			// answered axis, so it only peels into support it's actually disposed to — a high-Drive.NW agent intercepts, a
+			// support-leaning one rallies/retreats. Selection reads raw motivation otherwise, so disposition can't enter.
+			// Foe behaviours (negative triggers) have no positive axis and are left untouched.
+			float driveGate = 0f;
+			int positiveAxes = 0;
+			for (int i = 0; i < 8; i++)
+			{
+				if (trigger[i] > 0f)
+				{
+					driveGate += Mind.Drive[i];
+					positiveAxes++;
+				}
+			}
+			if (positiveAxes > 0)
+			{
+				strength *= driveGate / positiveAxes;
+			}
+
 			return true;
 		}
 

@@ -78,6 +78,9 @@ namespace SpaxUtils
 		private Dictionary<IEntity, Vector8> motivations = new Dictionary<IEntity, Vector8>();
 		// Internal raw Emotion state (the slow envelope) that the public Emotion is published from.
 		private Vector8 emotionState;
+		// Each pole's share of its axis pair: inc[i] / (inc[i] + inc[opp]). Drives the rise/fall asymmetry, so a pole's
+		// drop-rate is governed by its OPPOSITE's strength. Depends only on inclination, so cached on trait assignment.
+		private Vector8 inclinationShare;
 
 		public AEMOI(IDependencyManager dependencyManager, AEMOISettings settings, Vector8 inclination, Vector8 personality, IEnumerable<IMindBehaviour> behaviours = null)
 		{
@@ -86,6 +89,7 @@ namespace SpaxUtils
 			this.inclination = inclination;
 			this.personality = personality;
 			this.behaviours = behaviours == null ? new List<IMindBehaviour>() : new List<IMindBehaviour>(behaviours);
+			RecomputeInclinationShare();
 		}
 
 		/// <summary>
@@ -96,6 +100,24 @@ namespace SpaxUtils
 		{
 			this.inclination = inclination;
 			this.personality = personality;
+			RecomputeInclinationShare();
+		}
+
+		/// <summary>
+		/// Caches each pole's share of its axis pair. Normalizing against the opposite makes the asymmetry a pure
+		/// balance: pair magnitude (and thus difficulty) stays out of it and lives solely in the base rate.
+		/// </summary>
+		private void RecomputeInclinationShare()
+		{
+			Vector8 share = Vector8.Zero;
+			for (int i = 0; i < 8; i++)
+			{
+				float pole = Mathf.Clamp01(inclination[i]);
+				float opp = Mathf.Clamp01(inclination[(i + 4) % 8]);
+				float sum = pole + opp;
+				share[i] = sum > 0.0001f ? pole / sum : 0.5f;
+			}
+			inclinationShare = share;
 		}
 
 		public void Dispose()
@@ -154,9 +176,9 @@ namespace SpaxUtils
 			// 1. Gather senses: continuous senses fill demandBuffer via SetDemand; impulses/Satisfy hit Stimulation.
 			UpdatingEvent?.Invoke(delta);
 
-			// 2. Track Stimulation toward Demand per foe, per axis, with an inclination-asymmetric rate: strong-inclination
-			//    axes rise fast + fall slow (the drive builds and lingers = retentive/grudge → it dominates selection);
-			//    weak axes rise slow + fall fast (they leak between bursts and never accumulate → stay suppressed).
+			// 2. Track Stimulation toward Demand per foe, per axis, with a pair-share-asymmetric rate: the dominant pole of
+			//    each axis pair rises fast + falls slow (builds and lingers = grudge → dominates selection); the recessive
+			//    pole rises slow and is pushed back out fast by its opposite (never accumulates → stays suppressed).
 			//    Also aggregate the Emotion envelope target as MAX |Stimulation| across foes (highest threat sets arousal).
 			Vector8 incl = inclination;
 			float bias = Mathf.Clamp01(settings.StimulationInclinationBias);
@@ -178,11 +200,12 @@ namespace SpaxUtils
 				for (int i = 0; i < 8; i++)
 				{
 					float inc = Mathf.Clamp01(incl[i]);
+					float share = inclinationShare[i];
 					// Rising = drive growing toward a stronger demand; falling = demand dropped below the current drive.
 					bool rising = Mathf.Abs(demand[i]) >= Mathf.Abs(stim[i]);
 					float incFactor = rising
-						? Mathf.Lerp(1f - bias, 1f, inc)   // strong → full rise, weak → damped
-						: Mathf.Lerp(1f, 1f - bias, inc);  // strong → damped fall (lingers), weak → full fall (leaks)
+						? Mathf.Lerp(1f - bias, 1f, share)   // dominant pole → full rise, recessive → damped
+						: Mathf.Lerp(1f, 1f - bias, share);  // dominant pole → damped fall (lingers), recessive → pushed out by its opposite
 					// Base rate: inclination (difficulty-carrying) curved, interpolating [min,max]. incFactor is the separate grudge asymmetry.
 					float baseRate = Mathf.Lerp(settings.StimulationRate.x, settings.StimulationRate.y, settings.RateCurve.Evaluate(inc));
 					float rate = baseRate * incFactor;
@@ -201,7 +224,7 @@ namespace SpaxUtils
 				}
 			}
 
-			// 3. Emotion follower: uniform symmetric envelope chasing |Stimulation| at EmotionRate (the softcap ramp).
+			// 3. Emotion follower: slow envelope chasing |Stimulation| at EmotionRate (the softcap ramp).
 			Emotion = ComputeEmotion(emotionTarget, delta);
 			EmotionNormalized = NormalizeEmotion(Emotion);
 
@@ -462,9 +485,10 @@ namespace SpaxUtils
 
 		/// <summary>
 		/// Advances the internal Emotion envelope toward <paramref name="target"/> (the MAX |Stimulation| across foes),
-		/// inclination-MIRRORED: strong-inclination axes RISE fast and FALL slow (build & linger), weak axes rise slow and
-		/// fall fast (barely build, leak). So emotion only accumulates on the axes the agent actually cares about — a weak
-		/// axis can't crest alongside its strong opposite and flatten Balance toward 0.5. Framerate-independent per axis.
+		/// pair-share MIRRORED: the dominant pole of an axis pair RISES fast and FALLS slow (builds & lingers), the recessive
+		/// pole rises slow and falls fast. So emotion only accumulates on the axes the agent leans toward — a recessive axis
+		/// can't crest alongside its dominant opposite and flatten Balance toward 0.5. EmotionFallMultiplier then damps the
+		/// fall globally (inclination-independent) so arousal carries across a long fight. Framerate-independent per axis.
 		/// </summary>
 		private Vector8 ComputeEmotion(Vector8 target, float delta)
 		{
@@ -476,11 +500,12 @@ namespace SpaxUtils
 				float cur = emotionState[i];
 				float tgt = target[i];
 				float inc = Mathf.Clamp01(incl[i]);
-				// Base rate: inclination (difficulty-carrying) curved, interpolating [min,max]. The inclination mirror is the separate asymmetry.
+				float share = inclinationShare[i];
+				// Base rate: inclination (difficulty-carrying) curved, interpolating [min,max]. The pair-share mirror is the separate asymmetry.
 				float baseRate = Mathf.Lerp(settings.EmotionRate.x, settings.EmotionRate.y, settings.RateCurve.Evaluate(inc));
 				float rate = tgt > cur
-					? baseRate * Mathf.Lerp(1f - bias, 1f, inc)   // rise: strong fast, weak slow
-					: baseRate * Mathf.Lerp(1f, 1f - bias, inc);  // fall: strong slow, weak fast
+					? baseRate * Mathf.Lerp(1f - bias, 1f, share)   // rise: dominant pole fast, recessive slow
+					: baseRate * Mathf.Lerp(1f, 1f - bias, share) * Mathf.Max(settings.EmotionFallMultiplier, 0f);  // fall: same mirror, then the global drop damper
 				result[i] = Mathf.Lerp(cur, tgt, 1f - Mathf.Exp(-Mathf.Max(rate, 0f) * delta));
 			}
 			return emotionState = result;

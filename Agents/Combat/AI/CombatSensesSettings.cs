@@ -71,5 +71,16 @@ namespace SpaxUtils
 
 		[Tooltip("Shapes Drive.E -> movement scale (x = Drive.E, y feeds the floor lerp). Rise fast and PLATEAU at 1 so mobile agents move at full power and only the low end is damped. NOTE: x is Drive.E, which is difficulty-COMPRESSED — read the Debuddy 'drv E' value to place the plateau; it sits well below raw difficulty.")]
 		public AnimationCurve MovementScaleCurve = new AnimationCurve(new Keyframe(0f, 0f), new Keyframe(0.66f, 1f), new Keyframe(1f, 1f));
+
+		[Header("Region Borders")]
+		[Tooltip("MAXIMUM distance from a region's border at which agents start being steered back inward. Agents fight near borders constantly, so this wants to be generous — it is the standing clearance that keeps lunges and dashes (which bypass steering entirely) from carrying an agent across. Shrinks automatically to the region's half-width where a region is too narrow to hold it, so a corridor keeps a neutral centreline instead of being pushed from both sides; wide regions keep the absolute value, which is what keeps border pressure commensurate with reach/StandoffMax. 0 disables.")]
+		public float BorderMargin = 5f;
+
+		[Tooltip("Blend weight toward the inward normal at zero depth (right on the border). 1 = fully overrides the intended direction at the edge; lower leaves the agent some authority to keep fighting.")]
+		[Range(0f, 1f)]
+		public float BorderStrength = 1f;
+
+		[Tooltip("Shapes the inward push across the margin (x = 0 at the margin edge -> 1 at the border, y = blend weight scale). Keep it near zero for the outer part of the margin so agents aren't nudged mid-arena, then ramp hard close in.")]
+		public AnimationCurve BorderFalloff = new AnimationCurve(new Keyframe(0f, 0f), new Keyframe(0.5f, 0.25f), new Keyframe(1f, 1f));
 	}
 }

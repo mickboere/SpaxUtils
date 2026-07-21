@@ -42,6 +42,8 @@ namespace SpaxUtils
 		{
 			serializedObject.Update();
 
+			DrawTiltWarning();
+
 			EditorGUILayout.PropertyField(prioProperty);
 			EditorGUILayout.PropertyField(activityProperty);
 			EditorGUILayout.PropertyField(gizmosColorProperty);
@@ -55,6 +57,38 @@ namespace SpaxUtils
 			EditorGUILayout.PropertyField(poisProperty);
 
 			serializedObject.ApplyModifiedProperties();
+		}
+
+		/// <summary>
+		/// Agent border-avoidance flattens region borders to horizontal, which is only exact while a box is upright.
+		/// Tilt comes from the box's own Rotation OR from a tilted WorldRegion transform, so this checks the composed
+		/// world rotation. Shown inline rather than logged.
+		/// </summary>
+		private void DrawTiltWarning()
+		{
+			List<int> tilted = new List<int>();
+			for (int i = 0; i < regionsProperty.arraySize; i++)
+			{
+				if (worldRegion.IsBorderTilted(i))
+				{
+					tilted.Add(i);
+				}
+			}
+
+			if (tilted.Count == 0)
+			{
+				return;
+			}
+
+			EditorGUILayout.HelpBox(
+				$"Box {(tilted.Count == 1 ? "region" : "regions")} {string.Join(", ", tilted)} " +
+				$"{(tilted.Count == 1 ? "is" : "are")} tilted on X/Z.\n\n" +
+				"Agent border avoidance treats borders as vertical walls and ignores height, so a tilted box yields an " +
+				"inward push with a vertical component — agents will drift away from the border incorrectly. Keep box " +
+				"rotation to Y (yaw) only, and check the WorldRegion transform itself is upright.",
+				MessageType.Warning);
+
+			EditorGUILayout.Space(4f);
 		}
 
 		// -------------------------------------------------------------------------

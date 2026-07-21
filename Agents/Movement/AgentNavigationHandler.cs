@@ -39,6 +39,9 @@ namespace SpaxUtils
 		/// </summary>
 		private const float QUERY_SAMPLE_RANGE = 5f;
 
+		/// <summary>Seconds of travel the region lookahead veto projects ahead, on top of its flat minimum.</summary>
+		private const float LOOKAHEAD_TIME = 0.5f;
+
 		[Header("NavMesh")]
 		[SerializeField, Tooltip("How far the target must drift from its last-calculated position before the path is recalculated.")]
 		private float recalculationThreshold = 1f;
@@ -73,6 +76,7 @@ namespace SpaxUtils
 		private IAgent agent;
 		private IAgentMovementHandler movementHandler;
 		private ITargetable targetable;
+		private CombatSensesSettings combatSensesSettings;
 		private Coroutine coroutine;
 
 		// Last steered direction and target, kept for gizmo drawing.
@@ -90,11 +94,13 @@ namespace SpaxUtils
 		public void InjectDependencies(
 			Agent agent,
 			IAgentMovementHandler movementHandler,
-			ITargetable targetable)
+			ITargetable targetable,
+			[Optional] CombatSensesSettings combatSensesSettings)
 		{
 			this.agent = agent;
 			this.movementHandler = movementHandler;
 			this.targetable = targetable;
+			this.combatSensesSettings = combatSensesSettings;
 		}
 
 		private void OnEnable()
@@ -494,27 +500,7 @@ namespace SpaxUtils
 		public bool TrySteerLocal(Vector3 localInput, Vector3 lookDirection, IWorldRegion region,
 			float lookahead, out bool hardStop, bool applyAvoidance = true)
 		{
-			if (region != null && localInput.sqrMagnitude > Mathf.Epsilon)
-			{
-				Quaternion lookRot = Quaternion.LookRotation(lookDirection.FlattenY().normalized);
-
-				if (!region.IsInside(agent.Transform.position))
-				{
-					Vector3 returnDir = (region.GetClosestPointWithinRegion(agent.Transform.position) - agent.Transform.position).normalized;
-					localInput = (Quaternion.Inverse(lookRot) * returnDir).FlattenY().normalized * localInput.magnitude;
-				}
-				else if (lookahead > 0f)
-				{
-					float effectiveLookahead = lookahead * Mathf.Max(1f, localInput.magnitude);
-					Vector3 worldDir = (lookRot * localInput).FlattenY().normalized;
-					Vector3 projected = agent.Transform.position + worldDir * effectiveLookahead;
-					if (!region.IsInside(projected))
-					{
-						Vector3 safeDir = (region.GetClosestPointWithinRegion(projected) - agent.Transform.position).normalized;
-						localInput = (Quaternion.Inverse(lookRot) * safeDir).FlattenY().normalized * localInput.magnitude;
-					}
-				}
-			}
+			ApplyRegionAwareness(ref localInput, lookDirection, region, lookahead);
 			return TrySteerLocal(localInput, lookDirection, out hardStop, applyAvoidance);
 		}
 
@@ -541,28 +527,83 @@ namespace SpaxUtils
 		public bool TrySteerLocal(Vector3 localInput, Vector3 lookDirection, IWorldRegion region,
 			float lookahead, IReadOnlyList<ITargetable> separationTargets, out bool hardStop, bool applyAvoidance = true)
 		{
-			if (region != null && localInput.sqrMagnitude > Mathf.Epsilon)
-			{
-				Quaternion lookRot = Quaternion.LookRotation(lookDirection.FlattenY().normalized);
+			ApplyRegionAwareness(ref localInput, lookDirection, region, lookahead);
+			return TrySteerLocal(localInput, lookDirection, separationTargets, out hardStop, applyAvoidance);
+		}
 
-				if (!region.IsInside(agent.Transform.position))
+		/// <summary>
+		/// Keeps the agent inside its region, in three escalating stages: a continuous inward drive that begins
+		/// BorderMargin out (the one that actually does the work — agents fight near borders, so they must be biased
+		/// away from them long before contact), a lookahead veto as a backstop, and a hard return when already outside.
+		/// </summary>
+		private void ApplyRegionAwareness(ref Vector3 localInput, Vector3 lookDirection, IWorldRegion region, float lookahead)
+		{
+			if (region == null || localInput.sqrMagnitude <= Mathf.Epsilon)
+			{
+				return;
+			}
+
+			Vector3 agentPos = agent.Transform.position;
+			Quaternion lookRot = Quaternion.LookRotation(lookDirection.FlattenY().normalized);
+			float magnitude = localInput.magnitude;
+
+			// Already out: head straight back in, nothing else matters.
+			if (!region.IsInside(agentPos))
+			{
+				Vector3 returnDir = (region.GetClosestPointWithinRegion(agentPos) - agentPos).FlattenY().normalized;
+				if (returnDir.sqrMagnitude > 0.001f)
 				{
-					Vector3 returnDir = (region.GetClosestPointWithinRegion(agent.Transform.position) - agent.Transform.position).normalized;
-					localInput = (Quaternion.Inverse(lookRot) * returnDir).FlattenY().normalized * localInput.magnitude;
+					localInput = (Quaternion.Inverse(lookRot) * returnDir).FlattenY().normalized * magnitude;
 				}
-				else if (lookahead > 0f)
+				return;
+			}
+
+			bool hasBorder = region.TryGetBorderDepth(agentPos, out float depth, out Vector3 inward, out float maxDepth);
+			Vector3 worldDir = (lookRot * localInput).FlattenY().normalized;
+
+			// Continuous inward drive across the margin.
+			if (hasBorder && inward.sqrMagnitude > 0.001f && combatSensesSettings != null && combatSensesSettings.BorderMargin > 0f)
+			{
+				// Shrink the margin to fit a region too narrow to hold it, so a corridor gets a neutral centreline
+				// instead of being pushed from both sides at once. Wide regions keep the absolute margin, which is what
+				// keeps border pressure commensurate with the (absolute) combat spacing scale.
+				float margin = Mathf.Min(combatSensesSettings.BorderMargin, maxDepth);
+				if (margin > 0.001f && depth < margin)
 				{
-					float effectiveLookahead = lookahead * Mathf.Max(1f, localInput.magnitude);
-					Vector3 worldDir = (lookRot * localInput).FlattenY().normalized;
-					Vector3 projected = agent.Transform.position + worldDir * effectiveLookahead;
-					if (!region.IsInside(projected))
+					float t = 1f - Mathf.Clamp01(depth / margin);
+					float weight = Mathf.Clamp01(combatSensesSettings.BorderFalloff.Evaluate(t) * combatSensesSettings.BorderStrength);
+					// Slerp, not an additive blend: a walk direction pointing straight out would otherwise cancel to
+					// zero at weight 0.5 instead of rotating through to inward.
+					worldDir = Vector3.Slerp(worldDir, inward, weight).FlattenY().normalized;
+				}
+			}
+
+			// Backstop: veto a step that would still leave the region. Scales with actual travel speed, since a fast
+			// agent covers the old flat 2m well within a frame of committing.
+			if (lookahead > 0f)
+			{
+				float effectiveLookahead = Mathf.Max(lookahead, movementHandler.CalculateSpeed(magnitude) * LOOKAHEAD_TIME);
+				if (!region.IsInside(agentPos + worldDir * effectiveLookahead))
+				{
+					// Steer along the inward normal rather than toward the clamped boundary point: the closest in-region
+					// point to a just-exited projection sits ON the border, so aiming at it points the agent straight at
+					// the edge (exactly parallel to the original direction on a perpendicular approach — a no-op).
+					if (inward.sqrMagnitude > 0.001f)
 					{
-						Vector3 safeDir = (region.GetClosestPointWithinRegion(projected) - agent.Transform.position).normalized;
-						localInput = (Quaternion.Inverse(lookRot) * safeDir).FlattenY().normalized * localInput.magnitude;
+						worldDir = inward;
+					}
+					else
+					{
+						Vector3 fallback = (region.GetClosestPointWithinRegion(agentPos + worldDir * effectiveLookahead) - agentPos).FlattenY().normalized;
+						if (fallback.sqrMagnitude > 0.001f)
+						{
+							worldDir = fallback;
+						}
 					}
 				}
 			}
-			return TrySteerLocal(localInput, lookDirection, separationTargets, out hardStop, applyAvoidance);
+
+			localInput = (Quaternion.Inverse(lookRot) * worldDir).FlattenY().normalized * magnitude;
 		}
 
 		/// <summary>

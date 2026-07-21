@@ -6,6 +6,12 @@ namespace SpaxUtils
 {
 	public class WorldRegion : MonoBehaviour, IWorldRegion
 	{
+		/// <summary>How far past a boundary point to probe when testing whether an abutting sub-region continues there.</summary>
+		private const float SEAM_PROBE_OFFSET = 0.05f;
+
+		/// <summary>Above this much X/Z tilt (dot of local up vs world up) the flattened border maths stops being exact.</summary>
+		public const float MAX_BORDER_TILT_DOT = 0.999f;
+
 		public enum RegionType
 		{
 			Box = 0,
@@ -256,6 +262,200 @@ namespace SpaxUtils
 			}
 
 			return closest;
+		}
+
+		/// <inheritdoc/>
+		public bool TryGetBorderDepth(Vector3 point, out float depth, out Vector3 inwardNormal, out float maxDepth)
+		{
+			depth = 0f;
+			inwardNormal = Vector3.zero;
+			maxDepth = 0f;
+
+			if (regions == null || regions.Count == 0)
+			{
+				return false;
+			}
+
+			if (cachedWorldCenters == null || cachedWorldCenters.Length != regions.Count)
+			{
+				BuildCache();
+			}
+
+			// Deepest containing sub-region wins: for a union, the sub-region burying the point furthest from its own
+			// border is the one that describes the real distance to the outside. maxDepth comes from that same
+			// sub-region so the pair always agrees (it can step slightly as an agent crosses a seam).
+			bool found = false;
+			for (int i = 0; i < regions.Count; i++)
+			{
+				if (!TryGetRegionBorderDepth(point, i, out float d, out Vector3 n, out float max))
+				{
+					continue;
+				}
+
+				if (!found || d > depth)
+				{
+					depth = d;
+					inwardNormal = n;
+					maxDepth = max;
+					found = true;
+				}
+			}
+
+			return found;
+		}
+
+		/// <summary>
+		/// Border depth within a single sub-region, horizontal only. Candidates whose boundary point lies inside
+		/// another sub-region are seams (not real borders) and are skipped.
+		/// </summary>
+		private bool TryGetRegionBorderDepth(Vector3 point, int index, out float depth, out Vector3 inwardNormal, out float maxDepth)
+		{
+			depth = 0f;
+			inwardNormal = Vector3.zero;
+			maxDepth = 0f;
+
+			Region region = regions[index];
+			Vector3 worldCenter = cachedWorldCenters[index];
+
+			switch (region.Type)
+			{
+				case RegionType.Box:
+				{
+					Quaternion worldRotation = cachedWorldRotations[index];
+					Vector3 local = Quaternion.Inverse(worldRotation) * (point - worldCenter);
+					float halfX = region.BoxSize.x * 0.5f;
+					float halfZ = region.BoxSize.z * 0.5f;
+					maxDepth = Mathf.Min(halfX, halfZ);
+
+					// Vertical walls: the footprint doesn't vary with height, so local.y is ignored entirely.
+					if (Mathf.Abs(local.x) > halfX || Mathf.Abs(local.z) > halfZ)
+					{
+						return false;
+					}
+
+					// All four horizontal faces are candidates; the nearest non-seam one wins. Evaluating every face
+					// (rather than dropping the whole sub-region on a seam) keeps a box's real borders readable while
+					// standing at a seam on its opposite side.
+					bool found = false;
+					for (int axis = 0; axis < 2; axis++)
+					{
+						float half = axis == 0 ? halfX : halfZ;
+						float coord = axis == 0 ? local.x : local.z;
+
+						for (int dir = -1; dir <= 1; dir += 2)
+						{
+							float faceDepth = half - coord * dir;
+							if (found && faceDepth >= depth)
+							{
+								continue;
+							}
+
+							Vector3 localOutward = axis == 0 ? new Vector3(dir, 0f, 0f) : new Vector3(0f, 0f, dir);
+							Vector3 localBoundary = local + localOutward * faceDepth;
+							Vector3 worldBoundary = worldCenter + worldRotation * localBoundary;
+							Vector3 worldOutward = worldRotation * localOutward;
+
+							if (IsSeam(worldBoundary, worldOutward, index))
+							{
+								continue;
+							}
+
+							depth = faceDepth;
+							inwardNormal = -worldOutward;
+							found = true;
+						}
+					}
+
+					if (found)
+					{
+						inwardNormal = inwardNormal.FlattenY().normalized;
+					}
+					return found;
+				}
+
+				case RegionType.Sphere:
+				{
+					// Slice the sphere at the point's height: the border sits on a circle of radius sqrt(R² - dy²),
+					// so height genuinely changes how far the edge is.
+					float dy = point.y - worldCenter.y;
+					float sqrSlice = region.Radius * region.Radius - dy * dy;
+					if (sqrSlice <= 0f)
+					{
+						return false;
+					}
+
+					float sliceRadius = Mathf.Sqrt(sqrSlice);
+					maxDepth = sliceRadius;
+					Vector3 horizontal = (point - worldCenter).FlattenY();
+					float horizontalDist = horizontal.magnitude;
+					if (horizontalDist > sliceRadius)
+					{
+						return false;
+					}
+
+					// Dead centre of the slice: maximal depth, and no meaningful direction to push toward.
+					if (horizontalDist < 0.0001f)
+					{
+						depth = sliceRadius;
+						inwardNormal = Vector3.zero;
+						return true;
+					}
+
+					Vector3 outward = horizontal / horizontalDist;
+					Vector3 boundary = worldCenter + outward * sliceRadius + Vector3.up * dy;
+
+					// A circle has a single nearest boundary point; if it is a seam, this sub-region simply reports no
+					// border (finding the next-nearest unseamed arc isn't worth the intersection maths).
+					if (IsSeam(boundary, outward, index))
+					{
+						return false;
+					}
+
+					depth = sliceRadius - horizontalDist;
+					inwardNormal = -outward;
+					return true;
+				}
+			}
+
+			return false;
+		}
+
+		/// <summary>
+		/// Whether a boundary point is an internal seam rather than a real border: true when another sub-region
+		/// continues past it. Probes slightly OUTSIDE the boundary, since an abutting sub-region starts exactly at
+		/// the shared face and the point itself is ambiguous.
+		/// </summary>
+		private bool IsSeam(Vector3 boundaryPoint, Vector3 outward, int ownIndex)
+		{
+			Vector3 probe = boundaryPoint + outward * SEAM_PROBE_OFFSET;
+			for (int i = 0; i < regions.Count; i++)
+			{
+				if (i != ownIndex && CheckRegion(probe, i))
+				{
+					return true;
+				}
+			}
+			return false;
+		}
+
+		/// <summary>
+		/// Whether a box sub-region carries X/Z tilt. <see cref="TryGetBorderDepth"/> works in region-local space and
+		/// ignores local Y, which only matches world-horizontal while the region is upright (yaw-only) — a tilted box
+		/// yields a border normal with a vertical component. Spheres are rotation-invariant, so never tilted.
+		/// </summary>
+		public bool IsBorderTilted(int index)
+		{
+			if (regions == null || index < 0 || index >= regions.Count || regions[index].Type != RegionType.Box)
+			{
+				return false;
+			}
+
+			if (cachedWorldRotations == null || cachedWorldRotations.Length != regions.Count)
+			{
+				BuildCache();
+			}
+
+			return Vector3.Dot(cachedWorldRotations[index] * Vector3.up, Vector3.up) < MAX_BORDER_TILT_DOT;
 		}
 
 		private Vector3 ClosestPointInRegion(Vector3 point, int i)
