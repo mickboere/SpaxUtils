@@ -267,6 +267,14 @@ namespace SpaxUtils
 				damageLedger[hitData.Hitter.ID] = totalDamage;
 			}
 
+			// Damage balance instrumentation; uncomment and set Debuddy's filter to "DMGTEST" to capture fights.
+			//SpaxDebug.Log($"[DMGTEST]", hitData.ToString() +
+			//	$"\nDefence: Armor={armorStat.Value:F1}, Yield={yieldStat.Value:F1}, Hardness={hardnessStat.Value:F2}, Ward={wardStat.Value:F1}, Vulnerability={vulnerabilityStat.Value:F2}" +
+			//	$"\nHealth(SW)={statHandler.PointStats.SW.Value:F1}/{statHandler.PointStats.SW.Max.Value:F1}" +
+			//	$"\nEndurance(W)={statHandler.PointStats.W.Value:F1}/{statHandler.PointStats.W.Max.Value:F1}" +
+			//	$"\nBodyLevels={statHandler.BodyLevels.Vector8.ToStringShort()}" +
+			//	$"\nPhysics={statHandler.Physics.Vector8.ToStringShort()}");
+
 			if (debug)
 			{
 				SpaxDebug.Log($"{agent.ID} - HIT:", hitData.ToString() + "\nEntity Stats:\n" + Entity.Stats.GetSnapshot());

@@ -1,5 +1,4 @@
 using UnityEngine;
-using static RootMotion.FinalIK.Grounding;
 
 namespace SpaxUtils
 {
@@ -11,6 +10,12 @@ namespace SpaxUtils
 		public const float CONSTANT = 0.1f;
 		public const float POWER = 2f;
 		public const float SCALE = 100f;
+
+		// Scale/shift constants for converting EXP levels to physics and pointstat values.
+		public const float POINTSSTAT_SCALE = 10f;
+		public const float POINTSSTAT_SHIFT = 100f;
+		public const float PHYSIC_SCALE = 2f;
+		public const float PHYSIC_SHIFT = 20f;
 
 		#region Combat
 
@@ -58,7 +63,7 @@ namespace SpaxUtils
 		public static float CalculateDamage(float offence,
 			float defence,
 			float crossFactor = 1f,
-			float exponent = 2f)
+			float exponent = 1f)
 		{
 			float o = Mathf.Max(0f, offence);
 			float d = Mathf.Max(0f, defence);
@@ -244,17 +249,43 @@ namespace SpaxUtils
 			return r;
 		}
 
-		// Scale/shift constants for converting EXP levels to physics and pointstat values.
-		public const float POINTSSTAT_SCALE = 12f;
-		public const float POINTSSTAT_SHIFT = 64f;
-		public const float PHYSIC_SCALE = 6f;
-		public const float PHYSIC_SHIFT = 32f;
-
 		public static float LevelToPointsStat(float level, bool shift = true)
 			=> level * POINTSSTAT_SCALE + (shift ? POINTSSTAT_SHIFT : 0f);
 
 		public static float LevelToPhysic(float level, bool shift = true)
 			=> level * PHYSIC_SCALE + (shift ? PHYSIC_SHIFT : 0f);
+
+		/// <summary>
+		/// Per-lane weights for equipment's SHIFT: the distribution normalized to sum 1, scaled by the number
+		/// of covered lanes. An evenly spread item therefore receives the full shift in each lane it covers,
+		/// while a lopsided one concentrates its floor where its budget went.
+		/// </summary>
+		public static Vector8 EquipmentShiftWeights(Vector8 distribution)
+		{
+			GetRatioWeightsAndCoverage(distribution, out Vector8 ratioWeights, out _);
+
+			int lanes = 0;
+			for (int i = 0; i < 8; i++)
+			{
+				if (distribution[i] > 0f)
+				{
+					lanes++;
+				}
+			}
+
+			return lanes > 0 ? ratioWeights * lanes : Vector8.Zero;
+		}
+
+		/// <summary>
+		/// Equipment's physic contribution for a single lane, before coverage.
+		/// <paramref name="level"/> already carries sqrt(QUALITY) through the points budget, so the shift gets
+		/// the same sqrt treatment to keep QUALITY acting uniformly across both terms.
+		/// <paramref name="shiftWeight"/> comes from <see cref="EquipmentShiftWeights"/>. The 4-lane geometry
+		/// is itself the QUALITY 0.5 parity anchor: at n=4 and QUALITY 0.5 the effective level equals rank,
+		/// matching the body's curve.
+		/// </summary>
+		public static float EquipmentPhysic(float level, float quality, float shiftWeight)
+			=> level * PHYSIC_SCALE + PHYSIC_SHIFT * Mathf.Sqrt(Mathf.Max(0f, quality)) * Mathf.Max(0f, shiftWeight);
 
 		#endregion Standardized Formulas
 

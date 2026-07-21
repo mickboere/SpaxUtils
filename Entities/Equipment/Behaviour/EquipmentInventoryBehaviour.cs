@@ -68,10 +68,13 @@ namespace SpaxUtils
 
 			Vector8 lanePoints = SpaxFormulas.AllocatePointsForLevelRatios(eq.PhysicsDistribution, budget);
 
+			// Shift is spread across the distribution, so an item only gets a floor where its budget went.
+			Vector8 shiftWeights = SpaxFormulas.EquipmentShiftWeights(eq.PhysicsDistribution);
+
 			for (int i = 0; i < 8; i++)
 			{
 				float lvl = lanePoints[i] <= 0f ? 0f : SpaxFormulas.LevelFromPoints(lanePoints[i]);
-				float physic = Mathf.Round(SpaxFormulas.LevelToPhysic(lvl, shift: false) * eq.PhysicsScaling);
+				float physic = Mathf.Round(SpaxFormulas.EquipmentPhysic(lvl, runtimeItemData.Quality, shiftWeights[i]) * eq.PhysicsScaling);
 
 				string id = physicsIDs.GetIdentifier(i);
 				if (!string.IsNullOrEmpty(id))

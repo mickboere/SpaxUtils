@@ -317,8 +317,10 @@ namespace SpaxUtils
 
 			// LETHALITY: live moveless damage output per equipped weapon (or fists). Central authority
 			// for UI/queries; replaces the old per-hand SLASH-substat approximation.
-			LeftHandOutput = new CombatOutput(BodyPhysics, DistributionOf(arms == null ? null : arms.LeftEquip, Vector3.one));
-			RightHandOutput = new CombatOutput(BodyPhysics, DistributionOf(arms == null ? null : arms.RightEquip, Vector3.one));
+			RuntimeEquipedData leftEquip = arms == null ? null : arms.LeftEquip;
+			RuntimeEquipedData rightEquip = arms == null ? null : arms.RightEquip;
+			LeftHandOutput = new CombatOutput(OffensivePhysics(leftEquip), DistributionOf(leftEquip, Vector3.one));
+			RightHandOutput = new CombatOutput(OffensivePhysics(rightEquip), DistributionOf(rightEquip, Vector3.one));
 			Offense = (LeftHandOutput.Magnitude >= RightHandOutput.Magnitude ? LeftHandOutput : RightHandOutput).Output;
 
 			// Recency tracking: when a fresh combo opens (no move → move), remember its opener act.
@@ -815,6 +817,29 @@ namespace SpaxUtils
 		private static Vector3 DistributionOf(RuntimeEquipedData weapon, Vector3 fallback)
 			=> DistributionOf(weapon == null ? null : weapon.EquipmentData, fallback);
 
+		/// <summary>
+		/// The weapon's own Rank/Quality-derived physics as (x=Slash/NW, y=Power/N, z=Pierce/NE), written to its
+		/// RuntimeData by <see cref="EquipmentInventoryBehaviour"/>. Zero when unarmed — weapons are not
+		/// PhysicsPassive, so this is their active-use contribution.
+		/// </summary>
+		private Vector3 WeaponPhysics(RuntimeEquipedData weapon)
+		{
+			if (weapon == null || weapon.RuntimeItemData == null || StatHandler == null)
+			{
+				return Vector3.zero;
+			}
+
+			RuntimeDataCollection data = weapon.RuntimeItemData.RuntimeData;
+			StatOctad ids = StatHandler.Physics;
+			return new Vector3(
+				data.GetValue<float>(ids.northWest),
+				data.GetValue<float>(ids.north),
+				data.GetValue<float>(ids.northEast));
+		}
+
+		/// <summary>Total offensive physics (body + weapon) the distribution filter is applied to.</summary>
+		private Vector3 OffensivePhysics(RuntimeEquipedData weapon) => BodyPhysics + WeaponPhysics(weapon);
+
 		private RuntimeEquipedData ResolveMoveWeapon(ICombatMove move)
 		{
 			if (arms == null || move is not IMeleeCombatMove melee || !melee.UseArmament || melee.Limb.IsNullOrEmpty())
@@ -844,6 +869,12 @@ namespace SpaxUtils
 				// Non-melee combat move — neutral fallback; extension seam for future ranged/magic.
 				Vector3 neutral = new Vector3(1f, 1f, 1f).normalized;
 				return new MoveOutput(new CombatOutput(body, Vector3.one), Vector3.one, Vector3.one, neutral, body);
+			}
+
+			// Armed strikes swing the weapon's physics alongside the body's; unarmed moves are body-only.
+			if (melee.UseArmament)
+			{
+				body = OffensivePhysics(weapon);
 			}
 
 			Vector3 moveDist = new Vector3(melee.Slash, melee.Power, melee.Pierce);

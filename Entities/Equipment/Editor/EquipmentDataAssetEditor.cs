@@ -41,11 +41,13 @@ namespace SpaxUtils
 
 			Vector8 lanePoints = SpaxFormulas.AllocatePointsForLevelRatios(eq.PhysicsDistribution, budget);
 
+			Vector8 shiftWeights = SpaxFormulas.EquipmentShiftWeights(eq.PhysicsDistribution);
+
 			Vector8 physics = Vector8.Zero;
 			for (int i = 0; i < 8; i++)
 			{
 				float lvl = lanePoints[i] <= 0f ? 0f : SpaxFormulas.LevelFromPoints(lanePoints[i]);
-				physics[i] = Mathf.Round(lvl * 6f * eq.PhysicsScaling);
+				physics[i] = Mathf.Round(SpaxFormulas.EquipmentPhysic(lvl, eq.Quality, shiftWeights[i]) * eq.PhysicsScaling);
 			}
 
 			using (new EditorGUI.IndentLevelScope(1))
