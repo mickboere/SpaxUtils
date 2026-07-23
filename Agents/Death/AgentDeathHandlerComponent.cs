@@ -1,4 +1,3 @@
-using NUnit.Framework;
 using SpiritAxis;
 using System.Collections.Generic;
 using UnityEngine;
@@ -261,11 +260,17 @@ namespace SpaxUtils
 
 		private void RegisterCairn()
 		{
-			// Reset agent's stats back to backup.
-			statHandler.ResetToBackup(out RuntimeDataCollection lost);
+			// The soul caps off the body; all surplus EXP is lost.
+			statHandler.ResetToSoul(out RuntimeDataCollection lost);
 
 			// Own the data:
 			lost.SetValue(EntityDataIdentifiers.ID, Agent.ID);
+
+			// Judge the owner at the moment of death: alignment becomes the cairn's starting scaling,
+			// so a saint's cairn rises at full health while a sinner's rises fully degraded.
+			float sin = Agent.Stats.TryGetStat(AgentStatIdentifiers.SIN, out EntityStat sinStat) ? sinStat.Value : 100f;
+			float virtue = Agent.Stats.TryGetStat(AgentStatIdentifiers.VIRTUE, out EntityStat virtueStat) ? virtueStat.Value : 100f;
+			lost.SetValue(EntityDataIdentifiers.ALIGNMENT, SpaxFormulas.GetAlignment(sin, virtue));
 
 			// Collect material items from inventory and place them in lost data.
 			if (inventory != null)

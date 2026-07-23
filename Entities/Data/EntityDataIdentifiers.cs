@@ -35,6 +35,11 @@ namespace SpaxUtils
 		public const string SCALING = ENTITY + "Scaling";
 
 		/// <summary>
+		/// Float (0-1) virtue/sin alignment of the entity's owner, captured at creation.
+		/// </summary>
+		public const string ALIGNMENT = ENTITY + "Alignment";
+
+		/// <summary>
 		/// Float (0-1) that scales the entity's behaviour to be more or less difficult.
 		/// </summary>
 		public const string DIFFICULTY = ENTITY + "Difficulty";

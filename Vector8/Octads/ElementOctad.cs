@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using UnityEngine;
 
 namespace SpaxUtils
@@ -10,10 +10,10 @@ namespace SpaxUtils
 	[Serializable]
 	public class ElementOctad : IOctad
 	{
-		public Vector8 Vector8 => new Vector8(fire, light, air, faeth, water, nature, earth, daeth);
+		public Vector8 Vector8 => new Vector8(fire, light, air, spirit, water, nature, earth, @void);
 
 		/// <summary>
-		/// Lies between Daeth and Light, opposite of Water.
+		/// Lies between Void and Light, opposite of Water.
 		/// Masculine head, strong.
 		/// Emotion of Anger, motivation is Action, manifests in Energy.
 		/// </summary>
@@ -27,21 +27,21 @@ namespace SpaxUtils
 		[SerializeField] private float light;
 
 		/// <summary>
-		/// Lies between Light and Daeth, opposite of Earth.
+		/// Lies between Light and Void, opposite of Earth.
 		/// Feminine base; soft.
 		/// Emotion of Happiness, motivation is Giving, manifests in Ether.
 		/// </summary>
 		[SerializeField] private float air;
 
 		/// <summary>
-		/// Lies between Air and Water, opposite of Daeth.
+		/// Lies between Air and Water, opposite of Void.
 		/// Feminine limb; bound.
 		/// Emotion of Acceptance, motivation is Proximity, manifests in Spirit.
 		/// </summary>
-		[SerializeField] private float faeth;
+		[SerializeField] private float spirit;
 
 		/// <summary>
-		/// Lies between Daeth and Nature, opposite of Fire.
+		/// Lies between Void and Nature, opposite of Fire.
 		/// Feminine head; liquid.
 		/// Emotion of Fear, motivation is Thought, manifests in Flow.
 		/// </summary>
@@ -55,29 +55,29 @@ namespace SpaxUtils
 		[SerializeField] private float nature;
 
 		/// <summary>
-		/// Lies between Nature and Daeth, oppposite of Air.
+		/// Lies between Nature and Void, opposite of Air.
 		/// Masculine base, solid.
 		/// Emotion of Sadness, motivation is Getting, manifests in Matter.
 		/// </summary>
 		[SerializeField] private float earth;
 
 		/// <summary>
-		/// Lies between Earth and Fire, opposite of Daeth.
+		/// Lies between Earth and Fire, opposite of Spirit.
 		/// Masculine limb, sharp.
 		/// Emotion of Disgust, motivation is Distance, manifests in Space.
 		/// </summary>
-		[SerializeField] private float daeth;
+		[SerializeField] private float @void;
 
-		public ElementOctad(float fire, float light, float air, float faeth, float water, float nature, float earth, float daeth)
+		public ElementOctad(float fire, float light, float air, float spirit, float water, float nature, float earth, float @void)
 		{
 			this.fire = fire;
 			this.light = light;
 			this.air = air;
-			this.faeth = faeth;
+			this.spirit = spirit;
 			this.water = water;
 			this.nature = nature;
 			this.earth = earth;
-			this.daeth = daeth;
+			this.@void = @void;
 		}
 
 		public static implicit operator Vector8(ElementOctad octon)
@@ -94,11 +94,11 @@ namespace SpaxUtils
 		//		CalculateEffectiveness(vector.N, vector.S),
 		//		CalculateEffectiveness(Light, Nature),
 		//		CalculateEffectiveness(Air, Earth),
-		//		CalculateEffectiveness(Faeth, Daeth),
+		//		CalculateEffectiveness(Spirit, Void),
 		//		CalculateEffectiveness(Water, Fire),
 		//		CalculateEffectiveness(Nature, Light),
 		//		CalculateEffectiveness(Earth, Air),
-		//		CalculateEffectiveness(Daeth, Faeth));
+		//		CalculateEffectiveness(Void, Spirit));
 		//}
 
 		public static float CalculateEffectiveness(float a, float b)
@@ -108,7 +108,7 @@ namespace SpaxUtils
 
 		public override string ToString()
 		{
-			return $"(Fire={fire}, Light={light}, Air={air}, Faeth={faeth}, Water={water}, Nature={nature}, Earth={earth}, Daeth={daeth})";
+			return $"(Fire={fire}, Light={light}, Air={air}, Spirit={spirit}, Water={water}, Nature={nature}, Earth={earth}, Void={@void})";
 		}
 	}
 }

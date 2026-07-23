@@ -9,8 +9,6 @@ namespace SpaxUtils
 	/// </summary>
 	public class AgentStatHandler : EntityComponentMono
 	{
-		public const string BODY_BACKUP_ID = "BODY_BACKUP";
-
 		// All data accessors self-initialize; stat data is valid regardless of component Awake order.
 		public StatOctad BodyLevels { get { EnsureInitialized(); return _bodyLevels; } private set { _bodyLevels = value; } }
 		public StatOctad BodyExperience { get { EnsureInitialized(); return _bodyExperience; } private set { _bodyExperience = value; } }
@@ -182,50 +180,28 @@ namespace SpaxUtils
 			return false;
 		}
 
-		#region Body Backup
+		#region Death
 
 		/// <summary>
-		/// Stores current body experience in a backup to prevent loss on death.
-		/// </summary>
-		public void CreateBackup()
-		{
-			RuntimeDataCollection backup = new RuntimeDataCollection(BODY_BACKUP_ID);
-			foreach (EntityStat expStat in BodyExperience.Stats)
-			{
-				backup.SetValue(expStat.Identifier, expStat.BaseValue);
-			}
-			agent.RuntimeData.TryAdd(backup, true);
-		}
-
-		/// <summary>
-		/// Will try to restore body experience from backup, returning true if successful and false if no backup was found.
+		/// The soul caps off the body: per element, body EXP exceeding soul EXP is stripped and reported in <paramref name="lost"/>.
+		/// Elements where the soul leads are untouched.
 		/// </summary>
 		/// <param name="lost">A new data collection containing the amount of experience points lost per element.</param>
-		public void ResetToBackup(out RuntimeDataCollection lost)
+		public void ResetToSoul(out RuntimeDataCollection lost)
 		{
 			lost = new RuntimeDataCollection("LOST"); // ID will need to be overridden.
 
-			if (!agent.RuntimeData.TryGetEntry(BODY_BACKUP_ID, out RuntimeDataCollection backup))
+			for (int i = 0; i < 8; i++)
 			{
-				// No backup found, simply reset stats.
-				foreach (EntityStat expStat in BodyExperience.Stats)
-				{
-					expStat.BaseValue = 0f;
-				}
-			}
-			else
-			{
-				// Reset stats to what they were in backup.
-				foreach (EntityStat expStat in BodyExperience.Stats)
-				{
-					float backupValue = backup.GetValue<float>(expStat.Identifier);
-					lost.SetValue(expStat.Identifier, expStat.BaseValue - backupValue);
-					expStat.BaseValue = backupValue;
-				}
+				EntityStat bodyExp = BodyExperience[i];
+				float soulExp = SoulExperience[i].BaseValue;
+				float surplus = Mathf.Max(0f, bodyExp.BaseValue - soulExp);
+				lost.SetValue(bodyExp.Identifier, surplus);
+				bodyExp.BaseValue -= surplus;
 			}
 		}
 
-		#endregion Body Backup
+		#endregion Death
 
 		/// <summary>
 		/// Calculates the total EXP budget for the given Rank, then distributes it according to weights.

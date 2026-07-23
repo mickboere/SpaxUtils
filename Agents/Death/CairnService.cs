@@ -6,7 +6,7 @@ namespace SpaxUtils
 	public class CairnService : IService, IInitializable
 	{
 		private const string ID_CAIRN_COLLECTION = "CAIRNS";
-		private const float DEGRADATION_THRESHOLD = 0.5f;
+		private const float DEGRADATION_PER_CYCLE = 1f / 8f;
 
 		private RuntimeDataService runtimeDataService;
 		private WorldService worldService;
@@ -49,7 +49,7 @@ namespace SpaxUtils
 			}
 			else
 			{
-				SpawnInstances(false);
+				SpawnInstances();
 			}
 		}
 
@@ -73,7 +73,7 @@ namespace SpaxUtils
 			ClearInstances();
 
 			// 2. Spawn new cairns based on saved data.
-			SpawnInstances(true);
+			SpawnInstances();
 		}
 
 		/// <summary>
@@ -87,7 +87,7 @@ namespace SpaxUtils
 			data.ID = id;
 			data.SetValue(EntityDataIdentifiers.POSITION, position);
 			data.SetValue(EntityDataIdentifiers.SCENE, sceneService.CurrentScene);
-			data.SetValue(EntityDataIdentifiers.CYCLE, worldService.Cycle);
+			data.SetValue(EntityDataIdentifiers.CYCLE, worldService.Cycle + 1); // The cairn rises with the next cycle; its clock starts there.
 
 			runtimeDataService.CurrentProfile.TryAdd(data);
 			runtimeDataService.CurrentProfile.SetValue(ID_CAIRN_COLLECTION, cairnIDs);
@@ -117,31 +117,34 @@ namespace SpaxUtils
 			cairnInstances.Clear();
 		}
 
-		private void SpawnInstances(bool newCycle)
+		private void SpawnInstances()
 		{
-			Dictionary<string, SpiritAlignment> ownerAlignment = new Dictionary<string, SpiritAlignment>();
 			List<string> toDelete = new List<string>();
 			foreach (string id in cairnIDs)
 			{
 				if (runtimeDataService.CurrentProfile.TryGetEntry(id, out RuntimeDataCollection cairnData))
 				{
-					// Retrieve owner alignment.
-					string owner = cairnData.GetValue<string>(EntityDataIdentifiers.ID);
-					if (!ownerAlignment.TryGetValue(owner, out SpiritAlignment alignment))
+					// Degradation is deterministic from birth: scaling starts at the owner's alignment at death
+					// and loses 1/8 per cycle. A saint's cairn rises at full health, a sinner's rises fully degraded.
+					int elapsed = worldService.Cycle - cairnData.GetValue<int>(EntityDataIdentifiers.CYCLE);
+					if (elapsed < 0)
 					{
-						RuntimeDataCollection ownerData = runtimeDataService.CurrentProfile.GetEntry<RuntimeDataCollection>(owner);
-						float sin = ownerData.GetValue<float>(AgentStatIdentifiers.SIN, 100f);
-						float virtue = ownerData.GetValue<float>(AgentStatIdentifiers.VIRTUE, 100f);
-						alignment = SpaxFormulas.GetSpiritAlignment(sin, virtue);
+						// Not yet risen; the cairn stands from its birth cycle on.
+						continue;
 					}
 
-					// If entering new cycle, degrade cairn depending on owner alignment.
-					if (newCycle && DegradeCairn(cairnData, alignment))
+					float alignment = cairnData.GetValue(EntityDataIdentifiers.ALIGNMENT, 1f);
+					float scaling = alignment - elapsed * DEGRADATION_PER_CYCLE;
+
+					if (scaling < -0.0001f)
 					{
-						// Cairn is degraded, destroy it.
+						// Spent: even the husk cycle has passed. Destroy, items included.
 						toDelete.Add(id);
 						continue;
 					}
+
+					// Clamp: the final cycle stands as an empty husk holding only items.
+					cairnData.SetValue(EntityDataIdentifiers.SCALING, Mathf.Max(0f, scaling));
 
 					// If cairn is not in the current scene, don't instantiate.
 					if (sceneService.CurrentScene != cairnData.GetValue<string>(EntityDataIdentifiers.SCENE))
@@ -149,13 +152,8 @@ namespace SpaxUtils
 						continue;
 					}
 
-					// Cairn type is decided per cycle.
-					// This way, a sinner cannot retrieve a long forgotten sacred cairn, soon as he turns sinner, the cairn turns sullied.
-					string prefabType = alignment == SpiritAlignment.Sinner ? EntityIdentifiers.CAIRN_NEGATIVE :
-						alignment == SpiritAlignment.Neutral ? EntityIdentifiers.CAIRN_NEUTRAL : EntityIdentifiers.CAIRN_POSITIVE;
-
 					Vector3 position = cairnData.GetValue<Vector3>(EntityDataIdentifiers.POSITION);
-					Entity cairn = entityLibrary.Instantiate(prefabType, id, position, Quaternion.identity, dependencyManager, cairnData,
+					Entity cairn = entityLibrary.Instantiate(EntityIdentifiers.CAIRN_SOLEMN, id, position, Quaternion.identity, dependencyManager, cairnData,
 						activate: worldService.WorldActive);
 
 					cairnInstances.Add(id, cairn);
@@ -170,43 +168,6 @@ namespace SpaxUtils
 			{
 				DeleteCairn(cairn);
 			}
-		}
-
-		private bool DegradeCairn(RuntimeDataCollection cairnData, SpiritAlignment alignment)
-		{
-			float scaling = cairnData.GetValue(EntityDataIdentifiers.SCALING, 1f);
-			switch (alignment)
-			{
-				case SpiritAlignment.Sinner:
-					scaling *= 0.512f; // EXP degrades after 1 cycle.
-					break;
-
-				case SpiritAlignment.Neutral:
-					scaling *= 0.8f; // EXP degrades after 3 cycles.
-					break;
-
-				case SpiritAlignment.Saint:
-					// Cairns of the sacred do not degrade, they are even restored.
-					scaling = 1f;
-					break;
-			}
-
-			if (scaling < DEGRADATION_THRESHOLD)
-			{
-				scaling = 0f;
-			}
-
-			cairnData.SetValue(EntityDataIdentifiers.SCALING, scaling);
-
-			// If EXP is degraded and the cairn contains no items, the cairn is degraded and destroyed.
-			// Optionally we can make it so that items also get lost for sinners / neutrals.
-			bool hasItems = false;
-			if (cairnData.TryGetEntry(InventoryComponent.INVENTORY_DATA_ID, out RuntimeDataCollection inventoryData))
-			{
-				hasItems = inventoryData.Data.Count > 0;
-			}
-
-			return scaling < DEGRADATION_THRESHOLD && !hasItems;
 		}
 	}
 }
