@@ -61,6 +61,9 @@ namespace SpaxUtils
 		public bool Stroke { get => stroke; set { stroke = value; SetVerticesDirty(); } }
 		/// <summary>Runtime flat border colour.</summary>
 		public Color StrokeColor { get => strokeColor; set { strokeColor = value; SetVerticesDirty(); } }
+		/// <summary>Value that maps to the rect edge. Assign the same range to layered graphics so they share
+		/// one scale and stay comparable. Ignored while <see cref="normalize"/> is on.</summary>
+		public float Range { get => range; set { range = value; SetVerticesDirty(); } }
 
 		private Color[] activeColors;
 

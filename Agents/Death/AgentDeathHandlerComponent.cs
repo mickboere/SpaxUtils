@@ -243,9 +243,12 @@ namespace SpaxUtils
 			string playerId = PlayerAgentService.GetPlayerId(0);
 			if (hitHandler.DamageLedger.ContainsKey(playerId))
 			{
-				// Reward Aether to player through a whisp.
+				// Reward Aether to player through a whisp. Priced off one level's cost AT THIS AGENT'S RANK, not
+				// its whole EXP budget — the budget grows a full power faster than a level does, which made kills
+				// pay for progressively more levels the higher you ranked. rewardPercentage now reads directly as
+				// "fraction of a level per equal-rank kill".
 				Agent.Stats.TryGetStat(AgentStatIdentifiers.BODY_RANK, out EntityStat bodyRank);
-				float reward = SpaxFormulas.PointsFromRank(bodyRank.Value) * rewardPercentage;
+				float reward = SpaxFormulas.LevelUpCost(SpaxFormulas.PointsFromRank(bodyRank.Value)) * rewardPercentage;
 				aetherRewardService.Reward(Agent.Targetable.Center, playerId, reward);
 			}
 

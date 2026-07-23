@@ -176,7 +176,7 @@ namespace SpaxUtils
 					yield return "pointB";
 					yield return "shift";
 					break;
-				// LevelToPointsStat (7) and LevelToPhysic (8): no configurable fields
+				// LevelToPointsStat (7), LevelToPhysic (8), ExpToLevel (9) and ExpToRank (10): no configurable fields
 			}
 
 			yield return "modMethod";

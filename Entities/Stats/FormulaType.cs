@@ -13,6 +13,8 @@
 		Interpolate = 5,
 		Extrapolate = 6,
 		LevelToPointsStat = 7,
-		LevelToPhysic = 8
+		LevelToPhysic = 8,
+		ExpToLevel = 9,
+		ExpToRank = 10
 	}
 }

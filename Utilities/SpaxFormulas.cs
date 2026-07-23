@@ -7,8 +7,10 @@ namespace SpaxUtils
 	/// </summary>
 	public static class SpaxFormulas
 	{
-		public const float CONSTANT = 0.1f;
-		public const float POWER = 2f;
+		// EXP curve: points = (level / CONSTANT) ^ POWER. Anchored so level 10 costs ~10k EXP.
+		// POWER above 2 makes the per-level cost grow rather than flatten, leaving room for a talent multiplier.
+		public const float CONSTANT = 0.25f;
+		public const float POWER = 2.5f;
 		public const float SCALE = 100f;
 
 		// Scale/shift constants for converting EXP levels to physics and pointstat values.
@@ -171,6 +173,42 @@ namespace SpaxUtils
 		public static float PointsFromRank(float rank)
 		{
 			return 8f * PointsFromLevel(rank);
+		}
+
+		/// <summary>
+		/// Inverse of <see cref="PointsFromRank"/>: the balanced-equivalent rank a total points pool represents.
+		/// </summary>
+		public static float RankFromPoints(float points)
+		{
+			return LevelFromPoints(points / 8f);
+		}
+
+		/// <summary>
+		/// Cost of manually buying one attribute level, priced at the character's rank rather than the
+		/// attribute's own level — so pulling a neglected attribute up costs the same as advancing a
+		/// specialized one. Flat across all 8 attributes; a purchase always grants exactly one level from
+		/// wherever the attribute currently sits, so naturally banked progress carries over instead of being
+		/// paid for or discarded.
+		/// </summary>
+		/// <param name="totalPoints">Summed EXP across all 8 attributes.</param>
+		public static float LevelUpCost(float totalPoints)
+		{
+			// Double precision: the float32 Pow round-trip drifts enough (~2e-4) that an exact integer price
+			// lands just above it, which Ceil then turns into a whole extra point of currency.
+			// Exp(rank) IS rankPoints by definition, so subtract it directly rather than recomputing it.
+			double rankPoints = Mathf.Max(0f, totalPoints) / 8.0;
+			double rank = System.Math.Pow(rankPoints, 1.0 / POWER) * CONSTANT;
+
+			return (float)(System.Math.Pow((rank + 1.0) / CONSTANT, POWER) - rankPoints);
+		}
+
+		/// <summary>
+		/// <see cref="LevelUpCost"/> rounded up to a whole point, with a small epsilon so residual float noise
+		/// on an exact-integer price can't tip it to the next point. The value actually charged/displayed.
+		/// </summary>
+		public static int LevelUpCostCeiled(float totalPoints)
+		{
+			return Mathf.CeilToInt(LevelUpCost(totalPoints) - 0.001f);
 		}
 
 		/// <summary>

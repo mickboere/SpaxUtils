@@ -114,6 +114,13 @@ namespace SpaxUtils
 					return SpaxFormulas.LevelToPhysic(input);
 				case FormulaType.LevelToPointsStat:
 					return SpaxFormulas.LevelToPointsStat(input);
+				case FormulaType.ExpToLevel:
+					// No local constants: tracks SpaxFormulas.CONSTANT/POWER so the level curve can never
+					// drift from the rank and level-up-cost curves.
+					return SpaxFormulas.LevelFromPoints(input);
+				case FormulaType.ExpToRank:
+					// Summed-octad EXP to rank; replaces InvExp with a 0.125 pre-scale.
+					return SpaxFormulas.RankFromPoints(input);
 				default:
 					return shift + input * scale;
 			}
@@ -163,6 +170,12 @@ namespace SpaxUtils
 
 				case FormulaType.LevelToPointsStat:
 					return SpaxFormulas.POINTSSTAT_SCALE != 0f ? (output - SpaxFormulas.POINTSSTAT_SHIFT) / SpaxFormulas.POINTSSTAT_SCALE : 0f;
+
+				case FormulaType.ExpToLevel:
+					return SpaxFormulas.PointsFromLevel(output);
+
+				case FormulaType.ExpToRank:
+					return SpaxFormulas.PointsFromRank(output);
 
 				case FormulaType.Curve:
 					SpaxDebug.Error($"Inverse modifier not supported for 'Curve' type (requires iterative solver). Calculation failed.");

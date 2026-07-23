@@ -19,7 +19,7 @@
 		private const string BODY_EXP = BODY_ATTRIBUTE + "EXP/"; // Body experiences category.
 
 		public const string BODY_LEVEL = BODY_ATTRIBUTE + "Level"; // Sum of all bodily attribute levels.
-		public const string BODY_RANK = BODY_ATTRIBUTE + "Rank"; // Average of all body attribute levels.
+		public const string BODY_RANK = BODY_ATTRIBUTE + "Rank"; // Balanced-equivalent level of the total body EXP (SpaxFormulas.RankFromPoints), NOT the average of levels — those differ on lopsided builds.
 		private const string BODY_LVL = BODY_ATTRIBUTE + "LVL/"; // Body levels category.
 
 		public const string BODY_DISTRIBUTION = BODY_ATTRIBUTE + "Distribution"; // Normalized body attribute distribution key.
@@ -59,7 +59,7 @@
 		private const string SOUL_EXP = SOUL_ATTRIBUTE + "EXP/"; // 
 
 		public const string SOUL_LEVEL = SOUL_ATTRIBUTE + "Level"; // Sum of all soul attribute levels.
-		public const string SOUL_RANK = SOUL_ATTRIBUTE + "Rank"; // Average of all soul attribute levels.
+		public const string SOUL_RANK = SOUL_ATTRIBUTE + "Rank"; // Balanced-equivalent level of the total soul EXP (SpaxFormulas.RankFromPoints), NOT the average of levels — those differ on lopsided builds.
 		private const string SOUL_LVL = SOUL_ATTRIBUTE + "LVL/"; // 
 
 		public const string SOUL_DISTRIBUTION = SOUL_ATTRIBUTE + "Distribution"; // Normalized soul attribute distribution key.
@@ -69,7 +69,7 @@
 		public const string INTENSITY_EXP = SOUL_EXP + "Intensity"; // Increases base impact % and weapon strength curve.
 		public const string INTENSITY_LVL = SOUL_LVL + "Intensity";
 		// Light
-		public const string FACILITY_EXP = SOUL_EXP + "Facility"; // Increases overcharge efficiency.
+		public const string FACILITY_EXP = SOUL_EXP + "Facility"; // Increases overcharge efficiency/speed.
 		public const string FACILITY_LVL = SOUL_LVL + "Facility";
 		// Air
 		public const string LEVITY_EXP = SOUL_EXP + "Levity"; // Make light; improves aerial control, jump height, fall speed, fine control of spells and movement.
@@ -168,7 +168,7 @@
 		private const string BODY_EARTH = BODY_STAT + "EARTH/";
 		public const string ENDURANCE = BODY_EARTH + "Endurance"; // POINTSTAT: Amount absorbable force points before being stunned.
 		public const string ARMOR = BODY_EARTH + "Armor"; // PHYSIC: The ability to take to hits head on. (100% slash, 50% blunt defense)
-		public const string POISE = BODY_EARTH + "Poise"; // PHYSIC: Composure; dampens the off-balance endurance-drain penalty while moving/attacking (never below x1).
+		public const string POISE = BODY_EARTH + "Poise"; // Composure; dampens the off-balance endurance-drain penalty while moving/attacking (never below x1).
 		public const string GUARD = BODY_EARTH + "Guard"; // Total amount of active guarding defence.
 
 		// Void
