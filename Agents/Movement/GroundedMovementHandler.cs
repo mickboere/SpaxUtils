@@ -107,10 +107,8 @@ namespace SpaxUtils
 		protected float sprintRampRate = 0.5f;
 		[SerializeField, Tooltip("Rate at which sprint buildup decays when not sprinting (0..1 per second).")]
 		protected float sprintRampDownRate = 2f;
-		[SerializeField, Tooltip("Scales how much effective load reduces sprint buildup rate, sprint acceleration, and turn-rate smoothing. loadSpeedMod = 1 / (1 + effectiveLoad * factor).")]
+		[SerializeField, Tooltip("Scales how much effective load reduces sprint buildup rate, sprint acceleration, and turn-rate smoothing. loadSpeedMod = 1 / (1 + effectiveLoad * factor). Load beyond the LoadCapacity stat is what counts.")]
 		protected float loadPenaltyFactor = 0.01f;
-		[SerializeField, Tooltip("Each point of Strength negates this many kg of load before any penalty applies. effectiveLoad = max(0, load - strength * factor).")]
-		protected float strengthCapacityFactor = 1f;
 		[SerializeField, Tooltip("Maximum rate (m/s per second) at which TargetVelocity tracks the desired velocity when under load. Scales down further with loadSpeedMod.")]
 		protected float targetVelocityTurnRate = 15f;
 		[SerializeField, Tooltip("Effective load (kg) range for turn-rate smoothing. Below x: instant snap. At y: full smoothing effect."), MinMaxRange(0f, 100f, false)]
@@ -143,10 +141,22 @@ namespace SpaxUtils
 		protected EntityStat recoveryStat;
 		protected EntityStat airControlStatValue;
 		protected EntityStat loadStat;
-		protected EntityStat strengthStat;
+		protected EntityStat loadCapacityStat;
 		protected FloatOperationModifier recoveryMod;
 		private float sprintBuildup;
 		private float loadSpeedMod = 1f;
+
+		/// <summary>
+		/// Equip load (kg) beyond what the body can carry. Capacity is a stat in its own right, so what feeds
+		/// it (Strength, Poise, gear) is decided by the stat maps rather than here.
+		/// </summary>
+		protected float EffectiveLoad => Mathf.Max(0f, (float)loadStat - (float)loadCapacityStat);
+
+		/// <summary>
+		/// Movement penalty from carrying more than you can: scales sprint buildup, acceleration and turn rate
+		/// (and inversely, sprint decay and the planted brake). Never touches top speed.
+		/// </summary>
+		protected float LoadSpeedMod => 1f / (1f + EffectiveLoad * loadPenaltyFactor);
 
 		public void InjectDependencies(
 			RigidbodyWrapper rigidbodyWrapper,
@@ -163,7 +173,7 @@ namespace SpaxUtils
 			sprintSpeedStat = Agent.Stats.GetStat(AgentStatIdentifiers.SPRINT_SPEED, true, 1f);
 			recoveryStat = Agent.Stats.GetStat(AgentStatIdentifiers.RECOVERY, true, 1f);
 			loadStat = Agent.Stats.GetStat(AgentStatIdentifiers.LOAD, true, 0f);
-			strengthStat = Agent.Stats.GetStat(AgentStatIdentifiers.STRENGTH, true, 0f);
+			loadCapacityStat = Agent.Stats.GetStat(AgentStatIdentifiers.LOAD_CAPACITY, true, 0f);
 			if (!string.IsNullOrEmpty(airControlStat))
 			{
 				airControlStatValue = Agent.Stats.GetStat(airControlStat, true, 0f);
@@ -230,9 +240,9 @@ namespace SpaxUtils
 
 			bool isSprinting = processedInput.magnitude > 1.01f;
 
-			// Load above Strength capacity incurs a movement penalty: slower sprint buildup, acceleration, and turning.
-			float effectiveLoad = Mathf.Max(0f, (float)loadStat - (float)strengthStat * strengthCapacityFactor);
-			loadSpeedMod = 1f / (1f + effectiveLoad * loadPenaltyFactor);
+			// Load above capacity incurs a movement penalty: slower sprint buildup, acceleration, and turning.
+			float effectiveLoad = EffectiveLoad;
+			loadSpeedMod = LoadSpeedMod;
 
 			// Heavy load slows sprint buildup; friction (inverse load) accelerates decay back to walk speed.
 			sprintBuildup = isSprinting
@@ -455,9 +465,7 @@ namespace SpaxUtils
 			// A performed act sets Control = 0, so ApplyMovement brakes toward zero at a force capped to
 			// maxBrake · Mobility (see UpdateMovement → ApplyMovement) → effectively constant deceleration.
 			// maxBrake = maxDeceleration · deFalloff(0) / loadSpeedMod (planted stops are stronger under load).
-			float effectiveLoad = Mathf.Max(0f, (float)loadStat - (float)strengthStat * strengthCapacityFactor);
-			float lsm = 1f / (1f + effectiveLoad * loadPenaltyFactor);
-			float maxBrake = maxDeceleration * decelerationFalloff.Evaluate(0f) / lsm;
+			float maxBrake = maxDeceleration * decelerationFalloff.Evaluate(0f) / LoadSpeedMod;
 			float mass = Mathf.Max(rigidbodyWrapper.Mass, 0.0001f);
 			float decel = maxBrake * grounder.Mobility / mass;
 			return decel > 0.0001f ? (speed * speed) / (2f * decel) : 0f;
@@ -475,10 +483,8 @@ namespace SpaxUtils
 			// ApplyMovement caps decel at while moving = maxDeceleration · deFalloff(speed/FullSpeed) · loadSpeedMod
 			// — note load WEAKENS it (·lsm), opposite of the planted brake. deFalloff rises with speed, so decel
 			// is not constant: integrate d = ∫ v/a(v) dv numerically (midpoint) so it tracks the actual curve.
-			float effectiveLoad = Mathf.Max(0f, (float)loadStat - (float)strengthStat * strengthCapacityFactor);
-			float lsm = 1f / (1f + effectiveLoad * loadPenaltyFactor);
 			float mass = Mathf.Max(rigidbodyWrapper.Mass, 0.0001f);
-			float baseDecel = maxDeceleration * lsm * grounder.Mobility / mass; // a(v) = baseDecel · deFalloff(v/FullSpeed)
+			float baseDecel = maxDeceleration * LoadSpeedMod * grounder.Mobility / mass; // a(v) = baseDecel · deFalloff(v/FullSpeed)
 			if (baseDecel <= 0.0001f)
 			{
 				return 0f;

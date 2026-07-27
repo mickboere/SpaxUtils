@@ -21,6 +21,9 @@ namespace SpaxUtils
 			"The type of slot this equipment must be equiped in." +
 			"\nThe slot type decides the location and parenting for the \"equipedPrefab\".";
 
+		// Resources path to the octad naming the physics lanes; only used to label the distribution in the inspector.
+		private const string PHYSICS_OCTAD = "Stats/Octads/BodyPhysicsOctad";
+
 		[Header("Equipment Data")]
 		[SerializeField] private GameObject equipedPrefab;
 		[SerializeField] private List<MaterialOverride> materialOverrides = new List<MaterialOverride>();
@@ -30,6 +33,6 @@ namespace SpaxUtils
 		[Header("Physics")]
 		[SerializeField] private bool physicsPassive;
 		[SerializeField, Range(0f, 1f)] private float physicsScaling = 1f;
-		[SerializeField] private RangedOctad physicsDistribution;
+		[SerializeField, OctadLabels(PHYSICS_OCTAD)] private RangedOctad physicsDistribution;
 	}
 }

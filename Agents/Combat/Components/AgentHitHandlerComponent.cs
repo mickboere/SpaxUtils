@@ -33,6 +33,7 @@ namespace SpaxUtils
 		private EntityStat yieldStat;
 		private EntityStat wardStat;
 		private EntityStat luckStat;
+		private EntityStat guardStat;
 
 		private TimedCurveModifier hitPauseMod;
 
@@ -65,6 +66,7 @@ namespace SpaxUtils
 			yieldStat = agent.Stats.GetStat(AgentStatIdentifiers.YIELD, true);
 			wardStat = agent.Stats.GetStat(AgentStatIdentifiers.WARD, true);
 			luckStat = agent.Stats.GetStat(AgentStatIdentifiers.LUCK, true);
+			guardStat = agent.Stats.GetStat(AgentStatIdentifiers.GUARD, true);
 
 			hittable.Subscribe(this, OnHitEvent, 100);
 		}
@@ -147,7 +149,10 @@ namespace SpaxUtils
 
 			// --- ENDURANCE DAMAGE ---
 			// Stun draws on sharp + crit + force; force carries the blunt (Mass x bluntDamage), counted once.
-			float toEndure = neglect ? 0f : slashDamage + critDamage + force;
+			// Bracing absorbs the stagger: the hit divides by guarding capacity, ramped by guard weight and clamped
+			// to x1 so a weak or barely-committed guard never amplifies it. Only the hit is relieved, never the guard's own upkeep.
+			float guardWeight = Mathf.Clamp01(hitData.Data.GetValue<float>(HitDataIdentifiers.GUARD_WEIGHT));
+			float toEndure = neglect ? 0f : (slashDamage + critDamage + force) / (guardStat.Value * guardWeight).Max(1f);
 			float enduranceDamage = statHandler.PointStats.W.Drain(
 				toEndure,
 				out bool stunned,
@@ -194,8 +199,8 @@ namespace SpaxUtils
 			// --- HP DAMAGE & MALICE ---
 			if (!Invulnerable)
 			{
-				// Guard trades health for stance: blunt that would bleed health goes to endurance instead, scaled by guard weight. Pierce/crit untouched.
-				float guardWeight = Mathf.Clamp01(hitData.Data.GetValue<float>(HitDataIdentifiers.GUARD_WEIGHT));
+				// Guard trades health for stance: blunt is cancelled off health by guard weight. The endurance hit above already
+				// carries that blunt as force, so guard pays for it there instead (already divided by GUARD above). Pierce/crit untouched.
 				float healthDamage = Mathf.Max(0f, totalDamage - bluntDamage * guardWeight);
 
 				// Grace absorbs only the mortal overflow, leaving at least 1 HP while it lasts.
@@ -227,23 +232,19 @@ namespace SpaxUtils
 				}
 			}
 
-			// Build Static (NE) for defending: parry/deflect full, block half, partial guard scaled. Threat = potential force (Mass x Power).
+			// Build Static (NE) for defending. Threat = potential force (Mass × Power); each outcome takes its own fraction (partial guard scales further by guard weight).
 			float staticThreat = hitData.Mass * hitData.Power * combatSettings.StaticGain;
 			if (parried || deflected)
 			{
-				statHandler.PointStats.NE.Current.BaseValue += staticThreat;
+				statHandler.PointStats.NE.Current.BaseValue += staticThreat * combatSettings.DeflectStaticPercent;
 			}
 			else if (blocked)
 			{
-				statHandler.PointStats.NE.Current.BaseValue += staticThreat * 0.5f;
+				statHandler.PointStats.NE.Current.BaseValue += staticThreat * combatSettings.BlockStaticPercent;
 			}
-			else
+			else if (guardWeight > 0f)
 			{
-				float guardWeight = hitData.Data.GetValue<float>(HitDataIdentifiers.GUARD_WEIGHT);
-				if (guardWeight > 0f)
-				{
-					statHandler.PointStats.NE.Current.BaseValue += staticThreat * 0.5f * Mathf.Clamp01(guardWeight);
-				}
+				statHandler.PointStats.NE.Current.BaseValue += staticThreat * combatSettings.BlockStaticPercent * guardWeight;
 			}
 
 			// --- HIT PAUSE ---

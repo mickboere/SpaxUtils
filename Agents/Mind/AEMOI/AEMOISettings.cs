@@ -63,19 +63,5 @@ namespace SpaxUtils
 		 "0 = no inertia, 0.25 = needs 25% more strength.")]
 		[Range(0f, 1f)]
 		public float BehaviourSwitchThreshold = 0.25f;
-
-		[Header("Visuals")]
-		[Tooltip("Colors for the 8 emotion axes: N, NE, E, SE, S, SW, W, NW.")]
-		public Color[] EmotionColors = new Color[8]
-		{
-			new(1f, 0.3f, 0.1f),   // N  — Fire (red-orange)
-			new(1f, 0.95f, 0.1f),  // NE — Light (yellow)
-			new(0.2f, 0.8f, 1f),   // E  — Air (sky blue)
-			new(1f, 0.3f, 0.6f),   // SE — Spirit (pink)
-			new(0.1f, 0.5f, 1f),   // S  — Water (blue)
-			new(0.2f, 0.75f, 0.2f),// SW — Nature (green)
-			new(1f, 0.5f, 0.05f),  // W  — Earth (orange)
-			new(0.15f, 0.05f, 0.3f)// NW — Void (dark purple)
-		};
 	}
 }

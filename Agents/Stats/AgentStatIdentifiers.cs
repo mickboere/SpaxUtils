@@ -25,8 +25,8 @@
 		public const string BODY_DISTRIBUTION = BODY_ATTRIBUTE + "Distribution"; // Normalized body attribute distribution key.
 
 		// Fire
-		public const string FEROCITY_EXP = BODY_EXP + "Ferocity";
-		public const string FEROCITY_LVL = BODY_LVL + "Ferocity";
+		public const string TENACITY_EXP = BODY_EXP + "Tenacity";
+		public const string TENACITY_LVL = BODY_LVL + "Tenacity";
 		// Light
 		public const string ACUITY_EXP = BODY_EXP + "Acuity";
 		public const string ACUITY_LVL = BODY_LVL + "Acuity";
@@ -116,6 +116,7 @@
 		private const string BODY_GENERAL = BODY_STAT + "GENERAL/";
 		public const string MASS = BODY_GENERAL + "Mass"; // Total body mass in KG.
 		public const string LOAD = BODY_GENERAL + "Load"; // Total equip load in KG.
+		public const string LOAD_CAPACITY = BODY_GENERAL + "LoadCapacity"; // Total load capacity in KG.
 		public const string HARDNESS = BODY_GENERAL + "Hardness"; // Hardness of the body (0-1), used in calculating impacts.
 		public const string VULNERABILITY = BODY_GENERAL + "Vulnerability"; // Vulnerability of the body (0-1), used in calculating damage.
 		public const string REACH = BODY_GENERAL + "Reach"; // The agent's base melee reach (should be as large as the idle collision radius, limbs define actual reach).

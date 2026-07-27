@@ -26,8 +26,7 @@ namespace SpaxUtils
 
 			if (massProp != null && prop.propertyPath == massProp.propertyPath)
 			{
-				float dist = eq.PhysicsDistribution[0].Max(eq.PhysicsDistribution[6]);
-				float effectiveMass = eq.Mass + ItemDataAsset.POWER_MASS_FACTOR * eq.Mass * eq.Rank * dist;
+				float effectiveMass = SpaxFormulas.EquipmentMass(eq.Mass, eq.Rank, eq.PhysicsDistribution);
 				using (new EditorGUI.IndentLevelScope(1))
 				{
 					EditorGUILayout.LabelField("Effective Mass", effectiveMass.ToString("F2"));

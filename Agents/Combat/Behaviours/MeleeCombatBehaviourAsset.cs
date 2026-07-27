@@ -353,7 +353,7 @@ namespace SpaxUtils
 
 			// Poise divides the imbalance excess over 1 (Guard-style), clamping toward x1.
 			float imbalance = 1f / balance;
-			float composed = 1f + (imbalance - 1f) / (1f + poiseStat.Value);
+			float composed = 1f + (imbalance - 1f) / poiseStat.Value;
 			enduranceCostMod.SetValue(composed.Lerp(1f, Weight.Invert()));
 
 			// Keep the lunge from closing into the target's face.
@@ -588,29 +588,24 @@ namespace SpaxUtils
 					float basePower = baseOutput.y * baseStrengthPowerFactor;
 					float powerValue = basePower * totalCharge * phaseMult;
 
-					// --- MALICE LOGIC ---
-					float baseSlash = baseOutput.x;
-					float maliceBonus = 0f;
+					// Assemble the offence vector's runtime-modified channels before Malice.
+					float slashValue = baseOutput.x;
+					float pierceValue = baseOutput.z + (accumulatedChargePoints * chargeDamageEfficiency);
 
-					if (baseSlash > 0f)
+					// --- MALICE: whole-vector amplification ---
+					// Spite scales the entire offence. Conduit capacity = total output; coverage = the fraction the
+					// Malice pool pays for (Drain applies the Hostility-driven DrainMult). Symmetrical to Grace.
+					float totalOffence = slashValue + powerValue + pierceValue;
+					float maliceMult = 1f;
+					if (totalOffence > 0f)
 					{
-						// Attempt to drain Malice equal to the Slash of the attack (The conduit capacity).
-						// Damage() returns the Cost (base * multiplier), handling overdraw if pool is low.
-						float drained = statHandler.PointStats.NW.Drain(baseSlash, true);
-
-						// Calculate coverage ratio. If we paid 100% of the cost, we get 100% bonus.
-						float coverage = drained / baseSlash;
-
-						// The Malice added is equal to the BASE SLASH * Coverage.
-						// (Symmetrical to Grace: You get out what you put in, scaled by resource availability).
-						maliceBonus = baseSlash * coverage;
+						float drained = statHandler.PointStats.NW.Drain(totalOffence, true);
+						maliceMult += drained / totalOffence; // Ceiling is 1 + DrainMult; cap it via the Hostility→Drain mapping.
 					}
 
-					// Final Slash = Base + Malice.
-					float finalSlash = baseSlash + maliceBonus;
-
-					// Final pierce = Base + Charge.
-					float finalPierce = baseOutput.z + (accumulatedChargePoints * chargeDamageEfficiency);
+					float finalSlash = slashValue * maliceMult;
+					float finalPower = powerValue * maliceMult;
+					float finalPierce = pierceValue * maliceMult;
 
 					HitData hitData = new HitData(
 						hittable,
@@ -621,7 +616,7 @@ namespace SpaxUtils
 						direction,
 						mass,
 						finalSlash,
-						powerValue,
+						finalPower,
 						finalPierce,
 						luckStat
 					);
@@ -667,12 +662,21 @@ namespace SpaxUtils
 					rigidbodyWrapper.Push(-hitData.Direction * force, 1f);
 					stunHandler.EnterStun(hitData, combatSettings.DeflectedStunTime);
 				}
-				else if (chargeStat != null)
+				else
 				{
-					// Hit landed (not blocked/parried/deflected) → reward the attacker's Static (NE). Threat =
-					// Mass × Power, the same basis the defender's parry/block reward uses, so the tiers compare
-					// directly: landing = 25% of what a parry of the same attack refunds.
-					chargeStat.BaseValue += hitData.Mass * hitData.Power * combatSettings.StaticGain * 0.25f;
+					// Hit landed (not blocked/parried/deflected). Reward the attacker's Static (NE).
+					if (chargeStat != null)
+					{
+						// Transducer: grounded force (Mass × Power) → charge, a fraction of what a parry refunds.
+						chargeStat.BaseValue += hitData.Mass * hitData.Power * combatSettings.StaticGain * combatSettings.HitStaticPercent;
+					}
+
+					// A precise strike grounds its own charge: crits are Pierce-gated, so refuel Static off PIERCE —
+					// a Power-independent self-sustain for Light builds (Pierce → crit → Static → Pierce charge).
+					if (hitData.Data.GetValue<bool>(HitDataIdentifiers.CRIT))
+					{
+						statHandler.PointStats.NE.Current.BaseValue += hitData.Pierce * combatSettings.StaticGain * combatSettings.CritStaticPercent;
+					}
 				}
 
 				float impact = hitData.Data.GetValue<float>(HitDataIdentifiers.IMPACT);

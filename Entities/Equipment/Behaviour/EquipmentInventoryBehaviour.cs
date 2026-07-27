@@ -83,8 +83,7 @@ namespace SpaxUtils
 				}
 			}
 
-			float dist = eq.PhysicsDistribution[0].Max(eq.PhysicsDistribution[6]);
-			float effectiveMass = eq.Mass + ItemDataAsset.POWER_MASS_FACTOR * eq.Mass * runtimeItemData.Rank * dist;
+			float effectiveMass = SpaxFormulas.EquipmentMass(eq.Mass, runtimeItemData.Rank, eq.PhysicsDistribution);
 			runtimeItemData.RuntimeData.SetValue(ItemDataIdentifiers.MASS, effectiveMass, createIfNull: true, dirty: false);
 		}
 	}

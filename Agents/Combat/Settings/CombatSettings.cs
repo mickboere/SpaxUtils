@@ -12,6 +12,10 @@ namespace SpaxUtils
 		public float ParriedStunTime => parriedStunTime;
 		public float DeflectedStunTime => deflectedStunTime;
 		public float StaticGain => staticGain;
+		public float DeflectStaticPercent => deflectStaticPercent;
+		public float BlockStaticPercent => blockStaticPercent;
+		public float HitStaticPercent => hitStaticPercent;
+		public float CritStaticPercent => critStaticPercent;
 		public float ChargeConversionRatio => chargeConversionRatio;
 		public float MaxChargeMultiplier => maxChargeMultiplier;
 		public float ChargeBalance => chargeBalance;
@@ -30,8 +34,16 @@ namespace SpaxUtils
 		[SerializeField] private float deflectedStunTime = 1f;
 
 		[Header("Static / Charge Economy")]
-		[SerializeField, Tooltip("Base Static (NE) restored per unit of threat (attack Mass × Power). Parry/deflect = full, block = 50%, landing a hit = 25%. Tune until a parry visibly refuels a charged counter.")]
+		[SerializeField, Tooltip("Base Static (NE) restored per unit of threat (attack Mass × Power). The per-outcome fractions below scale it. Tune until a parry visibly refuels a charged counter.")]
 		private float staticGain = 1f;
+		[SerializeField, Range(0f, 1f), Tooltip("Fraction of Static built when deflecting or parrying an attack — both fully neutralise it.")]
+		private float deflectStaticPercent = 1f;
+		[SerializeField, Range(0f, 1f), Tooltip("Fraction of Static built when blocking/guarding an attack (partial guard scales this further by guard weight).")]
+		private float blockStaticPercent = 0.5f;
+		[SerializeField, Range(0f, 1f), Tooltip("Fraction of Static the attacker builds when landing a clean hit (Mass × Power basis).")]
+		private float hitStaticPercent = 0.25f;
+		[SerializeField, Range(0f, 1f), Tooltip("Fraction of Static the attacker builds on a crit — scaled by the attack's PIERCE (not Power), so precision self-sustains charge for Light builds.")]
+		private float critStaticPercent = 1f;
 		[SerializeField, Tooltip("Charge multiplier gained per unit of Static drained while charging. 0.005 = 100 Static drained → +0.5× power. The global Static→charge conversion.")]
 		private float chargeConversionRatio = 0.005f;
 		[SerializeField, Tooltip("Hard cap on the charge multiplier (e.g. 3 = up to 3× power / storm distance). Universal across charged moves.")]
