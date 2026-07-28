@@ -289,10 +289,13 @@ namespace SpaxUtils
 					if (processedInput.magnitude > 1.01f)
 					{
 						// Apply sprint cost.
-						statHandler.PointStats.E.Drain(
+						float spent = statHandler.PointStats.E.Drain(
 							sprintCost * rigidbodyWrapper.Mass *
 							(rigidbodyWrapper.Speed / (FullSpeed * 1.5f * sprintSpeedStat * moveSpeedStat)) *
 							rigidbodyWrapper.Control * delta);
+
+						// AIR: pay for the stamina spent sprinting.
+						statHandler.RewardExpPoints(Element.Air, spent, ExpSources.SPRINT);
 					}
 				}
 				else

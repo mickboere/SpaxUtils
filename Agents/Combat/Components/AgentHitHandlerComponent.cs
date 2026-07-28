@@ -143,6 +143,10 @@ namespace SpaxUtils
 			float totalDamage = critDamage + slashDamage + bluntDamage;
 			hitData.Data.SetValue(HitDataIdentifiers.DAMAGE_TOTAL, totalDamage);
 
+			// The hitter measures its output against this; non-agent hittables report nothing and pay no EXP.
+			float healthMax = statHandler.PointStats.SW.Max;
+			hitData.Data.SetValue(HitDataIdentifiers.HEALTH_MAX, healthMax);
+
 			// --- IMPACT & FORCE ---
 			float force = hitData.Mass * hitData.Power * impact;
 			hitData.Data.SetValue(HitDataIdentifiers.FORCE, force);
@@ -201,7 +205,14 @@ namespace SpaxUtils
 			{
 				// Guard trades health for stance: blunt is cancelled off health by guard weight. The endurance hit above already
 				// carries that blunt as force, so guard pays for it there instead (already divided by GUARD above). Pierce/crit untouched.
-				float healthDamage = Mathf.Max(0f, totalDamage - bluntDamage * guardWeight);
+				float guarded = bluntDamage * guardWeight;
+				float healthDamage = Mathf.Max(0f, totalDamage - guarded);
+
+				// EARTH: the damage the guard cancelled, measured against our own health.
+				if (guarded > 0f && healthMax > 0f)
+				{
+					statHandler.RewardExp(Element.Earth, guarded / healthMax, ExpSources.GUARDED_DAMAGE);
+				}
 
 				// Grace absorbs only the mortal overflow, leaving at least 1 HP while it lasts.
 				float mortal = healthDamage - Mathf.Max(0f, statHandler.PointStats.SW.Value - 1f);
@@ -226,6 +237,7 @@ namespace SpaxUtils
 
 				if (dead)
 				{
+					hitData.Data.SetValue(HitDataIdentifiers.KILLED, true);
 					stunHandler.EnterStun(hitData, 5f);
 					DeathContext context = new DeathContext(agent, hitData.Hitter, "Hit");
 					agent.Die(context);
@@ -236,7 +248,11 @@ namespace SpaxUtils
 			float staticThreat = hitData.Mass * hitData.Power * combatSettings.StaticGain;
 			if (parried || deflected)
 			{
-				statHandler.PointStats.NE.Current.BaseValue += staticThreat * combatSettings.DeflectStaticPercent;
+				float built = staticThreat * combatSettings.DeflectStaticPercent;
+				statHandler.PointStats.NE.Current.BaseValue += built;
+
+				// LIGHT: a parry pays for the threat it neutralised, measured in the Static it grounded.
+				statHandler.RewardExpPoints(Element.Light, built, ExpSources.PARRY);
 			}
 			else if (blocked)
 			{

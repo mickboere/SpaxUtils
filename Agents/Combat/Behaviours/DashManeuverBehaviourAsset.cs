@@ -100,7 +100,10 @@ namespace SpaxUtils
 			if (pointStat != null)
 			{
 				float cost = massStat * DashSpeed * Move.ChargeCost.Cost * 0.1f;
-				pointStat.Drain(cost);
+				float drained = pointStat.Drain(cost);
+
+				// AIR: pay for the burst.
+				statHandler.RewardExpPoints(Element.Air, drained, ExpSources.DASH);
 			}
 
 			// Report impact for senses / shaking.
@@ -166,7 +169,8 @@ namespace SpaxUtils
 			{
 				// Gliding, drain stat.
 				float cost = massStat * GlideSpeed * Move.ChargeCost.Cost * delta * 0.1f;
-				pointStat.Drain(cost, out bool drained);
+				float spent = pointStat.Drain(cost, out bool drained);
+				statHandler.RewardExpPoints(Element.Air, spent, ExpSources.DASH);
 				if (drained)
 				{
 					// Exit dash.

@@ -138,6 +138,10 @@ namespace SpaxUtils
 		/// Return data defining whether this hit landed as a critical hit.
 		/// </summary>
 		public const string CRIT = "Crit";
+		/// <summary>
+		/// Return data defining whether this hit killed the receiver.
+		/// </summary>
+		public const string KILLED = "Killed";
 
 		// FLOATS
 		/// <summary>
@@ -148,6 +152,10 @@ namespace SpaxUtils
 		/// Return data defining the amount of coupling.
 		/// </summary>
 		public const string COUPLING = "Coupling";
+		/// <summary>
+		/// Return data defining the receiver's max health; the denominator the hitter's output is measured against.
+		/// </summary>
+		public const string HEALTH_MAX = "Health_Max";
 		/// <summary>
 		/// Return data defining the amount of added critical damage.
 		/// </summary>

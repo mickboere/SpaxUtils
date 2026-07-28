@@ -91,6 +91,7 @@ namespace SpaxUtils
 		private TimedCurveModifier hitPauseMod;
 		private float totalCharge;
 		private float accumulatedChargePoints; // New: Tracks raw drain for pierce
+		private bool chargeRewarded; // Whether this swing's charge has already paid Light EXP.
 		private float attackRange;
 		private ITargetable target;
 		private bool hasStorm;
@@ -175,6 +176,7 @@ namespace SpaxUtils
 
 			totalCharge = 1f;
 			accumulatedChargePoints = 0f;
+			chargeRewarded = false;
 
 			// Compute wield ratio and base factors once per behaviour instance.
 			if (limbMassStat != null)
@@ -597,10 +599,11 @@ namespace SpaxUtils
 					// Malice pool pays for (Drain applies the Hostility-driven DrainMult). Symmetrical to Grace.
 					float totalOffence = slashValue + powerValue + pierceValue;
 					float maliceMult = 1f;
+					float maliceDrained = 0f;
 					if (totalOffence > 0f)
 					{
-						float drained = statHandler.PointStats.NW.Drain(totalOffence, true);
-						maliceMult += drained / totalOffence; // Ceiling is 1 + DrainMult; cap it via the Hostility→Drain mapping.
+						maliceDrained = statHandler.PointStats.NW.Drain(totalOffence, true);
+						maliceMult += maliceDrained / totalOffence; // Ceiling is 1 + DrainMult; cap it via the Hostility→Drain mapping.
 					}
 
 					float finalSlash = slashValue * maliceMult;
@@ -622,7 +625,45 @@ namespace SpaxUtils
 					);
 
 					ProcessHit(hittable, hitData);
+					RewardHitExp(hitData, maliceDrained);
 				}
+			}
+		}
+
+		/// <summary>
+		/// Rewards the attacker for what the hit actually landed. Output is measured against the receiver's max
+		/// health, so one kill amounts to a single bar split over Fire, Light and Void by how it was dealt.
+		/// </summary>
+		private void RewardHitExp(HitData hitData, float maliceDrained)
+		{
+			float healthMax = hitData.Data.GetValue<float>(HitDataIdentifiers.HEALTH_MAX);
+			if (healthMax <= 0f)
+			{
+				return;
+			}
+
+			statHandler.RewardExp(Element.Fire,
+				hitData.Data.GetValue<float>(HitDataIdentifiers.BLUNT_DAMAGE) / healthMax, ExpSources.POWER_OUTPUT);
+			statHandler.RewardExp(Element.Light,
+				hitData.Data.GetValue<float>(HitDataIdentifiers.CRIT_DAMAGE) / healthMax, ExpSources.PIERCE_OUTPUT);
+			statHandler.RewardExp(Element.Void,
+				hitData.Data.GetValue<float>(HitDataIdentifiers.SLASH_DAMAGE) / healthMax, ExpSources.SLASH_OUTPUT);
+
+			bool neglected = hitData.Data.GetValue<bool>(HitDataIdentifiers.BLOCKED) ||
+				hitData.Data.GetValue<bool>(HitDataIdentifiers.PARRIED) ||
+				hitData.Data.GetValue<bool>(HitDataIdentifiers.DEFLECTED);
+
+			// A charge is worthless until it connects; pay once per swing for the charge that was delivered.
+			if (!chargeRewarded && accumulatedChargePoints > 0f && !neglected)
+			{
+				chargeRewarded = true;
+				statHandler.RewardExpPoints(Element.Light, accumulatedChargePoints, ExpSources.STATIC_HIT);
+			}
+
+			// Only the spite that actually finished someone.
+			if (maliceDrained > 0f && hitData.Data.GetValue<bool>(HitDataIdentifiers.KILLED))
+			{
+				statHandler.RewardExpPoints(Element.Void, maliceDrained, ExpSources.MALICE_KILL);
 			}
 		}
 

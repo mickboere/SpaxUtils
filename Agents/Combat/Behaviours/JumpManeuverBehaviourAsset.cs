@@ -134,6 +134,9 @@ namespace SpaxUtils
 		{
 			hasJumped = true;
 
+			// AIR: pay once per jump, for the stamina it cost to charge and launch.
+			statHandler.RewardExpPoints(Element.Air, totalDrained, ExpSources.JUMP);
+
 			// Calculate charge fraction from stamina drained.
 			float maxChargeCost = Move.MaxCharge * Move.ChargeCost.Cost * (massStat != null ? (float)massStat : 1f);
 			float chargeFraction = maxChargeCost > 0f ? Mathf.Clamp01(totalDrained / maxChargeCost) : 0f;

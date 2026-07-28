@@ -27,8 +27,26 @@ namespace SpaxUtils
 		public EntityStat Recovery { get; private set; }
 		public EntityStat RecoveryDelay { get; private set; }
 		public EntityStat Frailty { get; private set; }
-		public EntityStat Exp { get; private set; }
-		public EntityStat ExpGainMult { get; private set; }
+
+		/// <summary>
+		/// Invoked with the amount of points drained.
+		/// </summary>
+		public event Action<float> DrainedEvent;
+
+		/// <summary>
+		/// Invoked with the amount of points recovered.
+		/// </summary>
+		public event Action<float> RecoveredEvent;
+
+		/// <summary>
+		/// Invoked with the amount of points spent below zero.
+		/// </summary>
+		public event Action<float> OverdrawnEvent;
+
+		/// <summary>
+		/// Invoked with the amount of reserve points regained.
+		/// </summary>
+		public event Action<float> ReserveGainedEvent;
 
 		public bool DefaultIsFull => defaultIsFull;
 		public bool HasRecovery => hasRecovery;
@@ -73,20 +91,17 @@ namespace SpaxUtils
 		[SerializeField, Conditional(nameof(hasReserve), hide: true), Range(0f, 1f),
 			Tooltip("Reserve cannot drop below this fraction of Max.")] private float minReservePercent = 0f;
 
-		[SerializeField, ConstDropdown(typeof(IStatIdentifiers), includeEmpty: true)] private string expStat;
-		[SerializeField] private float expGainMultiplier = 1f;
-		[SerializeField] private float expDrainMultiplier = 1f;
-
 		private bool initialized = false;
 		private EntityStat timescale;
 		private float lastCurrent;
+		private float lastReserve;
 		private float lastOverdraw;
 		private bool wasDrained;
 
 		private TimerClass recoveryTimer;
 
-		// When true, the next Current.ValueChanged callback is considered an internal clamp write and should not grant EXP or run damage/heal logic.
-		private bool suppressNextReward;
+		// When true, the next Current.ValueChanged callback is an internal write (clamp or full recovery) and should not report.
+		private bool silentWrite;
 
 		public void Initialize(IEntity entity)
 		{
@@ -131,12 +146,7 @@ namespace SpaxUtils
 				}
 			}
 
-			if (!string.IsNullOrEmpty(expStat))
-			{
-				Exp = entity.Stats.GetStat(expStat, true);
-				ExpGainMult = entity.Stats.GetStat(expStat.SubStat(AgentStatIdentifiers.SUB_GAIN), true, 1f);
-			}
-
+			lastReserve = HasReserve ? Reserve : 0f;
 			initialized = true;
 		}
 
@@ -153,19 +163,19 @@ namespace SpaxUtils
 				float target = Mathf.Min(cap, Current.BaseValue + Recovery * delta * timescale);
 				if (target > Current.BaseValue)
 				{
-					Set(target, true);
+					Set(target);
 				}
 			}
 		}
 
 		/// <summary>
 		/// Sets the Current's BaseValue to the target value.
-		/// If rewardsEXP is true, the delta between previous and new value will be rewarded as EXP.
+		/// When <paramref name="silent"/> is true the change is not reported (no drain/recover events).
 		/// </summary>
 		/// <returns>The delta between the previous and the current value.</returns>
-		public float Set(float target, bool rewardsEXP)
+		public float Set(float target, bool silent = false)
 		{
-			suppressNextReward = !rewardsEXP;
+			silentWrite = silent;
 			float previous = Value;
 			Value = target;
 			// <OnCurrentChangedEvent has now been called, clamping the Value>
@@ -179,7 +189,7 @@ namespace SpaxUtils
 		public float Gain(float amount, bool applyMultiplier = true)
 		{
 			amount *= applyMultiplier ? GainMult : 1f;
-			return Set(Current.BaseValue + amount, true);
+			return Set(Current.BaseValue + amount);
 		}
 
 		/// <summary>
@@ -189,7 +199,7 @@ namespace SpaxUtils
 		public float Drain(float amount, bool applyMultiplier = true)
 		{
 			amount *= applyMultiplier ? DrainMult : 1f;
-			return -Set(Current.BaseValue - amount, true);
+			return -Set(Current.BaseValue - amount);
 		}
 
 		/// <summary>
@@ -219,11 +229,11 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
-		/// Sets the current value to the max value.
+		/// Sets the current value to the max value. Not reported as a deed.
 		/// </summary>
 		public float Recover()
 		{
-			return Set(Max, false);
+			return Set(Max, true);
 		}
 
 		private void OnCurrentChangedEvent()
@@ -240,6 +250,12 @@ namespace SpaxUtils
 				{
 					Reserve.BaseValue -= lastOverdraw * overdraw;
 				}
+
+				// Don't consume silentWrite here; the clamp below re-invokes this callback and reads it.
+				if (!silentWrite)
+				{
+					OverdrawnEvent?.Invoke(lastOverdraw);
+				}
 			}
 
 			// Clamp Current between 0 and Max.
@@ -250,9 +266,8 @@ namespace SpaxUtils
 				return;
 			}
 
-			// Reward EXP for the change in Current, unless suppressed.
-			if (suppressNextReward) suppressNextReward = false;
-			else RewardExp(damage);
+			bool silent = silentWrite;
+			silentWrite = false;
 
 			// Check if no longer drained.
 			if (PercentageRecoverable.Approx(1f))
@@ -263,6 +278,11 @@ namespace SpaxUtils
 			// Handle damage.
 			if (damage > 0f)
 			{
+				if (!silent)
+				{
+					DrainedEvent?.Invoke(damage);
+				}
+
 				if (current.Approx(0f))
 				{
 					wasDrained = true;
@@ -283,33 +303,30 @@ namespace SpaxUtils
 					recoveryTimer = recoveryTimer?.Reset(duration) ?? new TimerClass(duration, () => timescale, true);
 				}
 			}
-			else if (HasReserve && current > Reserve)
+			else
 			{
-				// Current has healed, Recoverable cannot be smaller than Current.
-				Reserve.BaseValue = current;
+				if (damage < 0f && !silent)
+				{
+					RecoveredEvent?.Invoke(-damage);
+				}
+
+				if (HasReserve && current > Reserve)
+				{
+					// Current has healed, Recoverable cannot be smaller than Current.
+					Reserve.BaseValue = current;
+				}
 			}
 
 			lastCurrent = current;
 		}
 
-		private void RewardExp(float damage)
-		{
-			if (Exp == null)
-			{
-				return;
-			}
-
-			float mult = damage >= 0f ? expDrainMultiplier : expGainMultiplier;
-			Exp.BaseValue += damage.Abs() * mult * ExpGainMult;
-		}
-
 		private void OnMaxChangedEvent()
 		{
-			// Current cannot exceed Max. This clamp should not grant EXP or count as an action.
+			// Current cannot exceed Max. This clamp is not a deed.
 			float clamped = Mathf.Min(Current, Max);
 			if (!Current.BaseValue.Approx(clamped))
 			{
-				suppressNextReward = true;
+				silentWrite = true;
 				Current.BaseValue = clamped;
 				lastCurrent = clamped;
 			}
@@ -325,6 +342,15 @@ namespace SpaxUtils
 		{
 			// Recoverable cannot exceed Max and cannot drop below minReservePercent of Max.
 			Reserve.BaseValue = Mathf.Clamp(Reserve, Max * minReservePercent, Max);
+
+			// Report regained reserve (rest, consumable, level-up boost cashing in).
+			float reserve = Reserve;
+			float gained = reserve - lastReserve;
+			lastReserve = reserve;
+			if (initialized && gained > 0f)
+			{
+				ReserveGainedEvent?.Invoke(gained);
+			}
 		}
 
 		public static implicit operator float(PointsStat pointsStat)
