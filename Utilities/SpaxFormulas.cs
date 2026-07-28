@@ -19,12 +19,8 @@ namespace SpaxUtils
 		public const float PHYSIC_SCALE = 2f;
 		public const float PHYSIC_SHIFT = 20f;
 
-		// Wieldable mass per level. Shared by the Tenacity->Strength mapping and equipment's rank mass term,
-		// so "rank R is wieldable at Tenacity R" holds by construction and can never drift apart.
-		public const float STRENGTH_SCALE = 0.1f;
-		// Armor-lane mass climbs this much faster than the offence lane: plate outgrows a blade. Mirrors Poise
-		// counting double toward LoadCapacity, so an Integrity-matched body carries rank-matched armor.
-		public const float ARMOR_MASS_WEIGHT = 2f;
+		// Relative equipment mass growth per rank (density fiction: same shape, denser material).
+		public const float MASS_GROWTH = 0.03f;
 
 		#region Combat
 
@@ -301,19 +297,12 @@ namespace SpaxUtils
 			=> level * PHYSIC_SCALE + (shift ? PHYSIC_SHIFT : 0f);
 
 		/// <summary>
-		/// Wieldable mass (kg) granted by a level of the strength attribute. Added on top of the stat's own default.
-		/// </summary>
-		public static float LevelToStrength(float level)
-			=> level * STRENGTH_SCALE;
-
-		/// <summary>
-		/// Equipment's mass: the authored <paramref name="baseMass"/> plus a rank term on the STRENGTH curve,
-		/// weighted by how far the item leans into the heavy lanes (N Power / W Armor). Mirrors the body's Strength
-		/// (default + LevelToStrength), so an item of rank R is wieldable at the matching attribute level.
+		/// Equipment's mass: the authored <paramref name="baseMass"/> grown relative to itself by rank, weighted
+		/// by the physical-mass lanes only (N Power / W Armor) - other lanes (Slash/Pierce/Ward) add no mass.
 		/// Rank-only by design - QUALITY makes gear better, not heavier.
 		/// </summary>
 		public static float EquipmentMass(float baseMass, float rank, Vector8 distribution)
-			=> baseMass + LevelToStrength(rank) * distribution[0].Max(distribution[6] * ARMOR_MASS_WEIGHT);
+			=> baseMass * (1f + MASS_GROWTH * rank * distribution[0].Max(distribution[6]));
 
 		/// <summary>
 		/// Per-lane weights for equipment's SHIFT: the distribution normalized to sum 1, scaled by the number

@@ -15,7 +15,6 @@
 		LevelToPointsStat = 7,
 		LevelToPhysic = 8,
 		ExpToLevel = 9,
-		ExpToRank = 10,
-		LevelToStrength = 11
+		ExpToRank = 10
 	}
 }

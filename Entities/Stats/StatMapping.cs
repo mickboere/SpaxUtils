@@ -114,9 +114,6 @@ namespace SpaxUtils
 					return SpaxFormulas.LevelToPhysic(input);
 				case FormulaType.LevelToPointsStat:
 					return SpaxFormulas.LevelToPointsStat(input);
-				case FormulaType.LevelToStrength:
-					// Shares STRENGTH_SCALE with equipment mass, keeping rank/wieldability locked together.
-					return SpaxFormulas.LevelToStrength(input);
 				case FormulaType.ExpToLevel:
 					// No local constants: tracks SpaxFormulas.CONSTANT/POWER so the level curve can never
 					// drift from the rank and level-up-cost curves.
@@ -173,9 +170,6 @@ namespace SpaxUtils
 
 				case FormulaType.LevelToPointsStat:
 					return SpaxFormulas.POINTSSTAT_SCALE != 0f ? (output - SpaxFormulas.POINTSSTAT_SHIFT) / SpaxFormulas.POINTSSTAT_SCALE : 0f;
-
-				case FormulaType.LevelToStrength:
-					return SpaxFormulas.STRENGTH_SCALE != 0f ? output / SpaxFormulas.STRENGTH_SCALE : 0f;
 
 				case FormulaType.ExpToLevel:
 					return SpaxFormulas.PointsFromLevel(output);
