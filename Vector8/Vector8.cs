@@ -160,6 +160,16 @@ namespace SpaxUtils
 		public Vector8 Absolute() => Absolute(this);
 
 		/// <summary>
+		/// Returns the per-member geometric mean with <paramref name="b"/>.
+		/// </summary>
+		public Vector8 GeometricMean(Vector8 b) => GeometricMean(this, b);
+
+		/// <summary>
+		/// Returns each member's share of its own axis, contested against its opposite.
+		/// </summary>
+		public Vector8 Bias() => Bias(this);
+
+		/// <summary>
 		/// Returns the total distance to <paramref name="b"/> (sum of all member distances).
 		/// </summary>
 		public float Distance(Vector8 b) => Distance(this, b);
@@ -478,6 +488,53 @@ namespace SpaxUtils
 				Mathf.Abs(v.SW),
 				Mathf.Abs(v.W),
 				Mathf.Abs(v.NW));
+		}
+
+		/// <summary>
+		/// Returns the per-member geometric mean of <paramref name="a"/> and <paramref name="b"/>.
+		/// Neglecting either side collapses the result; punishes imbalance at equal totals.
+		/// </summary>
+		public static Vector8 GeometricMean(Vector8 a, Vector8 b)
+		{
+			return new Vector8(
+				Mean(a.N, b.N),
+				Mean(a.NE, b.NE),
+				Mean(a.E, b.E),
+				Mean(a.SE, b.SE),
+				Mean(a.S, b.S),
+				Mean(a.SW, b.SW),
+				Mean(a.W, b.W),
+				Mean(a.NW, b.NW));
+
+			float Mean(float x, float y)
+			{
+				return Mathf.Sqrt(Mathf.Max(0f, x) * Mathf.Max(0f, y));
+			}
+		}
+
+		/// <summary>
+		/// Returns each member's share (0-1) of its own axis, contested against its opposite.
+		/// Opposites always sum to 1, leaving 4 degrees of freedom. An empty axis reads as 0.5 (equilibrium).
+		/// </summary>
+		public static Vector8 Bias(Vector8 v)
+		{
+			return new Vector8(
+				Share(v.N, v.S),
+				Share(v.NE, v.SW),
+				Share(v.E, v.W),
+				Share(v.SE, v.NW),
+				Share(v.S, v.N),
+				Share(v.SW, v.NE),
+				Share(v.W, v.E),
+				Share(v.NW, v.SE));
+
+			float Share(float a, float b)
+			{
+				a = Mathf.Max(0f, a);
+				b = Mathf.Max(0f, b);
+				float sum = a + b;
+				return sum > 0f ? a / sum : 0.5f;
+			}
 		}
 
 		/// <summary>

@@ -85,27 +85,6 @@ namespace SpaxUtils
 			return octon.Vector8;
 		}
 
-		/// <summary>
-		/// Returns a new Vector8 with the calculated effectiveness of each element when paired against their opposite element.
-		/// </summary>
-		//public static Vector8 GetEffectiveness(this Vector8 vector)
-		//{
-		//	return new Vector8(
-		//		CalculateEffectiveness(vector.N, vector.S),
-		//		CalculateEffectiveness(Light, Nature),
-		//		CalculateEffectiveness(Air, Earth),
-		//		CalculateEffectiveness(Spirit, Void),
-		//		CalculateEffectiveness(Water, Fire),
-		//		CalculateEffectiveness(Nature, Light),
-		//		CalculateEffectiveness(Earth, Air),
-		//		CalculateEffectiveness(Void, Spirit));
-		//}
-
-		public static float CalculateEffectiveness(float a, float b)
-		{
-			return a / (a + b);
-		}
-
 		public override string ToString()
 		{
 			return $"(Fire={fire}, Light={light}, Air={air}, Spirit={spirit}, Water={water}, Nature={nature}, Earth={earth}, Void={@void})";

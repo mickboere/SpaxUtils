@@ -21,6 +21,9 @@ namespace SpaxUtils
 		public StatOctad SoulExperience { get { EnsureInitialized(); return _soulExperience; } private set { _soulExperience = value; } }
 		public Vector8 SoulDistribution { get { EnsureInitialized(); return _soulDistribution; } private set { _soulDistribution = value; } }
 
+		public StatOctad MindLevels { get { EnsureInitialized(); return _mindLevels; } private set { _mindLevels = value; } }
+		public StatOctad MindBias { get { EnsureInitialized(); return _mindBias; } private set { _mindBias = value; } }
+
 		[Header("BODY")]
 		[SerializeField] private StatOctadAsset bodyLevels;
 		[SerializeField] private StatOctadAsset bodyExperience;
@@ -31,6 +34,9 @@ namespace SpaxUtils
 		[SerializeField] private StatOctadAsset soulLevels;
 		[SerializeField] private StatOctadAsset soulExperience;
 		[SerializeField] private StatMap soulAttributeMap;
+		[Header("MIND")]
+		[SerializeField] private StatOctadAsset mindLevels;
+		[SerializeField] private StatOctadAsset mindBias;
 
 		private IAgent agent;
 		private ExpSettings expSettings;
@@ -42,7 +48,13 @@ namespace SpaxUtils
 		private StatOctad _soulLevels;
 		private StatOctad _soulExperience;
 		private Vector8 _soulDistribution;
+		private StatOctad _mindLevels;
+		private StatOctad _mindBias;
 		private bool initialized;
+
+		private FloatOperationModifier[] mindLevelMods;
+		private FloatOperationModifier[] mindBiasMods;
+		private bool refreshingMind;
 
 		private EntityStat recoveryStat;
 		private FloatOperationModifier recoveryMod;
@@ -103,6 +115,8 @@ namespace SpaxUtils
 			BodyExperience = bodyExperience.Initialize(agent);
 			SoulLevels = soulLevels.Initialize(agent);
 			SoulExperience = soulExperience.Initialize(agent);
+			MindLevels = mindLevels.Initialize(agent);
+			MindBias = mindBias.Initialize(agent);
 
 			// --- BODY INITIALIZATION ---
 			bool bodyRanked = false;
@@ -138,6 +152,23 @@ namespace SpaxUtils
 				soulExpGain[i] = agent.Stats.GetStat(SoulExperience[i].Identifier.SubStat(AgentStatIdentifiers.SUB_GAIN), true, 1f);
 			}
 
+			// Mind is drawn, not stored: written through modifiers so the base values stay clean and nothing derived is saved.
+			mindLevelMods = new FloatOperationModifier[8];
+			mindBiasMods = new FloatOperationModifier[8];
+			for (int i = 0; i < 8; i++)
+			{
+				mindLevelMods[i] = new FloatOperationModifier(ModMethod.Base, Operation.Add, 0f);
+				MindLevels[i].AddModifier(this, mindLevelMods[i]);
+				mindBiasMods[i] = new FloatOperationModifier(ModMethod.Base, Operation.Add, 0f);
+				MindBias[i].AddModifier(this, mindBiasMods[i]);
+			}
+
+			// Immediate refresh instead of a dirty flag; UpdateStats only ticks from AgentActiveNode, which would leave
+			// any agent outside that node holding a stale mind.
+			BodyLevels.StatChangedEvent += OnLevelChanged;
+			SoulLevels.StatChangedEvent += OnLevelChanged;
+			RefreshMind();
+
 			// Recompute from the initialized levels ONLY for a pool that was actually rank-shaped — otherwise flat base
 			// levels would NormalizeMax to a meaningless uniform vector and wipe the injected general distribution.
 			if (bodyRanked)
@@ -164,8 +195,48 @@ namespace SpaxUtils
 			{
 				recoveryStat.RemoveModifier(this);
 			}
+			if (initialized)
+			{
+				BodyLevels.StatChangedEvent -= OnLevelChanged;
+				SoulLevels.StatChangedEvent -= OnLevelChanged;
+				for (int i = 0; i < 8; i++)
+				{
+					MindLevels[i].RemoveModifier(this);
+					MindBias[i].RemoveModifier(this);
+				}
+			}
 			agent.RecoverEvent -= RecoverAll;
 		}
+
+		#region Mind
+
+		private void OnLevelChanged(EntityStat stat) => RefreshMind();
+
+		/// <summary>
+		/// Redraws the mind from the body and soul levels: the geometric mean per element, and each element's
+		/// share of its own axis.
+		/// </summary>
+		private void RefreshMind()
+		{
+			// Guards against an infinite loop should a mapping ever feed a mind stat back into a body or soul level.
+			if (refreshingMind)
+			{
+				return;
+			}
+			refreshingMind = true;
+
+			Vector8 levels = BodyLevels.Vector8.GeometricMean(SoulLevels.Vector8);
+			Vector8 bias = levels.Bias();
+			for (int i = 0; i < 8; i++)
+			{
+				mindLevelMods[i].SetValue(levels[i]);
+				mindBiasMods[i].SetValue(bias[i]);
+			}
+
+			refreshingMind = false;
+		}
+
+		#endregion Mind
 
 		/// <summary>
 		/// Updates the point stats with <paramref name="delta"/> time.

@@ -91,6 +91,40 @@
 		public const string HOSTILITY_LVL = SOUL_LVL + "Hostility";
 		#endregion Soul Attributes
 
+		// MIND ATTRIBUTES
+		#region Mind Attributes
+		// Derived from the body and soul attributes, never earned directly. Named per element; the mind is the interplay.
+		private const string MIND_ATTRIBUTE = ATTRIBUTES + "MIND/";
+
+		private const string MIND_LVL = MIND_ATTRIBUTE + "LVL/"; // Geometric mean of the body and soul levels; magic reads this.
+		private const string MIND_BIAS = MIND_ATTRIBUTE + "BIAS/"; // Share (0-1) of the element's own axis, contested against its opposite.
+
+		// Fire
+		public const string MIND_FIRE_LVL = MIND_LVL + "Fire";
+		public const string MIND_FIRE_BIAS = MIND_BIAS + "Fire";
+		// Light
+		public const string MIND_LIGHT_LVL = MIND_LVL + "Light";
+		public const string MIND_LIGHT_BIAS = MIND_BIAS + "Light";
+		// Air
+		public const string MIND_AIR_LVL = MIND_LVL + "Air";
+		public const string MIND_AIR_BIAS = MIND_BIAS + "Air";
+		// Spirit
+		public const string MIND_SPIRIT_LVL = MIND_LVL + "Spirit";
+		public const string MIND_SPIRIT_BIAS = MIND_BIAS + "Spirit";
+		// Water
+		public const string MIND_WATER_LVL = MIND_LVL + "Water";
+		public const string MIND_WATER_BIAS = MIND_BIAS + "Water";
+		// Nature
+		public const string MIND_NATURE_LVL = MIND_LVL + "Nature";
+		public const string MIND_NATURE_BIAS = MIND_BIAS + "Nature";
+		// Earth
+		public const string MIND_EARTH_LVL = MIND_LVL + "Earth";
+		public const string MIND_EARTH_BIAS = MIND_BIAS + "Earth";
+		// Void
+		public const string MIND_VOID_LVL = MIND_LVL + "Void";
+		public const string MIND_VOID_BIAS = MIND_BIAS + "Void";
+		#endregion Mind Attributes
+
 		public const string DISTRIBUTION = ATTRIBUTES + "Distribution"; // General normalized distribution key.
 
 		// < Stats >
