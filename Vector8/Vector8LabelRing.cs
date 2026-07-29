@@ -45,7 +45,6 @@ namespace SpaxUtils
 		private Vector2[] pivots = new Vector2[8];
 		private Vector3[] directions = new Vector3[8];
 		private bool[] active = new bool[8];
-		private float templateAlpha = 1f;
 
 		/// <summary>
 		/// Places a label on each corner of <paramref name="radii"/>. Corners whose <paramref name="label"/> returns
@@ -76,9 +75,10 @@ namespace SpaxUtils
 				labels[i].text = text;
 				directions[i] = extents[i].normalized;
 
+				// Keeps its own alpha, so a semi-transparent fill colour can't drag the text's legibility down with it.
 				if (colors != null)
 				{
-					labels[i].color = Shade(colors[i]);
+					labels[i].color = colors[i].Shade(shade).SetA(labels[i].color.a);
 				}
 
 				// Anchor sits on the corner, floored so a near-zero channel still reads outside the hub.
@@ -164,18 +164,6 @@ namespace SpaxUtils
 			}
 		}
 
-		/// <summary>
-		/// Pulls <paramref name="color"/> towards black or white by <see cref="shade"/>. Keeps the template's alpha,
-		/// so a semi-transparent fill colour can't drag the text's legibility down with it.
-		/// </summary>
-		private Color Shade(Color color)
-		{
-			Color target = shade >= 0f ? Color.white : Color.black;
-			Color shaded = Color.Lerp(color, target, Mathf.Abs(shade));
-			shaded.a = templateAlpha;
-			return shaded;
-		}
-
 		private Rect GetRect(int i)
 		{
 			Vector2 anchor = directions[i] * radii[i];
@@ -206,7 +194,6 @@ namespace SpaxUtils
 				return;
 			}
 
-			templateAlpha = template.color.a;
 			template.gameObject.SetActive(true);
 			for (int i = 0; i < 8; i++)
 			{

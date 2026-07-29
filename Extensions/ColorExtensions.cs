@@ -52,5 +52,15 @@ namespace SpaxUtils
 			color.a = a;
 			return color;
 		}
+
+		/// <summary>
+		/// Pulls <paramref name="color"/> towards white (positive <paramref name="shade"/>) or black (negative),
+		/// leaving alpha untouched. Reaches both directions from one slider, unlike a tint multiply.
+		/// </summary>
+		public static Color Shade(this Color color, float shade)
+		{
+			Color target = shade >= 0f ? Color.white : Color.black;
+			return Color.Lerp(color, target, Mathf.Abs(shade)).SetA(color.a);
+		}
 	}
 }
