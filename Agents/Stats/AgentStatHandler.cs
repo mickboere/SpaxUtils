@@ -289,7 +289,7 @@ namespace SpaxUtils
 		/// <param name="source">Optional <see cref="ExpSources"/> identifier; carries the weight and anti-farm decay.</param>
 		/// <param name="bodyShare">Fraction rewarded to the body attribute. Spellwork feeds the soul only.</param>
 		/// <param name="soulShare">Fraction rewarded to the soul attribute.</param>
-		/// <returns>The experience rewarded, before shares.</returns>
+		/// <returns>The base experience, before shares and the body/soul global multipliers.</returns>
 		public float RewardExp(Element element, float bars, string source = null, float bodyShare = 1f, float soulShare = 1f)
 		{
 			return RewardExp((int)element, bars, source, bodyShare, soulShare);
@@ -313,20 +313,21 @@ namespace SpaxUtils
 
 			ExpSettings.Source config = expSettings.GetSource(source);
 			float exp = bars * ConsumeDecay(source, config.decayTime, bars) * config.weight *
-				expSettings.GetElementWeight(element) * expSettings.Multiplier * PointStats[element].Max;
+				expSettings.GetElementWeight(element) * PointStats[element].Max;
 
 			if (exp <= 0f)
 			{
 				return 0f;
 			}
 
+			// The two global multipliers are applied per side, so the soul can be set to level slower than the body.
 			if (bodyShare > 0f)
 			{
-				BodyExperience[element].BaseValue += exp * bodyShare * bodyExpGain[element];
+				BodyExperience[element].BaseValue += exp * bodyShare * expSettings.BodyMultiplier * bodyExpGain[element];
 			}
 			if (soulShare > 0f)
 			{
-				SoulExperience[element].BaseValue += exp * soulShare * soulExpGain[element];
+				SoulExperience[element].BaseValue += exp * soulShare * expSettings.SoulMultiplier * soulExpGain[element];
 			}
 
 			return exp;

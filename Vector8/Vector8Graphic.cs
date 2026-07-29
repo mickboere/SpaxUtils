@@ -75,6 +75,44 @@ namespace SpaxUtils
 			SetVerticesDirty();
 		}
 
+		/// <summary>
+		/// Local-space corner positions for <paramref name="v"/>, using this graphic's normalize/range, floor and scale.
+		/// The single source of truth for where a channel's vertex lands, so overlays can't drift from the mesh.
+		/// </summary>
+		public Vector3[] GetCornerPositions(Vector8 v)
+		{
+			Vector8 n = normalize ? v.Absolute().NormalizeMax() : v.Absolute() / Mathf.Max(range, Mathf.Epsilon);
+			if (floor > 0f)
+			{
+				n = n.Maximize(Vector8.One * floor);
+			}
+			return n.GetPositions3DRect(scale, rectTransform.rect);
+		}
+
+		/// <summary>
+		/// Corner positions at full extent (value == range). Direction is the channel's axis, magnitude its spoke length.
+		/// </summary>
+		public Vector3[] GetCornerExtents()
+		{
+			return Vector8.One.GetPositions3DRect(scale, rectTransform.rect);
+		}
+
+		/// <summary>
+		/// Effective per-corner colours: the runtime override, the serialized gradient, or the flat body colour.
+		/// Excludes the graphic's own <see cref="Graphic.color"/> tint, which is applied at vertex level.
+		/// </summary>
+		public Color[] GetCornerColors()
+		{
+			Color[] colors = new Color[8];
+			for (int i = 0; i < 8; i++)
+			{
+				colors[i] = useCornerColors
+					? (activeColors != null && activeColors.Length >= 8 ? activeColors[i] : cornerColors[i])
+					: bodyColor;
+			}
+			return colors;
+		}
+
 		protected void Update()
 		{
 			if (!Application.isPlaying)
@@ -88,28 +126,13 @@ namespace SpaxUtils
 		{
 			vh.Clear();
 
-			Vector8 v = normalize ? vector8.Absolute().NormalizeMax() : vector8.Absolute() / Mathf.Max(range, Mathf.Epsilon);
-			if (floor > 0f)
-			{
-				v = v.Maximize(Vector8.One * floor);
-			}
-
-			Vector3[] corners = v.GetPositions3DRect(scale, rectTransform.rect);
+			Vector3[] corners = GetCornerPositions(vector8);
 
 			Vector3[] miter = new Vector3[8];
 			float[] invCos = new float[8];
 			Vector8Mesh.ComputeMiters(corners, miter, invCos);
 
-			Color[] body;
-			if (useCornerColors)
-			{
-				body = activeColors != null && activeColors.Length >= 8 ? activeColors : cornerColors;
-			}
-			else
-			{
-				body = new Color[8];
-				for (int i = 0; i < 8; i++) { body[i] = bodyColor; }
-			}
+			Color[] body = GetCornerColors();
 
 			// strokeColor always applies: as a tint over the body gradient, or as the flat border colour on its own.
 			Color[] strokeCols = new Color[8];
