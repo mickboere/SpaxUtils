@@ -37,6 +37,9 @@ namespace SpaxUtils
 		[Header("MIND")]
 		[SerializeField] private StatOctadAsset mindLevels;
 		[SerializeField] private StatOctadAsset mindBias;
+		[Header("LOAD")]
+		[SerializeField, Tooltip("Shapes the LoadPenalty stat: penalty = 1 / (1 + effectiveLoad * factor). Only load beyond the LoadCapacity stat counts. This is the baseline every consumer reads; those that should suffer more raise it to a power.")]
+		private float loadPenaltyFactor = 0.02f;
 
 		private IAgent agent;
 		private ExpSettings expSettings;
@@ -58,6 +61,13 @@ namespace SpaxUtils
 
 		private EntityStat recoveryStat;
 		private FloatOperationModifier recoveryMod;
+
+		private EntityStat loadStat;
+		private EntityStat loadCapacityStat;
+		private EntityStat loadPenaltyStat;
+		private FloatOperationModifier loadPenaltyMod;
+		private StatSubscription loadSub;
+		private StatSubscription loadCapacitySub;
 
 		private EntityStat[] bodyExpGain;
 		private EntityStat[] soulExpGain;
@@ -186,6 +196,8 @@ namespace SpaxUtils
 				recoveryMod = new FloatOperationModifier(ModMethod.Absolute, Operation.Multiply, 1f);
 				recoveryStat.AddModifier(this, recoveryMod);
 			}
+
+			InitializeLoadPenalty();
 		}
 
 		protected void OnDestroy()
@@ -195,6 +207,9 @@ namespace SpaxUtils
 			{
 				recoveryStat.RemoveModifier(this);
 			}
+			loadSub?.Dispose();
+			loadCapacitySub?.Dispose();
+			loadPenaltyStat?.RemoveModifier(this);
 			if (initialized)
 			{
 				BodyLevels.StatChangedEvent -= OnLevelChanged;
@@ -237,6 +252,35 @@ namespace SpaxUtils
 		}
 
 		#endregion Mind
+
+		#region Load
+
+		/// <summary>
+		/// Draws the LoadPenalty stat from load versus capacity. Like the mind it is written through a modifier so the
+		/// base value stays clean and nothing derived is ever saved.
+		/// </summary>
+		private void InitializeLoadPenalty()
+		{
+			loadStat = agent.Stats.GetStat(AgentStatIdentifiers.LOAD, true, 0f);
+			loadCapacityStat = agent.Stats.GetStat(AgentStatIdentifiers.LOAD_CAPACITY, true, 0f);
+			loadPenaltyStat = agent.Stats.GetStat(AgentStatIdentifiers.LOAD_PENALTY, true, 1f);
+
+			loadPenaltyMod = new FloatOperationModifier(ModMethod.Absolute, Operation.Multiply, 1f);
+			loadPenaltyStat.AddModifier(this, loadPenaltyMod);
+
+			// Both sources are live: load shifts with equipment, capacity with the attributes feeding it.
+			loadSub = new StatSubscription(loadStat, (_) => RefreshLoadPenalty());
+			loadCapacitySub = new StatSubscription(loadCapacityStat, (_) => RefreshLoadPenalty());
+		}
+
+		private void RefreshLoadPenalty()
+		{
+			// Only load beyond what the body can carry counts; what feeds the capacity stat is decided by the stat maps.
+			float effectiveLoad = Mathf.Max(0f, (loadStat ?? 0f) - (loadCapacityStat ?? 0f));
+			loadPenaltyMod.SetValue(1f / (1f + effectiveLoad * Mathf.Max(0f, loadPenaltyFactor)));
+		}
+
+		#endregion Load
 
 		/// <summary>
 		/// Updates the point stats with <paramref name="delta"/> time.
@@ -401,7 +445,7 @@ namespace SpaxUtils
 		/// </summary>
 		private void SubscribeExpConditions()
 		{
-			pointStatOctad.N.OverdrawnEvent += OnEnergyOverdrawn;
+			pointStatOctad.N.ReserveLostEvent += OnEnergyReserveLost;
 			pointStatOctad.SE.RecoveredEvent += OnGraceGained;
 			pointStatOctad.SE.DrainedEvent += OnGraceDrained;
 			pointStatOctad.S.DrainedEvent += OnManaSpent;
@@ -417,7 +461,7 @@ namespace SpaxUtils
 
 		private void UnsubscribeExpConditions()
 		{
-			pointStatOctad.N.OverdrawnEvent -= OnEnergyOverdrawn;
+			pointStatOctad.N.ReserveLostEvent -= OnEnergyReserveLost;
 			pointStatOctad.SE.RecoveredEvent -= OnGraceGained;
 			pointStatOctad.SE.DrainedEvent -= OnGraceDrained;
 			pointStatOctad.S.DrainedEvent -= OnManaSpent;
@@ -443,7 +487,7 @@ namespace SpaxUtils
 			return handlers;
 		}
 
-		private void OnEnergyOverdrawn(float amount) => RewardExpPoints(Element.Fire, amount, ExpSources.ENERGY_OVERDRAW);
+		private void OnEnergyReserveLost(float amount) => RewardExpPoints(Element.Fire, amount, ExpSources.ENERGY_OVERDRAW);
 		private void OnGraceGained(float amount) => RewardExpPoints(Element.Spirit, amount, ExpSources.GRACE_GAIN);
 		private void OnGraceDrained(float amount) => RewardExpPoints(Element.Spirit, amount, ExpSources.GRACE_DRAIN);
 		private void OnManaSpent(float amount) => RewardExpPoints(Element.Water, amount, ExpSources.MANA_SPEND);

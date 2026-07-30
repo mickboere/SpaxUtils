@@ -151,6 +151,7 @@
 		public const string MASS = BODY_GENERAL + "Mass"; // Total body mass in KG.
 		public const string LOAD = BODY_GENERAL + "Load"; // Total equip load in KG.
 		public const string LOAD_CAPACITY = BODY_GENERAL + "LoadCapacity"; // Total load capacity in KG.
+		public const string LOAD_PENALTY = BODY_GENERAL + "LoadPenalty"; // Encumberment multiplier (0-1) drawn from load exceeding capacity; 1 = unencumbered.
 		public const string HARDNESS = BODY_GENERAL + "Hardness"; // Hardness of the body (0-1), used in calculating impacts.
 		public const string VULNERABILITY = BODY_GENERAL + "Vulnerability"; // Vulnerability of the body (0-1), used in calculating damage.
 		public const string REACH = BODY_GENERAL + "Reach"; // The agent's base melee reach (should be as large as the idle collision radius, limbs define actual reach).

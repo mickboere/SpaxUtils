@@ -227,12 +227,15 @@ namespace SpaxUtils
 				hitData.Data.SetValue(HitDataIdentifiers.DAMAGE_DEALT, damageDealt);
 
 				// --- MALICE BUILDUP ---
-				// Only builds on actual HP lost.
-				if (damageDealt > 0f &&
-					hitData.Hitter != null &&
-					hitData.Hitter is IAgent)
+				// Spite answers the offence aimed at us, not the wound it left; a fully guarded hit builds the same as a clean one.
+				// Basis matches what Malice is spent against (MeleeCombatBehaviourAsset), keeping the ledger symmetric.
+				if (hitData.Hitter != null && hitData.Hitter is IAgent)
 				{
-					statHandler.PointStats.NW.Gain(damageDealt);
+					float incomingOffence = hitData.Slash + hitData.Power + hitData.Pierce;
+					if (incomingOffence > 0f)
+					{
+						statHandler.PointStats.NW.Gain(incomingOffence * combatSettings.MaliceGain);
+					}
 				}
 
 				if (dead)

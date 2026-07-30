@@ -12,6 +12,7 @@ namespace SpaxUtils
 		public float ParriedStunTime => parriedStunTime;
 		public float DeflectedStunTime => deflectedStunTime;
 		public float StaticGain => staticGain;
+		public float MaliceGain => maliceGain;
 		public float DeflectStaticPercent => deflectStaticPercent;
 		public float BlockStaticPercent => blockStaticPercent;
 		public float HitStaticPercent => hitStaticPercent;
@@ -48,6 +49,10 @@ namespace SpaxUtils
 		private float chargeConversionRatio = 0.005f;
 		[SerializeField, Tooltip("Hard cap on the charge multiplier (e.g. 3 = up to 3× power / storm distance). Universal across charged moves.")]
 		private float maxChargeMultiplier = 3f;
+
+		[Header("Malice")]
+		[SerializeField, Min(0f), Tooltip("Malice (NW) built per unit of INCOMING offence (Slash+Power+Pierce), regardless of what the hit ended up dealing. Same basis Malice is spent against, so the ledger is symmetric. The Hostility→Gain mapping remains the per-agent dial; this is the global rate.")]
+		private float maliceGain = 1f;
 
 		[Header("Balance")]
 		[SerializeField, Range(0.01f, 1f), Tooltip("How much balance is maintained while charging a melee move. Universal across melee moves.")]

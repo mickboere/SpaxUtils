@@ -28,6 +28,12 @@ namespace SpaxUtils
 		[SerializeField, Conditional(nameof(requireGrounded)), Tooltip("Whether this move can be performed while sliding. Only relevant when requireGrounded is true.")]
 		private bool allowSliding = false;
 
+		/// <summary>Whether sliding is tolerated; gates entry via <see cref="IsMet"/> and lets behaviours enforce it mid-performance.</summary>
+		protected bool AllowSliding => allowSliding;
+
+		/// <summary>Whether ground is required; gates entry via <see cref="IsMet"/> and lets behaviours enforce it mid-performance.</summary>
+		protected bool RequireGrounded => requireGrounded;
+
 		[Header("Control")]
 		[SerializeField] private float controlWeightSmoothing = 6f;
 		[SerializeField] private bool blockArms;

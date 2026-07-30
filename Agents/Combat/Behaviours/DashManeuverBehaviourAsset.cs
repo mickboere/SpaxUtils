@@ -7,9 +7,33 @@ namespace SpaxUtils
 	[CreateAssetMenu(fileName = nameof(DashManeuverBehaviourAsset), menuName = "Performance/Behaviour/" + nameof(DashManeuverBehaviourAsset))]
 	public class DashManeuverBehaviourAsset : CorePerformanceMoveBehaviourAsset
 	{
-		protected float DashSpeed => dashSpeed * (dashSpeedStat ?? 1f);
+		/// <summary>
+		/// Encumberment multiplier. LoadPenalty is the shared authority on "how overloaded am I"; the exponent is how
+		/// much dashing in particular cares.
+		/// </summary>
+		protected float LoadMod => Mathf.Max(0.01f, Mathf.Pow(loadPenaltyStat ?? 1f, loadSensitivity));
+
+		/// <summary>
+		/// Floored at normal run speed: an overloaded dash degrades into a lunging stride, never a crawl slower than the
+		/// agent's own walk. Encumberment keeps biting through cost, which has no floor.
+		/// </summary>
+		protected float DashSpeed => Mathf.Max(movementHandler.FullSpeed, dashSpeed * (dashSpeedStat ?? 1f) * LoadMod);
+
+		/// <summary>
+		/// Real seconds the burst lasts. Distance is fixed, so a faster dash is a SHORTER one — Agility gets you out of
+		/// the way quicker, never further.
+		/// </summary>
 		protected float DashDuration => dashDistance / DashSpeed;
-		protected float GlideSpeed => dashSpeed * (glideSpeedStat ?? 1f);
+
+		protected bool Bursting => dashTime < DashDuration;
+
+		protected float GlideSpeed => glideSpeed * (glideSpeedStat ?? 1f) * LoadMod;
+
+		/// <summary>
+		/// Surface purchase, same authority the movement handler uses: terrain too steep to run up is too steep to dash
+		/// up, downhill gets a boost. Zero while airborne, which zeroes every force term — the dash coasts ballistically.
+		/// </summary>
+		protected float Traction => grounder.Mobility;
 
 		[Header("Control")]
 		[SerializeField] private float maxAcceleration = 20000f;
@@ -22,6 +46,9 @@ namespace SpaxUtils
 		//[SerializeField] private float glideDelay = 0.25f;
 		[SerializeField] private float glideSpeed = 5f;
 		[SerializeField] private Vector3 shakeMagnitude = Vector3.one;
+		[Header("Load")]
+		[SerializeField, Tooltip("Exponent applied to the LoadPenalty stat. 1 = as encumbered as general movement, higher = dashing suffers more. Never locks the dash out, only degrades it.")]
+		private float loadSensitivity = 2f;
 		[Header("SFX")]
 		[SerializeField] private SFXData dashSFX;
 		[SerializeField] private SFXData glideSFX;
@@ -33,14 +60,22 @@ namespace SpaxUtils
 		private AgentImpactHandler senseComponent;
 		private Pool<PooledAudioSource> audioPool;
 		private AgentTrailEffect agentTrailEffect;
+		private GrounderComponent grounder;
 
 		private PointsStat pointStat;
 		private EntityStat massStat;
 		private EntityStat dashSpeedStat;
 		private EntityStat glideSpeedStat;
+		private EntityStat loadPenaltyStat;
+		private EntityStat timeScaleStat;
 		private AudioSourceWrapper glideAudio;
 		private Vector3 direction;
 		private ContinuousShakeSource shakeSource;
+
+		// The burst runs on its own real-time clock. Performer.ChargeTime is a stat-PACED clock (it advances at
+		// Move.ChargeSpeedMultiplierStat), so timing physics off it made a second stat silently scale displacement.
+		private float dashTime;
+		private bool exited;
 
 		public override bool IsMet(IDependencyManager dependencies)
 		{
@@ -54,7 +89,8 @@ namespace SpaxUtils
 		}
 
 		public void InjectDependencies(AgentStatHandler statHandler, CallbackService callbackService, IAgentMovementHandler movementHandler,
-			AgentImpactHandler senseComponent, Pool<PooledAudioSource> audioPool, AgentTrailEffect agentTrailEffect)
+			AgentImpactHandler senseComponent, Pool<PooledAudioSource> audioPool, AgentTrailEffect agentTrailEffect,
+			GrounderComponent grounder)
 		{
 			this.statHandler = statHandler;
 			this.callbackService = callbackService;
@@ -62,11 +98,14 @@ namespace SpaxUtils
 			this.senseComponent = senseComponent;
 			this.audioPool = audioPool;
 			this.agentTrailEffect = agentTrailEffect;
+			this.grounder = grounder;
 
 			statHandler.TryGetPointStat(Move.ChargeCost.Stat, out pointStat);
 			massStat = Agent.Stats.GetStat(AgentStatIdentifiers.MASS);
 			dashSpeedStat = Agent.Stats.GetStat(AgentStatIdentifiers.DASH_SPEED);
 			glideSpeedStat = Agent.Stats.GetStat(AgentStatIdentifiers.GLIDE_SPEED);
+			loadPenaltyStat = Agent.Stats.GetStat(AgentStatIdentifiers.LOAD_PENALTY, true, 1f);
+			timeScaleStat = Agent.Stats.GetStat(EntityStatIdentifiers.TIMESCALE, true, 1f);
 		}
 
 		public override void Start()
@@ -91,15 +130,19 @@ namespace SpaxUtils
 
 		private void InitiateDash()
 		{
+			dashTime = 0f;
+			exited = false;
 			SetDirection(movementHandler.InputRaw);
 
 			// Disable default movement application from interfering.
 			movementHandler.AutoUpdateMovement = false;
 
-			// Drain stat.
+			// Drain stat. Physical factors only: mass (which already includes equip load) and encumberment. Deliberately
+			// NOT scaled by Dash_Speed — Agility already pays out as a bigger stamina pool, so charging it here too
+			// would count the same attribute twice.
 			if (pointStat != null)
 			{
-				float cost = massStat * DashSpeed * Move.ChargeCost.Cost * 0.1f;
+				float cost = massStat * dashSpeed * Move.ChargeCost.Cost * 0.1f / LoadMod;
 				float drained = pointStat.Drain(cost);
 
 				// AIR: pay for the burst.
@@ -134,10 +177,29 @@ namespace SpaxUtils
 		// Applies physics.
 		private void OnFixedUpdate(float delta)
 		{
-			if (Performer.ChargeTime < DashDuration)
+			if (exited)
 			{
-				// Apply dash control.
-				RigidbodyWrapper.ApplyMovement(direction * DashSpeed, maxAcceleration, maxDeceleration, power, true);
+				// Exit() handed movement back to the handler; applying thrust now would fight it.
+				return;
+			}
+
+			// Same footing rules as entry, enforced for the whole performance: no purchase, no dash. Sliding hands over to
+			// the handler's sliding model; losing ground hands over to air control instead of gliding off a ledge.
+			if ((!AllowSliding && grounder.Sliding) || (RequireGrounded && !grounder.Grounded))
+			{
+				Exit();
+				return;
+			}
+
+			// CallbackService hands out raw fixedDeltaTime; scale it locally like every other timed system.
+			delta *= timeScaleStat ?? 1f;
+			dashTime += delta;
+
+			if (Bursting)
+			{
+				// Apply dash control. Scaled by Mobility like all other movement: the dash gets no special traction, so
+				// terrain too steep to run up is too steep to dash up (and downhill even gives a boost).
+				RigidbodyWrapper.ApplyMovement(direction * DashSpeed, maxAcceleration, maxDeceleration, power, true, Traction);
 				movementHandler.UpdateRotation(delta, null, true);
 			}
 			else
@@ -151,7 +213,7 @@ namespace SpaxUtils
 
 				// Apply glide control.
 				Vector3 velocity = Quaternion.LookRotation(movementHandler.InputAxis) * movementHandler.InputSmooth.ClampMagnitude(1f) * GlideSpeed;
-				RigidbodyWrapper.ApplyMovement(velocity, maxAcceleration, maxDeceleration, power, true);
+				RigidbodyWrapper.ApplyMovement(velocity, maxAcceleration, maxDeceleration, power, true, Traction);
 				movementHandler.UpdateRotation(delta, null, true);
 			}
 		}
@@ -160,15 +222,15 @@ namespace SpaxUtils
 		{
 			base.ExternalUpdate(delta);
 
-			if (Performer.ChargeTime < DashDuration)
+			if (Bursting)
 			{
 				SetDirection(movementHandler.InputSmooth);
 			}
 
-			if (State == PerformanceState.Preparing && Performer.ChargeTime > DashDuration && pointStat != null)
+			if (!exited && State == PerformanceState.Preparing && !Bursting && pointStat != null)
 			{
-				// Gliding, drain stat.
-				float cost = massStat * GlideSpeed * Move.ChargeCost.Cost * delta * 0.1f;
+				// Gliding, drain stat. Physical factors only, same reasoning as the burst cost.
+				float cost = massStat * glideSpeed * Move.ChargeCost.Cost * delta * 0.1f / LoadMod;
 				float spent = pointStat.Drain(cost, out bool drained);
 				statHandler.RewardExpPoints(Element.Air, spent, ExpSources.DASH);
 				if (drained)
@@ -188,10 +250,11 @@ namespace SpaxUtils
 				shakeSource.Intensity = RigidbodyWrapper.Speed.InverseLerp(movementHandler.FullSpeed, glideSpeed);
 			}
 
-			// Update glide SFX.
+			// Normalized against the BASE glide speed, not the stat-scaled target — dividing by the live target would
+			// cancel the very thing being expressed and make every level sound identical.
 			float intensity = Mathf.Clamp01(RigidbodyWrapper.Speed / glideSpeed);
 			glideAudio.Pitch.BaseValue = glideSFX.PitchRange.Lerp(intensity);
-			glideAudio.Volume.BaseValue = (Performer.ChargeTime / DashDuration).Clamp01() * glideSFX.VolumeRange.Lerp(intensity);
+			glideAudio.Volume.BaseValue = (dashTime / DashDuration).Clamp01() * glideSFX.VolumeRange.Lerp(intensity);
 		}
 
 		protected override IPoserInstructions Evaluate(out float weight)
@@ -219,6 +282,7 @@ namespace SpaxUtils
 
 		private void Exit()
 		{
+			exited = true;
 			movementHandler.AutoUpdateMovement = true;
 			Performer.TryPerform();
 		}

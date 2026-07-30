@@ -107,12 +107,10 @@ namespace SpaxUtils
 		protected float sprintRampRate = 0.5f;
 		[SerializeField, Tooltip("Rate at which sprint buildup decays when not sprinting (0..1 per second).")]
 		protected float sprintRampDownRate = 2f;
-		[SerializeField, Tooltip("Scales how much effective load reduces sprint buildup rate, sprint acceleration, and turn-rate smoothing. loadSpeedMod = 1 / (1 + effectiveLoad * factor). Load beyond the LoadCapacity stat is what counts.")]
-		protected float loadPenaltyFactor = 0.01f;
 		[SerializeField, Tooltip("Maximum rate (m/s per second) at which TargetVelocity tracks the desired velocity when under load. Scales down further with loadSpeedMod.")]
 		protected float targetVelocityTurnRate = 15f;
-		[SerializeField, Tooltip("Effective load (kg) range for turn-rate smoothing. Below x: instant snap. At y: full smoothing effect."), MinMaxRange(0f, 100f, false)]
-		protected Vector2 turnSmoothingRange = new Vector2(10f, 50f);
+		[SerializeField, Tooltip("Encumberment range for turn-rate smoothing, measured as (1 - LoadPenalty). Below x: instant snap. At y: full smoothing effect."), MinMaxRange(0f, 1f, false)]
+		protected Vector2 turnSmoothingLoadRange = new Vector2(0.09f, 0.33f);
 
 		[Header("Sliding")]
 		[SerializeField, Tooltip("Lateral steering speed while sliding on a slope.")] protected float slideSteeringSpeed = 4f;
@@ -140,23 +138,17 @@ namespace SpaxUtils
 		protected EntityStat sprintSpeedStat;
 		protected EntityStat recoveryStat;
 		protected EntityStat airControlStatValue;
-		protected EntityStat loadStat;
-		protected EntityStat loadCapacityStat;
+		protected EntityStat loadPenaltyStat;
 		protected FloatOperationModifier recoveryMod;
 		private float sprintBuildup;
 		private float loadSpeedMod = 1f;
 
 		/// <summary>
-		/// Equip load (kg) beyond what the body can carry. Capacity is a stat in its own right, so what feeds
-		/// it (Strength, Poise, gear) is decided by the stat maps rather than here.
-		/// </summary>
-		protected float EffectiveLoad => Mathf.Max(0f, (float)loadStat - (float)loadCapacityStat);
-
-		/// <summary>
 		/// Movement penalty from carrying more than you can: scales sprint buildup, acceleration and turn rate
 		/// (and inversely, sprint decay and the planted brake). Never touches top speed.
+		/// General movement reads the LoadPenalty stat straight — it IS the baseline other consumers scale against.
 		/// </summary>
-		protected float LoadSpeedMod => 1f / (1f + EffectiveLoad * loadPenaltyFactor);
+		protected float LoadSpeedMod => loadPenaltyStat ?? 1f;
 
 		public void InjectDependencies(
 			RigidbodyWrapper rigidbodyWrapper,
@@ -172,8 +164,7 @@ namespace SpaxUtils
 			moveSpeedStat = Agent.Stats.GetStat(AgentStatIdentifiers.MOVEMENT_SPEED, true, 1f);
 			sprintSpeedStat = Agent.Stats.GetStat(AgentStatIdentifiers.SPRINT_SPEED, true, 1f);
 			recoveryStat = Agent.Stats.GetStat(AgentStatIdentifiers.RECOVERY, true, 1f);
-			loadStat = Agent.Stats.GetStat(AgentStatIdentifiers.LOAD, true, 0f);
-			loadCapacityStat = Agent.Stats.GetStat(AgentStatIdentifiers.LOAD_CAPACITY, true, 0f);
+			loadPenaltyStat = Agent.Stats.GetStat(AgentStatIdentifiers.LOAD_PENALTY, true, 1f);
 			if (!string.IsNullOrEmpty(airControlStat))
 			{
 				airControlStatValue = Agent.Stats.GetStat(airControlStat, true, 0f);
@@ -241,7 +232,6 @@ namespace SpaxUtils
 			bool isSprinting = processedInput.magnitude > 1.01f;
 
 			// Load above capacity incurs a movement penalty: slower sprint buildup, acceleration, and turning.
-			float effectiveLoad = EffectiveLoad;
 			loadSpeedMod = LoadSpeedMod;
 
 			// Heavy load slows sprint buildup; friction (inverse load) accelerates decay back to walk speed.
@@ -261,9 +251,9 @@ namespace SpaxUtils
 					  CalculateSpeed(InputSmooth.magnitude);
 
 				// Smooth TargetVelocity under heavy load to prevent grip spikes during sharp turns.
-				// turnSmoothing ramps from 0 (instant) at the threshold to 1 (full effect) at 2x the threshold.
+				// turnSmoothing ramps from 0 (instant) at the threshold to 1 (full effect) at the range's top.
 				// Rate uses a reciprocal so onset is gradual rather than a hard switch.
-				float turnSmoothing = Mathf.InverseLerp(turnSmoothingRange.x, turnSmoothingRange.y, effectiveLoad);
+				float turnSmoothing = Mathf.InverseLerp(turnSmoothingLoadRange.x, turnSmoothingLoadRange.y, 1f - loadSpeedMod);
 				float turnRate = targetVelocityTurnRate * loadSpeedMod / Mathf.Max(turnSmoothing, 0.01f);
 				rigidbodyWrapper.TargetVelocity = Vector3.MoveTowards(rigidbodyWrapper.TargetVelocity, desiredTarget, turnRate * delta);
 			}
@@ -288,11 +278,12 @@ namespace SpaxUtils
 
 					if (processedInput.magnitude > 1.01f)
 					{
-						// Apply sprint cost.
+						// Apply sprint cost. Mass already carries equip weight; dividing by loadSpeedMod adds the
+						// over-capacity penalty on top, same as the dash.
 						float spent = statHandler.PointStats.E.Drain(
 							sprintCost * rigidbodyWrapper.Mass *
 							(rigidbodyWrapper.Speed / (FullSpeed * 1.5f * sprintSpeedStat * moveSpeedStat)) *
-							rigidbodyWrapper.Control * delta);
+							rigidbodyWrapper.Control * delta / loadSpeedMod);
 
 						// AIR: pay for the stamina spent sprinting.
 						statHandler.RewardExpPoints(Element.Air, spent, ExpSources.SPRINT);

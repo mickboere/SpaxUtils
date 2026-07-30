@@ -39,14 +39,15 @@ namespace SpaxUtils
 		public event Action<float> RecoveredEvent;
 
 		/// <summary>
-		/// Invoked with the amount of points spent below zero.
-		/// </summary>
-		public event Action<float> OverdrawnEvent;
-
-		/// <summary>
 		/// Invoked with the amount of reserve points regained.
 		/// </summary>
 		public event Action<float> ReserveGainedEvent;
+
+		/// <summary>
+		/// Invoked with the amount of reserve points lost. Reports the loss AFTER clamping, so it reads zero
+		/// once the reserve sits at its floor - overdrawing an already-spent reserve costs nothing and earns nothing.
+		/// </summary>
+		public event Action<float> ReserveLostEvent;
 
 		public bool DefaultIsFull => defaultIsFull;
 		public bool HasRecovery => hasRecovery;
@@ -248,13 +249,8 @@ namespace SpaxUtils
 				// Apply overdraw damage to Reserve.
 				if (HasReserve && overdraw > 0f)
 				{
+					// The reserve write reports the loss itself; overdrawing at the floor costs nothing.
 					Reserve.BaseValue -= lastOverdraw * overdraw;
-				}
-
-				// Don't consume silentWrite here; the clamp below re-invokes this callback and reads it.
-				if (!silentWrite)
-				{
-					OverdrawnEvent?.Invoke(lastOverdraw);
 				}
 			}
 
@@ -343,13 +339,20 @@ namespace SpaxUtils
 			// Recoverable cannot exceed Max and cannot drop below minReservePercent of Max.
 			Reserve.BaseValue = Mathf.Clamp(Reserve, Max * minReservePercent, Max);
 
-			// Report regained reserve (rest, consumable, level-up boost cashing in).
+			// Report the change post-clamp: gained by rest/consumable/level-up boost, lost to overdraw/frailty.
 			float reserve = Reserve;
-			float gained = reserve - lastReserve;
+			float delta = reserve - lastReserve;
 			lastReserve = reserve;
-			if (initialized && gained > 0f)
+			if (initialized)
 			{
-				ReserveGainedEvent?.Invoke(gained);
+				if (delta > 0f)
+				{
+					ReserveGainedEvent?.Invoke(delta);
+				}
+				else if (delta < 0f)
+				{
+					ReserveLostEvent?.Invoke(-delta);
+				}
 			}
 		}
 
