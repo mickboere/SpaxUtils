@@ -58,6 +58,9 @@ namespace SpaxUtils
 		}
 
 		private const float MIN_STEP_SUPPORT_TO_GROUND = 0.35f;
+
+		/// <summary>GroundedAmount above which the agent counts as settled on the ground rather than approaching it.</summary>
+		private const float STANDING_THRESHOLD = 0.9f;
 		private const float STEP_SUPPORT_MIN = 0.25f;
 		private const float STEP_SUPPORT_MAX = 0.75f;
 
@@ -111,6 +114,14 @@ namespace SpaxUtils
 		/// Stairs are detected via surface-terrain slope divergence and excluded from sliding.
 		/// </summary>
 		public bool Sliding => Grounded && isSliding;
+
+		/// <summary>
+		/// Whether the agent is actually resting ON the ground, rather than merely within casting reach of it.
+		/// <see cref="Grounded"/> stays true across the whole <see cref="groundReach"/> span because that cast doubles
+		/// as landing anticipation — too lenient to gate actions on, since it reads true on the way down and would let
+		/// an agent jump again before touching down.
+		/// </summary>
+		public bool Standing => Grounded && GroundedAmount > STANDING_THRESHOLD;
 
 		/// <summary>
 		/// Smooth 0-1 value representing sliding intensity.
@@ -181,6 +192,8 @@ namespace SpaxUtils
 		[Header("Stepping")]
 		[SerializeField] private float stepHeight = 1f;
 		[SerializeField] private Vector2 stepRadius = new Vector2(0.5f, 0.5f);
+		[SerializeField, Range(1f, 3f), Tooltip("Ceiling on how far velocity may widen the step footprint, as a multiple of Step Radius. Beyond roughly stepHeight the samples can no longer reach the slope they're meant to measure.")]
+		private float maxStepRadiusScale = 1.5f;
 		[SerializeField, Range(0f, 20f)] private float stepSmooth = 20f;
 		[SerializeField, Range(0f, 90f), Tooltip("Ignore valid step hits whose slope angle exceeds the median by this many degrees. This helps reject near-wall hits beside cliffs from poisoning the ground average.")]
 		private float steepHitOutlierAngle = 25f;
@@ -361,24 +374,27 @@ namespace SpaxUtils
 
 			// Check if landing transition completes (truly settled on ground).
 			// Cannot complete while IsJumping - wait for vel.y < 0 to clear it first.
-			if (IsLanding && !IsJumping && GroundedAmount > 0.9f)
+			if (IsLanding && !IsJumping && GroundedAmount > STANDING_THRESHOLD)
 			{
 				// Truly landed. Fire event and apply landing effects.
-				float surfaceAlignment = Mathf.Clamp01(Vector3.Dot(groundedHit.normal, rigidbodyWrapper.Up));
-				float effectiveImpact = peakFallingSpeed * surfaceAlignment;
+				// Approach is the momentum arriving at the surface: live horizontal, but PEAK fall speed —
+				// the transition's partial gravity has already eaten most of the live vertical by now.
+				Vector3 approach = rigidbodyWrapper.Velocity.FlattenY() + Vector3.down * peakFallingSpeed;
 
-				// Scale impact by airborne duration.
+				// Impact is the closing speed INTO the surface; speed already running along it carries through.
+				// Scaled by airborne duration so slope transitions and small bumps don't register as landings.
 				float airborneFactor = Mathf.Clamp01(airborneDuration / impactFullAirborneTime);
-				effectiveImpact *= airborneFactor;
+				float effectiveImpact = Vector3.Dot(approach, groundedHit.normal).Abs() * airborneFactor;
 
-				// Absorb horizontal velocity proportional to impact severity.
+				// The surface absorbs the normal component; what runs along it carries on, which on a slope
+				// means the fall redirects into downslope speed.
+				// Braking that remainder is a catch, and you can only catch yourself on ground you can stand
+				// on. Past the angle where static friction gives out there is no footing to brake with, so the
+				// momentum goes into the slide untouched no matter how hard the landing was.
+				float landingAngle = Vector3.Angle(rigidbodyWrapper.Up, groundedHit.normal);
+				float footing = Mathf.InverseLerp(staticFrictionAngle, dynamicFrictionAngle, landingAngle);
 				float severity = Mathf.InverseLerp(impactAbsorptionMinSpeed, impactAbsorptionMaxSpeed, effectiveImpact);
-				if (severity > 0f)
-				{
-					Vector3 vel = rigidbodyWrapper.Velocity;
-					Vector3 horizontal = new Vector3(vel.x, 0f, vel.z);
-					rigidbodyWrapper.Velocity = vel - horizontal * Mathf.Clamp01(severity);
-				}
+				rigidbodyWrapper.Velocity = approach.ProjectOnPlane(groundedHit.normal) * (1f - severity * footing);
 
 				landedThisFrame = true;
 				LandedEvent?.Invoke(effectiveImpact, groundedHit);
@@ -453,11 +469,14 @@ namespace SpaxUtils
 			OptimizationSettings.Settings optimization = settings.Get(Entity.Priority);
 			int rayCount = optimization.RayCount;
 
-			// Map ground surface.
+			// Map ground surface. The footprint grows with travel as a per-step lookahead, bounded:
+			// the cast only reaches stepHeight vertically, so a wider radius puts its samples out of reach
+			// of the slope beneath them, which reads as lost support and un-grounds the agent at speed.
 			Vector3 origin = rigidbodyWrapper.Position + SurfaceNormal * stepHeight;
+			Vector3 relativeVelocity = rigidbodyWrapper.RelativeVelocity;
 			Vector2 radius = new Vector2(
-				Mathf.Max(stepRadius.x, rigidbodyWrapper.RelativeVelocity.x * stepRadius.x * 0.5f),
-				Mathf.Max(stepRadius.y, rigidbodyWrapper.RelativeVelocity.z * stepRadius.y * 0.5f));
+				Mathf.Min(stepRadius.x + relativeVelocity.x.Abs() * Time.fixedDeltaTime, stepRadius.x * maxStepRadiusScale),
+				Mathf.Min(stepRadius.y + relativeVelocity.z.Abs() * Time.fixedDeltaTime, stepRadius.y * maxStepRadiusScale));
 
 			if (!PhysicsUtils.TubeCast(origin, radius, -SurfaceNormal, rigidbodyWrapper.Forward, stepHeight * 2f,
 				layerMask, rayCount, out List<RaycastHit> hits, true, debug))

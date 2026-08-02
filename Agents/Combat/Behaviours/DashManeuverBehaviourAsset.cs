@@ -177,14 +177,16 @@ namespace SpaxUtils
 		// Applies physics.
 		private void OnFixedUpdate(float delta)
 		{
-			if (exited)
+			if (exited || Performer.Canceled)
 			{
-				// Exit() handed movement back to the handler; applying thrust now would fight it.
+				// Movement has been handed back to the handler (or the base cancelled us for leaving the ground);
+				// applying thrust now would fight it.
 				return;
 			}
 
-			// Same footing rules as entry, enforced for the whole performance: no purchase, no dash. Sliding hands over to
-			// the handler's sliding model; losing ground hands over to air control instead of gliding off a ledge.
+			// The base only enforces grounding while charging; the dash keeps its own check because gliding continues
+			// after release, and dashing off a ledge shouldn't turn into a hover. Sliding hands movement back so the
+			// handler's sliding model — braking authority, downhill steering, gravity — takes over.
 			if ((!AllowSliding && grounder.Sliding) || (RequireGrounded && !grounder.Grounded))
 			{
 				Exit();

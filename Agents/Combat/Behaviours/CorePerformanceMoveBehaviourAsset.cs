@@ -19,6 +19,7 @@ namespace SpaxUtils
 		protected AgentArmsComponent Arms { get; private set; }
 		protected AnimatorPoser Poser { get; private set; }
 		protected AnimatorWrapper AnimatorWrapper { get; private set; }
+		protected GrounderComponent Grounder { get; private set; }
 		protected IPoserInstructions PoserInstructions { get; private set; }
 		protected float Weight { get; private set; }
 
@@ -27,6 +28,8 @@ namespace SpaxUtils
 		private bool requireGrounded = true;
 		[SerializeField, Conditional(nameof(requireGrounded)), Tooltip("Whether this move can be performed while sliding. Only relevant when requireGrounded is true.")]
 		private bool allowSliding = false;
+		[SerializeField, Conditional(nameof(requireGrounded)), Tooltip("Seconds airborne tolerated before a CHARGING performance is cancelled. Covers walking off a ledge as the move starts, so a jump begun at the edge still gets through its minimum charge instead of being cancelled out from under itself.")]
+		private float groundLossGrace = 0.2f;
 
 		/// <summary>Whether sliding is tolerated; gates entry via <see cref="IsMet"/> and lets behaviours enforce it mid-performance.</summary>
 		protected bool AllowSliding => allowSliding;
@@ -34,11 +37,15 @@ namespace SpaxUtils
 		/// <summary>Whether ground is required; gates entry via <see cref="IsMet"/> and lets behaviours enforce it mid-performance.</summary>
 		protected bool RequireGrounded => requireGrounded;
 
+		/// <summary>Seconds airborne tolerated before a charge is dropped; shared so behaviours holding a performance can use the same window.</summary>
+		protected float GroundLossGrace => groundLossGrace;
+
 		[Header("Control")]
 		[SerializeField] private float controlWeightSmoothing = 6f;
 		[SerializeField] private bool blockArms;
 
 		private FloatOperationModifier controlMod;
+		private float ungroundedTime;
 
 		public virtual bool IsMet(IDependencyManager dependencies)
 		{
@@ -49,6 +56,9 @@ namespace SpaxUtils
 					return false;
 				}
 
+				// Deliberately the lenient check: being within the grounder's cast reach is enough to START a move, which
+				// is what lets a jump be charged on the way down and chained on landing. Moves that must not RESOLVE
+				// mid-air gate their own execution on Standing instead.
 				if (!grounder.Grounded)
 				{
 					return false;
@@ -64,17 +74,19 @@ namespace SpaxUtils
 		}
 
 		public void InjectDependencies(RigidbodyWrapper rigidbodyWrapper, AnimatorWrapper animatorWrapper,
-			[Optional] AgentArmsComponent arms, [Optional] AnimatorPoser poser)
+			[Optional] AgentArmsComponent arms, [Optional] AnimatorPoser poser, [Optional] GrounderComponent grounder)
 		{
 			RigidbodyWrapper = rigidbodyWrapper;
 			Arms = arms;
 			Poser = poser;
 			AnimatorWrapper = animatorWrapper;
+			Grounder = grounder;
 		}
 
 		public override void Start()
 		{
 			base.Start();
+			ungroundedTime = 0f;
 			controlMod = new FloatOperationModifier(ModMethod.Absolute, Operation.Multiply, 1f);
 			RigidbodyWrapper.Control.AddModifier(this, controlMod);
 			if (Arms != null && blockArms)
@@ -99,6 +111,21 @@ namespace SpaxUtils
 
 		public virtual void ExternalUpdate(float delta)
 		{
+			// Grounding is a condition for the CHARGE, not the whole performance: once performing, a move is committed —
+			// and for the jump, leaving the ground IS the point. Never early-out here; the pose and control weight below
+			// still have to run so a cancel animates out instead of freezing.
+			// Asymmetric with IsMet on purpose: entry needs Standing, but only genuinely leaving the ground cancels — a
+			// dip in GroundedAmount over a bump shouldn't kill a charge that legitimately started. The grace window then
+			// covers walking off a ledge as the move begins, which would otherwise cancel it inside its own min-charge.
+			if (requireGrounded && Grounder != null && State == PerformanceState.Preparing && !Performer.Canceled)
+			{
+				ungroundedTime = Grounder.Grounded ? 0f : ungroundedTime + delta;
+				if (ungroundedTime > groundLossGrace)
+				{
+					Performer.TryCancel(true);
+				}
+			}
+
 			switch (Move.AnimationType)
 			{
 				case PerformanceAnimationType.Animator:
