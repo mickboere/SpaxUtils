@@ -20,7 +20,8 @@ namespace SpaxUtils
 		public const float PHYSIC_SHIFT = 20f;
 
 		// Relative equipment mass growth per rank (density fiction: same shape, denser material).
-		public const float MASS_GROWTH = 0.03f;
+		// Also the rate at which exertion cost keeps pace with a growing Energy pool — gear is the only lane that does.
+		public const float MASS_GROWTH = 0.04f;
 
 		#region Combat
 

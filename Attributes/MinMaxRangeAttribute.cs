@@ -14,7 +14,7 @@ namespace SpaxUtils
 			Min = min;
 			Max = max;
 			ClampMin = clamp;
-			ClampMin = clamp;
+			ClampMax = clamp;
 		}
 
 		public MinMaxRangeAttribute(float min, float max, bool clampMin, bool clampMax)
@@ -22,7 +22,7 @@ namespace SpaxUtils
 			Min = min;
 			Max = max;
 			ClampMin = clampMin;
-			ClampMin = clampMax;
+			ClampMax = clampMax;
 		}
 	}
 }

@@ -95,10 +95,9 @@ namespace SpaxUtils
 			}
 
 			float coupling = SpaxFormulas.CalculateCoupling(hitData.Pierce, yieldStat);
-			float critChance = SpaxFormulas.CalculateCritChance(coupling, vulnerability, hitData.Luck, luckStat);
 			bool isCrit = !neglect &&
 				hitData.Pierce > 0f &&
-				Random.value < critChance;
+				Random.value < SpaxFormulas.CalculateCritChance(coupling, vulnerability, hitData.Luck, luckStat);
 
 			float critDamage = isCrit
 				? SpaxFormulas.CalculateDamage(hitData.Pierce, yieldStat)
@@ -123,18 +122,22 @@ namespace SpaxUtils
 			hitData.Data.SetValue(HitDataIdentifiers.SLASH_DAMAGE, slashDamage);
 
 			// --- 3. BLUNT LAYER ---
-			float impact = 0f;
-			float bluntDamage = 0f;
+			// What neither cut nor caught; either one high lets the strike pass through instead of transmitting.
+			float bluntness = Mathf.Clamp01((1f - penetration) * (1f - coupling));
+			float bluntEffectiveness = Mathf.Sqrt(Mathf.Clamp01(hardnessStat) * bluntness);
 
-			if (!neglect && hitData.Power > 0f)
-			{
-				// Power sits centre-octad, walled by armor+yield; hardness, low penetration and clean coupling raise transfer.
-				float bluntOffence = hitData.Power * (hardnessStat + (1f - penetration) + coupling);
-				bluntDamage = SpaxFormulas.CalculateDamage(bluntOffence, armorStat + yieldStat);
+			// Centre-octad, so walled by the MEAN of its two flanking defences, not their sum.
+			float bluntOffence = hitData.Power * bluntEffectiveness;
+			float bluntDamage = neglect
+				? 0f
+				: SpaxFormulas.CalculateDamage(bluntOffence, (armorStat + yieldStat) * 0.5f);
 
-				// Fraction of Power landed as blunt (0-1); reused for force, hit-pause and audio.
-				impact = Mathf.Clamp01(bluntDamage / hitData.Power);
-			}
+			// Momentum TRANSMITTED, not damage dealt: what the defence refused is what made the contact rigid.
+			float guardWeight = Mathf.Clamp01(hitData.Data.GetValue<float>(HitDataIdentifiers.GUARD_WEIGHT));
+			float rigidity = bluntOffence > 0f
+				? Mathf.Max(guardWeight, Mathf.Clamp01(1f - bluntDamage / bluntOffence))
+				: guardWeight;
+			float impact = Mathf.Lerp(bluntEffectiveness, 1f, rigidity);
 
 			hitData.Data.SetValue(HitDataIdentifiers.IMPACT, impact);
 			hitData.Data.SetValue(HitDataIdentifiers.BLUNT_DAMAGE, bluntDamage);
@@ -148,15 +151,15 @@ namespace SpaxUtils
 			hitData.Data.SetValue(HitDataIdentifiers.HEALTH_MAX, healthMax);
 
 			// --- IMPACT & FORCE ---
-			float force = hitData.Mass * hitData.Power * impact;
+			// Mass and Power ADD so neither zeroes the other; impact is the fraction that transmits.
+			float force = (hitData.Mass + hitData.Power) * impact;
 			hitData.Data.SetValue(HitDataIdentifiers.FORCE, force);
 
 			// --- ENDURANCE DAMAGE ---
-			// Stun draws on sharp + crit + force; force carries the blunt (Mass x bluntDamage), counted once.
-			// Bracing absorbs the stagger: the hit divides by guarding capacity, ramped by guard weight and clamped
-			// to x1 so a weak or barely-committed guard never amplifies it. Only the hit is relieved, never the guard's own upkeep.
-			float guardWeight = Mathf.Clamp01(hitData.Data.GetValue<float>(HitDataIdentifiers.GUARD_WEIGHT));
-			float toEndure = neglect ? 0f : (slashDamage + critDamage + force) / (guardStat.Value * guardWeight).Max(1f);
+			// Endurance is Earth's pool, so Earth's physic walls it. Only force is raw; slash/crit are already mitigated.
+			// Bracing absorbs what is left, clamped to x1 so a weak guard never amplifies it.
+			float stagger = SpaxFormulas.CalculateDamage(force, armorStat);
+			float toEndure = neglect ? 0f : (slashDamage + critDamage + stagger) / (guardStat.Value * guardWeight).Max(1f);
 			float enduranceDamage = statHandler.PointStats.W.Drain(
 				toEndure,
 				out bool stunned,
@@ -167,37 +170,59 @@ namespace SpaxUtils
 			float endured = toEndure > 0f ? (toEndure - enduranceOverdraw) / toEndure : 1f;
 			hitData.Data.SetValue(HitDataIdentifiers.ENDURED, endured);
 
-			// --- STUN / IMPACT APPLICATION ---
+			// --- STUN ---
+			// No force of its own; the extra travel comes from zeroing Control, not a second push.
 			if (stunned)
 			{
 				agent.Actor.TryCancel(true);
 				rigidbodyWrapper.ResetVelocity();
-				rigidbodyWrapper.Push(hitData.Direction * force * endured.Invert(), 1f);
 				stunHandler.EnterStun(hitData);
 			}
 			else if (neglect)
 			{
+				// Perfectly negated (block/parry/deflect): the attacker eats the stun, we just take the shunt.
 				rigidbodyWrapper.Push(hitData.Direction * force, 1f);
 			}
 
-			// --- INERTIA SHARING (clash) ---
-			// Contact clash along the horizontal normal: closing momentum shared by mass, elasticity from Restitution. Landed hits only.
+			// --- KNOCKBACK ---
+			// CLASH = the collision, FORCE = the strike. Both scale by impact and by the target's footing.
 			if (!neglect)
 			{
 				Vector3 normal = (rigidbodyWrapper.Position - hitData.Hitter.Transform.position)
 					.FlattenY().normalized;
-				float closing = Mathf.Max(0f, Vector3.Dot(hitData.Inertia, normal));
-				if (closing > 0f)
-				{
-					float totalMass = hitData.HitterMass + rigidbodyWrapper.Mass;
-					float elasticity = 1f + combatSettings.Restitution;
-					float receiverShare = hitData.HitterMass / totalMass * elasticity;
-					float hitterShare = rigidbodyWrapper.Mass / totalMass * elasticity;
 
-					rigidbodyWrapper.Push(normal * (closing * receiverShare));
-					// Hitter's brake is applied on its side in ProcessHit.
-					hitData.Data.SetValue(HitDataIdentifiers.INERTIA_BRAKE, -normal * (closing * hitterShare));
-				}
+				// Strike direction, so an uppercut launches; geometry-less moves fall back to the normal.
+				Vector3 push = hitData.Direction.sqrMagnitude > 0.0001f
+					? hitData.Direction.normalized
+					: normal;
+
+				float elasticity = 1f + combatSettings.Restitution;
+
+				// Recoverable, not Max — the reserve is the ceiling they can fight back up to. Post-drain.
+				float spent = statHandler.PointStats.W.PercentageRecoverable.InvertClamped();
+				float footing = 1f - spent;
+
+				// Closing speed less our own outbound share — full relative speed would double-count a mutual clash.
+				float receiverOut = Mathf.Max(0f, Vector3.Dot(rigidbodyWrapper.PredictedVelocity, normal));
+				float closing = Mathf.Max(0f, Vector3.Dot(hitData.Inertia, normal) - receiverOut) * impact;
+				float totalMass = hitData.HitterMass + rigidbodyWrapper.Mass;
+				Vector3 clashPush = totalMass > 0f
+					? normal * (closing * Mathf.Lerp(1f, hitData.HitterMass / totalMass, footing) * elasticity)
+					: Vector3.zero;
+				Vector3 clashBrake = totalMass > 0f
+					? -normal * (closing * (rigidbodyWrapper.Mass / totalMass) * footing * elasticity)
+					: Vector3.zero;
+
+				// FORCE — same footing rule: an even split while they can hold their stance, all theirs when spent.
+				float receiverShare = Mathf.Lerp(0.5f, 1f, spent);
+				float impulse = force * elasticity;
+
+				rigidbodyWrapper.Push(clashPush + push * (impulse * receiverShare / rigidbodyWrapper.Mass));
+
+				// Hitter's half is applied on its side in ProcessHit.
+				hitData.Data.SetValue(HitDataIdentifiers.INERTIA_BRAKE, hitData.HitterMass > 0f
+					? clashBrake - push * (impulse * (1f - receiverShare) / hitData.HitterMass)
+					: clashBrake);
 			}
 
 			// --- HP DAMAGE & MALICE ---
@@ -223,8 +248,8 @@ namespace SpaxUtils
 					hitData.Data.SetValue(HitDataIdentifiers.GRACE, drained);
 				}
 
-				float damageDealt = statHandler.PointStats.SW.Drain(healthDamage, out bool dead, out _);
-				hitData.Data.SetValue(HitDataIdentifiers.DAMAGE_DEALT, damageDealt);
+				hitData.Data.SetValue(HitDataIdentifiers.DAMAGE_DEALT,
+					statHandler.PointStats.SW.Drain(healthDamage, out bool dead, out _));
 
 				// --- MALICE BUILDUP ---
 				// Spite answers the offence aimed at us, not the wound it left; a fully guarded hit builds the same as a clean one.
@@ -271,7 +296,7 @@ namespace SpaxUtils
 			hitPauseMod = new TimedCurveModifier(
 				ModMethod.Absolute,
 				combatSettings.HitPauseCurve,
-				new TimerStruct(combatSettings.HitPauseReceiver.Lerp(impact) * endured.InvertClamped()),
+				new TimerStruct(combatSettings.HitPauseReceiver.Lerp(impact)),
 				callbackService);
 
 			timescaleStat.RemoveModifier(this);

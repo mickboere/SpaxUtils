@@ -39,7 +39,7 @@ namespace SpaxUtils
 		public Vector3 Direction { get; }
 
 		/// <summary>
-		/// Total mass behind the striking limb+weapon.
+		/// Mass behind the strike: the limb+weapon blended toward whole-body by the move's BodyMassFraction.
 		/// </summary>
 		public float Mass { get; }
 

@@ -15,7 +15,9 @@ namespace SpaxUtils
 		private const float MIN_APPROACH_SPEED = 0.1f;   // m/s, to avoid division by zero.
 		private const float MAX_TIME_TO_HIT = 5f;        // seconds; beyond this, proximity threat ~ 0.
 		private const float THREAT_SMOOTHING = 8f;       // higher = snappier.
-		private const float CLOSING_SMOOTH_RATE = 5f;    // ClosingSpeed EMA rate (higher = snappier; ~1/rate s time-constant).
+		// ClosingSpeed EMA rate (higher = snappier; ~1/rate s time-constant).
+		// TODO: should be Drive.NE-scaled — seeing through a feint is competence, which lives in Drive.
+		private const float CLOSING_SMOOTH_RATE = 5f;
 
 		// Threat composition weights (should sum to 1).
 		private const float THREAT_PROXIMITY_WEIGHT = 0.5f;
@@ -503,11 +505,12 @@ namespace SpaxUtils
 					info.Agent.Actor.MainPerformer is IMovePerformer movePerformer &&
 					movePerformer.Move is ICombatMove combatMove)
 				{
-					float range = combatMove.Range;
-					if (combatMove is IMeleeCombatMove meleeCombatMove)
-					{
-						range += info.Agent.Stats.GetStat(AgentStatIdentifiers.REACH.SubStat(meleeCombatMove.Limb)) ?? 0f;
-					}
+					// Full effective reach — global REACH, limb and the LUNGE included. A hand-rolled Range+limb
+					// estimate leaves out the stick, so the danger ramp (which fades by 2x range) read zero at
+					// distances the winding-up attacker can close outright.
+					float range = info.CombatComp != null
+						? info.CombatComp.ComputeEffectiveReach(combatMove)
+						: combatMove.Range;
 
 					float t = Mathf.InverseLerp(range + range, range, info.Distance).InOutSine();
 					windupDanger = t * AEMOI.MAX_STIM;
@@ -516,7 +519,7 @@ namespace SpaxUtils
 					// over-charged (ChargeMultiplier > 1 builds a real dash); carries its OWN storm-reach gate.
 					if (info.CombatComp != null &&
 						info.CombatComp.CurrentChargeMultiplier > 1f &&
-						combatMove is IMeleeCombatMove stormMove && stormMove.StormDistance > 0f)
+						combatMove is IMeleeCombatMove)
 					{
 						storming = true;
 						// Gate by the storm's POTENTIAL reach (max it could fund) so danger registers from the instant
@@ -526,9 +529,9 @@ namespace SpaxUtils
 						float stormProximity = Mathf.InverseLerp(stormPotentialReach + stormPotentialReach, stormPotentialReach, info.Distance).InOutSine();
 
 						// Immediate floor, growing toward MAX_STIM as the held charge builds a longer live dash.
-						float enemyActiveReach = info.CombatComp.ActiveReach;
-						float dash = Mathf.Max(0f, info.CombatComp.CurrentStormReach - enemyActiveReach);
-						float chargeGrowth = Mathf.Clamp01(dash / Mathf.Max(enemyActiveReach, 0.01f));
+						// Off the overcharge itself, not their reach — reach carries the Agility-scaled stick,
+						// which says nothing about a building storm's threat.
+						float chargeGrowth = Mathf.Clamp01(info.CombatComp.CurrentChargeMultiplier - 1f);
 						stormWindupDanger = stormProximity * Mathf.Lerp(STORM_WINDUP_FLOOR, 1f, chargeGrowth) * AEMOI.MAX_STIM;
 					}
 				}

@@ -44,8 +44,14 @@ namespace SpaxUtils
 		/// <summary>Global REACH stat only (no hands). The per-move reach base, kept separate from <see cref="BaseReach"/>'s best-hand term to avoid double-counting the acting limb.</summary>
 		private float globalReach;
 
-		/// <summary>Total reach the agent can actually hit at right now — the active move's limb reach + lunge included (or the resting reach when no move is active).</summary>
-		public float ActiveReach => CurrentCombatMove == null ? BaseReach : ComputeEffectiveReach(CurrentCombatMove);
+		/// <summary>
+		/// <see cref="BaseReach"/> plus the lunge any attack would carry — what an observer should space against,
+		/// since an idle enemy is never really limited to its resting reach. Thrust-free (no move chosen yet).
+		/// </summary>
+		public float RestingThreatReach => BaseReach + StickRange;
+
+		/// <summary>Total reach the agent can actually hit at right now — the active move's limb reach + lunge included (or the resting threat reach when no move is active).</summary>
+		public float ActiveReach => CurrentCombatMove == null ? RestingThreatReach : ComputeEffectiveReach(CurrentCombatMove);
 
 		/// <summary>
 		/// The agent's per-axis offensive output (x=Slash, y=Power, z=Pierce) of its dominant hand.
@@ -88,25 +94,14 @@ namespace SpaxUtils
 		/// </summary>
 		public float PreferredMoveReach { get; private set; }
 
-		/// <summary>
-		/// Live total reach while charging: <see cref="ActiveReach"/> + the storm distance the CURRENT charge buys
-		/// ((ChargeMultiplier − 1) × move StormDistance). Equals ActiveReach for uncharged / non-storm moves.
-		/// </summary>
 		/// <summary>Live charge multiplier of the active performance (1 = uncharged); pulled from the move performer.</summary>
 		public float CurrentChargeMultiplier => moveHandler != null ? moveHandler.ChargeMultiplier : 1f;
 
-		public float CurrentStormReach
-		{
-			get
-			{
-				float reach = ActiveReach;
-				if (CurrentCombatMove is IMeleeCombatMove melee)
-				{
-					reach += Mathf.Max(0f, CurrentChargeMultiplier - 1f) * melee.StormDistance;
-				}
-				return reach;
-			}
-		}
+		/// <summary>
+		/// Live total reach while charging: <see cref="ActiveReach"/> + the storm distance the CURRENT charge buys.
+		/// Equals ActiveReach for uncharged moves.
+		/// </summary>
+		public float CurrentStormReach => ActiveReach + ComputeStormRange(CurrentCombatMove, CurrentChargeMultiplier);
 
 		/// <summary>
 		/// Furthest the agent could storm RIGHT NOW given its current Static: <see cref="PreferredMoveReach"/> plus
@@ -118,11 +113,11 @@ namespace SpaxUtils
 			get
 			{
 				float reach = PreferredMoveReach;
-				if (PreferredMove is IMeleeCombatMove melee && combatSettings != null && StatHandler != null)
+				if (PreferredMove is IMeleeCombatMove && combatSettings != null && StatHandler != null)
 				{
 					float staticBudget = StatHandler.PointStats.NE;
 					float maxExtra = Mathf.Max(0f, Mathf.Min(combatSettings.MaxChargeMultiplier - 1f, staticBudget * combatSettings.ChargeConversionRatio));
-					reach += maxExtra * melee.StormDistance;
+					reach += ComputeStormRange(PreferredMove, 1f + maxExtra);
 				}
 				return reach;
 			}
@@ -146,23 +141,71 @@ namespace SpaxUtils
 		/// </summary>
 		private float WieldRatio(IPerformanceMove move)
 		{
-			if (move is not IMeleeCombatMove melee)
-			{
-				return 1f;
-			}
-			EntityStat limbMassStat = Agent.Stats.GetStat(AgentStatIdentifiers.MASS.SubStat(melee.Limb));
-			if (limbMassStat == null)
-			{
-				return 1f; // natural strike: no limb/weapon mass to wield.
-			}
-			float mass = (float)limbMassStat;
+			float mass = LimbMass(move);
 			if (mass <= 0f)
 			{
-				return 1f;
+				return 1f; // natural strike: no limb/weapon mass to wield.
 			}
 			float strength = Agent.Stats.GetStat(AgentStatIdentifiers.STRENGTH) ?? 1f;
 			float ratio = strength / mass;
 			return ratio < 0f ? 0f : ratio;
+		}
+
+		/// <summary>
+		/// Limb+weapon mass <paramref name="move"/> swings, mirroring the performer's own lookup. Zero for a natural
+		/// strike (kick, body ram) or a non-melee move — neither carries a limb MASS substat.
+		/// </summary>
+		private float LimbMass(IPerformanceMove move)
+		{
+			if (move is not IMeleeCombatMove melee)
+			{
+				return 0f;
+			}
+			EntityStat limbMassStat = Agent.Stats.GetStat(AgentStatIdentifiers.MASS.SubStat(melee.Limb));
+			return limbMassStat == null ? 0f : Mathf.Max(0f, (float)limbMassStat);
+		}
+
+		/// <summary>
+		/// Limb+weapon mass blended toward whole-body by the move's BodyMassFraction — what the strike weighs.
+		/// Shared by the hit pipeline and the exertion cost so they can never disagree about a strike's mass.
+		/// </summary>
+		public float ComputeStrikeMass(IPerformanceMove move)
+		{
+			if (move is not IMeleeCombatMove melee)
+			{
+				return 0f;
+			}
+			float bodyMass = Agent.Stats.GetStat(AgentStatIdentifiers.MASS) ?? 0f;
+			return Mathf.Lerp(LimbMass(move), bodyMass, melee.BodyMassFraction);
+		}
+
+		/// <summary>
+		/// What performing <paramref name="move"/> costs its cost-stat: the authored PerformCost priced by the mass it
+		/// swings (<see cref="CombatSettings.ExertionFactor"/>). THE authority — the performer drains this, and
+		/// move-selection and the AI's affordability gate read it before the swing so all three agree.
+		/// Raw, pre-<c>SUB/Drain</c>: this is the value handed to <c>PointsStat.Drain</c>, which applies it.
+		/// </summary>
+		public float ComputePerformCost(IPerformanceMove move)
+		{
+			if (move?.PerformCost == null)
+			{
+				return 0f;
+			}
+
+			float cost = move.PerformCost.Cost;
+			if (move is not IMeleeCombatMove melee || combatSettings == null)
+			{
+				// Non-melee (spells, projectiles) pay their authored cost flat — nothing bodily is being swung.
+				return cost;
+			}
+
+			// TWO LANES. An armed strike is priced on the implement it wields; an unarmed one has no implement, so it
+			// is priced on what the body itself commits — which is exactly what StrikeMass already measures.
+			float factor = melee.UseArmament
+				? combatSettings.ExertionFactor(LimbMass(move), combatSettings.ExertionRefMass)
+				: combatSettings.ExertionFactor(ComputeStrikeMass(move), combatSettings.ExertionRefBodyMass);
+
+			return cost * combatSettings.ExertionCostAtRef * factor;
 		}
 
 		/// <summary>
@@ -218,7 +261,6 @@ namespace SpaxUtils
 
 		private IMovePerformanceHandler moveHandler;
 		private CombatSettings combatSettings;
-		private IAgentMovementHandler movementHandler;
 		private IStunHandler stunHandler;
 		private IHittable hittable;
 
@@ -244,7 +286,6 @@ namespace SpaxUtils
 		public void InjectDependencies(
 			AgentStatHandler agentStatHandler,
 			IMovePerformanceHandler moveHandler,
-			IAgentMovementHandler movementHandler,
 			IStunHandler stunHandler,
 			IHittable hittable,
 			CombatSettings combatSettings,
@@ -252,7 +293,6 @@ namespace SpaxUtils
 		{
 			StatHandler = agentStatHandler;
 			this.moveHandler = moveHandler;
-			this.movementHandler = movementHandler;
 			this.stunHandler = stunHandler;
 			this.hittable = hittable;
 			this.combatSettings = combatSettings;
@@ -470,14 +510,16 @@ namespace SpaxUtils
 				float speedFactor = 1f / (1f + totalTime);
 
 				// Cost preference.
-				float costScore = Mathf.Clamp01(EvaluateCost(evalMove.ChargeCost) * EvaluateCost(evalMove.PerformCost));
+				float costScore = Mathf.Clamp01(
+					EvaluateCost(evalMove.ChargeCost, evalMove.ChargeCost.Cost) *
+					EvaluateCost(evalMove.PerformCost, ComputePerformCost(evalMove)));
 
 				// Static / storm potential (damage/crit tendencies; reuses the hoisted staticAvail).
 				float stormPotential = 0f;
-				if (evalMove is IMeleeCombatMove melee && melee.StormDistance > 0f && staticAvail > 0f)
+				if (staticAvail > 0f)
 				{
-					float stormNorm = melee.StormDistance / (melee.StormDistance + 1f);
-					stormPotential = stormNorm * staticAvail;
+					float stormFull = ComputeStormRange(evalMove, combatSettings.MaxChargeMultiplier);
+					stormPotential = stormFull / (stormFull + 1f) * staticAvail;
 				}
 				float chargeFactor = 1f + stormPotential;
 
@@ -594,7 +636,11 @@ namespace SpaxUtils
 			}
 		}
 
-		private float EvaluateCost(StatCost cost)
+		/// <summary>
+		/// Affordability of <paramref name="cost"/> given it will actually drain <paramref name="amount"/> points —
+		/// passed in rather than read off the authored number, since a perform cost is priced by the mass it swings.
+		/// </summary>
+		private float EvaluateCost(StatCost cost, float amount)
 		{
 			if (!cost.Required || string.IsNullOrEmpty(cost.Stat) || StatHandler == null)
 			{
@@ -602,7 +648,7 @@ namespace SpaxUtils
 			}
 
 			float pool = Agent.Stats.GetStat(cost.Stat) ?? 0f;
-			float unitCost = cost.Cost * (Agent.Stats.GetStat(cost.Stat.SubStat(AgentStatIdentifiers.SUB_DRAIN)) ?? 1f);
+			float unitCost = amount * (Agent.Stats.GetStat(cost.Stat.SubStat(AgentStatIdentifiers.SUB_DRAIN)) ?? 1f);
 
 			if (unitCost <= 0f) return 1f;
 			if (pool <= 0f) return 0f;
@@ -630,6 +676,7 @@ namespace SpaxUtils
 			finalMove = current as ICombatMove;
 
 			Vector3 agentDir = AlignmentDir();
+			float bodyMag = Mathf.Max(BodyPhysics.magnitude, 0.0001f);
 
 			for (int depth = 0; depth < maxDepth; depth++)
 			{
@@ -655,20 +702,17 @@ namespace SpaxUtils
 
 					if (fu.Move is ICombatMove fuCombat)
 					{
-						if (fuCombat is IMeleeCombatMove melee)
-						{
-							score += melee.Power + melee.Slash;
-						}
-						else
-						{
-							score += 1f;
-						}
+						// Offence the follow-up brings, body-normalised so it stays level-invariant and lands on
+						// the same ~1 scale as fu.Prio. Reads the resolved output rather than the raw sliders:
+						// those describe an ARMED move's distribution no longer.
+						MoveOutput fuOutput = GetMoveOutput(fuCombat);
+						score += fuOutput.Magnitude / bodyMag;
 
 						float fuRangeFit = Mathf.InverseLerp(maxRangeError, 0f, Mathf.Abs(distance - ComputeScoringReach(fuCombat, stormGate)));
 						score *= Mathf.Lerp(0.5f, 1f, fuRangeFit);
 
 						// Deterministic damage-type alignment toward the agent's lean.
-						float fuAlign = Mathf.Clamp01(Vector3.Dot(GetMoveOutput(fuCombat).TypeDirection, agentDir));
+						float fuAlign = Mathf.Clamp01(Vector3.Dot(fuOutput.TypeDirection, agentDir));
 						score *= Mathf.Lerp(1f, fuAlign, alignmentWeight);
 					}
 
@@ -696,21 +740,150 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
-		/// Approximates the effective melee reach of a combat move *without* storm:
-		/// global REACH + move range + acting-limb reach + lunge distance (for melee).
-		/// Builds on <see cref="globalReach"/> (not <see cref="BaseReach"/>) so the acting limb is the only hand
-		/// term — no double-count. The lunge is the move's own forward inertia braked through the agent's
-		/// load/mass, so a heavy agent reaches less far than a light one. Storm is handled by charge behaviours.
+		/// How far an attack can close the gap by sticking: <see cref="CombatSettings.StickRange"/> scaled by the
+		/// Agility-fed STICK_RANGE lane and cut by equip load. Also the lunge term of
+		/// <see cref="ComputeEffectiveReach"/>, so the AI's fire gate can't drift from the swing's true reach.
 		/// </summary>
-		private float ComputeEffectiveReach(ICombatMove move)
+		public float StickRange
+		{
+			get
+			{
+				if (combatSettings == null)
+				{
+					return 0f;
+				}
+
+				float lane = Agent.Stats.GetStat(AgentStatIdentifiers.STICK_RANGE) ?? 1f;
+				float load = Agent.Stats.GetStat(AgentStatIdentifiers.LOAD_PENALTY, true, 1f) ?? 1f;
+				return combatSettings.StickRange * Mathf.Max(0f, lane) * load;
+			}
+		}
+
+		/// <summary>
+		/// <see cref="StickRange"/> shaped by the move's THRUST — Agility grants the budget, the move's geometry
+		/// decides how much becomes distance. Forward half only: a withdrawing strike never lunges in.
+		/// </summary>
+		public float ComputeStickRange(ICombatMove move)
+		{
+			if (combatSettings == null || !(move is IMeleeCombatMove melee))
+			{
+				return 0f;
+			}
+
+			return StickRange * ThrustLane(melee);
+		}
+
+		/// <summary>
+		/// Fraction of a range knob the move's THRUST grants (<see cref="CombatSettings.StickRangeThrustScale"/>).
+		/// Shared by the stick and the storm so a sweep closes reluctantly in both.
+		/// </summary>
+		private float ThrustLane(IMeleeCombatMove melee)
+		{
+			float thrust = Mathf.Clamp01(melee.StrikeDirection.z);
+			return Mathf.Clamp01(Mathf.Lerp(
+				combatSettings.StickRangeThrustScale.x, combatSettings.StickRangeThrustScale.y, thrust));
+		}
+
+		/// <summary>
+		/// Extra distance a storm buys on top of the stick: the global <see cref="CombatSettings.StormRange"/>,
+		/// thrust-laned and scaled by charge — 0 uncharged, full only at MaxChargeMultiplier.
+		/// </summary>
+		public float ComputeStormRange(ICombatMove move, float chargeMultiplier)
+		{
+			if (combatSettings == null || !(move is IMeleeCombatMove melee))
+			{
+				return 0f;
+			}
+
+			float charge = ChargeFraction(chargeMultiplier);
+			return charge <= 0f ? 0f : combatSettings.StormRange * ThrustLane(melee) * charge;
+		}
+
+		/// <summary>
+		/// Overcharge as a 0..1 fraction of the configured headroom — 0 uncharged, 1 at MaxChargeMultiplier.
+		/// Shared by storm range and storm speed so the two can't drift apart.
+		/// </summary>
+		public float ChargeFraction(float chargeMultiplier)
+		{
+			if (combatSettings == null)
+			{
+				return 0f;
+			}
+
+			return Mathf.Clamp01((chargeMultiplier - 1f) / Mathf.Max(combatSettings.MaxChargeMultiplier - 1f, 0.01f));
+		}
+
+		/// <summary>
+		/// Distance from the target's centre at which a stick aims to land: <see cref="CombatSettings.StickBite"/>
+		/// deep into the move's OWN reach (the effective reach minus the lunge), floored at the attack-pose margin
+		/// so it never aims into the body. Shared by the swing that performs the stick and the AI that times it.
+		/// </summary>
+		public float ComputeStickDesired(ICombatMove move, float targetRadius)
+			=> ComputeBiteDistance(move, targetRadius, combatSettings == null ? 0f : combatSettings.StickBite);
+
+		/// <summary>
+		/// HARD floor on how close the attacking BODY may get. Same scale as <see cref="ComputeStickDesired"/> but off
+		/// MeleeFloorBite, so landing point and depth limit tune separately.
+		/// </summary>
+		public float ComputeBodyFloor(ICombatMove move, float targetRadius)
+			=> ComputeBiteDistance(move, targetRadius, combatSettings == null ? 1f : combatSettings.MeleeFloorBite);
+
+		/// <summary>
+		/// Distance from the target's centre for a <paramref name="bite"/> into the move's own reach (lunge excluded):
+		/// 0 = tip of reach, 1 = bodies touching.
+		/// </summary>
+		private float ComputeBiteDistance(ICombatMove move, float targetRadius, float bite)
+		{
+			if (combatSettings == null)
+			{
+				return 0f;
+			}
+
+			float bodies = (Agent.Targetable != null ? Agent.Targetable.Radius : 0f) + targetRadius;
+			float reach = ComputeEffectiveReach(move) - ComputeStickRange(move) + targetRadius;
+			return Mathf.Max(bodies, Mathf.Lerp(reach, bodies, Mathf.Clamp01(bite)));
+		}
+
+		/// <summary>
+		/// How long the stick will spend crossing the gap to a target <paramref name="distance"/> away before it
+		/// arrives — the travel pause in <see cref="MeleeCombatBehaviourAsset"/>. Zero when already inside the
+		/// bite. The AI's strike timing MUST include this: the swing no longer begins the instant the move
+		/// commits, so without it the agent fires early against anything that is moving.
+		/// A leap's airtime scales with √(gap / range) — <see cref="CombatSettings.StickTime"/> is the airtime
+		/// of a FULL-range leap. A gap beyond <see cref="StickRange"/> produces no approach at all, so there is
+		/// nothing to wait for.
+		/// </summary>
+		public float PredictStickTravelTime(ICombatMove move, float distance, float targetRadius)
+		{
+			if (combatSettings == null || !(move is IMeleeCombatMove))
+			{
+				return 0f;
+			}
+
+			float range = ComputeStickRange(move);
+			float gap = distance - ComputeStickDesired(move, targetRadius);
+			if (gap <= 0f || gap > range || range <= 0.01f)
+			{
+				return 0f;
+			}
+
+			return combatSettings.StickTime * Mathf.Sqrt(Mathf.Clamp01(gap / range));
+		}
+
+		/// <summary>
+		/// Approximates the effective melee reach of a combat move *without* storm:
+		/// global REACH + move range + acting-limb reach + stick range (for melee).
+		/// Builds on <see cref="globalReach"/> (not <see cref="BaseReach"/>) so the acting limb is the only hand
+		/// term — no double-count. Storm is handled by charge behaviours.
+		/// </summary>
+		public float ComputeEffectiveReach(ICombatMove move)
 		{
 			float reach = globalReach + move.Range;
 
 			if (move is IMeleeCombatMove meleeMove)
 			{
 				float limbReach = Agent.Stats.GetStat(AgentStatIdentifiers.REACH.SubStat(meleeMove.Limb)) ?? 0f;
-				float lunge = movementHandler != null ? movementHandler.PredictBrakingDistance(meleeMove.Inertia.z) : 0f;
-				reach += limbReach + lunge;
+				reach += limbReach + ComputeStickRange(meleeMove);
 			}
 
 			return reach;
@@ -721,12 +894,8 @@ namespace SpaxUtils
 		// overcharge-dash. With stormGate = 0 this equals the storm-free effective reach.
 		private float ComputeScoringReach(ICombatMove move, float stormGate)
 		{
-			float reach = ComputeEffectiveReach(move);
-			if (move is IMeleeCombatMove melee)
-			{
-				reach += melee.StormDistance * Mathf.Clamp01(stormGate);
-			}
-			return reach;
+			return ComputeEffectiveReach(move) +
+				ComputeStormRange(move, combatSettings.MaxChargeMultiplier) * Mathf.Clamp01(stormGate);
 		}
 
 		#region Combat Output
@@ -764,13 +933,13 @@ namespace SpaxUtils
 		/// </summary>
 		public readonly struct MoveOutput
 		{
-			/// <summary>The moveless weapon output this derives from.</summary>
+			/// <summary>The weapon output this derives from — usage-resolved when armed.</summary>
 			public readonly CombatOutput Weapon;
-			/// <summary>Move sliders (x=Slash, y=Power, z=Pierce).</summary>
+			/// <summary>Move sliders (x=Slash, y=Power, z=Pierce). Unarmed only; ignored when armed.</summary>
 			public readonly Vector3 MoveSliders;
-			/// <summary>UseArmament ? weapon⊙move : move (raw, pre-normalisation).</summary>
+			/// <summary>UseArmament ? weapon⊙usageProfile : moveSliders (raw, pre-normalisation).</summary>
 			public readonly Vector3 CombinedRaw;
-			/// <summary>Normalised damage-type direction (×maxSlider for special >1 finishers).</summary>
+			/// <summary>Normalised damage-type direction (×OutputScale for finishers).</summary>
 			public readonly Vector3 Filter;
 			/// <summary>Per-axis base output = BodyPhysics ⊙ Filter (pre charge/phase/strength).</summary>
 			public readonly Vector3 Output;
@@ -818,6 +987,28 @@ namespace SpaxUtils
 			=> DistributionOf(weapon == null ? null : weapon.EquipmentData, fallback);
 
 		/// <summary>
+		/// The fraction of a weapon's distribution that <paramref name="melee"/> actually realizes, by blending the
+		/// weapon's <see cref="WeaponComponent.SwingProfile"/> and <see cref="WeaponComponent.ThrustProfile"/> by how
+		/// much of the strike travels forward. USAGE, not orientation — a warpick thrust lands haft-first whichever
+		/// way the spike happens to point mid-animation. Returns (1,1,1) when the weapon carries no profile, so an
+		/// unconfigured weapon passes its distribution through untouched.
+		/// </summary>
+		private static Vector3 UsageProfile(RuntimeEquipedData weapon, IMeleeCombatMove melee)
+		{
+			WeaponComponent component = weapon == null ? null : weapon.Weapon;
+			if (component == null)
+			{
+				return Vector3.one;
+			}
+
+			// A geometry-less strike has no forward travel to speak of, so it reads as a swing.
+			Vector3 strike = melee.StrikeDirection;
+			float magnitude = strike.magnitude;
+			float thrustShare = magnitude > 0.0001f ? Mathf.Abs(strike.z) / magnitude : 0f;
+			return Vector3.Lerp(component.SwingProfile, component.ThrustProfile, thrustShare);
+		}
+
+		/// <summary>
 		/// The weapon's own Rank/Quality-derived physics as (x=Slash/NW, y=Power/N, z=Pierce/NE), written to its
 		/// RuntimeData by <see cref="EquipmentInventoryBehaviour"/>. Zero when unarmed — weapons are not
 		/// PhysicsPassive, so this is their active-use contribution.
@@ -857,8 +1048,8 @@ namespace SpaxUtils
 		public MoveOutput GetMoveOutput(ICombatMove move) => GetMoveOutput(move, ResolveMoveWeapon(move));
 
 		/// <summary>
-		/// Output of <paramref name="move"/> with a specific (possibly hypothetical) weapon. Replicates the
-		/// combine in <see cref="MeleeCombatBehaviourAsset"/> exactly so the hit pipeline stays unchanged.
+		/// Output of <paramref name="move"/> with a specific (possibly hypothetical) weapon. The single authority
+		/// for what a strike delivers — both the hit pipeline and move selection read it.
 		/// </summary>
 		public MoveOutput GetMoveOutput(ICombatMove move, RuntimeEquipedData weapon)
 		{
@@ -877,21 +1068,22 @@ namespace SpaxUtils
 				body = OffensivePhysics(weapon);
 			}
 
+			// Once an armament enters the equation the weapon alone decides which axes the strike fulfills:
+			// its equipment distribution, taken down to the fraction this move's USAGE realizes. The move's own
+			// sliders are the unarmed distribution and have no say here.
 			Vector3 moveDist = new Vector3(melee.Slash, melee.Power, melee.Pierce);
-			Vector3 weaponDist = melee.UseArmament ? DistributionOf(weapon, Vector3.zero) : Vector3.one;
-			Vector3 combinedRaw = melee.UseArmament ? Vector3.Scale(weaponDist, moveDist) : moveDist;
+			Vector3 weaponDist = melee.UseArmament
+				? Vector3.Scale(DistributionOf(weapon, Vector3.zero), UsageProfile(weapon, melee))
+				: Vector3.one;
+			Vector3 combinedRaw = melee.UseArmament ? weaponDist : moveDist;
 			float filterMag = combinedRaw.magnitude;
 			Vector3 filter = filterMag > 0f ? combinedRaw / filterMag : Vector3.zero;
 
-			// Move sliders >1 are scalar multipliers for special/finisher attacks.
-			float maxSlider = Mathf.Max(moveDist.x, moveDist.y, moveDist.z);
-			if (maxSlider > 1f)
-			{
-				filter *= maxSlider;
-			}
+			// Finishers hit harder than the base stats allow, without changing what they hit WITH.
+			filter *= melee.OutputScale;
 
 			Vector3 output = Vector3.Scale(body, filter);
-			return new MoveOutput(new CombatOutput(body, melee.UseArmament ? weaponDist : Vector3.one), moveDist, combinedRaw, filter, output);
+			return new MoveOutput(new CombatOutput(body, weaponDist), moveDist, combinedRaw, filter, output);
 		}
 
 		/// <summary>

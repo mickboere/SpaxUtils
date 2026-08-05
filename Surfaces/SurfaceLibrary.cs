@@ -13,9 +13,25 @@ namespace SpaxUtils
 
 		private Dictionary<string, SurfaceConfiguration> surfaceCache;
 
+		/// <summary>Drops the cache so the next read rebuilds it; runs after deserialization.</summary>
+		protected void OnEnable()
+		{
+			surfaceCache = null;
+		}
+
+#if UNITY_EDITOR
+		/// <summary>Rebuilds on inspector edits, which would otherwise not apply until the next domain reload.</summary>
+		protected void OnValidate()
+		{
+			surfaceCache = null;
+		}
+#endif
+
 		public SurfaceConfiguration Get(string surface)
 		{
-			if (surfaceCache == null)
+			// Count check as well as null: a read before deserialization completes would otherwise
+			// latch an empty dictionary, which is not null and so never rebuilds.
+			if (surfaceCache == null || surfaceCache.Count == 0)
 			{
 				surfaceCache = new Dictionary<string, SurfaceConfiguration>();
 				foreach (SurfaceConfiguration config in surfaces)

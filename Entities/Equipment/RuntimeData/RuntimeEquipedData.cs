@@ -41,6 +41,23 @@ namespace SpaxUtils
 		public GameObject EquipedInstance { get; private set; }
 
 		/// <summary>
+		/// The <see cref="WeaponComponent"/> on the <see cref="EquipedInstance"/>, or null for equipment that
+		/// isn't a weapon. Resolved once and cached — combat queries it per candidate move per frame.
+		/// </summary>
+		public WeaponComponent Weapon
+		{
+			get
+			{
+				if (!weaponResolved)
+				{
+					weaponResolved = true;
+					weapon = EquipedInstance == null ? null : EquipedInstance.GetComponentInChildren<WeaponComponent>();
+				}
+				return weapon;
+			}
+		}
+
+		/// <summary>
 		/// The see <see cref="IEquipmentData"/> (<see cref="IItemData"/>) of this equipment.
 		/// </summary>
 		public IEquipmentData EquipmentData => (IEquipmentData)RuntimeItemData.ItemData;
@@ -55,6 +72,8 @@ namespace SpaxUtils
 		private Dictionary<string, object> dataBackup = new Dictionary<string, object>();
 		private List<BehaviourAsset> behaviours = new List<BehaviourAsset>();
 		private IEntity entity;
+		private WeaponComponent weapon;
+		private bool weaponResolved;
 
 		public RuntimeEquipedData(RuntimeItemData runtimeItemData, IEquipmentSlot slot, IDependencyManager dependencyManager, IEntity entity, GameObject equipedInstance = null)
 		{

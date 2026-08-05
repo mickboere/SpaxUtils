@@ -15,7 +15,9 @@ namespace SpaxUtils
 		{
 			get
 			{
-				if (_entities == null)
+				// Count check as well as null: a read before deserialization completes would otherwise
+				// latch an empty dictionary, which is not null and so never rebuilds.
+				if (_entities == null || _entities.Count == 0)
 				{
 					_entities = new Dictionary<string, Entity>();
 					for (int i = 0; i < entities.Count; i++)
@@ -29,6 +31,20 @@ namespace SpaxUtils
 		private Dictionary<string, Entity> _entities;
 
 		[SerializeField] private List<Entity> entities;
+
+		/// <summary>Drops the cache so the next read rebuilds it; runs after deserialization.</summary>
+		protected void OnEnable()
+		{
+			_entities = null;
+		}
+
+#if UNITY_EDITOR
+		/// <summary>Rebuilds on inspector edits, which would otherwise not apply until the next domain reload.</summary>
+		protected void OnValidate()
+		{
+			_entities = null;
+		}
+#endif
 
 		/// <summary>
 		/// Instantiates a new instance of the entity with the given ID, returning null if no such entity exists.

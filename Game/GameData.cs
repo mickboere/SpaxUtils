@@ -40,7 +40,9 @@ namespace SpaxUtils
 		{
 			get
 			{
-				if (_stateData == null)
+				// Count check as well as null: a read before deserialization completes would otherwise
+				// latch an empty dictionary, which is not null and so never rebuilds.
+				if (_stateData == null || _stateData.Count == 0)
 				{
 					_stateData = new Dictionary<string, GameState>();
 					foreach (GameState gameState in stateData)
@@ -56,7 +58,7 @@ namespace SpaxUtils
 		{
 			get
 			{
-				if (_levels == null)
+				if (_levels == null || _levels.Count == 0)
 				{
 					_levels = new Dictionary<string, LevelData>();
 					foreach (LevelData levelData in levels)
@@ -75,5 +77,21 @@ namespace SpaxUtils
 		[SerializeField] private UIRoot screenFadePrefab;
 		[SerializeField] private List<GameState> stateData;
 		[SerializeField] private List<LevelData> levels;
+
+		/// <summary>Drops the caches so the next read rebuilds them; runs after deserialization.</summary>
+		protected void OnEnable()
+		{
+			_stateData = null;
+			_levels = null;
+		}
+
+#if UNITY_EDITOR
+		/// <summary>Rebuilds on inspector edits, which would otherwise not apply until the next domain reload.</summary>
+		protected void OnValidate()
+		{
+			_stateData = null;
+			_levels = null;
+		}
+#endif
 	}
 }

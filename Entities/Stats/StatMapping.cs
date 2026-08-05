@@ -109,18 +109,18 @@ namespace SpaxUtils
 					return shift + pointA.y.Lerp(pointB.y, input.InverseLerp(pointA.x, pointB.x)) * scale;
 				case FormulaType.Extrapolate:
 					float y = (pointB.y - pointA.y) / (pointB.x - pointA.x);
-					return shift + pointA.y + (input - pointA.x) * y;
+					return shift + (pointA.y + (input - pointA.x) * y) * scale;
 				case FormulaType.LevelToPhysic:
-					return SpaxFormulas.LevelToPhysic(input);
+					return shift + SpaxFormulas.LevelToPhysic(input) * scale;
 				case FormulaType.LevelToPointsStat:
-					return SpaxFormulas.LevelToPointsStat(input);
+					return shift + SpaxFormulas.LevelToPointsStat(input) * scale;
 				case FormulaType.ExpToLevel:
 					// No local constants: tracks SpaxFormulas.CONSTANT/POWER so the level curve can never
 					// drift from the rank and level-up-cost curves.
-					return SpaxFormulas.LevelFromPoints(input);
+					return shift + SpaxFormulas.LevelFromPoints(input) * scale;
 				case FormulaType.ExpToRank:
 					// Summed-octad EXP to rank; replaces InvExp with a 0.125 pre-scale.
-					return SpaxFormulas.RankFromPoints(input);
+					return shift + SpaxFormulas.RankFromPoints(input) * scale;
 				default:
 					return shift + input * scale;
 			}
@@ -160,22 +160,25 @@ namespace SpaxUtils
 					if (Mathf.Abs(slopeNumerator) < 0.0001f) return 0f;
 
 					float m = slopeNumerator / slopeDenominator;
-					return pointA.x + (input - pointA.y) / m;
+					float unscaled = scale != 0f ? input / scale : 0f;
+					return pointA.x + (unscaled - pointA.y) / m;
 
 				case FormulaType.Linear:
 					return scale != 0f ? input / scale : 0f;
 
 				case FormulaType.LevelToPhysic:
-					return SpaxFormulas.PHYSIC_SCALE != 0f ? (output - SpaxFormulas.PHYSIC_SHIFT) / SpaxFormulas.PHYSIC_SCALE : 0f;
+					if (scale == 0f || SpaxFormulas.PHYSIC_SCALE == 0f) return 0f;
+					return (input / scale - SpaxFormulas.PHYSIC_SHIFT) / SpaxFormulas.PHYSIC_SCALE;
 
 				case FormulaType.LevelToPointsStat:
-					return SpaxFormulas.POINTSSTAT_SCALE != 0f ? (output - SpaxFormulas.POINTSSTAT_SHIFT) / SpaxFormulas.POINTSSTAT_SCALE : 0f;
+					if (scale == 0f || SpaxFormulas.POINTSSTAT_SCALE == 0f) return 0f;
+					return (input / scale - SpaxFormulas.POINTSSTAT_SHIFT) / SpaxFormulas.POINTSSTAT_SCALE;
 
 				case FormulaType.ExpToLevel:
-					return SpaxFormulas.PointsFromLevel(output);
+					return SpaxFormulas.PointsFromLevel(scale != 0f ? input / scale : 0f);
 
 				case FormulaType.ExpToRank:
-					return SpaxFormulas.PointsFromRank(output);
+					return SpaxFormulas.PointsFromRank(scale != 0f ? input / scale : 0f);
 
 				case FormulaType.Curve:
 					SpaxDebug.Error($"Inverse modifier not supported for 'Curve' type (requires iterative solver). Calculation failed.");

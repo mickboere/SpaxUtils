@@ -22,9 +22,23 @@ namespace SpaxUtils
 		public float ChargeBalance => chargeBalance;
 		public float PerformBalance => performBalance;
 		public float Restitution => restitution;
-		public float MeleeFloorPadding => meleeFloorPadding;
-		public float MeleeFloorStiffness => meleeFloorStiffness;
+		public float MeleeFloorBite => meleeFloorBite;
+		public float StickRange => stickRange;
+		public Vector2 StickRangeThrustScale => stickRangeThrustScale;
+		public float StickTime => stickTime;
+		public float StickBite => stickBite;
+		public float StickPlant => stickPlant;
+		public float StickIdleInertia => stickIdleInertia;
+		public float StickTurnRate => stickTurnRate;
+		public float StickAcquireAngle => stickAcquireAngle;
+		public float StormRange => stormRange;
+		public float StormSpeed => stormSpeed;
 		public AnimationCurve RearExposureCurve => rearExposureCurve;
+		public float ExertionCostAtRef => exertionCostAtRef;
+		public float ExertionRefMass => exertionRefMass;
+		public float ExertionRefBodyMass => exertionRefBodyMass;
+		public float ExertionMassExponent => exertionMassExponent;
+		public float ExertionFloorMass => exertionFloorMass;
 
 		[Header("Hit Pause Settings")]
 		[SerializeField, MinMaxRange(0f, 1f)] private Vector2 hitPauseReceiver = new Vector2(0.05f, 0.75f);
@@ -63,10 +77,36 @@ namespace SpaxUtils
 		[Header("Physics")]
 		[SerializeField, Range(0f, 1f), Tooltip("Elasticity of the inertia-sharing clash when a hit lands. 0 = perfectly inelastic (both bodies hold the gap), 1 = fully elastic (they bounce apart). Scales both the receiver's knockback and the hitter's self-brake by (1 + restitution).")]
 		private float restitution = 0f;
-		[SerializeField, Range(0f, 3f), Tooltip("Melee separation floor: absolute width (metres) of the no-go ring added OUTSIDE the combined top-down radii. The lunge is sprung back out within this ring; the combined radii itself is an impenetrable wall. Absolute (not a fraction) so it stays a fixed buffer even against giant enemies. Keep below (reach − combined radii) or attacks can't connect.")]
-		private float meleeFloorPadding = 0.5f;
-		[SerializeField, Min(0f), Tooltip("Spring stiffness of the melee separation floor (auto critically-damped). Higher = the lunge is stopped sooner/harder before it reaches the inner wall.")]
-		private float meleeFloorStiffness = 150f;
+		[SerializeField, Range(0f, 1f), Tooltip("HARD depth limit while attacking, read like StickBite: 0 = never closer than the tip of reach, 1 = until the bodies touch. Keep ABOVE StickBite or the floor blocks the leap short of its aim.")]
+		private float meleeFloorBite = 0.75f;
+
+		// STICK: DISTANCE IS THE CONFIGURED UNIT. StickRange decides how far; StickTime is the only speed-domain
+		// knob, and it is a derivation rule rather than a target. Nothing here touches knockback.
+		[Header("Sticky Combat")]
+		[SerializeField, Min(0f), Tooltip("BASE distance (metres) an attack can close by leaping, at Stick_Range = 1 and no load. The Agility-fed Stick_Range stat multiplies it (~1x at level 0 up to ~6x at 100), the move's thrust and equip LoadPenalty cut it back down.")]
+		private float stickRange = 1.5f;
+		[SerializeField, MinMaxRange(0f, 1f, true), Tooltip("Fraction of the stick range granted by the move's THRUST (StrikeDirection.z, forward half only): X at zero thrust (a pure sweep still closes, just reluctantly), Y at a full lunge.")]
+		private Vector2 stickRangeThrustScale = new Vector2(0.6f, 1f);
+		[SerializeField, Min(0.01f), Tooltip("Airtime (seconds) of a FULL-range leap — the ONLY speed knob, every leap speed derives from it. Shorter leaps scale by sqrt(gap / range), the real jump relationship. NOTE: top leap speed is (stick range / this), so it rises with Stick_Range — a maxed-Agility leap is both longer AND much faster.")]
+		private float stickTime = 0.25f;
+		[SerializeField, Range(0f, 1f), Tooltip("How deep into its own reach a leap lands. 0 = stop at the very tip of reach (fragile — the target only just gets clipped), 1 = close all the way to the separation floor. The bite absorbs the target's own movement during the swing, so keep it off 0.")]
+		private float stickBite = 0.35f;
+		[SerializeField, Range(0f, 2f), Tooltip("Drag length of the plant after a swing's forward motion, in StickRanges. Braking is QUADRATIC (a = v^2 / L), so a fast lunge is killed hard while a slow step is barely touched — that difference is the point, and this only sets the overall scale. Higher = longer, floatier slide; lower = snappier. 0 hands straight back to normal movement.")]
+		private float stickPlant = 0.25f;
+		[SerializeField, Range(0f, 1f), Tooltip("Fraction of a FULL leap's speed carried by a swing that has nothing to leap at — no target acquired, or already inside the bite. The swing comes out immediately (no travel, no hold) but still steps forward, just less than a real leap. 0 = motionless.")]
+		private float stickIdleInertia = 0.5f;
+		[SerializeField, Min(0f), Tooltip("Degrees per second a leap can re-aim its heading at Stick_Aim = 1 (Acuity-fed). The correction only ROTATES the leap, never lengthens it, so it cannot rescue an out-of-range read — that is Storm's job.")]
+		private float stickTurnRate = 180f;
+		[SerializeField, Range(0f, 180f), Tooltip("Half-angle of the acquisition cone around the held movement direction. An enemy outside it is never leapt at, so a deliberate swing away from someone stays a swing away.")]
+		private float stickAcquireAngle = 60f;
+
+		// STORM: the charged upgrade to a stick. Extends the same leap and homes instead of committing to a
+		// heading; both terms scale with charge, reaching full only at MaxChargeMultiplier.
+		[Header("Storming")]
+		[SerializeField, Min(0f), Tooltip("Extra distance (metres) a FULLY charged storm adds on top of StickRange. Scaled by charge (0 at no overcharge) and by the same StickRangeThrustScale lane as the stick, so a sweep storms less far than a thrust.")]
+		private float stormRange = 6f;
+		[SerializeField, Min(0f), Tooltip("Speed (m/s) of a FULLY charged storm at Storm_Speed = 1; the Acuity-fed stat multiplies it. A partial charge lerps up from the ordinary leap speed, and a fast leap floors it, so a storm never closes slower than the lunge it upgrades.")]
+		private float stormSpeed = 15f;
 
 		[Header("Vulnerability")]
 		[SerializeField, Tooltip("Maps how exposed the receiver is to a hit based on the angle it lands from, into a 0..1 rear-exposure factor that lerps the receiver's Vulnerability toward 1 (full crit). INPUT (X, 0..1): the hit's angle relative to the receiver's facing - 0 = struck dead-on from the front, 0.5 = struck from the side, 1 = struck from directly behind. OUTPUT (Y, 0..1): exposure - 0 = no added vulnerability (use the receiver's base Vulnerability stat), 1 = fully exposed (Vulnerability forced to 1, guaranteeing a crit if the hit couples). Default shape: front/sides approx 0, ramping up to 1 at the rear.")]
@@ -95,6 +135,32 @@ namespace SpaxUtils
 			}
 			float extra = Mathf.Clamp01((wieldRatio - 1f) / (overStrengthFullRatio - 1f));
 			return Mathf.Lerp(1f, strengthSpeedModRange.y, extra);
+		}
+
+		// EXERTION: what a swing costs in Energy is BODILY EFFORT, never output — a weapon that pierces well is no
+		// more tiring than one that doesn't. Limb mass is the whole basis (weapon mass + 1% body, so Integrity and
+		// carried load both raise it), which keeps every damage type paying while only Tenacity funds the pool.
+		[Header("Exertion")]
+		[SerializeField, Min(0f), Tooltip("Energy drained by a move authored at PerformCost 1 when swinging a limb of exactly ExertionRefMass. Default 100 ≈ a full level-1 Energy pool, so a 0.333 move at 15kg empties one.")]
+		private float exertionCostAtRef = 100f;
+		[SerializeField, Min(0.01f), Tooltip("Limb+weapon mass (kg) at which an ARMED move costs exactly its authored PerformCost × ExertionCostAtRef. The anchor the weapon lane pivots on.")]
+		private float exertionRefMass = 2f;
+		[SerializeField, Min(0.01f), Tooltip("StrikeMass (kg) at which an UNARMED move costs exactly its authored PerformCost × ExertionCostAtRef. Far higher than the weapon reference because body mass isn't held at arm's length — a kick throws the hip, not a lever.")]
+		private float exertionRefBodyMass = 30f;
+		[SerializeField, Range(0.1f, 2f), Tooltip("How hard mass bites, both lanes. 1 = proportional, above = accelerating. Also sets how fast cost keeps up with the pool as gear ranks up, since rank adds mass. At 1.2 a hammer costs ~5x a light blade.")]
+		private float exertionMassExponent = 1.2f;
+		[SerializeField, Min(0.01f), Tooltip("Lightest mass any strike is priced at. Limbless strikes (kicks, body rams) carry no limb mass at all and are floored here, so they still cost something.")]
+		private float exertionFloorMass = 1f;
+
+		/// <summary>
+		/// Universal exertion factor: what a swing costs relative to its authored cost, as
+		/// <c>(mass / referenceMass) ^ exponent</c> — 1 at the reference. Armed strikes pass limb+weapon mass against
+		/// <see cref="ExertionRefMass"/>, unarmed ones pass StrikeMass against <see cref="ExertionRefBodyMass"/>.
+		/// Single source of truth for the performer, move-selection and the AI's affordability gate.
+		/// </summary>
+		public float ExertionFactor(float mass, float referenceMass)
+		{
+			return Mathf.Pow(Mathf.Max(mass, exertionFloorMass) / Mathf.Max(referenceMass, 0.01f), exertionMassExponent);
 		}
 	}
 }

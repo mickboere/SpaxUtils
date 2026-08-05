@@ -170,6 +170,7 @@
 		public const string STATIC = BODY_LIGHT + "Static"; // POINTSTAT: Amount of spendable charging points.
 		public const string PIERCE = BODY_LIGHT + "Pierce"; // PHYSIC: The body's piercing damage output (crits).
 		public const string STORM_SPEED = BODY_LIGHT + "Storm_Speed"; // Speed while storming during a charged attack.
+		public const string STICK_AIM = BODY_LIGHT + "Stick_Aim"; // How well a melee stick's heading can be corrected mid-swing (0-1).
 
 		// Air
 		private const string BODY_AIR = BODY_STAT + "AIR/";
@@ -180,6 +181,7 @@
 		public const string GLIDE_SPEED = BODY_AIR + "Glide_Speed"; // Speed of the gliding state (after dashing).
 		public const string JUMP_SPEED = BODY_AIR + "Jump_Speed"; // Speed multiplier of the jump performance.
 		public const string AIR_CONTROL = BODY_AIR + "Air_Control"; // Amount of air-control (0-1).
+		public const string STICK_RANGE = BODY_AIR + "Stick_Range"; // Multiplier on how far a melee attack can stick (lunge) to close its gap.
 
 		// Spirit
 		private const string BODY_SPIRIT = BODY_STAT + "SPIRIT/";

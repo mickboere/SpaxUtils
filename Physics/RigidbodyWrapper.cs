@@ -122,6 +122,15 @@ namespace SpaxUtils
 		/// </summary>
 		public Vector3 Acceleration { get; private set; }
 
+		/// <summary>Instantaneous velocity changes queued since the last physics step but not yet simulated.</summary>
+		public Vector3 PendingVelocityChange { get; private set; }
+
+		/// <summary>
+		/// What this body is about to be doing. MUST be read instead of <see cref="Velocity"/> when sizing an impulse
+		/// outside FixedUpdate — <see cref="Velocity"/> stays stale all step, so corrections re-apply every frame.
+		/// </summary>
+		public Vector3 PredictedVelocity => Velocity + PendingVelocityChange;
+
 		/// <summary>
 		/// Average change in velocity of the rigidbody in local space (readonly).
 		/// </summary>
@@ -273,6 +282,9 @@ namespace SpaxUtils
 			previousVelocity = Velocity;
 			previousPosition = Position;
 			PhysicsStep++;
+
+			// Execution order 1000 runs this last, so anything queued is about to be simulated.
+			PendingVelocityChange = Vector3.zero;
 		}
 
 		protected void Initialize()
@@ -291,6 +303,16 @@ namespace SpaxUtils
 		{
 			float multiplier = forceMode == ForceMode.Force || forceMode == ForceMode.Acceleration ? timeScale : 1f;
 			Rigidbody.AddForce(force * multiplier, forceMode);
+
+			// Impulses only; Force/Acceleration act over the step. See PredictedVelocity.
+			if (forceMode == ForceMode.VelocityChange)
+			{
+				PendingVelocityChange += force;
+			}
+			else if (forceMode == ForceMode.Impulse)
+			{
+				PendingVelocityChange += force / Mass;
+			}
 
 			if (debug && log && forces)
 			{
@@ -322,7 +344,8 @@ namespace SpaxUtils
 				mass = Mass;
 			}
 
-			Vector3 push = Velocity.CalculatePush(velocity, out _);
+			// Predicted, so two hits landing in the same physics step don't each push to full speed.
+			Vector3 push = PredictedVelocity.CalculatePush(velocity, out _);
 			AddForce(push * mass / Mass, ForceMode.VelocityChange);
 		}
 

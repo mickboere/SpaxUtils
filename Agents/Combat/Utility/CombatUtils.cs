@@ -357,25 +357,6 @@ namespace SpaxUtils
 			}
 		}
 
-		/// <summary>
-		/// Given a melee move and a chargeFactor (1..2), estimate the storm distance
-		/// and effective reach (baseReach + storm travel).
-		/// </summary>
-		public static float GetStormReach(IMeleeCombatMove meleeMove, float baseReach, float chargeFactor, out float stormDistance)
-		{
-			stormDistance = 0f;
-			if (meleeMove == null || meleeMove.StormDistance <= 0f || chargeFactor <= 1f)
-			{
-				return baseReach;
-			}
-
-			// Only the "excess" over 1 increases storm distance.
-			float excess = Mathf.Clamp01(chargeFactor - 1f); // 0..1
-			stormDistance = meleeMove.StormDistance * excess;
-
-			return baseReach + stormDistance;
-		}
-
 		#endregion // Charge Prediction
 
 		#region Ally Threat

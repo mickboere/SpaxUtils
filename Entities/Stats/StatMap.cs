@@ -20,7 +20,9 @@ namespace SpaxUtils
 		{
 			get
 			{
-				if (_statMappings == null)
+				// Count check as well as null: an early reader (edit-mode Entity injection fires before deserialization
+				// completes) would otherwise latch an empty list, which is not null and so never rebuilds.
+				if (_statMappings == null || _statMappings.Count == 0)
 				{
 					_statMappings = statMappings.ToList();
 					foreach (StatOctadMapping octadMapping in octadMappings)
@@ -50,14 +52,34 @@ namespace SpaxUtils
 		private List<string> dataMappings;
 
 		/// <summary>
+		/// Drops the cache so the next read rebuilds it. Runs after deserialization, discarding any cache
+		/// an early reader built from incomplete data.
+		/// </summary>
+		protected void OnEnable()
+		{
+			_statMappings = null;
+		}
+
+#if UNITY_EDITOR
+		/// <summary>
+		/// Rebuilds on inspector edits, which would otherwise not apply until the next domain reload.
+		/// </summary>
+		protected void OnValidate()
+		{
+			_statMappings = null;
+		}
+#endif
+
+		/// <summary>
 		/// Returns ALL mappings that originate from <paramref name="fromStat"/>.
 		/// Useful for equipment or modifiers where one source stat might affect multiple destination stats.
 		/// </summary>
-		public IEnumerable<StatMapping> GetMappingsFrom(string fromStat)
+		/// <param name="includeDisabled">Also return mappings that are switched off in the sheet.</param>
+		public IEnumerable<StatMapping> GetMappingsFrom(string fromStat, bool includeDisabled = false)
 		{
 			foreach (StatMapping m in StatMappings)
 			{
-				if (m.FromStat == fromStat)
+				if (m.FromStat == fromStat && (includeDisabled || m.Enabled))
 				{
 					yield return m;
 				}
@@ -67,12 +89,13 @@ namespace SpaxUtils
 		/// <summary>
 		/// Tries to find a specific mapping connecting <paramref name="fromStat"/> to <paramref name="toStat"/>.
 		/// </summary>
-		public bool TryGetMapping(string fromStat, string toStat, out StatMapping mapping)
+		/// <param name="includeDisabled">Also match mappings that are switched off in the sheet.</param>
+		public bool TryGetMapping(string fromStat, string toStat, out StatMapping mapping, bool includeDisabled = false)
 		{
 			// We iterate over the full property to ensure we catch Octad-generated mappings too.
 			foreach (StatMapping m in StatMappings)
 			{
-				if (m.FromStat == fromStat && m.ToStat == toStat)
+				if (m.FromStat == fromStat && m.ToStat == toStat && (includeDisabled || m.Enabled))
 				{
 					mapping = m;
 					return true;

@@ -51,7 +51,9 @@ namespace SpaxUtils
 		{
 			get
 			{
-				if (_materials == null)
+				// Count check as well as null: a read before deserialization completes would otherwise
+				// latch an empty dictionary, which is not null and so never rebuilds.
+				if (_materials == null || _materials.Count == 0)
 				{
 					_materials = materials.ToDictionary((m) => m.source.name, (m) => m);
 				}
@@ -64,7 +66,7 @@ namespace SpaxUtils
 		{
 			get
 			{
-				if (_bodyParts == null)
+				if (_bodyParts == null || _bodyParts.Count == 0)
 				{
 					_bodyParts = bodyParts.ToDictionary((m) => m.location, (m) => m);
 				}
@@ -75,6 +77,22 @@ namespace SpaxUtils
 
 		[SerializeField] private List<MaterialList> materials;
 		[SerializeField] private List<BodyPartList> bodyParts;
+
+		/// <summary>Drops the caches so the next read rebuilds them; runs after deserialization.</summary>
+		protected void OnEnable()
+		{
+			_materials = null;
+			_bodyParts = null;
+		}
+
+#if UNITY_EDITOR
+		/// <summary>Rebuilds on inspector edits, which would otherwise not apply until the next domain reload.</summary>
+		protected void OnValidate()
+		{
+			_materials = null;
+			_bodyParts = null;
+		}
+#endif
 
 		/// <summary>
 		/// Retrieves an entity material by name.

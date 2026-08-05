@@ -9,13 +9,6 @@ namespace SpaxUtils
 	public interface IMeleeCombatMove : ICombatMove
 	{
 		/// <summary>
-		/// The type of attack pattern this combat move utilizes.
-		///		- Horizontal: Best way to avoid is moving backwards.
-		///		- Vertical: Best way to avoid is moving to the side.
-		/// </summary>
-		MeleeAttackDirection AttackDirection { get; }
-
-		/// <summary>
 		/// Collection of hit-box bone identifiers for this move's performance.
 		/// </summary>
 		List<string> HitBoxes { get; }
@@ -25,34 +18,26 @@ namespace SpaxUtils
 		/// </summary>
 		float HitDetectionDelay { get; }
 
-		/// <summary>
-		/// Whether the attack has a custom hit-direction.
-		/// When FALSE, the default calculated direction will be passed into the hit.
-		/// </summary>
-		bool CustomDirection { get; }
-
-		/// <summary>
-		/// The custom relative hit-direction to use when <see cref="CustomDirection"/> is TRUE.
-		/// Does not need to be a normalized value, can exceed power capacity.
-		/// </summary>
-		Vector3 HitDirection { get; }
-
 		#region Momentum
 
 		/// <summary>
-		/// The relative inertia of this combat move to apply to the user.
+		/// Which way this strike travels, in the agent's local space. The single source of a move's geometry —
+		/// it decides the knockback direction, how far the move lunges, how hard it shoves, and how it must be
+		/// dodged. Replaces the old AttackDirection enum, HitDirection and Inertia, which each described a
+		/// different facet of the same thing and could disagree.
+		///		- z THRUST: −1 withdraw ... +1 lunge. Only the forward half buys stick range.
+		///		- y LIFT: −1 chop down ... +1 rise.
+		///		- x SWEEP: −1 left ... +1 right. Produces a small lateral step, never enough to lose the target.
+		/// MAGNITUDE IS COMMITMENT: a (0,0,1) thrust and a (0,0,0.4) jab differ in lunge and shove with no
+		/// second field. Zero-length means no strike geometry at all — the hit falls back to the swept
+		/// contact direction and the move neither lunges nor shoves.
 		/// </summary>
-		public Vector3 Inertia { get; }
+		Vector3 StrikeDirection { get; }
 
 		/// <summary>
-		/// The delay in applied inertia into the performance runtime.
+		/// The delay before the move's approach begins, into the performance runtime.
 		/// </summary>
 		public float InertiaDelay { get; }
-
-		/// <summary>
-		/// The (maximum) traversable distance when performing a charged attack.
-		/// </summary>
-		public float StormDistance { get; }
 
 		/// <summary>
 		/// Whether the charge pose should be held until done applying momentum.
@@ -74,11 +59,10 @@ namespace SpaxUtils
 		string Limb { get; }
 
 		/// <summary>
-		/// Fraction of total body mass put behind a limb-less strike (kicks, body rams). Used as the hit mass
-		/// when no <see cref="Limb"/> is assigned, driving knockback/impact and exertion. Wield speed & power
-		/// are unaffected (treated as a natural, weapon-independent strike).
+		/// Fraction of total body mass this strike commits; blends the limb mass toward whole-body for the hit.
+		/// Doubles as the hit mass for limb-less strikes (kicks, body rams) with no MASS substat.
 		/// </summary>
-		float NaturalStrikeMassFraction { get; }
+		float BodyMassFraction { get; }
 
 		/// <summary>
 		/// When true, the weapon equipped on <see cref="Limb"/> contributes its PhysicsDistribution to the hit.
@@ -87,19 +71,27 @@ namespace SpaxUtils
 		bool UseArmament { get; }
 
 		/// <summary>
-		/// Percentage of user's Slash that gets transfered into the attack.
+		/// Percentage of user's Slash that gets transfered into the attack. UNARMED ONLY — when
+		/// <see cref="UseArmament"/> is true the weapon alone decides which axes the strike fulfills.
 		/// </summary>
 		float Slash { get; }
 
 		/// <summary>
-		/// Percentage of user's Power that gets transfered into the attack.
+		/// Percentage of user's Power that gets transfered into the attack. UNARMED ONLY — see <see cref="Slash"/>.
 		/// </summary>
 		float Power { get; }
 
 		/// <summary>
-		/// Percentage of user's Pierce that gets transfered into the attack.
+		/// Percentage of user's Pierce that gets transfered into the attack. UNARMED ONLY — see <see cref="Slash"/>.
 		/// </summary>
 		float Pierce { get; }
+
+		/// <summary>
+		/// Scalar on the move's TOTAL output; 1 is a normal strike, above 1 a special/finisher that hits harder
+		/// than the base stats allow. Never touches distribution — what the strike hits WITH stays the weapon's
+		/// call (or the sliders' when unarmed).
+		/// </summary>
+		float OutputScale { get; }
 
 		/// <summary>
 		/// When true, this move uses its own <see cref="ChargeBalance"/>/<see cref="PerformBalance"/>

@@ -147,9 +147,15 @@ namespace SpaxUtils
 				case FormulaType.Extrapolate:
 					yield return "pointA";
 					yield return "pointB";
+					yield return "scale";
 					yield return "shift";
 					break;
-				// LevelToPointsStat (7), LevelToPhysic (8), ExpToLevel (9) and ExpToRank (10): no configurable fields
+				default:
+					// LevelToPointsStat (7), LevelToPhysic (8), ExpToLevel (9) and ExpToRank (10):
+					// fixed curves, only scale and shift are configurable.
+					yield return "scale";
+					yield return "shift";
+					break;
 			}
 
 			yield return "modMethod";

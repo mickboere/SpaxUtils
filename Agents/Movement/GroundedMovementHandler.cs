@@ -448,6 +448,19 @@ namespace SpaxUtils
 			return speed * moveSpeedStat;
 		}
 
+		/// <summary>
+		/// Planted-stop deceleration (Control = 0). A performed act sets Control = 0, so ApplyMovement brakes
+		/// toward zero at a force capped to maxBrake · Mobility (see UpdateMovement → ApplyMovement) → effectively
+		/// constant deceleration. maxBrake = maxDeceleration · deFalloff(0) / loadSpeedMod (planted stops are
+		/// stronger under load). Shared by the braking distance/speed pair so they stay exact inverses.
+		/// </summary>
+		private float PlantedDeceleration()
+		{
+			float maxBrake = maxDeceleration * decelerationFalloff.Evaluate(0f) / LoadSpeedMod;
+			float mass = Mathf.Max(rigidbodyWrapper.Mass, 0.0001f);
+			return maxBrake * grounder.Mobility / mass;
+		}
+
 		/// <inheritdoc/>
 		public float PredictBrakingDistance(float speed)
 		{
@@ -456,12 +469,7 @@ namespace SpaxUtils
 				return 0f;
 			}
 
-			// A performed act sets Control = 0, so ApplyMovement brakes toward zero at a force capped to
-			// maxBrake · Mobility (see UpdateMovement → ApplyMovement) → effectively constant deceleration.
-			// maxBrake = maxDeceleration · deFalloff(0) / loadSpeedMod (planted stops are stronger under load).
-			float maxBrake = maxDeceleration * decelerationFalloff.Evaluate(0f) / LoadSpeedMod;
-			float mass = Mathf.Max(rigidbodyWrapper.Mass, 0.0001f);
-			float decel = maxBrake * grounder.Mobility / mass;
+			float decel = PlantedDeceleration();
 			return decel > 0.0001f ? (speed * speed) / (2f * decel) : 0f;
 		}
 
