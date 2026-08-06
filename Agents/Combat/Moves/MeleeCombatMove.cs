@@ -11,14 +11,20 @@ namespace SpaxUtils
 	public class MeleeCombatMove : BaseCombatMove, IMeleeCombatMove
 	{
 		public List<string> HitBoxes => hitBoxes;
-		public float HitDetectionDelay => hitDetectionDelay;
+		// Both delays are RunTime thresholds measured from performance start, while markers are absolute
+		// clip positions - hence the origin subtraction. Part of the migration layer in PerformanceMove.
+		public float HitDetectionDelay => UseTimeline
+			? Mathf.Max(0f, Timeline.TimeOf(TimelineMarkerIdentifiers.HIT, PerformOrigin) - PerformOrigin)
+			: hitDetectionDelay;
 		/// <inheritdoc/>
 		/// <remarks>
 		/// Assembled from the three axis sliders. Clamped to unit length so a move using several axes at once
 		/// cannot silently read as over-committed (three maxed sliders would otherwise magnitude to 1.73).
 		/// </remarks>
 		public Vector3 StrikeDirection => Vector3.ClampMagnitude(new Vector3(sweep, lift, thrust), 1f);
-		public float InertiaDelay => inertiaDelay;
+		public float InertiaDelay => UseTimeline
+			? Mathf.Max(0f, Timeline.TimeOf(TimelineMarkerIdentifiers.INERTIA, PerformOrigin) - PerformOrigin)
+			: inertiaDelay;
 		public bool PrelongCharge => prelongCharge;
 		public float ProlongThreshold => prolongThreshold;
 		public string Limb => limb;

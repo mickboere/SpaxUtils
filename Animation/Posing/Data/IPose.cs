@@ -28,6 +28,11 @@ namespace SpaxUtils
 		ILabeledDataProvider Data { get; }
 
 		/// <summary>
+		/// Raw curve behind <see cref="EvaluateTransition"/>, for tooling that must carry it elsewhere.
+		/// </summary>
+		AnimationCurve TransitionCurve { get; }
+
+		/// <summary>
 		/// Evaluate the transition amount to this pose where <paramref name="x"/> is progress from another (0) to this pose (1).
 		/// </summary>
 		/// <param name="x">The progress from another (0) to this pose (1).</param>

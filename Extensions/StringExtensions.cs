@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
+using UnityEngine;
 
 namespace SpaxUtils
 {
@@ -201,6 +202,44 @@ namespace SpaxUtils
 		}
 
 		#endregion Hashing
+
+		#region Coloring
+
+		/// <summary>Distinct hues a string can map to. Fewer means further apart, so more telling apart.</summary>
+		private const int HUE_SLOTS = 12;
+
+		/// <summary>
+		/// Stable colour derived from the string itself. Only the HUE carries the identity - saturation and
+		/// value are fixed, so every generated colour reads at the same weight instead of some landing on
+		/// near-black or grey.
+		/// </summary>
+		/// <param name="saturation">Fixed saturation of the result.</param>
+		/// <param name="value">Fixed value (brightness) of the result.</param>
+		public static Color ToColor(this string s, float saturation = 0.6f, float value = 1f)
+		{
+			// Deterministic rather than GetHashCode: string hashing is not guaranteed stable across runtimes,
+			// and a colour that changes between editor launches is worse than no colour at all.
+			// Masked, not Abs: Abs(int.MinValue) overflows.
+			int hash = s.GetDeterministicHashCode() & 0x7FFFFFFF;
+
+			// Quantised into slots rather than mapped straight onto a continuous hue. Across a handful of
+			// strings a raw hash clusters, and two hues ten degrees apart are indistinguishable; slots
+			// guarantee 30 degrees between any two, and a second shade doubles the distinct results.
+			float hue = hash % HUE_SLOTS / (float)HUE_SLOTS;
+
+			// The second dimension rides SATURATION, never value. Dimming is what makes a colour unreadable
+			// against a dark theme, and it compounds with whatever value the caller asked for.
+			float shade = hash / HUE_SLOTS % 2 == 0 ? 1f : 0.5f;
+			return Color.HSVToRGB(hue, Mathf.Clamp01(saturation * shade), Mathf.Clamp01(value));
+		}
+
+		/// <inheritdoc cref="ToColor"/>
+		public static string ToColorHex(this string s, float saturation = 0.6f, float value = 1f)
+		{
+			return ColorUtility.ToHtmlStringRGB(s.ToColor(saturation, value));
+		}
+
+		#endregion Coloring
 
 		#region Distance functions
 

@@ -19,16 +19,19 @@ namespace SpaxUtils
 
 		public int Priority => 0;
 		public IAct Act { get; }
-		public PerformanceState State { get; set; }
-		public float RunTime { get; private set; }
-		public float Weight { get; private set; }
+
+		// All clock state lives in the sample; these are views onto it so the runtime and an editor
+		// preview advance identical logic. See PerformanceClock.
+		public PerformanceState State { get => sample.State; set => sample.State = value; }
+		public float RunTime => sample.RunTime;
+		public float Weight => sample.Weight;
 
 		#endregion IPerformer Properties
 
 		#region IMovePerformer Properties
 
 		public IPerformanceMove Move { get; private set; }
-		public float ChargeTime { get; private set; }
+		public float ChargeTime => sample.ChargeTime;
 
 		/// <summary>Surfaces the live charge from whichever behaviour provides one (e.g. the melee swing); 1 when none.</summary>
 		public float ChargeMultiplier
@@ -49,7 +52,7 @@ namespace SpaxUtils
 		public bool Prolong { get; set; }
 		public bool Paused { get; set; }
 		public bool Canceled { get; private set; }
-		public float CancelTime { get; private set; }
+		public float CancelTime => sample.CancelTime;
 
 		#endregion IMovePerformer Properties
 
@@ -59,6 +62,7 @@ namespace SpaxUtils
 		private CallbackService callbackService;
 
 		private List<BehaviourAsset> behaviours;
+		private PerformanceSample sample;
 		private bool released;
 		private bool startedPerformance;
 
@@ -77,10 +81,7 @@ namespace SpaxUtils
 			this.callbackService = callbackService;
 			Act = act;
 			Move = move;
-			State = Move.HasCharge ? PerformanceState.Preparing : PerformanceState.Performing;
-			RunTime = 0f;
-			Weight = 0f;
-			ChargeTime = 0f;
+			sample = PerformanceSample.Create(move);
 			Prolong = false;
 			Paused = false;
 
@@ -152,33 +153,18 @@ namespace SpaxUtils
 
 		private void Update()
 		{
+			EntityStat chargeSpeed = agent.Stats.GetStat(Move.ChargeSpeedMultiplierStat);
+			EntityStat performSpeed = agent.Stats.GetStat(Move.PerformSpeedMultiplierStat);
+			PerformanceClockInput input = PerformanceClockInput.Create(sample, Time.deltaTime,
+				chargeSpeed ?? 1f, performSpeed ?? 1f, entityTimeScale, released, Prolong, Paused);
+
 			if (!Canceled)
 			{
-				EntityStat speedMult = State == PerformanceState.Preparing ? agent.Stats.GetStat(Move.ChargeSpeedMultiplierStat) : agent.Stats.GetStat(Move.PerformSpeedMultiplierStat);
-				float delta = Time.deltaTime * (speedMult ?? 1f) * entityTimeScale;
+				sample = PerformanceClock.AdvanceCharge(Move, sample, input);
 
-				if (State == PerformanceState.Preparing)
-				{
-					// Preparing (charging).
-					if (ChargeTime < Move.MinCharge && released && ChargeTime + delta >= Move.MinCharge)
-					{
-						// Released before we finished charging, make sure we don't overcharge.
-						ChargeTime = Move.MinCharge;
-						State = PerformanceState.Performing;
-					}
-					else
-					{
-						ChargeTime += delta;
-						if (ChargeTime >= Move.MinCharge && released)
-						{
-							// Finished charging.
-							State = PerformanceState.Performing;
-						}
-					}
-					Weight = Mathf.Clamp01(ChargeTime / Move.MinCharge);
-				}
-				// No else statement here to remove frame delay.
-				if (State != PerformanceState.Preparing)
+				// Phases are stepped separately rather than via Advance so the started event still fires
+				// BEFORE RunTime moves, and still within the frame charging completed.
+				if (sample.State != PerformanceState.Preparing)
 				{
 					if (!startedPerformance)
 					{
@@ -186,47 +172,12 @@ namespace SpaxUtils
 						startedPerformance = true;
 					}
 
-					// Performing.
-					if (!Paused && (State != PerformanceState.Performing || !Prolong || RunTime + delta < Move.MinDuration))
-					{
-						RunTime += delta;
-					}
-
-					if (RunTime >= Move.TotalDuration)
-					{
-						// Completed
-						State = PerformanceState.Completed;
-					}
-					else if (RunTime >= Move.MinDuration)
-					{
-						// Finishing
-						State = PerformanceState.Finishing;
-					}
-
-					Weight = ((RunTime - Move.MinDuration) / Move.Release).InvertClamped();
+					sample = PerformanceClock.AdvancePerformance(Move, sample, input);
 				}
 			}
 			else
 			{
-				// When canceling from Preparing, seed CancelTime so the weight starts
-				// where ChargeTime/MinCharge left off (avoids a 1-frame snap to full weight).
-				if (State == PerformanceState.Preparing && Move.CancelDuration > 0f && Move.MinCharge > 0f)
-				{
-					float prepareWeight = Mathf.Clamp01(ChargeTime / Move.MinCharge);
-					CancelTime = (1f - prepareWeight) * Move.CancelDuration;
-				}
-
-				State = PerformanceState.Finishing;
-
-				CancelTime += Time.deltaTime * entityTimeScale;
-
-				if (CancelTime >= Move.CancelDuration)
-				{
-					// Completed cancel fadeout.
-					State = PerformanceState.Completed;
-				}
-
-				Weight = (CancelTime / Move.CancelDuration).InvertClamped();
+				sample = PerformanceClock.AdvanceCancel(Move, sample, input);
 			}
 
 			UpdateBehaviours();
@@ -235,7 +186,7 @@ namespace SpaxUtils
 
 			if (State == PerformanceState.Completed)
 			{
-				Weight = 0f;
+				sample.Weight = 0f;
 				PerformanceCompletedEvent?.Invoke(this);
 			}
 		}
@@ -263,11 +214,16 @@ namespace SpaxUtils
 
 		private void UpdateBehaviours()
 		{
+			// Behaviours run on the PERFORMANCE's clock, not the frame's. Handing them raw deltaTime let
+			// every timer inside them count down at wall speed while the agent moved at entity timescale -
+			// so at 0.2x a leap's travel timer expired before it had covered any ground.
+			float delta = Time.deltaTime * entityTimeScale;
+
 			foreach (BehaviourAsset behaviour in behaviours)
 			{
 				if (behaviour is IUpdatable updatable)
 				{
-					updatable.ExternalUpdate(Time.deltaTime);
+					updatable.ExternalUpdate(delta);
 				}
 			}
 		}

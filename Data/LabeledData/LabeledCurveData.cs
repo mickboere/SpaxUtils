@@ -14,6 +14,12 @@ namespace SpaxUtils
 		[SerializeField, ConstDropdown(typeof(ILabeledDataIdentifiers))] private string identifier;
 		[SerializeField] private AnimationCurve curve;
 
+		public LabeledCurveData(string identifier, AnimationCurve curve)
+		{
+			this.identifier = identifier;
+			this.curve = curve;
+		}
+
 		public float Evaluate(float progress)
 		{
 			return curve.Evaluate(progress);

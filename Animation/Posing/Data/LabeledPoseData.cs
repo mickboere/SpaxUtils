@@ -15,6 +15,20 @@ namespace SpaxUtils
 		[SerializeField] private List<LabeledFloatData> floatData;
 		[SerializeField] private List<LabeledBoolData> boolData;
 
+		public LabeledPoseData()
+		{
+			curveData = new List<LabeledCurveData>();
+			floatData = new List<LabeledFloatData>();
+			boolData = new List<LabeledBoolData>();
+		}
+
+		/// <summary>Adds or replaces a labeled curve. Used by conversion tooling.</summary>
+		public void SetCurve(string identifier, AnimationCurve curve)
+		{
+			curveData.RemoveAll((d) => d.ID == identifier);
+			curveData.Add(new LabeledCurveData(identifier, curve));
+		}
+
 		/// <inheritdoc/>
 		public bool TryGet<T>(string identifier, T defaultIfNull, out T result)
 		{

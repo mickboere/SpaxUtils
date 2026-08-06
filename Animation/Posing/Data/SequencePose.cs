@@ -11,6 +11,7 @@ namespace SpaxUtils
 		public bool Mirror => mirror;
 		public float Duration => duration;
 		public ILabeledDataProvider Data => data;
+		public AnimationCurve TransitionCurve => transition;
 
 		public float ElementWeight => Duration;
 

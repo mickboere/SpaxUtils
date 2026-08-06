@@ -9,10 +9,21 @@ namespace SpaxUtils
 	/// Behaviour for melee IMeleeCombatMove that manages hit-detection during performance.
 	/// </summary>
 	[CreateAssetMenu(fileName = nameof(MeleeCombatBehaviourAsset), menuName = "Performance/Behaviour/" + nameof(MeleeCombatBehaviourAsset))]
-	public class MeleeCombatBehaviourAsset : BaseCombatMoveBehaviourAsset, IChargeProvider
+	public class MeleeCombatBehaviourAsset : BaseCombatMoveBehaviourAsset, IChargeProvider, ILungeProvider
 	{
 		/// <inheritdoc/>
 		public float ChargeMultiplier => totalCharge;
+
+		/// <inheritdoc/>
+		public bool Lunging => stickTravelling;
+
+		/// <summary>
+		/// How much of the gap has closed, not how long it has taken - a slow leap and a fast one both read
+		/// the same fraction of the way in, which is what lets the region lead into the swing either way.
+		/// </summary>
+		public float LungeProgress => stickGap > 0.0001f
+			? Mathf.Clamp01(1f - stickRemaining / stickGap)
+			: 1f;
 
 		[Header("Hit Detection")]
 		[SerializeField] private LayerMask hitDetectionMask;
@@ -78,7 +89,6 @@ namespace SpaxUtils
 		private CombatHitDetector hitDetector;
 		private bool wasScanning;
 		private float lastRunTime;
-		private TimerClass inertiaTimer;
 		private TimedCurveModifier hitPauseMod;
 		private float totalCharge;
 		private float accumulatedChargePoints; // New: Tracks raw drain for pierce
@@ -93,6 +103,10 @@ namespace SpaxUtils
 		private float stickSpeed;
 		private float stickBudget;
 		private float stickTravelled;
+		private float stickGap;
+		private float stickRemaining;
+		private bool inertiaPending;
+		private float pendingInertia;
 		private Vector3 stickLastPosition;
 		private float stickLastDistance;
 		private float stickClosingRate;
@@ -183,6 +197,8 @@ namespace SpaxUtils
 			maxReach = 0f;
 			stickTravelling = false;
 			stickBraking = false;
+			inertiaPending = false;
+			pendingInertia = 0f;
 
 			// Compute wield ratio and base factors once per behaviour instance.
 			if (limbMassStat != null)
@@ -249,6 +265,10 @@ namespace SpaxUtils
 
 			stickBraking = false;
 			movementHandler.AutoUpdateMovement = true;
+
+			// A cancelled swing never gets its lurch.
+			inertiaPending = false;
+
 			stormShake?.Dispose();
 			swingShake?.Dispose();
 		}
@@ -291,12 +311,12 @@ namespace SpaxUtils
 					swingPhaseSpeedMod.SetValue(phaseMult);
 				}
 
-				// Begin the approach once the move's own delay has passed.
-				if (inertiaTimer != null && inertiaTimer.Expired)
+				// The swing's own forward lurch, fired off RunTime rather than a wall clock so it lands on
+				// the INERTIA marker exactly - InertiaDelay IS that marker's offset from the swing's start.
+				if (inertiaPending && Performer.RunTime >= move.InertiaDelay)
 				{
-					BeginApproach();
-					inertiaTimer.Dispose();
-					inertiaTimer = null;
+					inertiaPending = false;
+					ApplyInertia();
 				}
 
 				// Drive it, and hold the swing until it has arrived (or clearly won't).
@@ -561,10 +581,8 @@ namespace SpaxUtils
 			{
 				// Nothing to leap at: swing out at once, carrying a fraction of a full leap's speed. It plants
 				// exactly like a leap does — the two only differ in how they get moving, never in how they stop.
-				float idleSpeed = LeapSpeed(combatComponent.ComputeStickRange(move)) * combatSettings.StickIdleInertia;
-				rigidbodyWrapper.Push(stickHeading * idleSpeed);
 				OnSwing();
-				BeginPlant(idleSpeed);
+				BeginInertia();
 				return;
 			}
 
@@ -582,6 +600,10 @@ namespace SpaxUtils
 			stickSpeed = Mathf.Max(stickSpeed, 0.01f);
 			stickDesired = desired;
 			stickLastDistance = distance;
+			// The gap a Lunging region plays across. Progress is measured against THIS, not the clamped
+			// cover, so a leap that falls short still reads as partway rather than complete.
+			stickGap = gap;
+			stickRemaining = gap;
 			// Before the gap has moved, we are the only thing closing it.
 			stickClosingRate = stickSpeed;
 			// THE range cap: sizing speed to 'cover' doesn't bound distance, so meter real ground against a budget.
@@ -651,6 +673,7 @@ namespace SpaxUtils
 						Mathf.Max(performSpeedStat != null ? performSpeedStat.Value : 1f, 0.01f);
 					// A stalled or retreating gap gives no arrival time — budget and timeout own those cases.
 					float remaining = distance - stickDesired;
+					stickRemaining = Mathf.Max(0f, remaining);
 					float timeToArrive = remaining <= 0f ? 0f
 						: stickClosingRate > 0.01f ? remaining / stickClosingRate
 						: float.MaxValue;
@@ -687,7 +710,38 @@ namespace SpaxUtils
 			Performer.Paused = false;
 			OnSwing();
 
+			// Brake the LEAP immediately - a swing that hangs before releasing must not drift onward at leap
+			// speed while it waits. The swing's own lurch then arrives later and plants itself in turn.
 			BeginPlant(stickSpeed);
+			BeginInertia();
+		}
+
+		/// <summary>
+		/// The forward lurch the swing itself gives the body. Held back by InertiaDelay so it lands on the frame
+		/// the animation throws its weight, rather than the instant the swing was released.
+		/// </summary>
+		private void BeginInertia()
+		{
+			// A PUSH, not an add: it cannot stack, so a swing following a fast leap is simply a no-op rather
+			// than launching the agent. That is why the same value is used whether or not there was a leap.
+			pendingInertia = LeapSpeed(combatComponent.ComputeStickRange(move)) * combatSettings.StickIdleInertia;
+
+			if (move.InertiaDelay <= 0f)
+			{
+				ApplyInertia();
+				return;
+			}
+
+			inertiaPending = true;
+		}
+
+		private void ApplyInertia()
+		{
+			rigidbodyWrapper.Push(stickHeading * pendingInertia);
+
+			// Brake the lurch too. The leap already got its own plant on landing; without this second one a
+			// staggered swing would coast on whichever push came last.
+			BeginPlant(pendingInertia);
 		}
 
 		/// <summary>
@@ -783,7 +837,9 @@ namespace SpaxUtils
 				});
 			}
 
-			inertiaTimer = new TimerClass(move.InertiaDelay, () => timescaleStat, callbackService);
+			// Closing the gap starts the moment the swing is released. InertiaDelay used to gate this, but it
+			// marks where the swing's own momentum carries the body - which is after the approach, not before.
+			BeginApproach();
 
 			// Exertion: priced on LIMB mass by the combat authority, not the strike's mass — what a swing costs the
 			// body is what it wields, while StrikeMass is what the hit lands with. Play the audio off the drain.

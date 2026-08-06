@@ -37,7 +37,8 @@ namespace SpaxUtils
 				string textColor = color.HasValue ? textColor = ColorUtility.ToHtmlStringRGB(color.Value) :
 					(UnityEditor.EditorGUIUtility.isProSkin ? ColorUtility.ToHtmlStringRGB(Color.white) : ColorUtility.ToHtmlStringRGB(Color.black));
 				//string log = $"<color=#acd1e3>[{Time.frameCount}] <b>[{caller}]</b></color> <color=#{c}>{coloredText}</color>{nonColoredText}\n";
-				string signatureColor = caller.ToColorHex(0.5f, 0.7f);
+				// Full value: these sit on the console's dark background, where anything dimmed is unreadable.
+				string signatureColor = caller.ToColorHex();
 				string log = $"[{Time.frameCount}] <color=#{signatureColor}><b>[{caller}]</b></color> <color=#{textColor}>{coloredText}</color> {nonColoredText}\n";
 #else
 				string log = $"[{caller}]({Time.frameCount}) {coloredText}{nonColoredText}";
@@ -75,38 +76,5 @@ namespace SpaxUtils
 			Log(header, " " + body, LogType.Error, Color.red, context, 2);
 		}
 
-		public static string ToColorHex(this string inputString)
-		{
-			string result = inputString.GetHashCode().ToString("x6").Substring(0, 6);
-			return result;
-		}
-
-		public static Color ToColor(this string inputString, float minSat = -1, float minVal = -1)
-		{
-			string hex = inputString.ToColorHex();
-			if (ColorUtility.TryParseHtmlString($"#{hex}", out Color color))
-			{
-				if (minSat > 0 || minVal > 0)
-				{
-					Color.RGBToHSV(color, out float h, out float s, out float v);
-					s = Mathf.Max(minSat, s);
-					v = Mathf.Max(minVal, v);
-					return Color.HSVToRGB(h, s, v);
-				}
-				return color;
-			}
-			else
-			{
-				Color errorPink = new Color(1f, 0f, 1f);
-				UnityEngine.Debug.LogError($"String could not be converted to color.\n\tinputString={inputString}\n\thexResult={hex}\nReturning <color=#{ColorUtility.ToHtmlStringRGB(errorPink)}>error pink</color>.");
-				return errorPink;
-			}
-		}
-
-		public static string ToColorHex(this string inputString, float minSat = -1f, float minVal = -1f)
-		{
-			Color color = inputString.ToColor(minSat, minVal);
-			return ColorUtility.ToHtmlStringRGBA(color);
-		}
 	}
 }

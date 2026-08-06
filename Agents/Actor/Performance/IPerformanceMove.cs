@@ -39,6 +39,12 @@ namespace SpaxUtils
 		/// </summary>
 		PosingData PosingData { get; }
 
+		/// <summary>
+		/// Clip plus timeline markers driving this move. When set, the timing members below are read from
+		/// its markers instead of serialized floats.
+		/// </summary>
+		AnimationTimeline Timeline { get; }
+
 		#endregion Animation
 
 		/// <summary>

@@ -15,7 +15,12 @@ namespace SpaxUtils
 
 		public ILabeledDataProvider Data { get; }
 
+		/// <summary>Straight line, matching this implementation's linear <see cref="EvaluateTransition"/>.</summary>
+		public AnimationCurve TransitionCurve => linear;
+
 		public float ElementWeight => Duration;
+
+		private static readonly AnimationCurve linear = AnimationCurve.Linear(0f, 0f, 1f, 1f);
 
 		public Pose(AnimationClip clip, bool mirror = false, float duration = 1f, ILabeledDataProvider data = null)
 		{

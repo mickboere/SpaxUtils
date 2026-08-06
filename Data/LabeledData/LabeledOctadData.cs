@@ -10,7 +10,7 @@ namespace SpaxUtils
 		public StatOctad StatOctad => octad.StatOctad;
 		public Vector8 Vector8 => values;
 
-		[SerializeField, Expandable] private StatOctadAsset octad;
+		[SerializeField] private StatOctadAsset octad;
 		[SerializeField] private Vector8 values;
 
 		public void Apply(RuntimeDataCollection runtimeDataCollection, bool overwrite, bool dirty)

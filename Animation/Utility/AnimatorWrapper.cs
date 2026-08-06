@@ -2,6 +2,8 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Animations;
+using UnityEngine.Playables;
 
 namespace SpaxUtils
 {
@@ -32,12 +34,37 @@ namespace SpaxUtils
 			set { Animator.runtimeAnimatorController = value; }
 		}
 
+		/// <summary>
+		/// Whether a controller running inside a custom graph owns the live state. Checked per call rather
+		/// than cached so a destroyed graph falls back to the Animator on its own.
+		/// </summary>
+		private bool Redirected => controllerPlayable.IsValid();
+
 		[SerializeField, Tooltip("Optional")] private Animator animator;
 		[SerializeField, Tooltip("Adds the BlockRootMotion component")] private bool blockRootMotionApplication;
 
 		private Dictionary<string, int> layers = new Dictionary<string, int>();
 		private Dictionary<int, Coroutine> runningBoolCoroutines = new Dictionary<int, Coroutine>();
 		private List<string> cachedParameters;
+		private AnimatorControllerPlayable controllerPlayable;
+
+		#region Controller playable
+
+		/// <summary>
+		/// Points parameter and layer access at a controller running inside a custom <see cref="PlayableGraph"/>.
+		/// Such a playable holds its OWN copy of the state machine, so writes to the Animator never reach it.
+		/// </summary>
+		public void SetControllerPlayable(AnimatorControllerPlayable playable)
+		{
+			controllerPlayable = playable;
+		}
+
+		public void ClearControllerPlayable()
+		{
+			controllerPlayable = default;
+		}
+
+		#endregion Controller playable
 
 		protected void Reset()
 		{
@@ -126,6 +153,12 @@ namespace SpaxUtils
 				return;
 			}
 
+			if (Redirected)
+			{
+				controllerPlayable.SetLayerWeight(index, weight);
+				return;
+			}
+
 			animator.SetLayerWeight(index, weight);
 		}
 
@@ -139,7 +172,7 @@ namespace SpaxUtils
 				return 0f;
 			}
 
-			return animator.GetLayerWeight(index);
+			return Redirected ? controllerPlayable.GetLayerWeight(index) : animator.GetLayerWeight(index);
 		}
 
 		#endregion Layers
@@ -192,6 +225,12 @@ namespace SpaxUtils
 		public void SetTrigger(string param)
 		{
 			int paramHash = GetParamHash(param);
+			if (Redirected)
+			{
+				controllerPlayable.SetTrigger(paramHash);
+				return;
+			}
+
 			animator.SetTrigger(paramHash);
 		}
 
@@ -246,7 +285,7 @@ namespace SpaxUtils
 				runningBoolCoroutines.Remove(paramHash);
 			}
 
-			animator.SetBool(paramHash, value);
+			SetBool(paramHash, value);
 		}
 
 		/// <summary>
@@ -273,7 +312,19 @@ namespace SpaxUtils
 		public bool GetBool(string param)
 		{
 			int paramHash = GetParamHash(param);
-			return animator.GetBool(paramHash);
+			return Redirected ? controllerPlayable.GetBool(paramHash) : animator.GetBool(paramHash);
+		}
+
+		/// <summary>Single funnel for bool writes, shared by the public setter and the timed coroutines.</summary>
+		private void SetBool(int paramHash, bool value)
+		{
+			if (Redirected)
+			{
+				controllerPlayable.SetBool(paramHash, value);
+				return;
+			}
+
+			animator.SetBool(paramHash, value);
 		}
 
 		#endregion Bools
@@ -288,6 +339,12 @@ namespace SpaxUtils
 		public void SetFloat(string param, float value)
 		{
 			int paramHash = GetParamHash(param);
+			if (Redirected)
+			{
+				controllerPlayable.SetFloat(paramHash, value);
+				return;
+			}
+
 			animator.SetFloat(paramHash, value);
 		}
 
@@ -299,7 +356,7 @@ namespace SpaxUtils
 		public float GetFloat(string param)
 		{
 			int paramHash = GetParamHash(param);
-			return animator.GetFloat(paramHash);
+			return Redirected ? controllerPlayable.GetFloat(paramHash) : animator.GetFloat(paramHash);
 		}
 
 		#endregion
@@ -314,6 +371,12 @@ namespace SpaxUtils
 		public void SetInteger(string param, int value)
 		{
 			int paramHash = GetParamHash(param);
+			if (Redirected)
+			{
+				controllerPlayable.SetInteger(paramHash, value);
+				return;
+			}
+
 			animator.SetInteger(paramHash, value);
 		}
 
@@ -325,7 +388,7 @@ namespace SpaxUtils
 		public int GetInteger(string param)
 		{
 			int paramHash = GetParamHash(param);
-			return animator.GetInteger(paramHash);
+			return Redirected ? controllerPlayable.GetInteger(paramHash) : animator.GetInteger(paramHash);
 		}
 
 		#endregion Integers
@@ -407,20 +470,20 @@ namespace SpaxUtils
 
 		private IEnumerator TriggerBoolForFrames(int paramHash, int frames)
 		{
-			animator.SetBool(paramHash, true);
+			SetBool(paramHash, true);
 			for (int i = 0; i < frames; i++)
 			{
 				yield return null;
 			}
-			animator.SetBool(paramHash, false);
+			SetBool(paramHash, false);
 			runningBoolCoroutines.Remove(paramHash);
 		}
 
 		private IEnumerator TriggerBoolForSeconds(int paramHash, float seconds)
 		{
-			animator.SetBool(paramHash, true);
+			SetBool(paramHash, true);
 			yield return new WaitForSeconds(seconds);
-			animator.SetBool(paramHash, false);
+			SetBool(paramHash, false);
 			runningBoolCoroutines.Remove(paramHash);
 		}
 	}

@@ -20,7 +20,9 @@ namespace SpaxUtils
 		protected AnimatorPoser Poser { get; private set; }
 		protected AnimatorWrapper AnimatorWrapper { get; private set; }
 		protected GrounderComponent Grounder { get; private set; }
+		protected TimelineGraph TimelineGraph { get; private set; }
 		protected IPoserInstructions PoserInstructions { get; private set; }
+		protected TimelinePlayer TimelinePlayer { get; private set; }
 		protected float Weight { get; private set; }
 
 		[Header("Prerequisites")]
@@ -74,13 +76,15 @@ namespace SpaxUtils
 		}
 
 		public void InjectDependencies(RigidbodyWrapper rigidbodyWrapper, AnimatorWrapper animatorWrapper,
-			[Optional] AgentArmsComponent arms, [Optional] AnimatorPoser poser, [Optional] GrounderComponent grounder)
+			[Optional] AgentArmsComponent arms, [Optional] AnimatorPoser poser, [Optional] GrounderComponent grounder,
+			[Optional] TimelineGraph timelineGraph)
 		{
 			RigidbodyWrapper = rigidbodyWrapper;
 			Arms = arms;
 			Poser = poser;
 			AnimatorWrapper = animatorWrapper;
 			Grounder = grounder;
+			TimelineGraph = timelineGraph;
 		}
 
 		public override void Start()
@@ -92,6 +96,12 @@ namespace SpaxUtils
 			if (Arms != null && blockArms)
 			{
 				Arms.Weight.AddModifier(this, controlMod);
+			}
+
+			// Claim a slot for the whole performance; the playhead is driven from the clock below.
+			if (Move.AnimationType == PerformanceAnimationType.Timeline && TimelineGraph != null && Move.Timeline != null)
+			{
+				TimelinePlayer = TimelineGraph.Play(Move.Timeline, 0f);
 			}
 		}
 
@@ -106,6 +116,12 @@ namespace SpaxUtils
 			if (Poser != null)
 			{
 				Poser.RevokeInstructions(this);
+			}
+
+			if (TimelinePlayer != null)
+			{
+				TimelineGraph.Stop(TimelinePlayer);
+				TimelinePlayer = null;
 			}
 		}
 
@@ -137,6 +153,10 @@ namespace SpaxUtils
 					Weight = weight;
 					Poser?.ProvideInstructions(this, PoserLayerConstants.BODY, PoserInstructions, 10, Weight);
 					break;
+				case PerformanceAnimationType.Timeline:
+					Weight = Performer.Weight;
+					HandleTimeline();
+					break;
 			}
 			// Set control from pose weight.
 			float control = 1f - Weight;
@@ -155,6 +175,60 @@ namespace SpaxUtils
 			AnimatorWrapper.SetFloat(PARAM_PREPARE_TIME, prepareTime);
 			float performTime = Move.MinDuration > 0f ? Performer.RunTime / Move.MinDuration : 0f;
 			AnimatorWrapper.SetFloat(PARAM_PERFORM_TIME, performTime);
+		}
+
+		/// <summary>
+		/// Drives the clip's playhead from the performance clock. Charging parks on the charge pose; once
+		/// performing, RunTime advances forward from it - which is exactly what a hold-then-release reads as.
+		/// </summary>
+		protected virtual void HandleTimeline()
+		{
+			if (TimelinePlayer == null)
+			{
+				return;
+			}
+
+			AnimationTimeline timeline = Move.Timeline;
+			float charging = timeline.TimeOf(TimelineMarkerIdentifiers.CHARGING, 0f);
+
+			if (State == PerformanceState.Preparing)
+			{
+				TimelinePlayer.SetTime(charging);
+				Weight = ChargeWeight(timeline, Weight);
+			}
+			else if (this is ILungeProvider lunge && lunge.Lunging &&
+				timeline.TryGetMarker(TimelineMarkerIdentifiers.LUNGING, out ResolvedMarker lunging))
+			{
+				// Driven by gap closure rather than any clock, so near and far lunges both arrive at the
+				// end of the region as the swing releases. Without the region the playhead simply holds the
+				// final charge pose, since RunTime stays at zero for the duration of the approach.
+				// The region's own curve shapes that traversal - linear by default, so opting out is free.
+				TimelinePlayer.SetTime(Mathf.Lerp(lunging.Start, lunging.End, lunging.Evaluate(lunge.LungeProgress)));
+			}
+			else
+			{
+				// RunTime is measured from where the swing starts, which is the Performing region's start.
+				TimelinePlayer.SetTime(timeline.TimeOf(TimelineMarkerIdentifiers.PERFORMING, charging) + Performer.RunTime);
+			}
+
+			TimelinePlayer.Weight = Weight;
+		}
+
+		/// <summary>
+		/// How strongly the charge pose asserts itself over charge progress, carried across from the pose
+		/// sequence's transition curve. Falls back to the clock's own weight when the timeline defines none.
+		/// </summary>
+		private float ChargeWeight(AnimationTimeline timeline, float fallback)
+		{
+			if (timeline.GlobalData == null || Move.MaxCharge <= 0f)
+			{
+				return fallback;
+			}
+
+			float progress = Mathf.Clamp01(Performer.ChargeTime / Move.MaxCharge);
+			return timeline.GlobalData.TryGetFloat(AnimationFloatConstants.CHARGE_WEIGHT, progress, out float weight)
+				? Mathf.Clamp01(weight)
+				: fallback;
 		}
 
 		protected abstract IPoserInstructions Evaluate(out float weight);

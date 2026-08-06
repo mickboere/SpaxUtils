@@ -17,9 +17,12 @@ namespace SpaxUtils
 		public PerformanceAnimationType AnimationType => animationType;
 		public int AnimationIndex => animationIndex;
 		public PosingData PosingData => posingData;
+		public AnimationTimeline Timeline => timeline;
 		public IReadOnlyList<BehaviourAsset> Behaviour => behaviour;
 		public IReadOnlyList<MoveFollowUp> FollowUps => followUps;
 
+		// Charging is a HOLD on the charge pose, so how long you must hold is a duration and stays a field.
+		// The CHARGING marker only states WHERE that pose sits on the clip - an orthogonal, positional fact.
 		public bool HasCharge => hasCharge;
 		public float MinCharge => minCharge;
 		public float MaxCharge => maxCharge;
@@ -27,15 +30,29 @@ namespace SpaxUtils
 		public string ChargeSpeedMultiplierStat => chargeSpeedMultiplier;
 		public StatCost ChargeCost => chargeCost;
 
-		public bool HasPerformance => hasPerformance;
-		public float MinDuration => HasPerformance ? minDuration : 0f;
+		public bool HasPerformance => UseTimeline ? timeline.TryGetMarker(TimelineMarkerIdentifiers.FINISHING, out _) : hasPerformance;
+		public float MinDuration => UseTimeline ? TimelineMinDuration() : (hasPerformance ? minDuration : 0f);
 		public float ChargeFadeout => chargeFadeout;
-		public float Release => release;
+		public float Release => UseTimeline ? TimelineRelease() : release;
 		public float TotalDuration => MinDuration + Release;
 		public string PerformSpeedMultiplierStat => performSpeedMultiplier;
 		public StatCost PerformCost => performCost;
 
 		public float CancelDuration => cancelDuration;
+
+		// MIGRATION LAYER, with its methods further down. Every timing member answers "timeline if authored,
+		// serialized float otherwise", so existing PoseSequence moves keep working untouched. Deleting these
+		// and the floats is the end state; consumers never change because the property names stay put.
+
+		/// <summary>Whether this move's timing comes from timeline markers rather than serialized floats.</summary>
+		public bool UseTimeline => animationType == PerformanceAnimationType.Timeline && timeline != null;
+
+		/// <summary>
+		/// Clip position at which the swing begins - the start of the Performing region. Markers are absolute
+		/// clip positions while RunTime is measured from here, so every conversion goes through it.
+		/// Charging (and any lunge) occupies the clip BEFORE this point.
+		/// </summary>
+		protected float PerformOrigin => timeline.TimeOf(TimelineMarkerIdentifiers.PERFORMING, 0f);
 
 		#endregion Properties
 
@@ -57,6 +74,7 @@ namespace SpaxUtils
 		[SerializeField] private PerformanceAnimationType animationType;
 		[SerializeField, Conditional(nameof(animationType), 0)] private int animationIndex;
 		[SerializeField, Conditional(nameof(animationType), 1)] private PosingData posingData;
+		[SerializeField, Conditional(nameof(animationType), 2)] private AnimationTimeline timeline;
 		[SerializeField, Expandable] private List<BehaviourAsset> behaviour;
 		[SerializeField] private List<MoveFollowUp> followUps;
 		[SerializeField] private float cancelDuration = 0.25f;
@@ -83,5 +101,27 @@ namespace SpaxUtils
 		{
 			return $"PerformanceMove(\"{name}\", \"{description}\", hasCharge:{hasCharge}, hasPerformance:{hasPerformance})";
 		}
+
+		#region Timeline migration
+
+		private float TimelineMinDuration()
+		{
+			// The committed swing is exactly the Performing region: PERFORMING start to FINISHING start.
+			float finishing = timeline.TimeOf(TimelineMarkerIdentifiers.FINISHING, timeline.Duration);
+			return Mathf.Max(0f, finishing - PerformOrigin);
+		}
+
+		private float TimelineRelease()
+		{
+			if (!timeline.TryGetMarker(TimelineMarkerIdentifiers.FINISHING, out ResolvedMarker finishing))
+			{
+				return release;
+			}
+
+			// A FINISHING region states its own sustain; a bare point sustains to the end of the clip.
+			return finishing.IsRegion ? finishing.Length : Mathf.Max(0f, timeline.Duration - finishing.Start);
+		}
+
+		#endregion Timeline migration
 	}
 }
