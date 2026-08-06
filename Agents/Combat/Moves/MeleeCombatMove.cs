@@ -38,11 +38,21 @@ namespace SpaxUtils
 		public float ChargeBalance => chargeBalance;
 		public float PerformBalance => performBalance;
 
-		[Header("Hit detection")]
+		/// <inheritdoc/>
+		/// <remarks>A swing owns a hit window, a lurch and an optional approach; a jump owns none of them.</remarks>
+		public override IEnumerable<string> MarkerSuggestions => new[]
+		{
+			TimelineMarkerIdentifiers.CHARGING,
+			TimelineMarkerIdentifiers.LUNGING,
+			TimelineMarkerIdentifiers.PERFORMING,
+			TimelineMarkerIdentifiers.HIT,
+			TimelineMarkerIdentifiers.INERTIA,
+			TimelineMarkerIdentifiers.FINISHING
+		};
+
 		[SerializeField, ConstDropdown(typeof(ITransformLookupIdentifiers), showAdress: true)] private List<string> hitBoxes;
 		[SerializeField] private float hitDetectionDelay = 0f;
 
-		[Header("Momentum")]
 		// Which way this strike travels, in the agent's local space — the single source of the move's geometry.
 		// It decides the knockback direction, how far the move lunges, how hard it shoves and how it must be
 		// dodged. HOW FAR EACH SLIDER IS PUSHED IS COMMITMENT: a thrust of 1 is a full lunge, 0.4 a light jab.
@@ -60,17 +70,16 @@ namespace SpaxUtils
 		[SerializeField, Tooltip("Whether the charge pose should be held until within attack release range.")] private bool prelongCharge;
 		[SerializeField, Tooltip("Velocity above which the performance should be prolonged.")] private float prolongThreshold = 1f;
 
-		[Header("Stats")]
 		[SerializeField, ConstDropdown(typeof(IEquipmentSlotTypeConstants), true)] private string limb;
 		[SerializeField] private bool useArmament = false;
 		// Unarmed distribution only. An armed strike takes its axes wholly from the weapon (its equipment
 		// distribution, as realized by this move's swing/thrust usage), so these would have nothing to say.
-		[SerializeField, Conditional(nameof(useArmament), inverse: true), Range(0f, 1f), Tooltip("Percentage of user's Slash transfered into hit. Unarmed only — an armed strike takes its distribution from the weapon."), FormerlySerializedAs("offence"), FormerlySerializedAs("piercing")] private float slash = 1f;
-		[SerializeField, Conditional(nameof(useArmament), inverse: true), Range(0f, 1f), Tooltip("Percentage of user's Power transfered into hit. Unarmed only.")] private float power = 1f;
-		[SerializeField, Conditional(nameof(useArmament), inverse: true), Range(0f, 1f), Tooltip("Percentage of user's Pierce transfered into hit. Unarmed only."), FormerlySerializedAs("precision")] private float pierce = 1f;
+		[SerializeField, Range(0f, 1f), Tooltip("Percentage of user's Slash transfered into hit. Unarmed only — an armed strike takes its distribution from the weapon."), FormerlySerializedAs("offence"), FormerlySerializedAs("piercing")] private float slash = 1f;
+		[SerializeField, Range(0f, 1f), Tooltip("Percentage of user's Power transfered into hit. Unarmed only.")] private float power = 1f;
+		[SerializeField, Range(0f, 1f), Tooltip("Percentage of user's Pierce transfered into hit. Unarmed only."), FormerlySerializedAs("precision")] private float pierce = 1f;
 		[SerializeField, Min(0f), Tooltip("Scalar on TOTAL output. 1 is a normal strike; above 1 is a special/finisher hitting harder than the base stats allow. Does not affect which damage types the strike deals.")] private float outputScale = 1f;
 		[SerializeField, Tooltip("When enabled, this move uses its own balance values below instead of the global defaults in CombatSettings.")] private bool overrideBalance = false;
-		[SerializeField, Conditional(nameof(overrideBalance)), Range(0.01f, 1f), Tooltip("How much balance is maintained while charging.")] private float chargeBalance = 1f;
-		[SerializeField, Conditional(nameof(overrideBalance)), Range(0.01f, 1f), Tooltip("How much balance is maintained while performing.")] private float performBalance = 1f;
+		[SerializeField, Range(0.01f, 1f), Tooltip("How much balance is maintained while charging.")] private float chargeBalance = 1f;
+		[SerializeField, Range(0.01f, 1f), Tooltip("How much balance is maintained while performing.")] private float performBalance = 1f;
 	}
 }

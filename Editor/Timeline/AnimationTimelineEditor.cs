@@ -16,27 +16,61 @@ namespace SpaxUtils
 		private const float LANE_PADDING = 2f;
 		private const float GRAB_WIDTH = 6f;
 		private const int MIN_LANES = 2;
+		private const float MIN_PREVIEW_HEIGHT = 80f;
+		private const int CLOCK_FONT_SIZE = 14;
+		private const float CURVE_HEADER_HEIGHT = 18f;
+		private const float CURVE_GRAPH_HEIGHT = 72f;
+		private const float MIN_VIEW_SPAN = 0.02f;
+		private const float ZOOM_RATE = 1.12f;
 		private const string SNAP_PREF = "SpaxUtils.TimelineEditor.Snap";
+		private const string CURVE_PREF = "SpaxUtils.TimelineEditor.Curve";
+		private const string CURVE_NORMALIZED_PREF = "SpaxUtils.TimelineEditor.CurveNormalized";
 
 		private enum DragMode { None, Start, End, Body }
 
-		private int selected = -1;
-		private int dragging = -1;
-		private DragMode dragMode;
-		private float dragOffset;
-		private float playhead;
-		private bool scrubbing;
-		private bool playing;
-		private double lastTick;
-		private TimelinePreview preview;
-		private GUIStyle headerStyle;
-		private readonly List<string> problems = new List<string>();
+		/// <summary>
+		/// Identifiers a host offers for this timeline's context, driving the Add Marker dropdown.
+		/// Left null the button simply adds a blank marker.
+		/// </summary>
+		public IReadOnlyList<string> Suggestions { get; set; }
 
 		private bool Snap
 		{
 			get => EditorPrefs.GetBool(SNAP_PREF, true);
 			set => EditorPrefs.SetBool(SNAP_PREF, value);
 		}
+
+		/// <summary>Identifier of the global curve on show. A view setting, so it lives in prefs, not the asset.</summary>
+		private string SelectedCurve
+		{
+			get => EditorPrefs.GetString(CURVE_PREF, string.Empty);
+			set => EditorPrefs.SetString(CURVE_PREF, value);
+		}
+
+		/// <summary>
+		/// Whether the curve's own 0..1 domain is stretched across the timeline. CHARGE_WEIGHT is authored over
+		/// charge progress, not clip seconds, so the two kinds need different readings of the same axis.
+		/// </summary>
+		private bool NormalizedCurve
+		{
+			get => EditorPrefs.GetBool(CURVE_NORMALIZED_PREF, false);
+			set => EditorPrefs.SetBool(CURVE_NORMALIZED_PREF, value);
+		}
+
+		private int selected = -1;
+		private int dragging = -1;
+		private DragMode dragMode;
+		private float dragOffset;
+		private float playhead;
+		private float viewStart;
+		private float viewEnd;
+		private bool scrubbing;
+		private bool playing;
+		private double lastTick;
+		private TimelinePreview preview;
+		private GUIStyle headerStyle;
+		private GUIStyle clockStyle;
+		private readonly List<string> problems = new List<string>();
 
 		#region Preview
 
@@ -79,9 +113,8 @@ namespace SpaxUtils
 
 		public override GUIContent GetPreviewTitle()
 		{
-			AnimationTimeline timeline = (AnimationTimeline)target;
-			float rate = FrameRate(timeline);
-			return new GUIContent($"Preview   {playhead:0.000}s   f{Mathf.RoundToInt(playhead * rate)}");
+			// Just the name: the clock is stamped onto the preview itself, where it is actually readable.
+			return new GUIContent("Preview");
 		}
 
 		public override void OnPreviewSettings()
@@ -104,6 +137,20 @@ namespace SpaxUtils
 				StepFrame(timeline, 1, rate);
 			}
 
+			// Zoom has no other way back once you are deep in a clip.
+			if (GUILayout.Button(new GUIContent("Frame", "Zoom out to the whole timeline."),
+				EditorStyles.miniButton, GUILayout.Width(44f)))
+			{
+				viewStart = 0f;
+				viewEnd = timeline.Extent;
+				Repaint();
+			}
+
+			// Snapping rides with the transport, now that the timeline it governs lives in this same pane.
+			Snap = GUILayout.Toggle(Snap,
+				new GUIContent("Snap", $"Snap to the clip's {rate:0} fps grid. Hold Alt to place freely."),
+				EditorStyles.miniButton, GUILayout.Width(42f));
+
 			preview ??= new TimelinePreview();
 			preview.DrawSettings();
 		}
@@ -116,10 +163,53 @@ namespace SpaxUtils
 			Repaint();
 		}
 
+		/// <summary>
+		/// The timeline is glued to the top of the preview: you scrub markers here and the pose they land on
+		/// is directly below, rather than a panel away in the inspector body.
+		/// </summary>
 		public override void OnInteractivePreviewGUI(Rect r, GUIStyle background)
 		{
+			AnimationTimeline timeline = (AnimationTimeline)target;
+			float extent = timeline.Extent;
+			ClampView(extent);
+
+			// Never let the strip and curve lane swallow the rig; they yield, the preview keeps its floor.
+			float budget = Mathf.Max(0f, r.height - MIN_PREVIEW_HEIGHT);
+
+			// View input first: every height below is measured through the mapping it changes.
+			HandleView(new Rect(r.x, r.y, r.width, budget), extent);
+
+			float strip = Mathf.Min(TimelineHeight(timeline, r.width), budget);
+			float y = r.y;
+			if (strip >= RULER_HEIGHT)
+			{
+				DrawTimeline(timeline, new Rect(r.x, y, r.width, strip));
+				y += strip;
+			}
+
+			float lane = Mathf.Min(CurveLaneHeight(), Mathf.Max(0f, r.y + budget - y));
+			if (lane >= CURVE_HEADER_HEIGHT)
+			{
+				DrawCurveLane(timeline, new Rect(r.x, y, r.width, lane));
+				y += lane;
+			}
+
+			Rect area = new Rect(r.x, y, r.width, r.yMax - y);
 			preview ??= new TimelinePreview();
-			preview.Draw(r, ((AnimationTimeline)target).Clip, playhead);
+			preview.Draw(area, timeline.Clip, playhead);
+			DrawClock(area, FrameRate(timeline));
+		}
+
+		/// <summary>Stamped over the preview rather than tucked into the header bar, where it reads as chrome.</summary>
+		private void DrawClock(Rect area, float rate)
+		{
+			GUIStyle style = ClockStyle();
+			GUIContent content = new GUIContent($"{playhead:0.000}s   f{Mathf.RoundToInt(playhead * rate)}");
+			Vector2 size = style.CalcSize(content);
+
+			Rect backing = new Rect(area.x + 6f, area.y + 6f, size.x + 10f, size.y + 4f);
+			EditorGUI.DrawRect(backing, new Color(0f, 0f, 0f, 0.45f));
+			GUI.Label(new Rect(backing.x + 5f, backing.y + 2f, size.x, size.y), content, style);
 		}
 
 		#endregion Preview
@@ -140,8 +230,6 @@ namespace SpaxUtils
 				return;
 			}
 
-			EditorGUILayout.Space(8);
-			DrawTimeline(timeline);
 			EditorGUILayout.Space(6);
 			DrawToolbar(timeline);
 			DrawSelectedMarker(timeline);
@@ -152,17 +240,19 @@ namespace SpaxUtils
 
 		#region Timeline
 
-		private void DrawTimeline(AnimationTimeline timeline)
+		/// <summary>
+		/// Height the timeline needs at this width. Lane packing works in pixels, so the lane count - and
+		/// with it the height - cannot be known until the width is.
+		/// </summary>
+		private float TimelineHeight(AnimationTimeline timeline, float width)
+		{
+			AssignLanes(timeline, new Rect(0f, 0f, Mathf.Max(64f, width), 0f), out int laneCount);
+			return RULER_HEIGHT + laneCount * (LANE_HEIGHT + LANE_PADDING) + LANE_PADDING;
+		}
+
+		private void DrawTimeline(AnimationTimeline timeline, Rect area)
 		{
 			IReadOnlyList<TimelineMarker> markers = timeline.Markers;
-
-			// Chicken and egg: lane packing needs pixel widths, the row height needs the lane count.
-			// Probe with the inspector width for the height, then repack against the real rect.
-			Rect probe = new Rect(0f, 0f, Mathf.Max(64f, EditorGUIUtility.currentViewWidth - 40f), 0f);
-			AssignLanes(timeline, probe, out int laneCount);
-			float height = RULER_HEIGHT + laneCount * (LANE_HEIGHT + LANE_PADDING) + LANE_PADDING;
-
-			Rect area = EditorGUILayout.GetControlRect(false, height);
 			int[] lanes = AssignLanes(timeline, area, out _);
 
 			// Input BEFORE any drawing: the preview reads the playhead too, and processing the drag halfway
@@ -192,48 +282,61 @@ namespace SpaxUtils
 			}
 
 			playhead = Mathf.Clamp(playhead, 0f, extent);
-			float x = TimeToX(area, playhead, extent);
+			float x = TimeToX(area, playhead);
+			if (x < area.x || x > area.xMax)
+			{
+				return;
+			}
+
 			EditorGUI.DrawRect(new Rect(x - 1f, area.y, 2f, area.height), new Color(1f, 0.9f, 0.3f, 0.9f));
 			EditorGUI.DrawRect(new Rect(x - 4f, area.y, 8f, 4f), new Color(1f, 0.9f, 0.3f, 0.9f));
 		}
 
 		private void DrawRuler(Rect area, AnimationTimeline timeline, float frameRate)
 		{
-			float duration = timeline.Extent;
 			Rect ruler = new Rect(area.x, area.y, area.width, RULER_HEIGHT);
 			EditorGUI.DrawRect(ruler, new Color(0.11f, 0.11f, 0.11f));
 
-			if (duration <= 0f)
+			float span = viewEnd - viewStart;
+			if (span <= 0f)
 			{
 				return;
 			}
 
 			// Everything past the clip's last frame is sustain, not animation - shade it so a region
 			// hanging off the end reads as deliberate rather than as a mistake.
-			if (duration > timeline.Duration)
+			if (timeline.Extent > timeline.Duration && viewEnd > timeline.Duration)
 			{
-				float clipEndX = TimeToX(area, timeline.Duration, duration);
+				float clipEndX = Mathf.Max(area.x, TimeToX(area, timeline.Duration));
 				EditorGUI.DrawRect(new Rect(clipEndX, area.y, area.xMax - clipEndX, area.height),
 					new Color(0f, 0f, 0f, 0.25f));
 				EditorGUI.DrawRect(new Rect(clipEndX, area.y, 1f, area.height), new Color(1f, 1f, 1f, 0.25f));
 			}
 
-			// Per-frame ticks whenever they stay legible - this is the grid markers actually snap to.
-			int frames = Mathf.RoundToInt(duration * frameRate);
-			if (frames > 0 && area.width / frames >= 3f)
+			// Ticks are walked across the VISIBLE window only, so zooming in never costs a pass over a long clip.
+			// Per-frame ticks appear once they are legible - this is the grid markers actually snap to.
+			if (area.width / (span * frameRate) >= 3f)
 			{
-				for (int f = 0; f <= frames; f++)
+				int first = Mathf.FloorToInt(viewStart * frameRate);
+				int last = Mathf.CeilToInt(viewEnd * frameRate);
+				for (int f = first; f <= last; f++)
 				{
-					float x = TimeToX(area, f / frameRate, duration);
+					float x = TimeToX(area, f / frameRate);
 					EditorGUI.DrawRect(new Rect(x, ruler.y + 10f, 1f, 5f), new Color(1f, 1f, 1f, 0.13f));
 				}
 			}
 
-			// Labelled ticks at a round interval, roughly one per 70px regardless of clip length.
-			float step = NiceStep(duration, area.width / 70f);
-			for (float time = 0f; time <= duration + 0.0001f; time += step)
+			// Labelled ticks at a round interval, roughly one per 70px whatever the zoom.
+			float step = NiceStep(span, area.width / 70f);
+			float start = Mathf.Floor(viewStart / step) * step;
+			for (float time = start; time <= viewEnd + 0.0001f; time += step)
 			{
-				float x = TimeToX(area, time, duration);
+				float x = TimeToX(area, time);
+				if (x < area.x - 1f)
+				{
+					continue;
+				}
+
 				EditorGUI.DrawRect(new Rect(x, ruler.y + 2f, 1f, RULER_HEIGHT - 4f), new Color(1f, 1f, 1f, 0.35f));
 				GUI.Label(new Rect(x + 2f, ruler.y - 1f, 70f, RULER_HEIGHT),
 					$"{time:0.00}s  f{Mathf.RoundToInt(time * frameRate)}", EditorStyles.miniLabel);
@@ -263,22 +366,36 @@ namespace SpaxUtils
 				return;
 			}
 
-			float duration = timeline.Extent;
 			float end = GetEnd(timeline, index);
 			bool isRegion = end > marker.Time;
 			bool isSelected = index == selected;
 
+			// Scrolled out of view entirely; a region straddling the window still draws, clipped to its edges.
+			if (end < viewStart || marker.Time > viewEnd)
+			{
+				return;
+			}
+
 			Color color = marker.ID.ToColor();
 			float y = area.y + RULER_HEIGHT + LANE_PADDING + lane * (LANE_HEIGHT + LANE_PADDING);
-			float startX = TimeToX(area, marker.Time, duration);
+			float startX = TimeToX(area, marker.Time);
 
 			if (isRegion)
 			{
-				float endX = TimeToX(area, end, duration);
-				Rect bar = new Rect(startX, y, Mathf.Max(2f, endX - startX), LANE_HEIGHT);
+				float left = Mathf.Max(area.x, startX);
+				float right = Mathf.Min(area.xMax, TimeToX(area, end));
+				Rect bar = new Rect(left, y, Mathf.Max(2f, right - left), LANE_HEIGHT);
 				EditorGUI.DrawRect(bar, color * new Color(1f, 1f, 1f, isSelected ? 0.55f : 0.3f));
-				EditorGUI.DrawRect(new Rect(bar.x, bar.y, 2f, bar.height), color);
-				EditorGUI.DrawRect(new Rect(bar.xMax - 2f, bar.y, 2f, bar.height), color);
+
+				// Only draw an edge that is actually in view, or a clipped region grows false handles.
+				if (startX >= area.x)
+				{
+					EditorGUI.DrawRect(new Rect(bar.x, bar.y, 2f, bar.height), color);
+				}
+				if (right <= area.xMax - 2f)
+				{
+					EditorGUI.DrawRect(new Rect(bar.xMax - 2f, bar.y, 2f, bar.height), color);
+				}
 			}
 			else
 			{
@@ -286,13 +403,15 @@ namespace SpaxUtils
 			}
 
 			// Full-height playhead line for the selected marker, so it reads against the ruler.
-			if (isSelected)
+			if (isSelected && startX >= area.x && startX <= area.xMax)
 			{
 				EditorGUI.DrawRect(new Rect(startX - 1f, area.y, 1f, area.height), new Color(1f, 1f, 1f, 0.4f));
 			}
 
+			// Labels ride along the left edge while their region is still partly on screen.
+			float labelX = Mathf.Max(area.x + 2f, startX + 4f);
 			string label = marker.ID.LastDivision();
-			GUI.Label(new Rect(startX + 4f, y - 1f, area.width - startX, LANE_HEIGHT), label, EditorStyles.miniLabel);
+			GUI.Label(new Rect(labelX, y - 1f, area.xMax - labelX, LANE_HEIGHT), label, EditorStyles.miniLabel);
 		}
 
 		private void HandleInput(AnimationTimeline timeline, Rect area, int[] lanes)
@@ -313,7 +432,7 @@ namespace SpaxUtils
 				scrubbing = true;
 				playing = false;
 				GUIUtility.hotControl = control;
-				playhead = Mathf.Clamp(SnapTime(timeline, XToTime(area, e.mousePosition.x, duration)), 0f, duration);
+				playhead = Mathf.Clamp(SnapTime(timeline, XToTime(area, e.mousePosition.x)), 0f, duration);
 				e.Use();
 				Repaint();
 				return;
@@ -321,7 +440,7 @@ namespace SpaxUtils
 
 			if (e.type == EventType.MouseDrag && scrubbing)
 			{
-				playhead = Mathf.Clamp(SnapTime(timeline, XToTime(area, e.mousePosition.x, duration)), 0f, duration);
+				playhead = Mathf.Clamp(SnapTime(timeline, XToTime(area, e.mousePosition.x)), 0f, duration);
 				e.Use();
 				Repaint();
 				return;
@@ -341,8 +460,8 @@ namespace SpaxUtils
 					TimelineMarker marker = timeline.Markers[i];
 					if (marker == null || string.IsNullOrEmpty(marker.ID)) continue;
 
-					float startX = TimeToX(area, marker.Time, duration);
-					float endX = TimeToX(area, GetEnd(timeline, i), duration);
+					float startX = TimeToX(area, marker.Time);
+					float endX = TimeToX(area, GetEnd(timeline, i));
 					float y = area.y + RULER_HEIGHT + LANE_PADDING + lanes[i] * (LANE_HEIGHT + LANE_PADDING);
 					if (e.mousePosition.y < y || e.mousePosition.y > y + LANE_HEIGHT) continue;
 
@@ -353,7 +472,7 @@ namespace SpaxUtils
 					dragging = i;
 					dragMode = mode;
 					GUIUtility.hotControl = control;
-					dragOffset = XToTime(area, e.mousePosition.x, duration) - marker.Time;
+					dragOffset = XToTime(area, e.mousePosition.x) - marker.Time;
 
 					// Park the playhead on what you just grabbed, so the preview shows its pose.
 					playhead = marker.Time;
@@ -365,7 +484,7 @@ namespace SpaxUtils
 
 			if (e.type == EventType.MouseDrag && dragging >= 0)
 			{
-				float grabbed = XToTime(area, e.mousePosition.x, duration);
+				float grabbed = XToTime(area, e.mousePosition.x);
 				SerializedProperty markerProp = serializedObject.FindProperty("markers").GetArrayElementAtIndex(dragging);
 
 				switch (dragMode)
@@ -410,6 +529,44 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
+		/// Zoom and pan across the whole band, so the gesture works over the curve lane too and both stay in
+		/// step. Scroll zooms around the cursor; middle-drag pans, which no other control here claims.
+		/// </summary>
+		private void HandleView(Rect band, float extent)
+		{
+			Event e = Event.current;
+			if (!band.Contains(e.mousePosition))
+			{
+				return;
+			}
+
+			if (e.type == EventType.ScrollWheel)
+			{
+				// Anchor on the time under the cursor so it stays put while everything else spreads around it.
+				float pivot = XToTime(band, e.mousePosition.x);
+				float fraction = Mathf.InverseLerp(viewStart, viewEnd, pivot);
+				float span = (viewEnd - viewStart) * Mathf.Pow(ZOOM_RATE, e.delta.y);
+
+				viewStart = pivot - fraction * span;
+				viewEnd = viewStart + span;
+				ClampView(extent);
+				e.Use();
+				Repaint();
+				return;
+			}
+
+			if (e.type == EventType.MouseDrag && e.button == 2)
+			{
+				float shift = -e.delta.x * (viewEnd - viewStart) / Mathf.Max(1f, band.width);
+				viewStart += shift;
+				viewEnd += shift;
+				ClampView(extent);
+				e.Use();
+				Repaint();
+			}
+		}
+
+		/// <summary>
 		/// Edges win over the body, except on a region too narrow to hold both handles - there the start wins,
 		/// so a thin region can still be moved rather than only ever resized.
 		/// </summary>
@@ -434,27 +591,246 @@ namespace SpaxUtils
 
 		#endregion Timeline
 
+		#region Curve lane
+
+		/// <summary>Header only until a curve is picked, so an unused lane costs one row rather than a panel.</summary>
+		private float CurveLaneHeight()
+		{
+			return string.IsNullOrEmpty(SelectedCurve) ? CURVE_HEADER_HEIGHT : CURVE_HEADER_HEIGHT + CURVE_GRAPH_HEIGHT;
+		}
+
+		/// <summary>
+		/// A single global curve under the timeline, read straight from the asset each repaint so edits made
+		/// anywhere else show up live. Read-only by design: this is for seeing WHERE a value turns, not authoring it.
+		/// </summary>
+		private void DrawCurveLane(AnimationTimeline timeline, Rect area)
+		{
+			Rect header = new Rect(area.x, area.y, area.width, CURVE_HEADER_HEIGHT);
+			EditorGUI.DrawRect(header, new Color(0.13f, 0.13f, 0.13f));
+
+			AnimationCurve curve = FindCurve(timeline, SelectedCurve);
+			Rect dropdown = new Rect(header.x + 2f, header.y + 1f, 170f, CURVE_HEADER_HEIGHT - 3f);
+			string label = string.IsNullOrEmpty(SelectedCurve) ? "Curve: none" : SelectedCurve.LastDivision();
+			if (EditorGUI.DropdownButton(dropdown, new GUIContent(label, SelectedCurve), FocusType.Passive, EditorStyles.miniPullDown))
+			{
+				ShowCurveMenu(timeline, dropdown);
+			}
+
+			if (curve == null)
+			{
+				return;
+			}
+
+			Rect toggle = new Rect(dropdown.xMax + 4f, header.y, 84f, CURVE_HEADER_HEIGHT - 2f);
+			NormalizedCurve = GUI.Toggle(toggle, NormalizedCurve,
+				new GUIContent("Normalized", "Stretch the curve's own 0..1 domain across the timeline, for curves authored over progress rather than seconds."),
+				EditorStyles.miniButton);
+
+			Rect graph = new Rect(area.x, header.yMax, area.width, area.height - CURVE_HEADER_HEIGHT);
+			HandleCurveScrub(timeline, graph);
+			DrawCurveGraph(graph, curve, timeline.Extent, out float low, out float high);
+
+			// Value under the playhead, right where you are looking for the moment it turns.
+			GUI.Label(new Rect(toggle.xMax + 6f, header.y, area.width, CURVE_HEADER_HEIGHT),
+				$"{Sample(curve, playhead, timeline.Extent):0.000}      [{low:0.00} .. {high:0.00}]",
+				EditorStyles.miniLabel);
+		}
+
+		/// <summary>
+		/// Starts a scrub from the curve itself - reading where a value turns is exactly when you want to park
+		/// the playhead there. The strip's own handler carries the drag from here, since both share the x axis.
+		/// </summary>
+		private void HandleCurveScrub(AnimationTimeline timeline, Rect area)
+		{
+			Event e = Event.current;
+			int control = GUIUtility.GetControlID(FocusType.Passive);
+
+			if (e.type != EventType.MouseDown || e.button != 0 || !area.Contains(e.mousePosition))
+			{
+				return;
+			}
+
+			scrubbing = true;
+			playing = false;
+			GUIUtility.hotControl = control;
+			playhead = Mathf.Clamp(SnapTime(timeline, XToTime(area, e.mousePosition.x)), 0f, timeline.Extent);
+			e.Use();
+			Repaint();
+		}
+
+		private void DrawCurveGraph(Rect area, AnimationCurve curve, float extent, out float low, out float high)
+		{
+			EditorGUI.DrawRect(area, new Color(0.1f, 0.1f, 0.1f));
+			CurveRange(curve, extent, out low, out high);
+
+			// Guides at 0 and 1: weights live between them, so they are the reference you actually read against.
+			DrawGuide(area, 0f, low, high, new Color(1f, 1f, 1f, 0.18f));
+			DrawGuide(area, 1f, low, high, new Color(1f, 1f, 1f, 0.10f));
+
+			if (Event.current.type == EventType.Repaint && curve.length > 0)
+			{
+				int steps = Mathf.Clamp(Mathf.RoundToInt(area.width), 2, 512);
+				Vector3[] points = new Vector3[steps + 1];
+				for (int i = 0; i <= steps; i++)
+				{
+					float x = area.x + area.width * i / steps;
+					float value = Sample(curve, XToTime(area, x), extent);
+					points[i] = new Vector3(x, ValueToY(area, value, low, high), 0f);
+				}
+
+				Handles.color = new Color(0.45f, 0.85f, 1f, 0.95f);
+				Handles.DrawAAPolyLine(2f, points);
+			}
+
+			// Keys as ticks: the shape says how it moves, these say where it was actually authored to.
+			foreach (Keyframe key in curve.keys)
+			{
+				float time = NormalizedCurve ? key.time * Mathf.Max(MIN_VIEW_SPAN, extent) : key.time;
+				float x = TimeToX(area, time);
+				if (x < area.x || x > area.xMax)
+				{
+					continue;
+				}
+
+				float y = ValueToY(area, key.value, low, high);
+				EditorGUI.DrawRect(new Rect(x - 2f, y - 2f, 4f, 4f), new Color(1f, 0.9f, 0.3f, 0.95f));
+			}
+
+			float playheadX = TimeToX(area, playhead);
+			if (playheadX >= area.x && playheadX <= area.xMax)
+			{
+				EditorGUI.DrawRect(new Rect(playheadX - 1f, area.y, 2f, area.height), new Color(1f, 0.9f, 0.3f, 0.5f));
+			}
+		}
+
+		/// <summary>
+		/// Range taken from the WHOLE curve rather than the visible slice, so panning never rescales the shape
+		/// under you. Sampled, not keyed - tangent overshoot leaves the key values behind.
+		/// </summary>
+		private void CurveRange(AnimationCurve curve, float extent, out float low, out float high)
+		{
+			low = float.MaxValue;
+			high = float.MinValue;
+
+			for (int i = 0; i <= 128; i++)
+			{
+				float value = Sample(curve, extent * i / 128f, extent);
+				low = Mathf.Min(low, value);
+				high = Mathf.Max(high, value);
+			}
+
+			if (low > high)
+			{
+				low = 0f;
+				high = 1f;
+			}
+
+			float pad = Mathf.Max(0.05f, (high - low) * 0.1f);
+			low -= pad;
+			high += pad;
+		}
+
+		private float Sample(AnimationCurve curve, float time, float extent)
+		{
+			return curve.Evaluate(NormalizedCurve ? time / Mathf.Max(MIN_VIEW_SPAN, extent) : time);
+		}
+
+		private static float ValueToY(Rect area, float value, float low, float high)
+		{
+			float t = high > low ? (value - low) / (high - low) : 0.5f;
+			return Mathf.Clamp(area.yMax - t * area.height, area.yMin, area.yMax);
+		}
+
+		private static void DrawGuide(Rect area, float value, float low, float high, Color color)
+		{
+			if (value < low || value > high)
+			{
+				return;
+			}
+
+			EditorGUI.DrawRect(new Rect(area.x, ValueToY(area, value, low, high), area.width, 1f), color);
+		}
+
+		private void ShowCurveMenu(AnimationTimeline timeline, Rect rect)
+		{
+			GenericMenu menu = new GenericMenu();
+			menu.AddItem(new GUIContent("None"), string.IsNullOrEmpty(SelectedCurve), () => SelectCurve(string.Empty));
+
+			bool any = false;
+			foreach (ILabeledData data in CurveData(timeline))
+			{
+				any = true;
+				string id = data.ID;
+				menu.AddItem(new GUIContent(id.LastDivision()), id == SelectedCurve, () => SelectCurve(id));
+			}
+
+			if (!any)
+			{
+				menu.AddDisabledItem(new GUIContent("No curves in this timeline's Global Data"));
+			}
+
+			menu.DropDown(rect);
+		}
+
+		private void SelectCurve(string id)
+		{
+			SelectedCurve = id;
+			Repaint();
+		}
+
+		private static AnimationCurve FindCurve(AnimationTimeline timeline, string id)
+		{
+			if (string.IsNullOrEmpty(id))
+			{
+				return null;
+			}
+
+			foreach (ILabeledData data in CurveData(timeline))
+			{
+				if (data.ID == id)
+				{
+					return (AnimationCurve)data.Value;
+				}
+			}
+
+			return null;
+		}
+
+		private static IEnumerable<ILabeledData> CurveData(AnimationTimeline timeline)
+		{
+			if (timeline.GlobalData == null)
+			{
+				yield break;
+			}
+
+			foreach (ILabeledData data in timeline.GlobalData.LabeledData)
+			{
+				if (data.ValueType == typeof(AnimationCurve) && data.Value != null)
+				{
+					yield return data;
+				}
+			}
+		}
+
+		#endregion Curve lane
+
 		#region Marker editing
 
 		private void DrawToolbar(AnimationTimeline timeline)
 		{
 			using (new EditorGUILayout.HorizontalScope())
 			{
-				if (GUILayout.Button("Add Marker"))
+				bool suggest = Suggestions != null && Suggestions.Count > 0;
+				if (GUILayout.Button(suggest ? "Add Marker  ▾" : "Add Marker"))
 				{
-					SerializedProperty markersProp = serializedObject.FindProperty("markers");
-					markersProp.arraySize++;
-					selected = markersProp.arraySize - 1;
-
-					// At the playhead, which is where you were already looking. Growing the array copies the
-					// previous element, so the region fields are cleared back to a plain point.
-					SerializedProperty added = markersProp.GetArrayElementAtIndex(selected);
-					added.FindPropertyRelative("time").floatValue = playhead;
-					added.FindPropertyRelative("endMode").enumValueIndex = (int)MarkerEnd.Point;
-					added.FindPropertyRelative("duration").floatValue = 0f;
-					added.FindPropertyRelative("endMarker").stringValue = string.Empty;
-					serializedObject.ApplyModifiedProperties();
-					timeline.Resolve();
+					if (suggest)
+					{
+						ShowAddMenu(timeline, GUILayoutUtility.GetLastRect());
+					}
+					else
+					{
+						AddMarker(timeline, string.Empty);
+					}
 				}
 
 				int count = timeline.Markers == null ? 0 : timeline.Markers.Count;
@@ -470,13 +846,38 @@ namespace SpaxUtils
 				}
 
 				GUILayout.FlexibleSpace();
-
-				// Snapping is the clip's own frame grid, shown rather than hidden - stepped dragging
-				// is otherwise indistinguishable from a broken drag.
-				float rate = FrameRate(timeline);
-				Snap = GUILayout.Toggle(Snap, Snap ? $"Snap {rate:0} fps" : "Snap off",
-					EditorStyles.miniButton, GUILayout.Width(80f));
 			}
+		}
+
+		/// <summary>
+		/// Offers the identifiers the host says are meaningful here, ticking the ones already present.
+		/// Duplicates stay selectable - two hit windows on one swing is a legitimate thing to author.
+		/// </summary>
+		private void ShowAddMenu(AnimationTimeline timeline, Rect rect)
+		{
+			GenericMenu menu = new GenericMenu();
+			foreach (string id in Suggestions)
+			{
+				string suggestion = id;
+				menu.AddItem(new GUIContent(id.LastDivision()), timeline.TryGetMarker(id, out _),
+					() => AddMarker(timeline, suggestion));
+			}
+
+			menu.AddSeparator(string.Empty);
+			menu.AddItem(new GUIContent("Blank"), false, () => AddMarker(timeline, string.Empty));
+			menu.DropDown(rect);
+		}
+
+		/// <summary>Adds a marker at the playhead, which is where you were already looking.</summary>
+		private void AddMarker(AnimationTimeline timeline, string id)
+		{
+			// Menu callbacks land outside the GUI pass, so re-sync before writing rather than applying stale state.
+			serializedObject.Update();
+			TimelineAuthoring.AddMarker(serializedObject, id, playhead);
+			selected = serializedObject.FindProperty("markers").arraySize - 1;
+			serializedObject.ApplyModifiedProperties();
+			timeline.Resolve();
+			Repaint();
 		}
 
 		private void DrawProblems(AnimationTimeline timeline)
@@ -559,7 +960,6 @@ namespace SpaxUtils
 			IReadOnlyList<TimelineMarker> markers = timeline.Markers;
 			int count = markers == null ? 0 : markers.Count;
 			int[] lanes = new int[count];
-			float duration = timeline.Extent;
 
 			// Pixel span each marker occupies, label included - a point still needs room for its name,
 			// which is why a zero-length region cannot share a row with whatever follows it.
@@ -574,9 +974,9 @@ namespace SpaxUtils
 					continue;
 				}
 
-				float startX = TimeToX(area, marker.Time, duration);
+				float startX = TimeToX(area, marker.Time);
 				spans[i] = new Vector2(startX,
-					Mathf.Max(TimeToX(area, GetEnd(timeline, i), duration), startX + LabelWidth(marker.ID)));
+					Mathf.Max(TimeToX(area, GetEnd(timeline, i)), startX + LabelWidth(marker.ID)));
 				order.Add(i);
 			}
 
@@ -677,14 +1077,39 @@ namespace SpaxUtils
 			return EditorStyles.miniLabel.CalcSize(new GUIContent(id.LastDivision())).x + 10f;
 		}
 
-		private float TimeToX(Rect area, float time, float duration)
+		/// <summary>
+		/// Maps against the VISIBLE window rather than the whole timeline, which is the whole of zoom and pan -
+		/// every ruler tick, marker, lane and hit-test goes through here, so they all follow for free.
+		/// Deliberately unclamped: callers clip their own rects, and clamping would pile offscreen markers at the edge.
+		/// </summary>
+		private float TimeToX(Rect area, float time)
 		{
-			return duration <= 0f ? area.x : area.x + Mathf.Clamp01(time / duration) * area.width;
+			float span = viewEnd - viewStart;
+			return span <= 0f ? area.x : area.x + (time - viewStart) / span * area.width;
 		}
 
-		private float XToTime(Rect area, float x, float duration)
+		private float XToTime(Rect area, float x)
 		{
-			return area.width <= 0f ? 0f : Mathf.Clamp01((x - area.x) / area.width) * duration;
+			float span = viewEnd - viewStart;
+			return area.width <= 0f ? viewStart : viewStart + (x - area.x) / area.width * span;
+		}
+
+		/// <summary>Keeps the window inside the content and never narrower than a couple of frames.</summary>
+		private void ClampView(float extent)
+		{
+			extent = Mathf.Max(MIN_VIEW_SPAN, extent);
+
+			// An unset window (a freshly opened inspector) frames everything.
+			if (viewEnd <= viewStart)
+			{
+				viewStart = 0f;
+				viewEnd = extent;
+				return;
+			}
+
+			float span = Mathf.Clamp(viewEnd - viewStart, MIN_VIEW_SPAN, extent);
+			viewStart = Mathf.Clamp(viewStart, 0f, extent - span);
+			viewEnd = viewStart + span;
 		}
 
 		/// <summary>Snaps to the clip's own frame grid; hold Alt to place freely for one drag.</summary>
@@ -708,6 +1133,14 @@ namespace SpaxUtils
 		/// Own style instance, recoloured per call. Tinting EditorStyles directly leaks into every other
 		/// label Unity draws with it.
 		/// </summary>
+		/// <summary>Own instance for the same reason as <see cref="HeaderStyle"/>: EditorStyles are shared.</summary>
+		private GUIStyle ClockStyle()
+		{
+			clockStyle ??= new GUIStyle(EditorStyles.miniLabel) { fontSize = CLOCK_FONT_SIZE };
+			clockStyle.normal.textColor = new Color(1f, 1f, 1f, 0.85f);
+			return clockStyle;
+		}
+
 		private GUIStyle HeaderStyle(Color color)
 		{
 			headerStyle ??= new GUIStyle(EditorStyles.boldLabel) { fontSize = 13 };

@@ -237,14 +237,42 @@ namespace SpaxUtils
 				// fallback so this never silently draws magenta.
 				Shader shader = Shader.Find("Universal Render Pipeline/Unlit") ?? Shader.Find("Hidden/Internal-Colored");
 				gridMaterial = new Material(shader) { hideFlags = HideFlags.HideAndDontSave };
+				MakeTransparent(gridMaterial);
 
-				Color color = new Color(1f, 1f, 1f, 0.12f);
+				// Dim as a COLOUR as well as in alpha: the lines keep their pixel width into the distance, so
+				// they pile into a haze at the horizon, and this caps how bright that pile can get.
+				Color color = new Color(0.55f, 0.55f, 0.6f, 0.25f);
 				if (gridMaterial.HasProperty("_BaseColor")) gridMaterial.SetColor("_BaseColor", color);
 				if (gridMaterial.HasProperty("_Color")) gridMaterial.SetColor("_Color", color);
-				if (gridMaterial.HasProperty("_Surface")) gridMaterial.SetFloat("_Surface", 1f); // Transparent
 			}
 
 			preview.DrawMesh(grid, Matrix4x4.identity, gridMaterial, 0);
+		}
+
+		/// <summary>
+		/// URP takes blending from RENDER STATE, not from _Surface. Setting that alone leaves the material
+		/// opaque with its alpha silently ignored - which is why the grid drew at full strength regardless.
+		/// </summary>
+		private static void MakeTransparent(Material material)
+		{
+			SetIfPresent(material, "_Surface", 1f);
+			SetIfPresent(material, "_Blend", 0f);
+			SetIfPresent(material, "_ZWrite", 0f);
+			SetIfPresent(material, "_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
+			SetIfPresent(material, "_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+
+			material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+			material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+			material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+		}
+
+		/// <summary>The fallback shader carries only some of these; writing an absent property is a no-op.</summary>
+		private static void SetIfPresent(Material material, string property, float value)
+		{
+			if (material.HasProperty(property))
+			{
+				material.SetFloat(property, value);
+			}
 		}
 
 		private static Mesh BuildGrid(float extent, float spacing)

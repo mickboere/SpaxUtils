@@ -13,7 +13,6 @@ namespace SpaxUtils
 		public string InstanceLocation => instanceLocation;
 		public float InstanceDelay => instanceDelay;
 
-		[Header("Ranged")]
 		[SerializeField] private GameObject projectilePrefab;
 		[SerializeField, ConstDropdown(typeof(ITransformLookupIdentifiers), includeEmpty: true, showAdress: true)] private string instanceLocation;
 		[SerializeField] private float instanceDelay;

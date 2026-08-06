@@ -62,6 +62,7 @@ namespace SpaxUtils
 
 		/// <summary>
 		/// Whether the move can be charged or automatically performs.
+		/// Timeline-driven moves answer this with the presence of a CHARGING region.
 		/// </summary>
 		bool HasCharge { get; }
 
@@ -100,6 +101,7 @@ namespace SpaxUtils
 		/// What should be done if this move is released after preparing.
 		/// TRUE: Performance will begin automatically after input is released and preparation is ready.
 		/// FALSE: Performance will cancel after input is released and preparation is ready.
+		/// Timeline-driven moves answer this with the presence of a PERFORMING region.
 		/// </summary>
 		bool HasPerformance { get; }
 

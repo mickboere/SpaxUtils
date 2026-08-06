@@ -10,7 +10,6 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public float Range => range;
 
-		[Header("COMBAT")]
 		[SerializeField] private float range;
 	}
 }

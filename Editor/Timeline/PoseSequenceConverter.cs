@@ -21,6 +21,36 @@ namespace SpaxUtils
 			Keyframed = 1
 		}
 
+		/// <summary>
+		/// Timing as SERIALIZED on the move, bypassing its accessors. Converting a move that already carries a
+		/// timeline would otherwise read back the very asset this pass is about to overwrite.
+		/// </summary>
+		private readonly struct AuthoredTiming
+		{
+			public bool HasCharge { get; }
+			public bool HasPerformance { get; }
+			public float MinDuration { get; }
+			public float Release { get; }
+			public bool Melee { get; }
+			public float HitDetectionDelay { get; }
+			public float InertiaDelay { get; }
+
+			public AuthoredTiming(PerformanceMove move)
+			{
+				SerializedObject serialized = new SerializedObject(move);
+				HasCharge = serialized.FindProperty("hasCharge").boolValue;
+				HasPerformance = serialized.FindProperty("hasPerformance").boolValue;
+				MinDuration = serialized.FindProperty("minDuration").floatValue;
+				Release = serialized.FindProperty("release").floatValue;
+
+				SerializedProperty hit = serialized.FindProperty("hitDetectionDelay");
+				SerializedProperty inertia = serialized.FindProperty("inertiaDelay");
+				Melee = hit != null && inertia != null;
+				HitDetectionDelay = Melee ? hit.floatValue : 0f;
+				InertiaDelay = Melee ? inertia.floatValue : 0f;
+			}
+		}
+
 		private PerformanceMove move;
 		private BakeMode bakeMode = BakeMode.Keyframed;
 		private float sampleRate = 60f;
@@ -129,12 +159,15 @@ namespace SpaxUtils
 			EditorGUILayout.Space(6);
 			EditorGUILayout.LabelField("Will produce", EditorStyles.boldLabel);
 
+			AuthoredTiming timing = new AuthoredTiming(move);
 			float clipLength = ClipLength(sequence);
 			EditorGUILayout.LabelField("Clip length", $"{clipLength:0.000}s  ({Mathf.CeilToInt(clipLength * sampleRate)} frames)");
 			EditorGUILayout.LabelField("Sequence covers", $"{sequence.TotalDuration:0.000}s across {sequence.PoseCount} poses");
-			EditorGUILayout.LabelField("Timeline extent", $"{Mathf.Max(clipLength, move.MinDuration + move.Release):0.000}s  (release sustains past the clip)");
+			EditorGUILayout.LabelField("Timeline extent", $"{Mathf.Max(clipLength, timing.MinDuration + timing.Release):0.000}s  (release sustains past the clip)");
+			EditorGUILayout.LabelField("Timeline goes",
+				move.Timeline != null ? AssetDatabase.GetAssetPath(move.Timeline) : "into the move as a child asset");
 
-			foreach (TimelineMarker marker in BuildMarkers(move))
+			foreach (TimelineMarker marker in BuildMarkers(timing))
 			{
 				float end = marker.EndMode == MarkerEnd.Duration ? marker.Time + marker.Duration : marker.Time;
 				string label = end > marker.Time ? $"{marker.Time:0.000} .. {end:0.000}s" : $"{marker.Time:0.000}s";
@@ -143,10 +176,10 @@ namespace SpaxUtils
 
 			// The sequence's own timebase is independent of MinDuration, so a mismatch silently holds the
 			// final pose (or truncates). Surfacing it here is half the reason this migration exists.
-			if (!Mathf.Approximately(sequence.TotalDuration, move.MinDuration))
+			if (timing.HasPerformance && !Mathf.Approximately(sequence.TotalDuration, timing.MinDuration))
 			{
 				EditorGUILayout.HelpBox(
-					$"Sequence duration ({sequence.TotalDuration:0.000}s) differs from MinDuration ({move.MinDuration:0.000}s). " +
+					$"Sequence duration ({sequence.TotalDuration:0.000}s) differs from MinDuration ({timing.MinDuration:0.000}s). " +
 					"The bake holds the final pose through the remainder, matching current runtime behaviour.",
 					MessageType.Warning);
 			}
@@ -174,6 +207,7 @@ namespace SpaxUtils
 
 		private static string Convert(PerformanceMove move, PoseSequence sequence, BakeMode mode, float rate, string folder)
 		{
+			AuthoredTiming timing = new AuthoredTiming(move);
 			float clipLength = ClipLength(sequence);
 			float seqDuration = sequence.TotalDuration;
 			int frames = Mathf.Max(1, Mathf.CeilToInt(clipLength * rate));
@@ -234,7 +268,7 @@ namespace SpaxUtils
 					"The existing asset was left untouched.";
 			}
 
-			AnimationClip baked = LoadOrCreate<AnimationClip>($"{folder}/{sequence.name}_Baked.anim");
+			AnimationClip baked = LoadOrCreateClip($"{folder}/{sequence.name}_Baked.anim");
 			baked.ClearCurves();
 			foreach ((EditorCurveBinding binding, AnimationCurve curve) in pending)
 			{
@@ -244,9 +278,17 @@ namespace SpaxUtils
 			CopyClipSettings(sequence, baked);
 			EditorUtility.SetDirty(baked);
 
-			AnimationTimeline timeline = LoadOrCreate<AnimationTimeline>($"{folder}/Timeline_{move.name}.asset");
-			timeline.Setup(baked, BuildMarkers(move), BuildGlobalData(sequence));
+			// Into the move itself unless one is already assigned, so a bulk migration does not scatter
+			// standalone assets that then need re-homing.
+			AnimationTimeline timeline = TimelineOwnership.GetOrCreate(move);
+			if (timeline == null)
+			{
+				return $"ABORTED - '{move.name}' could not be given a timeline. The clip was still written.";
+			}
+
+			timeline.Setup(baked, BuildMarkers(timing), BuildGlobalData(sequence));
 			EditorUtility.SetDirty(timeline);
+			EditorUtility.SetDirty(move);
 
 			// SaveAssets only, mirroring ExtractPosesToClips. A Refresh here can reimport the clip out from
 			// under the curves we just wrote.
@@ -276,7 +318,9 @@ namespace SpaxUtils
 			return $"Baked '{sequence.name}' [{mode}] -> {AssetDatabase.GetAssetPath(baked)}\n" +
 				$"{density}, {pending.Count} curves built from {bindings.Count} bindings, {persisted} persisted, " +
 				$"clip length {clipLength:0.000}s (asset reports {baked.length:0.000}s).\n" +
-				$"Timeline -> {AssetDatabase.GetAssetPath(timeline)}{warnings}";
+				$"Timeline -> {AssetDatabase.GetAssetPath(timeline)} " +
+				$"({(TimelineOwnership.IsOwned(move, timeline) ? "child of the move" : "shared standalone")})," +
+				$" {timeline.Markers.Count} markers{warnings}";
 		}
 
 		/// <summary>Time at which each pose is reached, i.e. the running sum of pose durations.</summary>
@@ -618,33 +662,46 @@ namespace SpaxUtils
 		#endregion Conversion
 
 		/// <summary>
-		/// Markers derived from the move's current values, so the timeline round-trips back to identical
+		/// Markers derived from the move's authored values, so the timeline round-trips back to identical
 		/// timings through the accessors on <see cref="PerformanceMove"/>.
 		/// </summary>
-		private static List<TimelineMarker> BuildMarkers(PerformanceMove move)
+		private static List<TimelineMarker> BuildMarkers(AuthoredTiming timing)
 		{
 			var markers = new List<TimelineMarker>();
 
-			// The three phase regions chain end-to-end, mirroring PerformanceState. A converted sequence has
-			// no lunge window, so Charging is zero-length at 0 - widen it by dragging Performing later.
-			markers.Add(new TimelineMarker(TimelineMarkerIdentifiers.CHARGING, 0f, TimelineMarkerIdentifiers.PERFORMING));
+			// A phase region's PRESENCE is what HasCharge/HasPerformance read, so emitting one the move does
+			// not have would switch that phase on - guards and parries would silently gain a swing.
+			if (timing.HasCharge)
+			{
+				markers.Add(timing.HasPerformance
+					? new TimelineMarker(TimelineMarkerIdentifiers.CHARGING, 0f, TimelineMarkerIdentifiers.PERFORMING)
+					: new TimelineMarker(TimelineMarkerIdentifiers.CHARGING, 0f));
+			}
+
+			if (!timing.HasPerformance)
+			{
+				return markers;
+			}
+
+			// A converted sequence has no lunge window, so Charging is zero-length at 0 - widen it by
+			// dragging Performing later.
 			markers.Add(new TimelineMarker(TimelineMarkerIdentifiers.PERFORMING, 0f, TimelineMarkerIdentifiers.FINISHING));
 
-			if (move is IMeleeCombatMove melee)
+			if (timing.Melee)
 			{
-				if (move.MinDuration > melee.HitDetectionDelay)
+				if (timing.MinDuration > timing.HitDetectionDelay)
 				{
-					markers.Add(new TimelineMarker(TimelineMarkerIdentifiers.HIT, melee.HitDetectionDelay,
-						move.MinDuration - melee.HitDetectionDelay));
+					markers.Add(new TimelineMarker(TimelineMarkerIdentifiers.HIT, timing.HitDetectionDelay,
+						timing.MinDuration - timing.HitDetectionDelay));
 				}
 
-				if (melee.InertiaDelay > 0f)
+				if (timing.InertiaDelay > 0f)
 				{
-					markers.Add(new TimelineMarker(TimelineMarkerIdentifiers.INERTIA, melee.InertiaDelay));
+					markers.Add(new TimelineMarker(TimelineMarkerIdentifiers.INERTIA, timing.InertiaDelay));
 				}
 			}
 
-			markers.Add(new TimelineMarker(TimelineMarkerIdentifiers.FINISHING, move.MinDuration, move.Release));
+			markers.Add(new TimelineMarker(TimelineMarkerIdentifiers.FINISHING, timing.MinDuration, timing.Release));
 			return markers;
 		}
 
@@ -662,19 +719,17 @@ namespace SpaxUtils
 			return data;
 		}
 
-		private static T LoadOrCreate<T>(string path) where T : Object
+		private static AnimationClip LoadOrCreateClip(string path)
 		{
-			T asset = AssetDatabase.LoadAssetAtPath<T>(path);
-			if (asset != null)
+			AnimationClip clip = AssetDatabase.LoadAssetAtPath<AnimationClip>(path);
+			if (clip != null)
 			{
-				return asset;
+				return clip;
 			}
 
-			asset = typeof(T) == typeof(AnimationClip)
-				? new AnimationClip() as T
-				: ScriptableObject.CreateInstance(typeof(T)) as T;
-			AssetDatabase.CreateAsset(asset, path);
-			return asset;
+			clip = new AnimationClip();
+			AssetDatabase.CreateAsset(clip, path);
+			return clip;
 		}
 	}
 }
