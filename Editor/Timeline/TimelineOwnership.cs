@@ -92,6 +92,31 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
+		/// Destroys an owned timeline and clears the reference. Refuses a shared standalone - unassigning one
+		/// move must never delete an asset other moves are still using.
+		/// </summary>
+		public static bool Delete(PerformanceMove move, AnimationTimeline timeline)
+		{
+			if (!IsOwned(move, timeline))
+			{
+				return false;
+			}
+
+			if (!EditorUtility.DisplayDialog("Delete Timeline",
+				$"Delete the timeline owned by '{move.name}'?\n\nIts markers go with it. The clip is a separate asset and is left alone.",
+				"Delete", "Cancel"))
+			{
+				return false;
+			}
+
+			Assign(move, null);
+			AssetDatabase.RemoveObjectFromAsset(timeline);
+			Object.DestroyImmediate(timeline, true);
+			AssetDatabase.SaveAssets();
+			return true;
+		}
+
+		/// <summary>
 		/// The timeline conversion should write into: whatever is already assigned, else a fresh child asset.
 		/// Keeps a bulk migration from scattering standalone assets that then need re-homing.
 		/// </summary>

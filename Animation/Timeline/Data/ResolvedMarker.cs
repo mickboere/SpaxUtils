@@ -14,18 +14,25 @@ namespace SpaxUtils
 		public AnimationCurve Curve { get; }
 		public ILabeledDataProvider Data { get; }
 
+		/// <summary>
+		/// How the end was authored, which <see cref="IsRegion"/> cannot tell you: a zero-length Duration
+		/// region resolves identically to a point, yet one states a length of zero and the other states nothing.
+		/// </summary>
+		public MarkerEnd EndMode { get; }
+
 		/// <summary>Index of the authored marker this came from; identity survives sorting and duplicate IDs.</summary>
 		public int Index { get; }
 
 		public float Length => End - Start;
 		public bool IsRegion => End > Start;
 
-		public ResolvedMarker(string id, float start, float end, AnimationCurve curve,
+		public ResolvedMarker(string id, float start, float end, MarkerEnd endMode, AnimationCurve curve,
 			ILabeledDataProvider data, int index = -1)
 		{
 			ID = id;
 			Start = start;
 			End = end;
+			EndMode = endMode;
 			Curve = curve;
 			Data = data;
 			Index = index;

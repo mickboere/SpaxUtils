@@ -70,6 +70,7 @@ namespace SpaxUtils
 		private const string FOLD_PREF = "SpaxUtils.MoveEditor.";
 		private const string SCRIPT_PROPERTY = "m_Script";
 		private const string UNCLAIMED_TITLE = "Other";
+		private const float SECONDS_WIDTH = 54f;
 
 		protected PerformanceMove Move => (PerformanceMove)target;
 
@@ -204,8 +205,10 @@ namespace SpaxUtils
 			Group("Charging")
 				.Custom(DrawChargeToggle)
 				.Claims("hasCharge")
-				.Field("minCharge", () => Move.HasCharge)
-				.Field("maxCharge", () => Move.HasCharge)
+				.Field("chargeDuration", () => Move.HasCharge && !ChargeIsAnimated)
+				.Custom(() => Readout("Charge Duration", Move.ChargeDuration), () => Move.HasCharge && ChargeIsAnimated)
+				.Custom(DrawMinCharge, () => Move.HasCharge)
+				.Claims("minCharge")
 				.Field("requireMinCharge", () => Move.HasCharge)
 				.Field("chargeSpeedMultiplier", () => Move.HasCharge)
 				.Field("chargeCost", () => Move.HasCharge);
@@ -243,6 +246,34 @@ namespace SpaxUtils
 		#endregion Layout building
 
 		#region Drawing
+
+		/// <summary>Whether a CHARGING region with real length is supplying the charge's duration.</summary>
+		private bool ChargeIsAnimated
+		{
+			get
+			{
+				return Move.UseTimeline &&
+					Move.Timeline.TryGetMarker(TimelineMarkerIdentifiers.CHARGING, out ResolvedMarker charging) &&
+					charging.Length > 0f;
+			}
+		}
+
+		/// <summary>
+		/// A fraction is unreadable on its own, so the seconds it produces sit next to it. Charge is bounded
+		/// by its own maximum, which is why this is a slider rather than a duration.
+		/// </summary>
+		private void DrawMinCharge()
+		{
+			Rect rect = EditorGUILayout.GetControlRect();
+			Rect field = new Rect(rect.x, rect.y, rect.width - SECONDS_WIDTH, rect.height);
+			EditorGUI.PropertyField(field, serializedObject.FindProperty("minCharge"));
+
+			using (new EditorGUI.DisabledScope(true))
+			{
+				EditorGUI.LabelField(new Rect(field.xMax + 4f, rect.y, SECONDS_WIDTH, rect.height),
+					$"{Move.MinCharge:0.000}s", EditorStyles.miniLabel);
+			}
+		}
 
 		/// <summary>Draws a value the timeline supplies, standing in for the field it replaced.</summary>
 		protected static void Readout(string label, float seconds)
@@ -403,13 +434,28 @@ namespace SpaxUtils
 				EditorGUILayout.LabelField(owned ? "Child asset of this move" : "Shared standalone asset",
 					EditorStyles.miniLabel);
 
-				if (owned && GUILayout.Button("Extract", GUILayout.Width(90f)))
+				if (owned)
 				{
-					restructure = () => TimelineOwnership.Extract(move, timeline);
+					if (GUILayout.Button("Extract", GUILayout.Width(80f)))
+					{
+						restructure = () => TimelineOwnership.Extract(move, timeline);
+					}
+					if (GUILayout.Button("Delete", GUILayout.Width(60f)))
+					{
+						restructure = () => TimelineOwnership.Delete(move, timeline);
+					}
+					return;
 				}
-				else if (!owned && GUILayout.Button("Embed Copy", GUILayout.Width(90f)))
+
+				if (GUILayout.Button("Embed Copy", GUILayout.Width(90f)))
 				{
 					restructure = () => TimelineOwnership.Embed(move, timeline);
+				}
+
+				// Only unassigns. A shared asset outlives any one move's reference to it.
+				if (GUILayout.Button("Clear", GUILayout.Width(60f)))
+				{
+					restructure = () => TimelineOwnership.Assign(move, null);
 				}
 			}
 		}

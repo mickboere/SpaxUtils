@@ -38,7 +38,7 @@ namespace SpaxUtils
 
 		private void UpdateRotation(float delta)
 		{
-			Vector3 dir = wrapper.RelativeAcceleration * sensitivity;
+			Vector3 dir = wrapper.RelativeAcceleration * sensitivity  * wrapper.Control;
 			Quaternion target = Quaternion.identity;
 			if (grounder.Grounded && dir.magnitude > 0.01f)
 			{

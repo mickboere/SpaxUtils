@@ -175,9 +175,12 @@ namespace SpaxUtils
 
 			// Never let the strip and curve lane swallow the rig; they yield, the preview keeps its floor.
 			float budget = Mathf.Max(0f, r.height - MIN_PREVIEW_HEIGHT);
+			float band = Mathf.Min(TimelineHeight(timeline, r.width), budget);
+			band += Mathf.Min(CurveLaneHeight(), Mathf.Max(0f, budget - band));
 
-			// View input first: every height below is measured through the mapping it changes.
-			HandleView(new Rect(r.x, r.y, r.width, budget), extent);
+			// Strictly over the strip and curve lane. Any taller and it eats the scroll the rig needs to zoom.
+			// Before drawing, since every height below is measured through the mapping this changes.
+			HandleView(new Rect(r.x, r.y, r.width, band), extent);
 
 			float strip = Mathf.Min(TimelineHeight(timeline, r.width), budget);
 			float y = r.y;
@@ -500,8 +503,18 @@ namespace SpaxUtils
 							ClampToLinks(timeline, dragging, SnapTime(timeline, grabbed - dragOffset));
 						break;
 					default:
-						markerProp.FindPropertyRelative("time").floatValue =
-							ClampToLinks(timeline, dragging, SnapTime(timeline, grabbed));
+						SerializedProperty timeProp = markerProp.FindPropertyRelative("time");
+						SerializedProperty durationProp = markerProp.FindPropertyRelative("duration");
+						float previous = timeProp.floatValue;
+						timeProp.floatValue = ClampToLinks(timeline, dragging, SnapTime(timeline, grabbed));
+
+						// The tail is ANCHORED: dragging the head resizes the region rather than sliding it,
+						// which is what grabbing the body is for. A Marker-ended region gets this for free.
+						if (markerProp.FindPropertyRelative("endMode").enumValueIndex == (int)MarkerEnd.Duration)
+						{
+							durationProp.floatValue =
+								Mathf.Max(0f, durationProp.floatValue + previous - timeProp.floatValue);
+						}
 						break;
 				}
 

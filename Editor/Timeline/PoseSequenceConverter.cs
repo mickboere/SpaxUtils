@@ -51,12 +51,37 @@ namespace SpaxUtils
 			}
 		}
 
+		/// <summary>
+		/// One migration candidate. A Blocker means it cannot convert; a Warning means it can but almost
+		/// certainly should not, so it starts unchecked rather than being swept along with a batch.
+		/// </summary>
+		private class Candidate
+		{
+			public PerformanceMove Move { get; }
+			public PoseSequence Sequence { get; }
+			public string Blocker { get; }
+			public string Warning { get; }
+			public bool Chosen { get; set; }
+
+			public Candidate(PerformanceMove move, PoseSequence sequence, string blocker, string warning)
+			{
+				Move = move;
+				Sequence = sequence;
+				Blocker = blocker;
+				Warning = warning;
+				Chosen = blocker == null && warning == null;
+			}
+		}
+
 		private PerformanceMove move;
 		private BakeMode bakeMode = BakeMode.Keyframed;
 		private float sampleRate = 60f;
 		private DefaultAsset outputFolder;
 		private Vector2 scroll;
 		private string report;
+		private bool batch;
+		private Vector2 batchScroll;
+		private List<Candidate> candidates;
 
 		private const string PREF_MODE = "SpaxUtils.SequenceConverter.Mode";
 		private const string PREF_RATE = "SpaxUtils.SequenceConverter.Rate";
@@ -99,26 +124,32 @@ namespace SpaxUtils
 			// Settings persist; the move deliberately does not, since it changes every conversion.
 			EditorGUI.BeginChangeCheck();
 			bakeMode = (BakeMode)EditorGUILayout.EnumPopup("Bake Mode", bakeMode);
-			using (new EditorGUI.DisabledScope(bakeMode != BakeMode.Resample))
-			{
-				sampleRate = EditorGUILayout.FloatField("Sample Rate", sampleRate);
-			}
+
+			// Governs BOTH modes now: it is the baked clip's frame grid, which every key is snapped onto.
+			sampleRate = EditorGUILayout.FloatField(
+				new GUIContent("Frame Rate", "The baked clip's frame rate. Every key and the clip's length snap to this grid; in Resample mode it is also the sampling density."),
+				sampleRate);
 			outputFolder = (DefaultAsset)EditorGUILayout.ObjectField("Output Folder", outputFolder, typeof(DefaultAsset), false);
 			if (EditorGUI.EndChangeCheck())
 			{
 				SaveSettings();
 			}
 
+			EditorGUILayout.Space(6);
+			DrawBatch();
+
 			PoseSequence sequence = move == null ? null : move.PosingData as PoseSequence;
 			if (move == null)
 			{
 				EditorGUILayout.HelpBox("Assign a PerformanceMove. Its timing values become the markers.", MessageType.Info);
+				DrawReport();
 				return;
 			}
 
 			if (sequence == null)
 			{
 				EditorGUILayout.HelpBox("This move's PosingData is not a PoseSequence.", MessageType.Warning);
+				DrawReport();
 				return;
 			}
 
@@ -145,14 +176,266 @@ namespace SpaxUtils
 				}
 			}
 
-			if (!string.IsNullOrEmpty(report))
+			DrawReport();
+		}
+
+		#region Batch
+
+		private void DrawReport()
+		{
+			if (string.IsNullOrEmpty(report))
 			{
-				EditorGUILayout.Space(4);
-				scroll = EditorGUILayout.BeginScrollView(scroll, GUILayout.MaxHeight(180f));
-				EditorGUILayout.HelpBox(report, MessageType.None);
-				EditorGUILayout.EndScrollView();
+				return;
+			}
+
+			EditorGUILayout.Space(4);
+			scroll = EditorGUILayout.BeginScrollView(scroll, GUILayout.MaxHeight(180f));
+			EditorGUILayout.HelpBox(report, MessageType.None);
+			EditorGUILayout.EndScrollView();
+		}
+
+		/// <summary>
+		/// Whole-moveset migration. One move at a time is fine for authoring, but the migration itself is a
+		/// dozen-plus moves and every one of them wants the same settings.
+		/// </summary>
+		private void DrawBatch()
+		{
+			batch = EditorGUILayout.Foldout(batch, "Batch", true, EditorStyles.foldoutHeader);
+			if (!batch)
+			{
+				return;
+			}
+
+			if (candidates == null)
+			{
+				RefreshCandidates();
+			}
+
+			using (new EditorGUILayout.HorizontalScope())
+			{
+				if (GUILayout.Button("Rescan", GUILayout.Width(70f)))
+				{
+					RefreshCandidates();
+				}
+
+				GUILayout.FlexibleSpace();
+				GUILayout.Label($"{Chosen()} of {candidates.Count}", EditorStyles.miniLabel);
+			}
+
+			batchScroll = EditorGUILayout.BeginScrollView(batchScroll, GUILayout.MaxHeight(220f));
+			foreach (Candidate candidate in candidates)
+			{
+				DrawCandidate(candidate);
+			}
+			EditorGUILayout.EndScrollView();
+
+			// Two buttons, never one with a flag: converting REBAKES and rewrites markers, so bundling the
+			// switch into it means flipping a move to Timeline would silently discard any marker you re-timed.
+			using (new EditorGUILayout.HorizontalScope())
+			{
+				using (new EditorGUI.DisabledScope(Chosen() == 0 || sampleRate <= 0f))
+				{
+					if (GUILayout.Button($"Convert {Chosen()}  (rebakes, resets markers)", GUILayout.Height(24f)))
+					{
+						report = ConvertBatch();
+						Debug.Log($"[PoseSequenceConverter] {report}");
+						GUIUtility.ExitGUI();
+					}
+				}
+
+				using (new EditorGUI.DisabledScope(Switchable() == 0))
+				{
+					if (GUILayout.Button($"Switch {Switchable()} to Timeline", GUILayout.Height(24f), GUILayout.Width(170f)))
+					{
+						report = SwitchBatch();
+						Debug.Log($"[PoseSequenceConverter] {report}");
+						GUIUtility.ExitGUI();
+					}
+				}
+			}
+
+			EditorGUILayout.Space(4);
+		}
+
+		private void DrawCandidate(Candidate candidate)
+		{
+			using (new EditorGUILayout.HorizontalScope())
+			{
+				using (new EditorGUI.DisabledScope(candidate.Blocker != null))
+				{
+					candidate.Chosen = EditorGUILayout.Toggle(candidate.Chosen, GUILayout.Width(16f));
+				}
+
+				if (GUILayout.Button(candidate.Move.name, EditorStyles.linkLabel, GUILayout.Width(190f)))
+				{
+					EditorGUIUtility.PingObject(candidate.Move);
+				}
+
+				if (candidate.Blocker != null)
+				{
+					EditorGUILayout.LabelField(candidate.Blocker, EditorStyles.miniLabel);
+					return;
+				}
+
+				if (candidate.Warning != null)
+				{
+					Color previous = GUI.color;
+					GUI.color = new Color(1f, 0.8f, 0.35f);
+					EditorGUILayout.LabelField(candidate.Warning, EditorStyles.miniLabel);
+					GUI.color = previous;
+					return;
+				}
+
+				// Already-migrated moves stay listed and re-convertible; a re-bake overwrites in place.
+				string state = candidate.Move.Timeline == null ? "no timeline" : candidate.Move.AnimationType.ToString();
+				EditorGUILayout.LabelField($"{candidate.Sequence.name}   [{state}]", EditorStyles.miniLabel);
 			}
 		}
+
+		private int Chosen()
+		{
+			int count = 0;
+			foreach (Candidate candidate in candidates)
+			{
+				if (candidate.Chosen && candidate.Blocker == null)
+				{
+					count++;
+				}
+			}
+			return count;
+		}
+
+		/// <summary>Checked moves that already carry a timeline and are not already using it.</summary>
+		private int Switchable()
+		{
+			int count = 0;
+			foreach (Candidate candidate in candidates)
+			{
+				if (IsSwitchable(candidate))
+				{
+					count++;
+				}
+			}
+			return count;
+		}
+
+		private static bool IsSwitchable(Candidate candidate)
+		{
+			return candidate.Chosen && candidate.Blocker == null && candidate.Move.Timeline != null &&
+				candidate.Move.AnimationType != PerformanceAnimationType.Timeline;
+		}
+
+		/// <summary>
+		/// Flips AnimationType only. Separate from converting so switching a move over never costs the marker
+		/// timings you re-tuned after its bake.
+		/// </summary>
+		private string SwitchBatch()
+		{
+			int switched = 0;
+			string names = string.Empty;
+
+			foreach (Candidate candidate in candidates)
+			{
+				if (!IsSwitchable(candidate))
+				{
+					continue;
+				}
+
+				SwitchToTimeline(candidate.Move);
+				names += $"\n  {candidate.Move.name}";
+				switched++;
+			}
+
+			AssetDatabase.SaveAssets();
+			return $"SWITCHED {switched} moves to Timeline. Nothing was rebaked.{names}";
+		}
+
+		/// <summary>Every move in the project, with the ones that cannot migrate listed and labelled, not hidden.</summary>
+		private void RefreshCandidates()
+		{
+			candidates = new List<Candidate>();
+
+			foreach (string guid in AssetDatabase.FindAssets($"t:{nameof(PerformanceMove)}"))
+			{
+				PerformanceMove found = AssetDatabase.LoadAssetAtPath<PerformanceMove>(AssetDatabase.GUIDToAssetPath(guid));
+				if (found == null)
+				{
+					continue;
+				}
+
+				PoseSequence sequence = found.PosingData as PoseSequence;
+				string blocker = null;
+				if (found.PosingData == null)
+				{
+					blocker = "no posing data";
+				}
+				else if (sequence == null)
+				{
+					blocker = $"{found.PosingData.GetType().Name}, not a PoseSequence";
+				}
+
+				// An Animator-driven move never played its posing data, so whatever sits in that field was
+				// never validated against the creature - the Snail's held a humanoid sequence. Never batch these.
+				string warning = blocker == null && found.AnimationType == PerformanceAnimationType.Animator
+					? "Animator-driven; its posing data is not what plays it"
+					: null;
+
+				candidates.Add(new Candidate(found, sequence, blocker, warning));
+			}
+
+			candidates.Sort((a, b) => string.CompareOrdinal(a.Move.name, b.Move.name));
+		}
+
+		private string ConvertBatch()
+		{
+			int converted = 0;
+			int failed = 0;
+			string detail = string.Empty;
+
+			foreach (Candidate candidate in candidates)
+			{
+				if (!candidate.Chosen || candidate.Blocker != null)
+				{
+					continue;
+				}
+
+				string result;
+				try
+				{
+					result = Convert(candidate.Move, candidate.Sequence, bakeMode, sampleRate, FolderPath(candidate.Sequence));
+				}
+				catch (System.Exception exception)
+				{
+					result = $"FAILED: {exception.GetType().Name}: {exception.Message}";
+				}
+
+				// The converter reports its own refusals rather than throwing, so both prefixes mean "no output".
+				bool ok = !result.StartsWith("ABORTED") && !result.StartsWith("FAILED");
+				if (ok)
+				{
+					converted++;
+				}
+				else
+				{
+					failed++;
+				}
+
+				detail += $"\n\n--- {candidate.Move.name} ---\n{result}";
+			}
+
+			AssetDatabase.SaveAssets();
+			return $"BATCH: {converted} converted, {failed} failed. AnimationType left untouched.{detail}";
+		}
+
+		private static void SwitchToTimeline(PerformanceMove move)
+		{
+			SerializedObject serialized = new SerializedObject(move);
+			serialized.FindProperty("animationType").enumValueIndex = (int)PerformanceAnimationType.Timeline;
+			serialized.ApplyModifiedProperties();
+			EditorUtility.SetDirty(move);
+		}
+
+		#endregion Batch
 
 		private void DrawPreview(PoseSequence sequence)
 		{
@@ -160,14 +443,14 @@ namespace SpaxUtils
 			EditorGUILayout.LabelField("Will produce", EditorStyles.boldLabel);
 
 			AuthoredTiming timing = new AuthoredTiming(move);
-			float clipLength = ClipLength(sequence);
-			EditorGUILayout.LabelField("Clip length", $"{clipLength:0.000}s  ({Mathf.CeilToInt(clipLength * sampleRate)} frames)");
+			float clipLength = ClipLength(sequence, sampleRate);
+			EditorGUILayout.LabelField("Clip length", $"{clipLength:0.000}s  ({Mathf.RoundToInt(clipLength * sampleRate)} frames)");
 			EditorGUILayout.LabelField("Sequence covers", $"{sequence.TotalDuration:0.000}s across {sequence.PoseCount} poses");
 			EditorGUILayout.LabelField("Timeline extent", $"{Mathf.Max(clipLength, timing.MinDuration + timing.Release):0.000}s  (release sustains past the clip)");
 			EditorGUILayout.LabelField("Timeline goes",
 				move.Timeline != null ? AssetDatabase.GetAssetPath(move.Timeline) : "into the move as a child asset");
 
-			foreach (TimelineMarker marker in BuildMarkers(timing))
+			foreach (TimelineMarker marker in BuildMarkers(timing, ChargeCurve(sequence)))
 			{
 				float end = marker.EndMode == MarkerEnd.Duration ? marker.Time + marker.Duration : marker.Time;
 				string label = end > marker.Time ? $"{marker.Time:0.000} .. {end:0.000}s" : $"{marker.Time:0.000}s";
@@ -191,9 +474,18 @@ namespace SpaxUtils
 		/// The clip is the animation and nothing more. Release is a region sustaining past the last frame,
 		/// not padding baked into the curves.
 		/// </summary>
-		private static float ClipLength(PoseSequence sequence)
+		private static float ClipLength(PoseSequence sequence, float rate)
 		{
-			return sequence.TotalDuration;
+			return Quantize(sequence.TotalDuration, rate);
+		}
+
+		/// <summary>
+		/// Rounds to the clip's frame grid. Pose durations are authored in arbitrary seconds, so their running
+		/// sum lands between frames - a clip half a frame long, with keys Unity DISPLAYS on the frame it rounds to.
+		/// </summary>
+		private static float Quantize(float time, float rate)
+		{
+			return rate <= 0f ? time : Mathf.Round(time * rate) / rate;
 		}
 
 		private string FolderPath(PoseSequence sequence)
@@ -208,9 +500,11 @@ namespace SpaxUtils
 		private static string Convert(PerformanceMove move, PoseSequence sequence, BakeMode mode, float rate, string folder)
 		{
 			AuthoredTiming timing = new AuthoredTiming(move);
-			float clipLength = ClipLength(sequence);
+			float clipLength = ClipLength(sequence, rate);
 			float seqDuration = sequence.TotalDuration;
-			int frames = Mathf.Max(1, Mathf.CeilToInt(clipLength * rate));
+
+			// Round, not ceil: clipLength is already on the grid, so ceil would add a stray trailing frame.
+			int frames = Mathf.Max(1, Mathf.RoundToInt(clipLength * rate));
 
 			// Cache every pose clip's value per binding; pose clips hold a single keyframe at t=0.
 			Dictionary<AnimationClip, Dictionary<EditorCurveBinding, float>> cache = BuildCache(sequence, out var bindings, out bool mirrored);
@@ -225,7 +519,7 @@ namespace SpaxUtils
 						: "The pose clips contain no readable curves (AnimationUtility.GetCurveBindings returned none).");
 			}
 
-			float[] times = CumulativeTimes(sequence);
+			float[] times = CumulativeTimes(sequence, rate);
 			int keysPerCurve = 0;
 			bool rootRotation = false;
 
@@ -275,6 +569,9 @@ namespace SpaxUtils
 				AnimationUtility.SetEditorCurve(baked, binding, curve);
 			}
 
+			// The grid the keys were snapped onto has to be the clip's own, or every tool downstream
+			// (the timeline ruler included) measures those keys against a different one.
+			baked.frameRate = rate;
 			CopyClipSettings(sequence, baked);
 			EditorUtility.SetDirty(baked);
 
@@ -286,7 +583,7 @@ namespace SpaxUtils
 				return $"ABORTED - '{move.name}' could not be given a timeline. The clip was still written.";
 			}
 
-			timeline.Setup(baked, BuildMarkers(timing), BuildGlobalData(sequence));
+			timeline.Setup(baked, BuildMarkers(timing, ChargeCurve(sequence)));
 			EditorUtility.SetDirty(timeline);
 			EditorUtility.SetDirty(move);
 
@@ -323,15 +620,18 @@ namespace SpaxUtils
 				$" {timeline.Markers.Count} markers{warnings}";
 		}
 
-		/// <summary>Time at which each pose is reached, i.e. the running sum of pose durations.</summary>
-		private static float[] CumulativeTimes(PoseSequence sequence)
+		/// <summary>
+		/// Time at which each pose is reached - the running sum of pose durations, snapped to the frame grid.
+		/// Snapping the SUM rather than each duration keeps the drift under half a frame however many poses there are.
+		/// </summary>
+		private static float[] CumulativeTimes(PoseSequence sequence, float rate)
 		{
 			float[] times = new float[sequence.PoseCount];
 			float running = 0f;
 			for (int i = 0; i < sequence.PoseCount; i++)
 			{
 				running += sequence.Get(i).Duration;
-				times[i] = running;
+				times[i] = Quantize(running, rate);
 			}
 			return times;
 		}
@@ -665,7 +965,7 @@ namespace SpaxUtils
 		/// Markers derived from the move's authored values, so the timeline round-trips back to identical
 		/// timings through the accessors on <see cref="PerformanceMove"/>.
 		/// </summary>
-		private static List<TimelineMarker> BuildMarkers(AuthoredTiming timing)
+		private static List<TimelineMarker> BuildMarkers(AuthoredTiming timing, AnimationCurve chargeCurve)
 		{
 			var markers = new List<TimelineMarker>();
 
@@ -673,9 +973,18 @@ namespace SpaxUtils
 			// not have would switch that phase on - guards and parries would silently gain a swing.
 			if (timing.HasCharge)
 			{
-				markers.Add(timing.HasPerformance
+				TimelineMarker charging = timing.HasPerformance
 					? new TimelineMarker(TimelineMarkerIdentifiers.CHARGING, 0f, TimelineMarkerIdentifiers.PERFORMING)
-					: new TimelineMarker(TimelineMarkerIdentifiers.CHARGING, 0f));
+					: new TimelineMarker(TimelineMarkerIdentifiers.CHARGING, 0f);
+
+				// The charge pose's transition curve becomes the region's own: it shapes how fast the
+				// performer's weight moves into the charge, which is exactly what this marker governs.
+				if (chargeCurve != null)
+				{
+					charging.SetCurve(chargeCurve);
+				}
+
+				markers.Add(charging);
 			}
 
 			if (!timing.HasPerformance)
@@ -706,17 +1015,12 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
-		/// Carries the first pose's transition curve across as global data. It shapes how strongly the charge
-		/// pose asserts itself over charge progress - the one piece of the sequence a baked clip cannot hold.
+		/// The first pose's transition curve - how strongly the charge pose asserts itself over charge
+		/// progress. The one piece of the sequence a baked clip cannot hold, so it rides on the CHARGING marker.
 		/// </summary>
-		private static LabeledPoseData BuildGlobalData(PoseSequence sequence)
+		private static AnimationCurve ChargeCurve(PoseSequence sequence)
 		{
-			LabeledPoseData data = new LabeledPoseData();
-			if (sequence.PoseCount > 0 && sequence.Get(0).TransitionCurve != null)
-			{
-				data.SetCurve(AnimationFloatConstants.CHARGE_WEIGHT, sequence.Get(0).TransitionCurve);
-			}
-			return data;
+			return sequence.PoseCount > 0 ? sequence.Get(0).TransitionCurve : null;
 		}
 
 		private static AnimationClip LoadOrCreateClip(string path)

@@ -74,7 +74,7 @@ namespace SpaxUtils
 		/// <summary>
 		/// Maximum charging extent in seconds.
 		/// </summary>
-		float MaxCharge { get; }
+		float ChargeDuration { get; }
 
 		/// <summary>
 		/// What should be done if this move is released before reaching <see cref="MinCharge"/>.

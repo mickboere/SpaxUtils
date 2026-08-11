@@ -62,6 +62,12 @@ namespace SpaxUtils
 			duration = Mathf.Max(0f, value);
 		}
 
+		/// <summary>Editor-only; conversion tooling carries authored curves across.</summary>
+		public void SetCurve(AnimationCurve value)
+		{
+			curve = value;
+		}
+
 		public override string ToString()
 		{
 			return $"TimelineMarker(\"{id}\", {time}, {endMode})";

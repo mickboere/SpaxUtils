@@ -11,9 +11,9 @@ namespace SpaxUtils
 	{
 		#region Tooltips
 
-		private const string TT_MIN_CHARGE = "Minimum required charge in seconds before performing.";
+		private const string TT_CHARGE_DURATION = "How long a full charge takes, in seconds. Charging itself can continue past it, until the charge stat drains.";
+		private const string TT_MIN_CHARGE = "Minimum charge required before performing, as a fraction of the charge duration.";
 		private const string TT_REQUIRE_MIN_CHARGE = "TRUE: Releasing input before completing charge will cancel.\nFALSE: Releasing input before completing charge will continue and automatically perform.";
-		private const string TT_MAX_CHARGE = "Maximum charging extent in seconds (this is only used in determining the charge pose, charging itself can be continued until the charge stat is drained).";
 		private const string TT_MIN_DURATION = "Minimum performing duration of this move.";
 		private const string TT_CHARGE_FADEOUT = "Duration of transition from charge pose to performing pose, relative to MinDuration.";
 		private const string TT_RELEASE = "Interuptable sustain / fadeout time after a successful performance.";
@@ -32,13 +32,16 @@ namespace SpaxUtils
 		public IReadOnlyList<BehaviourAsset> Behaviour => behaviour;
 		public IReadOnlyList<MoveFollowUp> FollowUps => followUps;
 
-		// A phase region's PRESENCE is the flag; the inspector checkbox only adds or removes it. Charge
-		// DURATIONS stay fields - they lead up to the animation rather than sitting anywhere on it.
+		// A phase region's PRESENCE is the flag; the inspector checkbox only adds or removes it.
 		public bool HasCharge => UseTimeline
 			? timeline.TryGetMarker(TimelineMarkerIdentifiers.CHARGING, out _)
 			: hasCharge;
-		public float MinCharge => minCharge;
-		public float MaxCharge => maxCharge;
+
+		public float ChargeDuration => UseTimeline ? TimelineChargeDuration() : chargeDuration;
+
+		/// <summary>Seconds, from a 0-1 fraction of <see cref="ChargeDuration"/> - the charge cannot outlast itself.</summary>
+		public float MinCharge => minCharge * ChargeDuration;
+
 		public bool RequireMinCharge => requireMinCharge;
 		public string ChargeSpeedMultiplierStat => chargeSpeedMultiplier;
 		public StatCost ChargeCost => chargeCost;
@@ -93,8 +96,8 @@ namespace SpaxUtils
 		[SerializeField, Tooltip(TT_RELEASE)] private float release = 0.5f;
 
 		[SerializeField] private bool hasCharge;
-		[SerializeField, Tooltip(TT_MIN_CHARGE)] private float minCharge = 0.3f;
-		[SerializeField, Tooltip(TT_MAX_CHARGE)] private float maxCharge = 1f;
+		[SerializeField, Tooltip(TT_CHARGE_DURATION)] private float chargeDuration = 1f;
+		[SerializeField, Range(0f, 1f), Tooltip(TT_MIN_CHARGE)] private float minCharge = 0.3f;
 		[SerializeField, Tooltip(TT_REQUIRE_MIN_CHARGE)] private bool requireMinCharge;
 		// No attack-flavoured default: a move states its own pacing stat or runs at 1x. includeEmpty makes "no stat" selectable,
 		// forceOption repairs identifiers left stale by a rename instead of silently keeping a dead string.
@@ -114,6 +117,16 @@ namespace SpaxUtils
 
 		#region Timeline migration
 
+		/// <summary>
+		/// An authored charge ANIMATION states its own length. A zero-length region is a held pose: it says
+		/// where the pose sits and nothing about how long you hold it, so the field still decides that.
+		/// </summary>
+		private float TimelineChargeDuration()
+		{
+			return timeline.TryGetMarker(TimelineMarkerIdentifiers.CHARGING, out ResolvedMarker charging) &&
+				charging.Length > 0f ? charging.Length : chargeDuration;
+		}
+
 		private float TimelineMinDuration()
 		{
 			// The committed swing is exactly the Performing region: PERFORMING start to FINISHING start.
@@ -129,8 +142,11 @@ namespace SpaxUtils
 				return release;
 			}
 
-			// A FINISHING region states its own sustain; a bare point sustains to the end of the clip.
-			return finishing.IsRegion ? finishing.Length : Mathf.Max(0f, timeline.Duration - finishing.Start);
+			// An authored end IS the release, zero included. Only a point states no end at all, and that
+			// sustains to the end of the clip. Keyed on EndMode, since a zero-length region resolves as a point.
+			return finishing.EndMode == MarkerEnd.Point
+				? Mathf.Max(0f, timeline.Duration - finishing.Start)
+				: finishing.Length;
 		}
 
 		#endregion Timeline migration

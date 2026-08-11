@@ -193,7 +193,7 @@ namespace SpaxUtils
 
 			if (State == PerformanceState.Preparing)
 			{
-				TimelinePlayer.SetTime(charging);
+				TimelinePlayer.SetTime(ChargePlayhead(timeline, charging));
 				Weight = ChargeWeight(timeline, Weight);
 			}
 			else if (this is ILungeProvider lunge && lunge.Lunging &&
@@ -215,20 +215,35 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
-		/// How strongly the charge pose asserts itself over charge progress, carried across from the pose
-		/// sequence's transition curve. Falls back to the clock's own weight when the timeline defines none.
+		/// Plays an authored charge ANIMATION across its region as the charge builds. A zero-length region has
+		/// nothing to play and simply parks on its pose, which is what a held charge always did.
+		/// </summary>
+		private float ChargePlayhead(AnimationTimeline timeline, float parked)
+		{
+			return timeline.TryGetMarker(TimelineMarkerIdentifiers.CHARGING, out ResolvedMarker charging) &&
+				charging.Length > 0f
+				? Mathf.Lerp(charging.Start, charging.End, ChargeProgress())
+				: parked;
+		}
+
+		/// <summary>
+		/// How strongly the charge pose asserts itself over charge progress, taken from the CHARGING marker's
+		/// own curve. Falls back to the clock's weight when none is authored - an empty curve means unauthored.
 		/// </summary>
 		private float ChargeWeight(AnimationTimeline timeline, float fallback)
 		{
-			if (timeline.GlobalData == null || Move.MaxCharge <= 0f)
+			if (!timeline.TryGetMarker(TimelineMarkerIdentifiers.CHARGING, out ResolvedMarker charging) ||
+				charging.Curve == null || charging.Curve.length == 0)
 			{
 				return fallback;
 			}
 
-			float progress = Mathf.Clamp01(Performer.ChargeTime / Move.MaxCharge);
-			return timeline.GlobalData.TryGetFloat(AnimationFloatConstants.CHARGE_WEIGHT, progress, out float weight)
-				? Mathf.Clamp01(weight)
-				: fallback;
+			return Mathf.Clamp01(charging.Curve.Evaluate(ChargeProgress()));
+		}
+
+		private float ChargeProgress()
+		{
+			return Move.ChargeDuration > 0f ? Mathf.Clamp01(Performer.ChargeTime / Move.ChargeDuration) : 0f;
 		}
 
 		protected abstract IPoserInstructions Evaluate(out float weight);

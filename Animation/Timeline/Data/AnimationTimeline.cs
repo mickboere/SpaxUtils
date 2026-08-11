@@ -16,8 +16,8 @@ namespace SpaxUtils
 		public float Duration => clip != null ? clip.length : 0f;
 
 		/// <summary>
-		/// Furthest point the timeline reaches. Exceeds <see cref="Duration"/> when a region sustains past
-		/// the last animated frame - a release holds the final pose rather than needing it baked into the clip.
+		/// Furthest point the timeline reaches. Exceeds <see cref="Duration"/> when a marker sustains past the
+		/// last animated frame; everything sampling the clip clamps, so the final pose simply holds.
 		/// </summary>
 		public float Extent
 		{
@@ -114,13 +114,8 @@ namespace SpaxUtils
 					continue;
 				}
 
-				// Only STARTS are checked. A region ending past the clip is legitimate - that is how a
-				// release sustains the final pose without padding the animation.
-				if (marker.Time > Duration)
-				{
-					problems?.Add($"'{marker.ID}' starts past the end of the clip, so it has no pose to sit on.");
-				}
-
+				// Nothing is checked against the clip's length. A marker may START past the last frame, not
+				// just end past it - that is how a move sustains its final pose for a longer performance.
 				float end = marker.Time;
 				switch (marker.EndMode)
 				{
@@ -132,7 +127,7 @@ namespace SpaxUtils
 						break;
 				}
 
-				resolved.Add(new ResolvedMarker(marker.ID, marker.Time, end, marker.Curve, marker.Data, i));
+				resolved.Add(new ResolvedMarker(marker.ID, marker.Time, end, marker.EndMode, marker.Curve, marker.Data, i));
 			}
 
 			resolved.Sort((a, b) => a.Start.CompareTo(b.Start));

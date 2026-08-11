@@ -13,7 +13,7 @@ namespace SpaxUtils
 			{
 				// Charging.
 				IPose chargePose = sequence.Get(0);
-				float chargeWeight = chargePose.EvaluateTransition(Mathf.Clamp01(Performer.ChargeTime / Move.MaxCharge));
+				float chargeWeight = chargePose.EvaluateTransition(Mathf.Clamp01(Performer.ChargeTime / Move.ChargeDuration));
 
 				// Performing.
 				if (Move.HasPerformance)

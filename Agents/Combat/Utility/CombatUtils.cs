@@ -318,7 +318,7 @@ namespace SpaxUtils
 
 		/// <summary>
 		/// Predict how much we intend to charge and how long that will take.
-		/// intent: 0..1 (0 = minimum charge only, 1 = as close to MaxCharge as possible).
+		/// intent: 0..1 (0 = minimum charge only, 1 = as close to ChargeDuration as possible).
 		/// </summary>
 		public static void GetChargePrediction(
 			ICombatMove move,
@@ -336,7 +336,7 @@ namespace SpaxUtils
 
 			float invSpeed = 1f / Mathf.Max(chargeSpeed, 0.01f);
 			float minT = move.MinCharge * invSpeed;
-			float maxT = move.MaxCharge > 0f ? move.MaxCharge * invSpeed : minT;
+			float maxT = move.ChargeDuration > 0f ? move.ChargeDuration * invSpeed : minT;
 
 			intent = Mathf.Clamp01(intent);
 			float t = Mathf.Lerp(minT, maxT, intent);

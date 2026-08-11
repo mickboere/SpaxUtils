@@ -5,7 +5,7 @@
 		private const string POSES = "Poses/";
 		public const string CYCLE_OFFSET = ILabeledDataIdentifiers.FLOAT + POSES + "Cycle offset";
 
-		/// <summary>Curve over charge progress deciding how strongly the charge pose asserts itself.</summary>
-		public const string CHARGE_WEIGHT = ILabeledDataIdentifiers.FLOAT + POSES + "Charge weight";
+		// CHARGE_WEIGHT is gone: the charge's weight curve lives on the CHARGING marker itself now, which is
+		// the thing that governs it. Nothing reads a global identifier for it any more.
 	}
 }
