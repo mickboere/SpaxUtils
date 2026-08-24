@@ -1,6 +1,8 @@
 using System;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.Animations;
+using UnityEngine.Playables;
 
 namespace SpaxUtils
 {
@@ -40,6 +42,13 @@ namespace SpaxUtils
 		private GameObject prefab;
 		private PreviewRenderUtility preview;
 		private GameObject instance;
+		private Animator animator;
+		private PlayableGraph graph;
+		private AnimationPlayableOutput output;
+		private AnimationClipPlayable clipPlayable;
+		private AnimationClip graphClip;
+		private Vector3 animatorRoot;
+		private Quaternion animatorRootRotation;
 		private Mesh grid;
 		private Material gridMaterial;
 		private Vector2 orbit = new Vector2(140f, 10f);
@@ -89,9 +98,8 @@ namespace SpaxUtils
 
 			preview.BeginPreview(rect, GUIStyle.none);
 
-			// SampleAnimation poses the instance directly - no Animator state, no graph, no play mode.
 			// Times past the clip clamp to its final frame, which is what a sustaining region should show.
-			clip.SampleAnimation(instance, Mathf.Clamp(time, 0f, clip.length));
+			Sample(clip, Mathf.Clamp(time, 0f, clip.length));
 			PositionCamera();
 			DrawGrid();
 			preview.camera.Render();
@@ -206,7 +214,11 @@ namespace SpaxUtils
 
 			if (instance == null && Prefab != null)
 			{
-				instance = preview.InstantiatePrefabInScene(Prefab);
+				// Object.Instantiate clones WITHOUT a prefab connection, unlike InstantiatePrefabInScene -
+				// so the setup below cannot write through to the asset the way it once did.
+				instance = UnityEngine.Object.Instantiate(Prefab);
+				instance.hideFlags = HideFlags.HideAndDontSave;
+				preview.AddSingleGO(instance);
 				instance.transform.position = Vector3.zero;
 				instance.transform.rotation = Quaternion.identity;
 
@@ -220,7 +232,94 @@ namespace SpaxUtils
 				{
 					listener.enabled = false;
 				}
+
+				// Skin matrices are cached once per editor frame. Posing inside OnGUI and rendering straight
+				// after draws the PREVIOUS frame's bones, so a frame step lands on screen in two goes.
+				foreach (SkinnedMeshRenderer skin in instance.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+				{
+					skin.forceMatrixRecalculationPerRender = true;
+				}
+
+				animator = instance.GetComponentInChildren<Animator>(true);
+				if (animator != null)
+				{
+					// The graph is the only thing allowed to pose this rig: a controller left on the Animator
+					// is a second opinion, and culling would let it skip the write entirely.
+					animator.runtimeAnimatorController = null;
+					animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
+					animator.fireEvents = false;
+					animator.logWarnings = false;
+
+					// Where root motion will push the rig away from; remembered so it can be put back.
+					animatorRoot = animator.transform.localPosition;
+					animatorRootRotation = animator.transform.localRotation;
+				}
 			}
+		}
+
+		/// <summary>
+		/// Poses the rig through a persistent graph, as the runtime does, rather than through
+		/// SampleAnimation - which rebuilds a graph and retargets from scratch on every call.
+		/// </summary>
+		private void Sample(AnimationClip clip, float time)
+		{
+			if (animator == null)
+			{
+				// Nothing to bind an output to; an inaccurate pose still beats no pose at all.
+				clip.SampleAnimation(instance, time);
+				return;
+			}
+
+			EnsureGraph(clip);
+
+			// Root motion is a delta against wherever the rig currently stands, so put it back where it
+			// started and set the same time twice - the delta is then zero and the pose lands in one step.
+			animator.transform.localPosition = animatorRoot;
+			animator.transform.localRotation = animatorRootRotation;
+			clipPlayable.SetTime(time);
+			clipPlayable.SetTime(time);
+			graph.Evaluate(0f);
+		}
+
+		private void EnsureGraph(AnimationClip clip)
+		{
+			if (!graph.IsValid())
+			{
+				graph = PlayableGraph.Create("TimelinePreview");
+				graph.SetTimeUpdateMode(DirectorUpdateMode.Manual);
+				output = AnimationPlayableOutput.Create(graph, "Preview", animator);
+				graphClip = null;
+				graph.Play();
+			}
+
+			if (graphClip == clip && clipPlayable.IsValid())
+			{
+				return;
+			}
+
+			if (clipPlayable.IsValid())
+			{
+				clipPlayable.Destroy();
+			}
+
+			clipPlayable = AnimationClipPlayable.Create(graph, clip);
+			clipPlayable.SetApplyFootIK(false);
+			clipPlayable.SetSpeed(0d); // The playhead is ours; the clip must never self-advance.
+			output.SetSourcePlayable(clipPlayable);
+			graphClip = clip;
+		}
+
+		/// <summary>The output binds to the instance's Animator, so the graph must not outlive the instance.</summary>
+		private void DestroyGraph()
+		{
+			if (graph.IsValid())
+			{
+				graph.Destroy();
+			}
+
+			clipPlayable = default;
+			graphClip = null;
+			animator = null;
 		}
 
 		/// <summary>Ground reference so a pose's height and facing are readable, as in Unity's own previews.</summary>
@@ -305,6 +404,8 @@ namespace SpaxUtils
 
 		private void DestroyInstance()
 		{
+			DestroyGraph();
+
 			if (instance != null)
 			{
 				UnityEngine.Object.DestroyImmediate(instance);

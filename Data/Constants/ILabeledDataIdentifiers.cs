@@ -9,5 +9,6 @@
 		const string INT = "INT/";
 		const string FLOAT = "FLOAT/";
 		const string BOOL = "BOOL/";
+		const string CURVE = "CURVE/";
 	}
 }

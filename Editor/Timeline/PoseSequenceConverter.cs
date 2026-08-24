@@ -158,7 +158,7 @@ namespace SpaxUtils
 			EditorGUILayout.Space(6);
 			using (new EditorGUI.DisabledScope(sampleRate <= 0f))
 			{
-				if (GUILayout.Button("Convert", GUILayout.Height(28f)))
+				if (GUILayout.Button("Convert  (rebakes, resets markers)", GUILayout.Height(28f)))
 				{
 					try
 					{
@@ -175,6 +175,8 @@ namespace SpaxUtils
 					GUIUtility.ExitGUI();
 				}
 			}
+
+			DrawRebake(sequence);
 
 			DrawReport();
 		}
@@ -254,6 +256,16 @@ namespace SpaxUtils
 				}
 			}
 
+			using (new EditorGUI.DisabledScope(Rebakable() == 0 || sampleRate <= 0f))
+			{
+				if (GUILayout.Button($"Re-bake {Rebakable()} clip(s)  (Resample, keeps markers)", GUILayout.Height(24f)))
+				{
+					report = RebakeBatch();
+					Debug.Log($"[PoseSequenceConverter] {report}");
+					GUIUtility.ExitGUI();
+				}
+			}
+
 			EditorGUILayout.Space(4);
 		}
 
@@ -303,6 +315,69 @@ namespace SpaxUtils
 				}
 			}
 			return count;
+		}
+
+		/// <summary>Checked moves whose timeline already has a clip, so its curves can be replaced in place.</summary>
+		private int Rebakable()
+		{
+			int count = 0;
+			foreach (Candidate candidate in candidates)
+			{
+				if (IsRebakable(candidate))
+				{
+					count++;
+				}
+			}
+			return count;
+		}
+
+		private static bool IsRebakable(Candidate candidate)
+		{
+			return candidate.Chosen && candidate.Blocker == null && candidate.Move.Timeline != null &&
+				candidate.Move.Timeline.Clip != null;
+		}
+
+		/// <summary>
+		/// Re-bakes curves only. Separate from converting for the same reason switching is: a move that has
+		/// had its markers re-timed by hand must never lose them to a fidelity fix.
+		/// </summary>
+		private string RebakeBatch()
+		{
+			int rebaked = 0;
+			int failed = 0;
+			string detail = string.Empty;
+
+			foreach (Candidate candidate in candidates)
+			{
+				if (!IsRebakable(candidate))
+				{
+					continue;
+				}
+
+				string result;
+				try
+				{
+					result = RebakeClip(candidate.Move, candidate.Sequence, sampleRate);
+				}
+				catch (System.Exception exception)
+				{
+					result = $"FAILED: {exception.GetType().Name}: {exception.Message}";
+				}
+
+				bool ok = !result.StartsWith("ABORTED") && !result.StartsWith("FAILED");
+				if (ok)
+				{
+					rebaked++;
+				}
+				else
+				{
+					failed++;
+				}
+
+				detail += $"\n\n=== {candidate.Move.name} ===\n{result}";
+			}
+
+			return $"Re-baked {rebaked} clip(s) at Resample fidelity, {failed} failed. Markers untouched.{detail}";
 		}
 
 		/// <summary>Checked moves that already carry a timeline and are not already using it.</summary>
@@ -437,6 +512,53 @@ namespace SpaxUtils
 
 		#endregion Batch
 
+		/// <summary>
+		/// The fidelity fix: Keyframed can only approximate a transition curve with one cubic per segment, so
+		/// a strongly shaped ease flattens. Re-baking at Resample replaces the curves and nothing else.
+		/// </summary>
+		private void DrawRebake(PoseSequence sequence)
+		{
+			EditorGUILayout.Space(2);
+
+			AnimationTimeline timeline = move.Timeline;
+			if (timeline == null || timeline.Clip == null)
+			{
+				EditorGUILayout.HelpBox("No timeline clip yet - Convert first, then re-bakes keep your markers.",
+					MessageType.None);
+				return;
+			}
+
+			// The bake reads the SEQUENCE, so any length the clip gained by hand is reverted - and since
+			// markers are absolute, that silently re-times all of them. Worth knowing before, not after.
+			float baked = ClipLength(sequence, sampleRate);
+			if (!Mathf.Approximately(baked, timeline.Clip.length))
+			{
+				EditorGUILayout.HelpBox(
+					$"Clip is {timeline.Clip.length:0.000}s but the sequence bakes to {baked:0.000}s. " +
+					"Re-baking will change its length, and markers are absolute positions that will NOT move.",
+					MessageType.Warning);
+			}
+
+			using (new EditorGUI.DisabledScope(sampleRate <= 0f))
+			{
+				if (GUILayout.Button($"Re-bake Clip  (Resample, keeps {timeline.Markers.Count} markers)",
+					GUILayout.Height(24f)))
+				{
+					try
+					{
+						report = RebakeClip(move, sequence, sampleRate);
+					}
+					catch (System.Exception exception)
+					{
+						report = $"FAILED: {exception.GetType().Name}: {exception.Message}\n{exception.StackTrace}";
+					}
+
+					Debug.Log($"[PoseSequenceConverter] {report}");
+					GUIUtility.ExitGUI();
+				}
+			}
+		}
+
 		private void DrawPreview(PoseSequence sequence)
 		{
 			EditorGUILayout.Space(6);
@@ -497,36 +619,57 @@ namespace SpaxUtils
 			return Path.GetDirectoryName(AssetDatabase.GetAssetPath(sequence)).Replace("\\", "/");
 		}
 
-		private static string Convert(PerformanceMove move, PoseSequence sequence, BakeMode mode, float rate, string folder)
+		/// <summary>
+		/// Every curve a sequence produces, built in memory ahead of any write so that a failed bake is a
+		/// no-op rather than a wipe. <see cref="Abort"/> non-null means nothing may be written.
+		/// </summary>
+		private class BakedCurves
 		{
-			AuthoredTiming timing = new AuthoredTiming(move);
-			float clipLength = ClipLength(sequence, rate);
+			public readonly List<(EditorCurveBinding binding, AnimationCurve curve)> Pending =
+				new List<(EditorCurveBinding, AnimationCurve)>();
+
+			public float ClipLength;
+			public int Frames;
+			public int KeysPerCurve;
+			public int Bindings;
+			public int PoseClips;
+			public bool Mirrored;
+			public string Abort;
+		}
+
+		/// <summary>
+		/// Bakes the sequence into curves without touching a single asset. Shared by the full conversion and
+		/// the clip-only re-bake, so both can never drift in how they sample.
+		/// </summary>
+		private static BakedCurves Bake(PoseSequence sequence, BakeMode mode, float rate)
+		{
+			BakedCurves result = new BakedCurves();
+			result.ClipLength = ClipLength(sequence, rate);
 			float seqDuration = sequence.TotalDuration;
 
-			// Round, not ceil: clipLength is already on the grid, so ceil would add a stray trailing frame.
-			int frames = Mathf.Max(1, Mathf.RoundToInt(clipLength * rate));
+			// Round, not ceil: ClipLength is already on the grid, so ceil would add a stray trailing frame.
+			result.Frames = Mathf.Max(1, Mathf.RoundToInt(result.ClipLength * rate));
 
 			// Cache every pose clip's value per binding; pose clips hold a single keyframe at t=0.
-			Dictionary<AnimationClip, Dictionary<EditorCurveBinding, float>> cache = BuildCache(sequence, out var bindings, out bool mirrored);
+			Dictionary<AnimationClip, Dictionary<EditorCurveBinding, float>> cache =
+				BuildCache(sequence, out var bindings, out bool mirrored);
+			result.Mirrored = mirrored;
+			result.Bindings = bindings.Count;
+			result.PoseClips = cache.Count;
 
 			// Bail loudly rather than writing an empty clip, which reads as "it worked" until you open it.
 			if (sequence.PoseCount == 0 || cache.Count == 0 || bindings.Count == 0)
 			{
-				return $"ABORTED - nothing to bake.\n" +
+				result.Abort = $"ABORTED - nothing to bake.\n" +
 					$"poses: {sequence.PoseCount}, pose clips resolved: {cache.Count}, curve bindings found: {bindings.Count}.\n" +
 					(cache.Count == 0
 						? "The sequence's poses have no AnimationClip assigned."
 						: "The pose clips contain no readable curves (AnimationUtility.GetCurveBindings returned none).");
+				return result;
 			}
 
 			float[] times = CumulativeTimes(sequence, rate);
-			int keysPerCurve = 0;
 			bool rootRotation = false;
-
-			// Bake into memory FIRST. Clearing the target before knowing whether this pass can produce
-			// curves is what turns an off run into destroyed output - the whole point of the migration is
-			// that a failure must be a no-op, not a wipe.
-			var pending = new List<(EditorCurveBinding binding, AnimationCurve curve)>();
 
 			foreach (EditorCurveBinding binding in bindings)
 			{
@@ -537,7 +680,7 @@ namespace SpaxUtils
 				}
 
 				AnimationCurve curve = mode == BakeMode.Resample
-					? ResampleCurve(sequence, cache, binding, rate, frames, clipLength, seqDuration)
+					? ResampleCurve(sequence, cache, binding, rate, result.Frames, result.ClipLength, seqDuration)
 					: KeyframeCurve(sequence, cache, binding, times);
 
 				// A zero-key curve does not write an empty curve, it DELETES the binding.
@@ -546,34 +689,56 @@ namespace SpaxUtils
 					continue;
 				}
 
-				keysPerCurve = curve.length;
-				pending.Add((binding, curve));
+				result.KeysPerCurve = curve.length;
+				result.Pending.Add((binding, curve));
 			}
 
 			if (rootRotation)
 			{
-				pending.AddRange(BakeRootRotation(sequence, cache, mode, times, rate, frames, clipLength, seqDuration));
+				result.Pending.AddRange(BakeRootRotation(sequence, cache, mode, times, rate,
+					result.Frames, result.ClipLength, seqDuration));
 			}
 
 			// Nothing usable? Leave whatever is already on disk completely alone.
-			if (pending.Count == 0)
+			if (result.Pending.Count == 0)
 			{
-				return $"ABORTED - produced no curves from {bindings.Count} bindings across {cache.Count} pose clips.\n" +
+				result.Abort = $"ABORTED - produced no curves from {bindings.Count} bindings across {cache.Count} pose clips.\n" +
 					"The existing asset was left untouched.";
 			}
 
-			AnimationClip baked = LoadOrCreateClip($"{folder}/{sequence.name}_Baked.anim");
-			baked.ClearCurves();
-			foreach ((EditorCurveBinding binding, AnimationCurve curve) in pending)
+			return result;
+		}
+
+		/// <summary>
+		/// Clears and rewrites a clip's curves. Only ever reached once <see cref="Bake"/> has confirmed it
+		/// produced some, since ClearCurves is the destructive step.
+		/// </summary>
+		private static void WriteCurves(AnimationClip clip, BakedCurves baked, PoseSequence sequence, float rate)
+		{
+			clip.ClearCurves();
+			foreach ((EditorCurveBinding binding, AnimationCurve curve) in baked.Pending)
 			{
-				AnimationUtility.SetEditorCurve(baked, binding, curve);
+				AnimationUtility.SetEditorCurve(clip, binding, curve);
 			}
 
 			// The grid the keys were snapped onto has to be the clip's own, or every tool downstream
 			// (the timeline ruler included) measures those keys against a different one.
-			baked.frameRate = rate;
-			CopyClipSettings(sequence, baked);
-			EditorUtility.SetDirty(baked);
+			clip.frameRate = rate;
+			CopyClipSettings(sequence, clip);
+			EditorUtility.SetDirty(clip);
+		}
+
+		private static string Convert(PerformanceMove move, PoseSequence sequence, BakeMode mode, float rate, string folder)
+		{
+			AuthoredTiming timing = new AuthoredTiming(move);
+			BakedCurves baked = Bake(sequence, mode, rate);
+			if (baked.Abort != null)
+			{
+				return baked.Abort;
+			}
+
+			AnimationClip clip = LoadOrCreateClip($"{folder}/{sequence.name}_Baked.anim");
+			WriteCurves(clip, baked, sequence, rate);
 
 			// Into the move itself unless one is already assigned, so a bulk migration does not scatter
 			// standalone assets that then need re-homing.
@@ -583,7 +748,7 @@ namespace SpaxUtils
 				return $"ABORTED - '{move.name}' could not be given a timeline. The clip was still written.";
 			}
 
-			timeline.Setup(baked, BuildMarkers(timing, ChargeCurve(sequence)));
+			timeline.Setup(clip, BuildMarkers(timing, ChargeCurve(sequence)));
 			EditorUtility.SetDirty(timeline);
 			EditorUtility.SetDirty(move);
 
@@ -593,31 +758,81 @@ namespace SpaxUtils
 
 			// Read the asset BACK rather than trusting the write. This is the check that turns a silent
 			// empty export into a reported failure.
-			int persisted = AnimationUtility.GetCurveBindings(baked).Length;
+			int persisted = AnimationUtility.GetCurveBindings(clip).Length;
 
-			string warnings = mirrored
+			string warnings = baked.Mirrored
 				? "\nWARNING: a pose has Mirror enabled. Mirroring is NOT baked - the result will be wrong."
 				: string.Empty;
 			warnings += mode == BakeMode.Keyframed ? DescribeCurveFidelity(sequence) : string.Empty;
 
-			if (persisted < pending.Count)
+			if (persisted < baked.Pending.Count)
 			{
-				warnings += $"\nERROR: wrote {pending.Count} curves but the asset reports {persisted}. " +
+				warnings += $"\nERROR: wrote {baked.Pending.Count} curves but the asset reports {persisted}. " +
 					"Re-run before relying on this clip.";
 				Debug.LogError($"[PoseSequenceConverter] '{sequence.name}' did not persist: " +
-					$"{pending.Count} written, {persisted} present.");
+					$"{baked.Pending.Count} written, {persisted} present.");
 			}
 
 			string density = mode == BakeMode.Resample
-				? $"{frames + 1} keys per curve at {rate:0} fps"
-				: $"{keysPerCurve} keys per curve (one per pose)";
+				? $"{baked.Frames + 1} keys per curve at {rate:0} fps"
+				: $"{baked.KeysPerCurve} keys per curve (one per pose)";
 
-			return $"Baked '{sequence.name}' [{mode}] -> {AssetDatabase.GetAssetPath(baked)}\n" +
-				$"{density}, {pending.Count} curves built from {bindings.Count} bindings, {persisted} persisted, " +
-				$"clip length {clipLength:0.000}s (asset reports {baked.length:0.000}s).\n" +
+			return $"Baked '{sequence.name}' [{mode}] -> {AssetDatabase.GetAssetPath(clip)}\n" +
+				$"{density}, {baked.Pending.Count} curves built from {baked.Bindings} bindings, {persisted} persisted, " +
+				$"clip length {baked.ClipLength:0.000}s (asset reports {clip.length:0.000}s).\n" +
 				$"Timeline -> {AssetDatabase.GetAssetPath(timeline)} " +
 				$"({(TimelineOwnership.IsOwned(move, timeline) ? "child of the move" : "shared standalone")})," +
 				$" {timeline.Markers.Count} markers{warnings}";
+		}
+
+		/// <summary>
+		/// Replaces ONLY the curve data of the clip a move's timeline already references, always at full
+		/// Resample fidelity. Markers, clip identity and the timeline reference are left exactly as authored.
+		/// </summary>
+		private static string RebakeClip(PerformanceMove move, PoseSequence sequence, float rate)
+		{
+			AnimationTimeline timeline = move.Timeline;
+			if (timeline == null || timeline.Clip == null)
+			{
+				return $"ABORTED - '{move.name}' has no timeline clip to re-bake. Convert it first.";
+			}
+
+			BakedCurves baked = Bake(sequence, BakeMode.Resample, rate);
+			if (baked.Abort != null)
+			{
+				return baked.Abort;
+			}
+
+			AnimationClip clip = timeline.Clip;
+			float previous = clip.length;
+			WriteCurves(clip, baked, sequence, rate);
+			AssetDatabase.SaveAssets();
+
+			int persisted = AnimationUtility.GetCurveBindings(clip).Length;
+
+			string warnings = baked.Mirrored
+				? "\nWARNING: a pose has Mirror enabled. Mirroring is NOT baked - the result will be wrong."
+				: string.Empty;
+
+			// Markers are ABSOLUTE clip positions, so a length change silently re-times every one of them.
+			if (!Mathf.Approximately(previous, clip.length))
+			{
+				warnings += $"\nWARNING: clip length changed {previous:0.000}s -> {clip.length:0.000}s. " +
+					"Markers are absolute positions and did NOT move - re-check them.";
+			}
+
+			if (persisted < baked.Pending.Count)
+			{
+				warnings += $"\nERROR: wrote {baked.Pending.Count} curves but the asset reports {persisted}. " +
+					"Re-run before relying on this clip.";
+				Debug.LogError($"[PoseSequenceConverter] '{sequence.name}' did not persist: " +
+					$"{baked.Pending.Count} written, {persisted} present.");
+			}
+
+			return $"Re-baked '{sequence.name}' [Resample] -> {AssetDatabase.GetAssetPath(clip)}\n" +
+				$"{baked.Frames + 1} keys per curve at {rate:0} fps, {baked.Pending.Count} curves from " +
+				$"{baked.Bindings} bindings, {persisted} persisted, clip length {clip.length:0.000}s.\n" +
+				$"Timeline untouched - {timeline.Markers.Count} markers preserved.{warnings}";
 		}
 
 		/// <summary>

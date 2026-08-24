@@ -131,6 +131,47 @@ namespace SpaxUtils
 			}
 
 			resolved.Sort((a, b) => a.Start.CompareTo(b.Start));
+
+			if (problems != null)
+			{
+				ValidatePhaseOffsets(problems);
+			}
+		}
+
+		/// <summary>
+		/// Offsets are measured from the Performing origin and clamp at zero, so a marker placed before it
+		/// silently reads as no delay at all rather than as the position it was authored at.
+		/// </summary>
+		private void ValidatePhaseOffsets(List<string> problems)
+		{
+			float origin = 0f;
+			bool found = false;
+			foreach (ResolvedMarker marker in resolved)
+			{
+				if (marker.ID == TimelineMarkerIdentifiers.PERFORMING)
+				{
+					origin = marker.Start;
+					found = true;
+					break;
+				}
+			}
+
+			if (!found)
+			{
+				return;
+			}
+
+			foreach (ResolvedMarker marker in resolved)
+			{
+				if ((marker.ID != TimelineMarkerIdentifiers.HIT && marker.ID != TimelineMarkerIdentifiers.INERTIA) ||
+					marker.Start >= origin)
+				{
+					continue;
+				}
+
+				problems.Add($"'{marker.ID.LastDivision()}' starts at {marker.Start:0.000}s, before Performing " +
+					$"({origin:0.000}s). Its delay clamps to 0 and it fires the instant the swing begins.");
+			}
 		}
 
 		/// <summary>
