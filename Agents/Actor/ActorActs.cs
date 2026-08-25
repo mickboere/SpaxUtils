@@ -9,6 +9,11 @@
 		public const string GUARD = "Guard";
 		public const string PARRY = "Parry";
 
+		public const string SHEATHE = "Sheathe";
+
+		public const string SWAP_LEFT = "SwapLeft";
+		public const string SWAP_RIGHT = "SwapRight";
+
 		public const string LIGHT = "Light";
 		public const string HEAVY = "Heavy";
 

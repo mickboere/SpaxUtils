@@ -125,6 +125,14 @@ namespace SpaxUtils
 			}
 		}
 
+		/// <summary>
+		/// Whether <paramref name="slotType"/> is held in a hand rather than worn on the body.
+		/// </summary>
+		public static bool IsArmSlot(string slotType)
+		{
+			return slotType == EquipmentSlotTypes.LEFT_HAND || slotType == EquipmentSlotTypes.RIGHT_HAND;
+		}
+
 		#region Slot Management
 
 		public bool TryGetSlotFromID(string id, out IEquipmentSlot slot)
@@ -257,20 +265,8 @@ namespace SpaxUtils
 			// Overlap occurs when two items cover the same location(s), but they won't block equiping.
 			overlap = EquipedItems.Where((e) => e.EquipmentData.CoversLocations.Any((c) => equipmentData.CoversLocations.Contains(c))).ToList();
 
-			// Two-handed: equipping a two-handed weapon clears the other arm, and equipping anything clears a two-handed weapon from the other arm.
-			if (equipmentData.SlotType == EquipmentSlotTypes.LEFT_HAND || equipmentData.SlotType == EquipmentSlotTypes.RIGHT_HAND)
-			{
-				string otherType = equipmentData.SlotType == EquipmentSlotTypes.LEFT_HAND
-					? EquipmentSlotTypes.RIGHT_HAND : EquipmentSlotTypes.LEFT_HAND;
-				RuntimeEquipedData otherArm = EquipedItems.FirstOrDefault(e => e.Slot.Type == otherType);
-				if (otherArm != null)
-				{
-					bool newIsTwoHanded = runtimeItemData.RuntimeData.TryGetValue(ItemDataIdentifiers.TWO_HANDED, out bool a) && a;
-					bool otherIsTwoHanded = otherArm.RuntimeItemData.RuntimeData.TryGetValue(ItemDataIdentifiers.TWO_HANDED, out bool b) && b;
-					if (newIsTwoHanded || otherIsTwoHanded)
-						overlap.Add(otherArm);
-				}
-			}
+			// Two-handedness is settled when an armament is taken IN HAND, not when it is equipped —
+			// see AgentArmsComponent.SetActiveSlot. Both arms keep their armaments either way.
 
 			// Check if supplied slotID is available.
 			if (slotId != null)
@@ -362,6 +358,12 @@ namespace SpaxUtils
 
 				// Execute equipment behaviour.
 				equipedData.InitializeBehaviour();
+
+				// Arm slots decide for themselves what is in hand; everything else is worn, so always wielded.
+				if (!IsArmSlot(slot.Type))
+				{
+					equipedData.Wield();
+				}
 
 				// Occupy the slot, apply data and invoke equiped event.
 				equipedItems[slot.ID] = equipedData;

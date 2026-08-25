@@ -58,6 +58,23 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
+		/// The <see cref="ICarryableItem"/> on the <see cref="EquipedInstance"/>, or null when it declares none.
+		/// Resolved once and cached — sheathe points read it whenever a stack is re-laid-out.
+		/// </summary>
+		public ICarryableItem Carryable
+		{
+			get
+			{
+				if (!carryableResolved)
+				{
+					carryableResolved = true;
+					carryable = EquipedInstance == null ? null : EquipedInstance.GetComponentInChildren<ICarryableItem>();
+				}
+				return carryable;
+			}
+		}
+
+		/// <summary>
 		/// The see <see cref="IEquipmentData"/> (<see cref="IItemData"/>) of this equipment.
 		/// </summary>
 		public IEquipmentData EquipmentData => (IEquipmentData)RuntimeItemData.ItemData;
@@ -67,12 +84,21 @@ namespace SpaxUtils
 		/// </summary>
 		public IDependencyManager DependencyManager { get; private set; }
 
+		/// <summary>
+		/// Whether this equipment is actively in use, as opposed to merely carried.
+		/// Arm slots are wielded by <see cref="AgentArmsComponent"/>; everything else wields on equip.
+		/// </summary>
+		public bool Wielded { get; private set; }
+
 		private List<DataStatMappingModifier> statModifiers = new List<DataStatMappingModifier>();
 		private List<(EntityStat stat, string modId)> physicsModifiers = new List<(EntityStat, string)>();
 		private Dictionary<string, object> dataBackup = new Dictionary<string, object>();
-		private List<BehaviourAsset> behaviours = new List<BehaviourAsset>();
+		private List<BehaviourAsset> carriedBehaviours = new List<BehaviourAsset>();
+		private List<BehaviourAsset> wieldedBehaviours = new List<BehaviourAsset>();
 		private IEntity entity;
 		private WeaponComponent weapon;
+		private ICarryableItem carryable;
+		private bool carryableResolved;
 		private bool weaponResolved;
 
 		public RuntimeEquipedData(RuntimeItemData runtimeItemData, IEquipmentSlot slot, IDependencyManager dependencyManager, IEntity entity, GameObject equipedInstance = null)
@@ -96,6 +122,8 @@ namespace SpaxUtils
 
 		public void Dispose()
 		{
+			Unwield();
+
 			foreach (DataStatMappingModifier mod in statModifiers)
 			{
 				mod.Dispose();
@@ -108,23 +136,34 @@ namespace SpaxUtils
 			{
 				entity.RuntimeData.SetValue(backup.Key, backup.Value);
 			}
-			foreach (BehaviourAsset behaviour in behaviours)
+			foreach (BehaviourAsset behaviour in carriedBehaviours)
+			{
+				behaviour.Destroy();
+			}
+			foreach (BehaviourAsset behaviour in wieldedBehaviours)
 			{
 				behaviour.Destroy();
 			}
 		}
 
 		/// <summary>
-		/// Starts all equiped behaviours defined in the equipment data.
+		/// Instantiates both behaviour sets and starts the carried ones.
+		/// Wielded behaviours stay dormant until <see cref="Wield"/>.
 		/// </summary>
 		public void InitializeBehaviour()
 		{
-			foreach (BehaviourAsset behaviour in EquipmentData.EquipedBehaviour)
+			foreach (BehaviourAsset behaviour in EquipmentData.CarriedBehaviour)
 			{
-				BehaviourAsset behaviourInstance = behaviour.CreateInstance();
-				behaviours.Add(behaviourInstance);
-				DependencyManager.Inject(behaviourInstance);
-				behaviourInstance.Start();
+				carriedBehaviours.Add(CreateBehaviour(behaviour));
+			}
+			foreach (BehaviourAsset behaviour in EquipmentData.WieldedBehaviour)
+			{
+				wieldedBehaviours.Add(CreateBehaviour(behaviour));
+			}
+
+			foreach (BehaviourAsset behaviour in carriedBehaviours)
+			{
+				behaviour.Start();
 			}
 		}
 
@@ -133,10 +172,53 @@ namespace SpaxUtils
 		/// </summary>
 		public void StopBehaviour()
 		{
-			foreach (BehaviourAsset behaviour in behaviours)
+			Unwield();
+
+			foreach (BehaviourAsset behaviour in carriedBehaviours)
 			{
 				behaviour.Stop();
 			}
+		}
+
+		/// <summary>
+		/// Marks this equipment as actively in use, running its wielded behaviours.
+		/// </summary>
+		public void Wield()
+		{
+			if (Wielded)
+			{
+				return;
+			}
+
+			Wielded = true;
+			foreach (BehaviourAsset behaviour in wieldedBehaviours)
+			{
+				behaviour.Start();
+			}
+		}
+
+		/// <summary>
+		/// Stows this equipment: it stays carried, but stops contributing anything that needs a hand.
+		/// </summary>
+		public void Unwield()
+		{
+			if (!Wielded)
+			{
+				return;
+			}
+
+			Wielded = false;
+			foreach (BehaviourAsset behaviour in wieldedBehaviours)
+			{
+				behaviour.Stop();
+			}
+		}
+
+		private BehaviourAsset CreateBehaviour(BehaviourAsset behaviour)
+		{
+			BehaviourAsset instance = behaviour.CreateInstance();
+			DependencyManager.Inject(instance);
+			return instance;
 		}
 
 		private void AddStatMappings()

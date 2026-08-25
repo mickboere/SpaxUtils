@@ -109,7 +109,7 @@ namespace SpaxUtils
 			delta *= timescale;
 
 			// GATHER CONTROL DATA.
-			(Vector3 pos, Quaternion rot) orientation = arms.GetHandSlotOrientation(isLeft, false);
+			(Vector3 pos, Quaternion rot) orientation = arms.GetHandSlotOrientation(isLeft, false, AgentSheatheComponent.WieldRadiusOf(equipedData));
 			Vector3 positionOffset = hand.position - orientation.pos;
 			Quaternion rotationOffset = orientation.rot.Inverse() * hand.rotation;
 

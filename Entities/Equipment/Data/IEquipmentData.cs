@@ -25,14 +25,24 @@ namespace SpaxUtils
 		string SlotType { get; }
 
 		/// <summary>
+		/// How this equipment is carried when it is not in hand.
+		/// </summary>
+		string SheatheCategory { get; }
+
+		/// <summary>
 		/// All locations that get covered when this equipment is equiped.
 		/// </summary>
 		IReadOnlyList<string> CoversLocations { get; }
 
 		/// <summary>
-		/// The behaviors to execute when this equipment is equiped.
+		/// Behaviours that run for as long as this equipment is carried, wielded or not.
 		/// </summary>
-		IReadOnlyList<BehaviourAsset> EquipedBehaviour { get; }
+		IReadOnlyList<BehaviourAsset> CarriedBehaviour { get; }
+
+		/// <summary>
+		/// Behaviours that run only while this equipment is actively wielded (in hand).
+		/// </summary>
+		IReadOnlyList<BehaviourAsset> WieldedBehaviour { get; }
 
 		/// <summary>
 		/// <see cref="StatMap"/>s which map <see cref="IItemData.FloatStats"/> to the entity upon equiping.
