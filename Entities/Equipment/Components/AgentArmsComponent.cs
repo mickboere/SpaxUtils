@@ -131,9 +131,11 @@ namespace SpaxUtils
 		private ArmState rightArm;
 
 		private bool desiredSheathed = true;
-		private TransitionPhase phase;
-		private float decideTime;
-		private ArmState pendingSwapArm;
+
+		/// <summary>Whether this performer is registered with the Actor right now.</summary>
+		private bool active;
+
+		private readonly List<PendingSwap> pendingSwaps = new List<PendingSwap>();
 		private readonly List<ArmTransition> transitions = new List<ArmTransition>();
 		private FloatOperationModifier controlMod;
 
@@ -215,7 +217,7 @@ namespace SpaxUtils
 		{
 			callbackService.UnsubscribeUpdates(this);
 
-			if (phase != TransitionPhase.None)
+			if (active)
 			{
 				// Land the armaments wherever the transition was taking them, and release the Actor.
 				foreach (ArmTransition transition in transitions)
@@ -295,10 +297,13 @@ namespace SpaxUtils
 				if (other.ActiveIndex >= 0 && (IsTwoHanded(arm.Active) || IsTwoHanded(other.Active)))
 				{
 					other.ActiveIndex = -1;
+					RefreshStowOrder(other);
 					ArmChangedEvent?.Invoke(other);
 				}
 			}
 
+			// The stack shows which armament is next out, so it re-sorts even when nothing is drawn.
+			RefreshStowOrder(arm);
 			ArmChangedEvent?.Invoke(arm);
 		}
 
@@ -349,43 +354,31 @@ namespace SpaxUtils
 			return desiredSheathed ? null : arm.Active;
 		}
 
-		private bool NeedsTransition()
+		/// <summary>Whether this arm is holding something other than what it should be.</summary>
+		private bool Diverges(ArmState arm)
 		{
-			return Intended(leftArm) != leftArm.Wielded || Intended(rightArm) != rightArm.Wielded;
+			return Intended(arm) != arm.Wielded;
 		}
 
 		private void OnUpdate(float delta)
 		{
-			if (phase == TransitionPhase.None)
+			float scaledDelta = delta * (entityTimeScale ?? 1f);
+
+			if (!active)
 			{
 				Reconcile();
 				return;
 			}
 
-			float scaledDelta = delta * (entityTimeScale ?? 1f);
 			if (!Paused)
 			{
 				RunTime += scaledDelta;
 			}
 
-			switch (phase)
-			{
-				case TransitionPhase.Deciding:
-					if (!Paused)
-					{
-						decideTime += scaledDelta;
-					}
-					// Held long enough to mean "put it away" rather than "next one".
-					if (decideTime >= unarmThreshold)
-					{
-						CommitSwap(true);
-					}
-					break;
-
-				case TransitionPhase.Running:
-					RunLegs(scaledDelta);
-					break;
-			}
+			AdvancePendingSwaps(scaledDelta);
+			RunLegs(scaledDelta);
+			UpdateControl();
+			UpdateState();
 
 			PerformanceUpdateEvent?.Invoke(this);
 
@@ -393,6 +386,61 @@ namespace SpaxUtils
 			{
 				PerformanceCompletedEvent?.Invoke(this);
 				EndTransition();
+				return;
+			}
+
+			// An arm freed up mid-performance can still be claimed by a pending sheathe request.
+			if (State == PerformanceState.Finishing)
+			{
+				Reconcile();
+			}
+		}
+
+		/// <summary>
+		/// Preparing while a swap is still deciding, Finishing once every arm is only travelling home.
+		/// </summary>
+		private void UpdateState()
+		{
+			if (pendingSwaps.Count == 0 && transitions.Count == 0)
+			{
+				State = PerformanceState.Completed;
+				return;
+			}
+
+			if (pendingSwaps.Count > 0)
+			{
+				State = PerformanceState.Preparing;
+				return;
+			}
+
+			foreach (ArmTransition transition in transitions)
+			{
+				if (transition.Leg != TransitionLeg.Recover)
+				{
+					State = PerformanceState.Performing;
+					return;
+				}
+			}
+
+			State = PerformanceState.Finishing;
+		}
+
+		/// <summary>Counts each held swap toward the unarm threshold.</summary>
+		private void AdvancePendingSwaps(float delta)
+		{
+			for (int i = pendingSwaps.Count - 1; i >= 0; i--)
+			{
+				PendingSwap pending = pendingSwaps[i];
+				if (!Paused)
+				{
+					pending.Time += delta;
+				}
+
+				// Held long enough to mean "put it away" rather than "next one".
+				if (pending.Time >= unarmThreshold)
+				{
+					CommitSwap(pending, true);
+				}
 			}
 		}
 
@@ -402,8 +450,8 @@ namespace SpaxUtils
 		/// </summary>
 		private void Reconcile()
 		{
-			if (!NeedsTransition() ||
-				(State != PerformanceState.Inactive && State != PerformanceState.Completed))
+			// Only bother when an arm that diverges is actually free to be claimed.
+			if (!(Diverges(leftArm) && Claimable(leftArm)) && !(Diverges(rightArm) && Claimable(rightArm)))
 			{
 				return;
 			}
@@ -431,65 +479,77 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
-		/// Builds a leg sequence for every arm whose contents need to change.
-		/// Returns false when there is nothing to animate, having already applied the change.
+		/// Whether a new act may take this arm. An arm already travelling out is off limits, but one that
+		/// has handed over and is only recovering can be claimed again — that is what lets swaps chain.
 		/// </summary>
-		private bool BeginTransition()
+		private bool Claimable(ArmState arm)
 		{
-			transitions.Clear();
-			Collect(leftArm);
-			Collect(rightArm);
-
-			if (transitions.Count == 0)
+			foreach (PendingSwap pending in pendingSwaps)
 			{
-				return false;
-			}
-
-			if (ik == null)
-			{
-				foreach (ArmTransition transition in transitions)
+				if (pending.Arm == arm)
 				{
-					ApplyArm(transition.Arm);
-				}
-				UpdateSheathedFlag();
-				return false;
-			}
-
-			// Reserve resting places up front, so the hand has somewhere definite to reach for.
-			if (sheathe != null)
-			{
-				foreach (ArmTransition transition in transitions)
-				{
-					if (transition.Stowing != null)
-					{
-						sheathe.TryAssign(transition.Stowing, transition.Arm.Side);
-					}
+					return false;
 				}
 			}
 
 			foreach (ArmTransition transition in transitions)
 			{
-				BeginLeg(transition, transition.Stowing != null ? TransitionLeg.ToStow : TransitionLeg.ToDraw);
-			}
-
-			phase = TransitionPhase.Running;
-			return true;
-
-			void Collect(ArmState arm)
-			{
-				RuntimeEquipedData target = Intended(arm);
-				if (target == arm.Wielded)
+				if (transition.Arm == arm && transition.Leg != TransitionLeg.Recover)
 				{
-					return;
+					return false;
 				}
-
-				transitions.Add(new ArmTransition
-				{
-					Arm = arm,
-					Stowing = arm.Wielded,
-					Drawing = target
-				});
 			}
+
+			return true;
+		}
+
+		/// <summary>Takes an arm back off a transition that is only recovering.</summary>
+		private void ClaimArm(ArmState arm)
+		{
+			for (int i = transitions.Count - 1; i >= 0; i--)
+			{
+				if (transitions[i].Arm == arm)
+				{
+					transitions.RemoveAt(i);
+				}
+			}
+		}
+
+		/// <summary>
+		/// Starts one arm's leg sequence, or applies the change outright when there is nothing to animate.
+		/// </summary>
+		private void StartTransition(ArmState arm)
+		{
+			RuntimeEquipedData target = Intended(arm);
+			if (target == arm.Wielded)
+			{
+				return;
+			}
+
+			if (ik == null)
+			{
+				ApplyArm(arm);
+				UpdateSheathedFlag();
+				return;
+			}
+
+			ClaimArm(arm);
+
+			ArmTransition transition = new ArmTransition
+			{
+				Arm = arm,
+				Stowing = arm.Wielded,
+				Drawing = target
+			};
+			transitions.Add(transition);
+
+			// Reserve the resting place up front, so the hand has somewhere definite to reach for.
+			if (sheathe != null && transition.Stowing != null)
+			{
+				sheathe.TryAssign(transition.Stowing, arm.Side, StowOrder(arm, transition.Stowing));
+			}
+
+			BeginLeg(transition, transition.Stowing != null ? TransitionLeg.ToStow : TransitionLeg.ToDraw);
 		}
 
 		/// <summary>
@@ -498,30 +558,15 @@ namespace SpaxUtils
 		/// </summary>
 		private void RunLegs(float delta)
 		{
-			bool allDone = true;
-			bool allApplied = true;
+			for (int i = transitions.Count - 1; i >= 0; i--)
+			{
+				ArmTransition transition = transitions[i];
+				AdvanceLeg(transition, delta);
 
-			foreach (ArmTransition transition in transitions)
-			{
-				if (transition.Leg != TransitionLeg.Done)
+				if (transition.Leg == TransitionLeg.Done)
 				{
-					AdvanceLeg(transition, delta);
-					allDone = false;
+					transitions.RemoveAt(i);
 				}
-				if (transition.Leg != TransitionLeg.Recover && transition.Leg != TransitionLeg.Done)
-				{
-					allApplied = false;
-				}
-			}
-
-			if (allDone)
-			{
-				State = PerformanceState.Completed;
-			}
-			else
-			{
-				// Finishing once the hands are only travelling home — lets the Actor take a new act.
-				State = allApplied ? PerformanceState.Finishing : PerformanceState.Performing;
 			}
 		}
 
@@ -541,6 +586,7 @@ namespace SpaxUtils
 			Vector3 position = Vector3.Lerp(from.pos, to.pos, eased);
 			Quaternion rotation = Quaternion.Slerp(from.rot, to.rot, eased);
 			float weight = Mathf.Lerp(transition.WeightFrom, transition.WeightTo, eased);
+			transition.Weight = weight;
 
 			ik.AddInfluencer(this, transition.Arm.IKChain, ikPriority, position, weight, rotation, weight);
 
@@ -741,9 +787,8 @@ namespace SpaxUtils
 			}
 
 			transitions.Clear();
-			pendingSwapArm = null;
-			phase = TransitionPhase.None;
-			decideTime = 0f;
+			pendingSwaps.Clear();
+			active = false;
 			RunTime = 0f;
 			Act = null;
 			Canceled = false;
@@ -785,52 +830,69 @@ namespace SpaxUtils
 		{
 			performer = null;
 
-			if (!SupportsAct(act.Title) ||
-				(State != PerformanceState.Inactive && State != PerformanceState.Completed))
+			if (!SupportsAct(act.Title))
 			{
 				return false;
 			}
 
-			bool swap = act.Title != ActorActs.SHEATHE;
-			if (!swap && !NeedsTransition())
+			// An act only claims the arms it touches, so the other arm stays free to accept its own.
+			if (act.Title == ActorActs.SHEATHE)
 			{
-				return false;
+				bool started = false;
+				started |= TryStartSheathe(leftArm);
+				started |= TryStartSheathe(rightArm);
+				if (!started)
+				{
+					return false;
+				}
+			}
+			else
+			{
+				ArmState arm = GetArm(act.Title == ActorActs.SWAP_LEFT);
+				if (!Claimable(arm))
+				{
+					return false;
+				}
+
+				// Hold time decides cycle-vs-unarm, so nothing moves until the button resolves.
+				pendingSwaps.Add(new PendingSwap { Arm = arm });
 			}
 
 			Act = act;
-			RunTime = 0f;
-			decideTime = 0f;
 			Canceled = false;
 			CancelTime = 0f;
 			State = PerformanceState.Preparing;
 
-			if (swap)
+			if (!active)
 			{
-				// Hold time decides cycle-vs-unarm, so nothing moves until the button resolves.
-				pendingSwapArm = GetArm(act.Title == ActorActs.SWAP_LEFT);
-				phase = TransitionPhase.Deciding;
+				active = true;
+				RunTime = 0f;
+				AddControlModifier();
 			}
-			else if (!BeginTransition())
-			{
-				State = PerformanceState.Inactive;
-				Act = null;
-				return false;
-			}
-
-			AddControlModifier();
 
 			performer = this;
 			StartedPreparingEvent?.Invoke(this);
 			return true;
+
+			bool TryStartSheathe(ArmState arm)
+			{
+				if (Intended(arm) == arm.Wielded || !Claimable(arm))
+				{
+					return false;
+				}
+				StartTransition(arm);
+				return true;
+			}
 		}
 
 		/// <inheritdoc/>
 		public bool TryPerform()
 		{
-			if (phase == TransitionPhase.Deciding)
+			if (pendingSwaps.Count > 0)
 			{
-				// Released before the hold threshold: move to the next armament.
-				CommitSwap(false);
+				// Released before the hold threshold: move to the next armament. The newest pending swap
+				// is the one being released — the Actor only routes a release whose press was the last to land.
+				CommitSwap(pendingSwaps[pendingSwaps.Count - 1], false);
 				return true;
 			}
 
@@ -840,7 +902,7 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public bool TryCancel(bool force = false)
 		{
-			if (phase == TransitionPhase.None || !force)
+			if (!active || !force)
 			{
 				// Never abandon a transition halfway — the armament would be left parented to the wrong place.
 				return false;
@@ -860,45 +922,54 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
-		/// Resolves the pending swap and starts moving, or finishes right away when nothing has to move
-		/// (a swap while everything is stowed only changes which armament is next out).
+		/// Resolves a held swap and starts that arm moving. Nothing moves when everything is stowed —
+		/// the swap only changes which armament is next out, which the stack order shows.
 		/// </summary>
-		private void CommitSwap(bool unarm)
+		private void CommitSwap(PendingSwap pending, bool unarm)
 		{
-			ArmState arm = pendingSwapArm;
-			pendingSwapArm = null;
+			pendingSwaps.Remove(pending);
 
-			if (arm != null)
+			if (unarm)
 			{
-				if (unarm)
-				{
-					UnarmArm(arm);
-				}
-				else
-				{
-					CycleArm(arm);
-				}
+				UnarmArm(pending.Arm);
+			}
+			else
+			{
+				CycleArm(pending.Arm);
 			}
 
-			if (BeginTransition())
-			{
-				StartedPerformingEvent?.Invoke(this);
-				return;
-			}
-
-			// Nothing had to move. Park in Completing so OnUpdate's tail releases the Actor —
-			// leaving phase at None would drop us into Reconcile and never fire the completion.
-			phase = TransitionPhase.Completing;
-			State = PerformanceState.Completed;
+			StartTransition(pending.Arm);
+			StartedPerformingEvent?.Invoke(this);
 		}
 
 		private void AddControlModifier()
 		{
 			if (transitionControl < 1f && rigidbodyWrapper != null && controlMod == null)
 			{
-				controlMod = new FloatOperationModifier(ModMethod.Absolute, Operation.Multiply, transitionControl);
+				// Starts neutral — UpdateControl fades it in with the arm, so adding it is not felt.
+				controlMod = new FloatOperationModifier(ModMethod.Absolute, Operation.Multiply, 1f);
 				rigidbodyWrapper.Control.AddModifier(this, controlMod);
 			}
+		}
+
+		/// <summary>
+		/// Ties movement control to how far the arm is actually committed, so it eases off and back on
+		/// with the reach instead of snapping the moment a swap starts and ends.
+		/// </summary>
+		private void UpdateControl()
+		{
+			if (controlMod == null)
+			{
+				return;
+			}
+
+			float engaged = 0f;
+			foreach (ArmTransition transition in transitions)
+			{
+				engaged = Mathf.Max(engaged, transition.Weight);
+			}
+
+			controlMod.SetValue(Mathf.Lerp(1f, transitionControl, engaged));
 		}
 
 		#endregion IPerformer
@@ -988,8 +1059,8 @@ namespace SpaxUtils
 		/// <summary>Where the wielding hand grips this armament, or null when its root is the grip.</summary>
 		private static Transform GripOf(RuntimeEquipedData data)
 		{
-			WeaponComponent weapon = data == null ? null : data.Weapon;
-			return weapon == null ? null : weapon.MainHand;
+			ICarryableItem carryable = data == null ? null : data.Carryable;
+			return carryable == null ? null : carryable.MainHand;
 		}
 
 		/// <summary>
@@ -1008,6 +1079,61 @@ namespace SpaxUtils
 			root.position += targetPos - grip.position;
 		}
 
+		/// <summary>
+		/// The armament this arm would bring out next: the active one, or — while unarmed — the one it
+		/// last held, since that is what re-arming returns to.
+		/// </summary>
+		private static RuntimeEquipedData NextOut(ArmState arm)
+		{
+			if (arm.Active != null)
+			{
+				return arm.Active;
+			}
+
+			return arm.LastActiveIndex >= 0 && arm.LastActiveIndex < arm.Armaments.Count
+				? arm.Armaments[arm.LastActiveIndex]
+				: null;
+		}
+
+		/// <summary>
+		/// Where this armament sits in its point's stack. The next one out leads, so the body always shows
+		/// what the arm will reach for — readable even while unarmed or sheathed.
+		/// </summary>
+		private static int StowOrder(ArmState arm, RuntimeEquipedData data)
+		{
+			if (data != null && data == NextOut(arm))
+			{
+				return 0;
+			}
+
+			for (int i = 0; i < arm.Armaments.Count; i++)
+			{
+				if (arm.Armaments[i] == data)
+				{
+					return i + 1;
+				}
+			}
+			return int.MaxValue - 1;
+		}
+
+		/// <summary>Re-sorts this arm's stowed armaments after its active slot changed.</summary>
+		private void RefreshStowOrder(ArmState arm)
+		{
+			if (sheathe == null)
+			{
+				return;
+			}
+
+			for (int i = 0; i < arm.Armaments.Count; i++)
+			{
+				RuntimeEquipedData data = arm.Armaments[i];
+				if (data != null && data != arm.Wielded)
+				{
+					sheathe.TryAssign(data, arm.Side, StowOrder(arm, data));
+				}
+			}
+		}
+
 		/// <summary>Rests an armament at its sheathe point, or on the arm's plain sheathe transform.</summary>
 		private void Stow(ArmState arm, RuntimeEquipedData data)
 		{
@@ -1018,7 +1144,7 @@ namespace SpaxUtils
 
 			if (sheathe != null)
 			{
-				sheathe.TryAssign(data, arm.Side);
+				sheathe.TryAssign(data, arm.Side, StowOrder(arm, data));
 				if (sheathe.Place(data))
 				{
 					return;
@@ -1156,9 +1282,14 @@ namespace SpaxUtils
 
 		#endregion Gizmos
 
-		private enum TransitionPhase { None, Deciding, Running, Completing }
-
 		private enum TransitionLeg { None, ToStow, ToDraw, Recover, Done }
+
+		/// <summary>A swap whose button is still down, counting toward the unarm threshold.</summary>
+		private class PendingSwap
+		{
+			public ArmState Arm;
+			public float Time;
+		}
 
 		/// <summary>One arm's journey: put away what it holds, pick up what it should, come home.</summary>
 		private class ArmTransition
@@ -1179,6 +1310,9 @@ namespace SpaxUtils
 
 			/// <summary>How long the outward reach took — recovery retraces it.</summary>
 			public float ReachDuration;
+
+			/// <summary>IK influence applied this frame. Movement control follows it.</summary>
+			public float Weight;
 
 			/// <summary>Hand-over point, in agent space so it follows the body.</summary>
 			public Vector3 FrozenPosition;

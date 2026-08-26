@@ -217,7 +217,7 @@ namespace SpaxUtils
 			// (AKA button behaviour - TRUE prepares act, FALSE performs it).
 			if (act is Act<bool> input)
 			{
-				if (MainPerformer != null && Act.Title == act.Title &&
+				if (MainPerformer != null && Act?.Title == act.Title &&
 					input.Value && State is PerformanceState.Preparing)
 				{
 					// Don't process continuous input.
@@ -277,7 +277,7 @@ namespace SpaxUtils
 			// Ensure Support and Non-Occupance or Interuptability.
 			if (!Blocked && SupportsAct(act.Title) && (MainPerformer == null ||
 				State == PerformanceState.Finishing || State == PerformanceState.Completed ||
-				(act.Interuptor && Act.Interuptable && TryCancel(false))))
+				(act.Interuptor && Act?.Interuptable == true && TryCancel(false))))
 			{
 				// Try start new performance.
 				foreach (IPerformer performer in availablePerformers)
@@ -285,7 +285,13 @@ namespace SpaxUtils
 					if (performer.SupportsAct(act.Title) &&
 						performer.TryPrepare(act, out finalPerformer))
 					{
-						activePerformers.Add(finalPerformer);
+						// A performer stays active until its completion event fires, which can lag a frame
+						// behind it reporting Completed. Registering it twice would strand a dead entry
+						// on top of the stack. Distinct performers (combo helpers) still stack normally.
+						if (!activePerformers.Contains(finalPerformer))
+						{
+							activePerformers.Add(finalPerformer);
+						}
 						return true;
 					}
 				}

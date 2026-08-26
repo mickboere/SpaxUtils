@@ -25,11 +25,6 @@ namespace SpaxUtils
 		string SlotType { get; }
 
 		/// <summary>
-		/// How this equipment is carried when it is not in hand.
-		/// </summary>
-		string SheatheCategory { get; }
-
-		/// <summary>
 		/// All locations that get covered when this equipment is equiped.
 		/// </summary>
 		IReadOnlyList<string> CoversLocations { get; }

@@ -196,6 +196,15 @@ namespace SpaxUtils
 				TimelinePlayer.SetTime(ChargePlayhead(timeline, charging));
 				Weight = ChargeWeight(timeline, Weight);
 			}
+			else if (!Move.HasPerformance)
+			{
+				// No Performing region means there is nothing to play out, so the pose holds where the charge
+				// left it and RunTime only fades it back out. Advancing here would scrub the rest of the clip.
+				TimelinePlayer.SetTime(
+					timeline.TryGetMarker(TimelineMarkerIdentifiers.CHARGING, out ResolvedMarker held)
+						? held.End
+						: charging);
+			}
 			else if (this is ILungeProvider lunge && lunge.Lunging &&
 				timeline.TryGetMarker(TimelineMarkerIdentifiers.LUNGING, out ResolvedMarker lunging))
 			{
