@@ -18,6 +18,13 @@ namespace SpaxUtils
 		public string SheatheCategory => sheatheCategory;
 
 		/// <inheritdoc/>
+		public Vector3 InsertAxis => Quaternion.Inverse(transform.rotation) *
+			(MainHand != null ? MainHand.forward : transform.forward);
+
+		/// <inheritdoc/>
+		public virtual float SheathedLength => 0f;
+
+		/// <inheritdoc/>
 		[field: SerializeField, Tooltip("Where the wielding hand grips. Leave empty when the root is the grip.")]
 		public Transform MainHand { get; private set; }
 

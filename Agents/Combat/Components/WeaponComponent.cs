@@ -43,6 +43,14 @@ namespace SpaxUtils
 		public Vector3 GripPosition => MainHand != null ? MainHand.position : transform.position;
 
 		/// <summary>
+		/// The blade, measured along the insert axis — what has to slide clear before the weapon swings free.
+		/// </summary>
+		public override float SheathedLength => Tip == null
+			? 0f
+			: Mathf.Abs(Vector3.Dot(Tip.position - (Base != null ? Base.position : GripPosition),
+				transform.rotation * InsertAxis));
+
+		/// <summary>
 		/// What this weapon realizes when driven point-first (x=Slash, y=Power, z=Pierce). A sword's tip pierces;
 		/// a warpick's spike faces sideways so a thrust is all haft, and lands blunt. Power is always fully
 		/// realized — it is the weapon's heaviness, which no angle can take away.

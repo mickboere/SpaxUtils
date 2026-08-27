@@ -30,6 +30,16 @@ namespace SpaxUtils
 		int StackPriority { get; }
 
 		/// <summary>
+		/// Direction this slides into its sheathe, in root-local space: out of the grip, along its length.
+		/// </summary>
+		Vector3 InsertAxis { get; }
+
+		/// <summary>
+		/// How far this slides in along <see cref="InsertAxis"/>. Zero for anything not drawn from a sheathe.
+		/// </summary>
+		float SheathedLength { get; }
+
+		/// <summary>
 		/// Where the wielding hand grips. Null means the root is the grip.
 		/// </summary>
 		Transform MainHand { get; }

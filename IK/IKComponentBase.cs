@@ -12,6 +12,10 @@ namespace SpaxUtils
 
 		protected Dictionary<string, Dictionary<object, IKInfluencer>> chainInfluencers = new Dictionary<string, Dictionary<object, IKInfluencer>>();
 
+		/// <summary>Bend goal influencers, keyed the same way. Only <see cref="IKInfluencer.Position"/> and
+		/// <see cref="IKInfluencer.PositionWeight"/> are meaningful here.</summary>
+		protected Dictionary<string, Dictionary<object, IKInfluencer>> chainHintInfluencers = new Dictionary<string, Dictionary<object, IKInfluencer>>();
+
 		protected void Update()
 		{
 			foreach (KeyValuePair<string, UpdateMode> setting in Settings)
@@ -72,6 +76,30 @@ namespace SpaxUtils
 			}
 		}
 
+		public void AddHintInfluencer(object caller, string ikChain, int priority, Vector3 position, float weight)
+		{
+			if (!chainHintInfluencers.ContainsKey(ikChain))
+			{
+				chainHintInfluencers.Add(ikChain, new Dictionary<object, IKInfluencer>());
+			}
+
+			chainHintInfluencers[ikChain][caller] = new IKInfluencer(ikChain, priority, position, weight, Quaternion.identity, 0f);
+		}
+
+		public void RemoveHintInfluencer(object caller, string ikChain)
+		{
+			if (chainHintInfluencers.ContainsKey(ikChain))
+			{
+				chainHintInfluencers[ikChain].Remove(caller);
+				if (chainHintInfluencers[ikChain].Count == 0)
+				{
+					chainHintInfluencers.Remove(ikChain);
+				}
+			}
+		}
+
 		public abstract void ApplyInfluencer(string ikChain);
+
+		public abstract bool TryGetHintRest(string ikChain, out Vector3 position);
 	}
 }

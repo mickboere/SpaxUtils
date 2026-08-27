@@ -10,6 +10,9 @@ namespace SpaxUtils
 	/// </summary>
 	public class AgentArmsComponent : AgentComponentBase, IPerformer
 	{
+		/// <summary>Seconds a leg spends taking the hand off the animation, or handing it back.</summary>
+		private const float HANDOVER_TIME = 0.1f;
+
 		/// <summary>
 		/// Invoked when the sheathed state is changed.
 		/// </summary>
@@ -114,7 +117,13 @@ namespace SpaxUtils
 		[SerializeField, Min(0f), Tooltip("Seconds a swap must be held before it unarms the arm instead of cycling.")]
 		private float unarmThreshold = 0.3f;
 
+		[Header("Reach path")]
+		[SerializeField, Tooltip("How far past the skin the middle of the arc rides, on top of what it carries.")]
+		private float clearanceMargin = 0.08f;
+
 		[Header("DEBUGGING")]
+		[SerializeField, Tooltip("Log how each leg's path is shaped, as it begins.")]
+		private bool debugPath;
 		[SerializeField] private GameObject testPrefab;
 		[SerializeField] private bool testLeft;
 		[SerializeField] private bool testRight;
@@ -138,6 +147,11 @@ namespace SpaxUtils
 		private readonly List<PendingSwap> pendingSwaps = new List<PendingSwap>();
 		private readonly List<ArmTransition> transitions = new List<ArmTransition>();
 		private FloatOperationModifier controlMod;
+
+		/// <summary>Last frame's animated hand poses, in torso space. See <see cref="SampleAnimatedHands"/>.</summary>
+		private (Vector3 pos, Quaternion rot) leftAnimated;
+		private (Vector3 pos, Quaternion rot) rightAnimated;
+		private bool sampledAnimated;
 
 		public void InjectDependencies(IEntity entity, EquipmentComponent equipment, TransformLookup lookup,
 			CallbackService callbackService, [Optional] IIKComponent ik, [Optional] RigidbodyWrapper rigidbodyWrapper,
@@ -211,6 +225,7 @@ namespace SpaxUtils
 		protected void OnEnable()
 		{
 			callbackService.SubscribeUpdate(UpdateMode.Update, this, OnUpdate);
+			callbackService.SubscribeUpdate(UpdateMode.LateUpdate, this, SampleAnimatedHands);
 		}
 
 		protected void OnDisable()
@@ -543,6 +558,9 @@ namespace SpaxUtils
 			};
 			transitions.Add(transition);
 
+			// Where the arm was before we took it — recovery brings it back here.
+			CaptureHome(transition);
+
 			// Reserve the resting place up front, so the hand has somewhere definite to reach for.
 			if (sheathe != null && transition.Stowing != null)
 			{
@@ -580,38 +598,291 @@ namespace SpaxUtils
 			float progress = transition.Duration <= 0f ? 1f : Mathf.Clamp01(transition.Time / transition.Duration);
 			float eased = progress.InOutCubic();
 
-			(Vector3 pos, Quaternion rot) from = LegAnchor(transition, transition.From);
-			(Vector3 pos, Quaternion rot) to = LegAnchor(transition, transition.To);
-
-			Vector3 position = Vector3.Lerp(from.pos, to.pos, eased);
-			Quaternion rotation = Quaternion.Slerp(from.rot, to.rot, eased);
-			float weight = Mathf.Lerp(transition.WeightFrom, transition.WeightTo, eased);
+			(Vector3 pos, Quaternion rot) pose = BuildPath(transition).Evaluate(eased);
+			float authority = Authority(transition, pose.pos);
+			float weight = LegWeight(transition, progress, authority);
 			transition.Weight = weight;
+			transition.Commitment = LegCommitment(transition, eased);
 
-			ik.AddInfluencer(this, transition.Arm.IKChain, ikPriority, position, weight, rotation, weight);
+			ik.AddInfluencer(this, transition.Arm.IKChain, ikPriority, pose.pos, weight, pose.rot, weight);
+			ApplyElbowHint(transition, pose.pos, weight, authority);
+
+			if (debugPath)
+			{
+				Transform handBone = transition.Arm.IsLeft ? LeftHand : RightHand;
+				Quaternion twist = Quaternion.Inverse(Agent.Transform.rotation) * BodyFrame().rotation;
+
+				SpaxDebug.Log("ARMHAND",
+					$"{(transition.Arm.IsLeft ? "LEFT" : "RIGHT")} {transition.Leg} t {progress:0.##} | w {weight:0.###}" +
+					// What the hand still has to travel to reach our target, and how fast the weight is taking it.
+					$" | offRot {Quaternion.Angle(pose.rot, handBone.rotation):0.#}" +
+					$" offPos {Vector3.Distance(pose.pos, handBone.position):0.###}" +
+					// Degrees the torso has turned against the root since home was pinned. The old framing
+					// carried every one of these as error; the torso framing carries none.
+					$" | drift {Quaternion.Angle(transition.HomeTwist, twist):0.#}");
+			}
 
 			if (progress >= 1f)
 			{
-				FinishLeg(transition, position, rotation);
+				FinishLeg(transition, pose.pos, pose.rot);
 			}
 		}
 
-		/// <summary>Resolves a leg endpoint: an armament's resting place, or the frozen hand-over point.</summary>
-		private (Vector3 pos, Quaternion rot) LegAnchor(ArmTransition transition, RuntimeEquipedData subject)
+		/// <summary>
+		/// The hand's route for this leg, rebuilt from live endpoints so it follows a body that is moving.
+		/// Only the time splits are held fixed, from when the leg began.
+		/// </summary>
+		private ArmPath BuildPath(ArmTransition transition)
 		{
-			if (subject != null)
+			Transform agentTransform = Agent.Transform;
+			(Vector3 origin, Quaternion rotation) body = BodyFrame();
+			(Vector3 pos, Quaternion rot) start = LegStart(transition);
+			(Vector3 pos, Quaternion rot) end = LegEnd(transition);
+
+			return new ArmPath
 			{
-				return GetSheathingOrientation(transition.Arm, subject);
+				Origin = body.origin,
+				Rotation = body.rotation,
+				StartPosition = start.pos,
+				StartRotation = start.rot,
+				EndPosition = end.pos,
+				EndRotation = end.rot,
+				StartAxis = agentTransform.rotation * transition.StartAxis,
+				StartDepth = transition.StartDepth,
+				EndAxis = agentTransform.rotation * transition.EndAxis,
+				EndDepth = transition.EndDepth,
+				WithdrawFraction = transition.WithdrawFraction,
+				InsertFraction = transition.InsertFraction,
+				ClearanceOffset = transition.Clearance,
+				SideSign = transition.Arm.IsLeft ? -1f : 1f
+			};
+		}
+
+		/// <summary>
+		/// The pelvis' frame — the thing the arm is reaching around, and the one part of the torso the
+		/// arm cannot move: full-body IK lets a reach drag the shoulders with it, so a frame taken from
+		/// them would be partly an output of the reach it is meant to decide.
+		/// Built from bone positions alone, all three rigid to the pelvis, so no rig's axis convention
+		/// or animated twist can enter into it.
+		/// </summary>
+		private (Vector3 origin, Quaternion rotation) BodyFrame()
+		{
+			Transform agentTransform = Agent.Transform;
+			Transform hips = lookup.Lookup(HumanBoneIdentifiers.HIPS);
+			Transform spine = lookup.Lookup(HumanBoneIdentifiers.SPINE);
+			Transform leftLeg = lookup.Lookup(HumanBoneIdentifiers.LEFT_UPPER_LEG);
+			Transform rightLeg = lookup.Lookup(HumanBoneIdentifiers.RIGHT_UPPER_LEG);
+
+			if (hips == null || spine == null || leftLeg == null || rightLeg == null)
+			{
+				return (agentTransform.position, agentTransform.rotation);
 			}
 
-			// Frozen in agent space so it tracks the body without feeding back off the hand it drives.
-			Transform agentTransform = Agent.Transform;
-			return (agentTransform.TransformPoint(transition.FrozenPosition),
-				agentTransform.rotation * transition.FrozenRotation);
+			// The leg bones' positions are the hip joints, so this spans the pelvis rather than the legs.
+			// Spine hangs off the hips, so where it sits turns with the pelvis however the back bends.
+			Vector3 across = rightLeg.position - leftLeg.position;
+			Vector3 up = spine.position - hips.position;
+			Vector3 forward = Vector3.Cross(across, up);
+
+			if (forward.sqrMagnitude < 0.0001f || up.sqrMagnitude < 0.0001f)
+			{
+				return (agentTransform.position, agentTransform.rotation);
+			}
+
+			return (hips.position, Quaternion.LookRotation(forward, up));
+		}
+
+		/// <summary>Where this leg begins: an armament's resting place, or the pose the hand was caught in.</summary>
+		private (Vector3 pos, Quaternion rot) LegStart(ArmTransition transition)
+		{
+			if (transition.From != null)
+			{
+				return GetSheathingOrientation(transition.Arm, transition.From);
+			}
+
+			return BodyPose(transition.FrozenPosition, transition.FrozenRotation);
+		}
+
+		/// <summary>Where this leg ends: an armament's resting place, or the pose the animation is holding.</summary>
+		private (Vector3 pos, Quaternion rot) LegEnd(ArmTransition transition)
+		{
+			if (transition.To != null)
+			{
+				return GetSheathingOrientation(transition.Arm, transition.To);
+			}
+
+			// Live, not the pose captured when the arm was claimed — drawing changes the idle underneath us.
+			(Vector3 pos, Quaternion rot) home = AnimatedHome(transition);
+			return BodyPose(home.pos, home.rot);
+		}
+
+		/// <summary>
+		/// Resolves a pose held in the torso's frame, so it tracks the body's twist and not just the
+		/// root's heading, without feeding back off the hand it drives.
+		/// </summary>
+		private (Vector3 pos, Quaternion rot) BodyPose(Vector3 position, Quaternion rotation)
+		{
+			(Vector3 origin, Quaternion rotation) body = BodyFrame();
+			return (body.origin + body.rotation * position, body.rotation * rotation);
+		}
+
+		/// <summary>
+		/// How far this leg has taken the hand from where the animation wants it, in forearms. A shoulder's
+		/// whole twist range spans about a forearm of hand travel, so that is the scale.
+		/// </summary>
+		private float Authority(ArmTransition transition, Vector3 hand)
+		{
+			Transform elbow = Elbow(transition.Arm);
+			Transform handBone = transition.Arm.IsLeft ? LeftHand : RightHand;
+			if (elbow == null || handBone == null)
+			{
+				return 1f;
+			}
+
+			(Vector3 pos, Quaternion rot) home = AnimatedHome(transition);
+			float forearm = Vector3.Distance(elbow.position, handBone.position);
+			float displaced = Vector3.Distance(hand, BodyPose(home.pos, home.rot).pos);
+			return forearm < 0.0001f ? 1f : Mathf.Clamp01(displaced / forearm);
+		}
+
+		/// <summary>
+		/// How much of the hand this leg owns. The arc is only meaningful at full weight, so a leg taking
+		/// over from animation ramps in quickly; one handing back follows the hand home instead, and so is
+		/// spent by the time it arrives. The clock only bounds it, for a hand that never quite gets there.
+		/// </summary>
+		private static float LegWeight(ArmTransition transition, float t, float authority)
+		{
+			// A fixed handover however long the leg is — it takes what it takes to not pop.
+			float blend = transition.Duration <= 0f ? 1f : Mathf.Clamp01(HANDOVER_TIME / transition.Duration);
+
+			switch (transition.Blend)
+			{
+				case LegBlend.In:
+					return Mathf.Clamp01(t / blend);
+				case LegBlend.Out:
+					return Mathf.Min(authority, Mathf.Clamp01((1f - t) / blend));
+				default:
+					return 1f;
+			}
+		}
+
+		/// <summary>
+		/// How far out on a limb this leg has the arm, for movement control. Separate from IK weight, which
+		/// now commits almost immediately and would otherwise snap control down with it.
+		/// </summary>
+		private static float LegCommitment(ArmTransition transition, float t)
+		{
+			switch (transition.Blend)
+			{
+				case LegBlend.In:
+					return t;
+				case LegBlend.Out:
+					return 1f - t;
+				default:
+					return 1f;
+			}
+		}
+
+		/// <summary>
+		/// Puts the elbow on its solution circle's far side from the spine, with a say
+		/// proportional to how far the hand has been taken from where the animation had it.
+		/// </summary>
+		private void ApplyElbowHint(ArmTransition transition, Vector3 hand, float weight, float authority)
+		{
+			Transform shoulder = Shoulder(transition.Arm);
+			Transform elbow = Elbow(transition.Arm);
+			Transform handBone = transition.Arm.IsLeft ? LeftHand : RightHand;
+
+			if (shoulder == null || elbow == null ||
+				!LimbHint.TryGetCircle(shoulder, elbow, handBone, hand,
+					out Vector3 centre, out float radius, out Vector3 axis))
+			{
+				return;
+			}
+
+			// Of everywhere on that circle, the side away from the spine is the only one that cannot be
+			// inside the body — so that is where the elbow goes.
+			(Vector3 origin, Quaternion rotation) body = BodyFrame();
+			Vector3 spine = body.rotation * Vector3.up;
+			Vector3 fromSpine = Vector3.ProjectOnPlane(centre - body.origin, spine);
+
+			// Straight out from the spine says nothing once the arm points that way too, and the circle is
+			// then equally clear all round. How much of it survives the projection is how much it decides.
+			Vector3 outward = Vector3.ProjectOnPlane(fromSpine, axis);
+			float decides = fromSpine.sqrMagnitude < 0.000001f ? 0f : Mathf.Clamp01(outward.magnitude / fromSpine.magnitude);
+
+			// Leave along the circle's own horizontal, so clearance is gained without climbing. Only an
+			// upright arm has no horizontal, and there the circle is level and outward already lies on it.
+			Vector3 hang = Vector3.ProjectOnPlane(-spine, axis).normalized;
+			Vector3 anchor = Quaternion.AngleAxis(transition.HomeRoll, axis) * hang;
+
+			// Which way along that horizontal is set by the elbow the animation had. Its angle from hanging
+			// is fixed for the whole transition, so unlike the spine it can never turn the side over.
+			Vector3 level = Vector3.Cross(axis, spine);
+			level *= Mathf.Sign(Vector3.Dot(level, transition.HasHomeRoll ? anchor : fromSpine));
+			Vector3 away = (level + outward.normalized * (1f - level.magnitude)).normalized;
+
+			// Turned along the circle rather than mixed as vectors: the same arc of elbows, but crossed at
+			// an even rate instead of hurrying through the middle.
+			float turn = Vector3.SignedAngle(away, hang, axis) * (1f - decides);
+			Vector3 preferred = Quaternion.AngleAxis(turn, axis) * away;
+
+			// Carried off the roll the animation had at home, and back onto it, by the same authority. At
+			// home the hint is the animated elbow exactly, so a leg has no handover to step over.
+			if (transition.HasHomeRoll)
+			{
+				float lead = Vector3.SignedAngle(anchor, preferred, axis) * authority;
+				preferred = Quaternion.AngleAxis(lead, axis) * anchor;
+			}
+
+			if (!LimbHint.TryGetRoll(Quaternion.identity, preferred, axis, out Vector3 roll))
+			{
+				return;
+			}
+
+			ik.AddHintInfluencer(this, transition.Arm.IKChain, ikPriority, centre + roll * radius, weight * authority);
+
+			if (debugPath)
+			{
+				Quaternion inverse = Quaternion.Inverse(body.rotation);
+				float progress = transition.Duration <= 0f ? 1f : transition.Time / transition.Duration;
+				float upper = Vector3.Distance(shoulder.position, elbow.position);
+				float forearm = Vector3.Distance(elbow.position, handBone.position);
+				float span = Vector3.Distance(shoulder.position, hand);
+
+				SpaxDebug.Log("ARMELBOW",
+					$"{(transition.Arm.IsLeft ? "LEFT" : "RIGHT")} {transition.Leg} t {progress:0.##}" +
+					$" | w {weight:0.###} auth {authority:0.###} decides {decides:0.###}" +
+					$" turn {turn:0.#} home {(transition.HasHomeRoll ? transition.HomeRoll : float.NaN):0.#}" +
+					// 1 means the arm has run out of bend and the elbow circle has collapsed to a point.
+					$" | straight {span / Mathf.Max(upper + forearm, 0.0001f):0.###} radius {radius:0.###}" +
+					// Our target against where the hand and elbow have actually ended up.
+					$" | want {inverse * (hand - body.origin)}" +
+					$" | hand {inverse * (handBone.position - body.origin)}" +
+					$" | hint {inverse * (centre + roll * radius - body.origin)}" +
+					$" | elbow {inverse * (elbow.position - body.origin)}" +
+					$" | shoulder {inverse * (shoulder.position - body.origin)}" +
+					// Which way the elbow ACTUALLY bends, and how well the rule accounts for it.
+					$" | actual {inverse * Vector3.ProjectOnPlane(elbow.position - centre, axis).normalized}" +
+					$" | agrees {Vector3.Dot(Vector3.ProjectOnPlane(elbow.position - centre, axis).normalized, roll):0.##}");
+			}
+		}
+
+		private Transform Shoulder(ArmState arm)
+		{
+			return lookup.Lookup(arm.IsLeft ? HumanBoneIdentifiers.LEFT_UPPER_ARM : HumanBoneIdentifiers.RIGHT_UPPER_ARM);
+		}
+
+		private Transform Elbow(ArmState arm)
+		{
+			return lookup.Lookup(arm.IsLeft ? HumanBoneIdentifiers.LEFT_LOWER_ARM : HumanBoneIdentifiers.RIGHT_LOWER_ARM);
 		}
 
 		private void FinishLeg(ArmTransition transition, Vector3 position, Quaternion rotation)
 		{
+			// Whatever comes next starts from exactly where this leg landed.
+			Freeze(transition, position, rotation);
+
 			switch (transition.Leg)
 			{
 				case TransitionLeg.ToStow:
@@ -635,12 +906,12 @@ namespace SpaxUtils
 					StowInactive(transition.Arm);
 					UpdateSheathedFlag();
 
-					Freeze(transition, position, rotation);
 					BeginLeg(transition, TransitionLeg.Recover);
 					break;
 
 				case TransitionLeg.Recover:
 					ik.RemoveInfluencer(this, transition.Arm.IKChain);
+					ik.RemoveHintInfluencer(this, transition.Arm.IKChain);
 					transition.Leg = TransitionLeg.Done;
 					break;
 			}
@@ -650,28 +921,25 @@ namespace SpaxUtils
 		{
 			transition.Leg = leg;
 			transition.Time = 0f;
-			Transform hand = transition.Arm.IsLeft ? LeftHand : RightHand;
 
 			switch (leg)
 			{
 				case TransitionLeg.ToStow:
-					// Reach out from wherever the animation has the hand.
-					transition.From = transition.Stowing;
+					// Reach out from wherever the animation has the hand, and slide the armament home.
+					FreezeHand(transition);
+					transition.From = null;
 					transition.To = transition.Stowing;
-					transition.WeightFrom = 0f;
-					transition.WeightTo = 1f;
-					transition.Duration = DurationFor(Vector3.Distance(hand.position, LegAnchor(transition, transition.Stowing).pos));
-					transition.ReachDuration = transition.Duration;
+					transition.Blend = LegBlend.In;
+					SetSlide(transition, null, transition.Stowing);
+					transition.Clearance = ClearanceFor(transition.Stowing);
 					break;
 
 				case TransitionLeg.ToDraw:
 					if (transition.Drawing == null)
 					{
 						// Nothing to pick up — the stow already happened, so head home.
-						(Vector3 pos, Quaternion rot) held = LegAnchor(transition, transition.Stowing);
 						StowInactive(transition.Arm);
 						UpdateSheathedFlag();
-						Freeze(transition, held.pos, held.rot);
 						BeginLeg(transition, TransitionLeg.Recover);
 						return;
 					}
@@ -681,41 +949,258 @@ namespace SpaxUtils
 						// Carry on from the resting place we just left the old armament at.
 						transition.From = transition.Stowing;
 						transition.To = transition.Drawing;
-						transition.WeightFrom = 1f;
-						transition.WeightTo = 1f;
-						transition.Duration = DurationFor(Vector3.Distance(
-							LegAnchor(transition, transition.Stowing).pos,
-							LegAnchor(transition, transition.Drawing).pos));
-						transition.ReachDuration = Mathf.Max(transition.ReachDuration, transition.Duration);
+						transition.Blend = LegBlend.Hold;
 					}
 					else
 					{
-						transition.From = transition.Drawing;
+						FreezeHand(transition);
+						transition.From = null;
 						transition.To = transition.Drawing;
-						transition.WeightFrom = 0f;
-						transition.WeightTo = 1f;
-						transition.Duration = DurationFor(Vector3.Distance(hand.position, LegAnchor(transition, transition.Drawing).pos));
-						transition.ReachDuration = transition.Duration;
+						transition.Blend = LegBlend.In;
 					}
+
+					// The hand is empty the whole way over — it has nothing to draw out or push in.
+					SetSlide(transition, null, null);
+					transition.Clearance = ClearanceFor(null);
 					break;
 
 				case TransitionLeg.Recover:
-					// Home again along the span we came out on.
+					// Draw clear of the sheathe, then swing home to where the animation left the hand.
 					transition.From = null;
 					transition.To = null;
-					transition.WeightFrom = 1f;
-					transition.WeightTo = 0f;
-					transition.Duration = Mathf.Max(transition.ReachDuration, minLegDuration);
+					transition.Blend = LegBlend.Out;
+
+					// Only something actually in hand has to come out first; an empty hand just leaves.
+					SetSlide(transition, transition.Drawing, null);
+					transition.Clearance = ClearanceFor(transition.Drawing);
 					break;
+			}
+
+			SetupLeg(transition);
+		}
+
+		/// <summary>
+		/// The straight slide in and out of a sheathe at each end of the leg, held in agent space so it
+		/// turns with the body.
+		/// </summary>
+		private void SetSlide(ArmTransition transition, RuntimeEquipedData leaving, RuntimeEquipedData arriving)
+		{
+			(Vector3 axis, float depth) start = InsertMotion(transition.Arm, leaving);
+			(Vector3 axis, float depth) end = InsertMotion(transition.Arm, arriving);
+
+			transition.StartAxis = start.axis;
+			transition.StartDepth = start.depth;
+			transition.EndAxis = end.axis;
+			transition.EndDepth = end.depth;
+		}
+
+		/// <summary>
+		/// Measures the leg once it is described, fixing how its time divides between sliding and swinging.
+		/// </summary>
+		private void SetupLeg(ArmTransition transition)
+		{
+			float length = BuildPath(transition).Length;
+
+			transition.WithdrawFraction = length <= 0f ? 0f : transition.StartDepth / length;
+			transition.InsertFraction = length <= 0f ? 0f : transition.EndDepth / length;
+			transition.Duration = DurationFor(length);
+
+			if (debugPath)
+			{
+				SpaxDebug.Log("ARMPATH",
+					$"{(transition.Arm.IsLeft ? "LEFT" : "RIGHT")} {transition.Leg} | {BuildPath(transition).Describe()}" +
+					$" | slotFrom {SlotInfo(transition.From)} slotTo {SlotInfo(transition.To)}");
 			}
 		}
 
-		/// <summary>Pins the hand-over point in agent space, so recovery has somewhere stable to fade from.</summary>
+		/// <summary>Where an armament's own resting anchor sits in agent space, for logging.</summary>
+		private string SlotInfo(RuntimeEquipedData data)
+		{
+			if (data == null)
+			{
+				return "-";
+			}
+
+			bool isLeft = false;
+			for (int i = 0; i < leftArm.Armaments.Count; i++)
+			{
+				isLeft |= leftArm.Armaments[i] == data;
+			}
+
+			(Vector3 origin, Quaternion rotation) body = BodyFrame();
+			return (Quaternion.Inverse(body.rotation) *
+				(GetRestOrientation(isLeft ? leftArm : rightArm, data).pos - body.origin)).ToString();
+		}
+
+		/// <summary>
+		/// How far past the skin the middle of an arc rides: enough for whatever the hand is carrying,
+		/// plus a margin. Where the skin actually is comes from the anchors, which are authored on it.
+		/// </summary>
+		private float ClearanceFor(RuntimeEquipedData carried)
+		{
+			return (carried == null ? 0f : AgentSheatheComponent.CarryRadiusOf(carried)) + clearanceMargin;
+		}
+
+		/// <summary>
+		/// Pins a pose in the torso's frame, so it tracks the body without feeding back off the hand it
+		/// drives. The inverse of <see cref="BodyPose"/>.
+		/// </summary>
+		private (Vector3 pos, Quaternion rot) Localize(Vector3 position, Quaternion rotation)
+		{
+			(Vector3 origin, Quaternion rotation) body = BodyFrame();
+			Quaternion inverse = Quaternion.Inverse(body.rotation);
+			return (inverse * (position - body.origin), inverse * rotation);
+		}
+
+		/// <summary>Pins where the hand hands over, so the next leg has somewhere stable to start from.</summary>
 		private void Freeze(ArmTransition transition, Vector3 position, Quaternion rotation)
 		{
-			Transform agentTransform = Agent.Transform;
-			transition.FrozenPosition = agentTransform.InverseTransformPoint(position);
-			transition.FrozenRotation = Quaternion.Inverse(agentTransform.rotation) * rotation;
+			(transition.FrozenPosition, transition.FrozenRotation) = Localize(position, rotation);
+		}
+
+		/// <summary>
+		/// Catches the hand where the animation currently has it, so a leg taking over starts exactly
+		/// where the arm already is.
+		/// </summary>
+		private void FreezeHand(ArmTransition transition)
+		{
+			Transform hand = transition.Arm.IsLeft ? LeftHand : RightHand;
+			Freeze(transition, hand.position, hand.rotation);
+		}
+
+		/// <summary>
+		/// Where the animation has the hands, taken in LateUpdate before the solver writes, so it is the
+		/// animated pose and not our own output read back. Recovery aims here, so it follows a new idle.
+		/// </summary>
+		private void SampleAnimatedHands(float delta)
+		{
+			if (LeftHand != null)
+			{
+				leftAnimated = Localize(LeftHand.position, LeftHand.rotation);
+			}
+			if (RightHand != null)
+			{
+				rightAnimated = Localize(RightHand.position, RightHand.rotation);
+			}
+			sampledAnimated = LeftHand != null || RightHand != null;
+		}
+
+		/// <summary>Where recovery lands: the animation's own hand, or the pose it had when claimed.</summary>
+		private (Vector3 pos, Quaternion rot) AnimatedHome(ArmTransition transition)
+		{
+			if (!sampledAnimated)
+			{
+				return (transition.HomePosition, transition.HomeRotation);
+			}
+
+			return transition.Arm.IsLeft ? leftAnimated : rightAnimated;
+		}
+
+		/// <summary>The pose the animation had the hand in when this transition claimed the arm.</summary>
+		private void CaptureHome(ArmTransition transition)
+		{
+			Transform hand = transition.Arm.IsLeft ? LeftHand : RightHand;
+			(transition.HomePosition, transition.HomeRotation) = Localize(hand.position, hand.rotation);
+			transition.HasHomeRoll = TryGetRollAngle(transition.Arm, hand.position, out transition.HomeRoll);
+			transition.HomeTwist = Quaternion.Inverse(Agent.Transform.rotation) * BodyFrame().rotation;
+		}
+
+		/// <summary>
+		/// Where the elbow sits on its solution circle right now, as an angle from hanging. Only true while
+		/// the arm is still the animation's — once a hint drives the elbow, this reads that hint back.
+		/// </summary>
+		private bool TryGetRollAngle(ArmState arm, Vector3 hand, out float angle)
+		{
+			angle = 0f;
+			Transform shoulder = Shoulder(arm);
+			Transform elbow = Elbow(arm);
+			Transform handBone = arm.IsLeft ? LeftHand : RightHand;
+
+			if (shoulder == null || elbow == null ||
+				!LimbHint.TryGetCircle(shoulder, elbow, handBone, hand, out Vector3 centre, out _, out Vector3 axis))
+			{
+				return false;
+			}
+
+			Vector3 hang = Vector3.ProjectOnPlane(-(BodyFrame().rotation * Vector3.up), axis).normalized;
+			Vector3 roll = Vector3.ProjectOnPlane(elbow.position - centre, axis).normalized;
+			if (hang == Vector3.zero || roll == Vector3.zero)
+			{
+				return false;
+			}
+
+			angle = Vector3.SignedAngle(hang, roll, axis);
+			return true;
+		}
+
+		/// <summary>
+		/// Which way an armament slides into its resting place and how far, in agent space. Capped by how
+		/// far the arm actually reaches — a greatsword on the back can never come fully clear.
+		/// </summary>
+		private (Vector3 axis, float depth) InsertMotion(ArmState arm, RuntimeEquipedData data)
+		{
+			ICarryableItem carryable = data == null ? null : data.Carryable;
+			if (carryable == null || carryable.SheathedLength <= 0f || data.EquipedInstance == null)
+			{
+				return (Vector3.zero, 0f);
+			}
+
+			Quaternion restRotation;
+			Vector3 anchor;
+			if (sheathe != null && sheathe.TryGetSlotOrientation(data, out _, out Quaternion slotRotation))
+			{
+				restRotation = slotRotation;
+				anchor = GetSheathingOrientation(arm, data).pos;
+			}
+			else
+			{
+				// Just drawn: still in hand at the resting place it left, so its own pose is the resting one.
+				restRotation = data.EquipedInstance.transform.rotation;
+				anchor = (arm.IsLeft ? LeftHand : RightHand).position;
+			}
+
+			Vector3 axis = (restRotation * carryable.InsertAxis).normalized;
+			float depth = Mathf.Min(carryable.SheathedLength, ReachLimit(arm, anchor, -axis));
+
+			return (Quaternion.Inverse(Agent.Transform.rotation) * axis, depth);
+		}
+
+		/// <summary>
+		/// Shoulder-to-hand length of an arm, measured live so it follows rig scale.
+		/// </summary>
+		public float ArmLength(bool isLeft)
+		{
+			Transform shoulder = lookup.Lookup(isLeft ? HumanBoneIdentifiers.LEFT_UPPER_ARM : HumanBoneIdentifiers.RIGHT_UPPER_ARM);
+			Transform elbow = lookup.Lookup(isLeft ? HumanBoneIdentifiers.LEFT_LOWER_ARM : HumanBoneIdentifiers.RIGHT_LOWER_ARM);
+			Transform hand = isLeft ? LeftHand : RightHand;
+			if (shoulder == null || elbow == null || hand == null)
+			{
+				return 0f;
+			}
+
+			return Vector3.Distance(shoulder.position, elbow.position) +
+				Vector3.Distance(elbow.position, hand.position);
+		}
+
+		/// <summary>
+		/// How far along <paramref name="direction"/> the hand can travel from <paramref name="origin"/>
+		/// before the arm runs out. Ray against the shoulder's reach sphere.
+		/// </summary>
+		private float ReachLimit(ArmState arm, Vector3 origin, Vector3 direction)
+		{
+			Transform shoulder = lookup.Lookup(arm.IsLeft ? HumanBoneIdentifiers.LEFT_UPPER_ARM : HumanBoneIdentifiers.RIGHT_UPPER_ARM);
+			float reach = ArmLength(arm.IsLeft);
+			if (shoulder == null || reach <= 0f)
+			{
+				return float.MaxValue;
+			}
+
+			Vector3 offset = origin - shoulder.position;
+			float along = Vector3.Dot(offset, direction);
+			float outside = Vector3.Dot(offset, offset) - reach * reach;
+			float discriminant = along * along - outside;
+
+			return discriminant < 0f ? 0f : Mathf.Max(-along + Mathf.Sqrt(discriminant), 0f);
 		}
 
 		private float DurationFor(float distance)
@@ -774,6 +1259,8 @@ namespace SpaxUtils
 			{
 				ik.RemoveInfluencer(this, IKChainConstants.LEFT_ARM);
 				ik.RemoveInfluencer(this, IKChainConstants.RIGHT_ARM);
+				ik.RemoveHintInfluencer(this, IKChainConstants.LEFT_ARM);
+				ik.RemoveHintInfluencer(this, IKChainConstants.RIGHT_ARM);
 			}
 
 			if (controlMod != null)
@@ -966,7 +1453,7 @@ namespace SpaxUtils
 			float engaged = 0f;
 			foreach (ArmTransition transition in transitions)
 			{
-				engaged = Mathf.Max(engaged, transition.Weight);
+				engaged = Mathf.Max(engaged, transition.Commitment);
 			}
 
 			controlMod.SetValue(Mathf.Lerp(1f, transitionControl, engaged));
@@ -1011,20 +1498,24 @@ namespace SpaxUtils
 			return (position, rotation);
 		}
 
+		/// <summary>Where <paramref name="subject"/>'s root rests when it is not in hand.</summary>
+		private (Vector3 pos, Quaternion rot) GetRestOrientation(ArmState arm, RuntimeEquipedData subject)
+		{
+			if (sheathe != null && sheathe.TryGetSlotOrientation(subject, out Vector3 slotPos, out Quaternion slotRot))
+			{
+				return (slotPos, slotRot);
+			}
+
+			Transform fallback = arm.IsLeft ? LeftSheathe : RightSheathe;
+			return (fallback.position, fallback.rotation);
+		}
+
 		/// <summary>
 		/// Where the hand must be for <paramref name="subject"/>'s grip to meet its resting place.
 		/// </summary>
 		private (Vector3 pos, Quaternion rot) GetSheathingOrientation(ArmState arm, RuntimeEquipedData subject)
 		{
-			// Where the armament's root rests.
-			Vector3 slotPos;
-			Quaternion slotRot;
-			if (sheathe == null || !sheathe.TryGetSlotOrientation(subject, out slotPos, out slotRot))
-			{
-				Transform fallback = arm.IsLeft ? LeftSheathe : RightSheathe;
-				slotPos = fallback.position;
-				slotRot = fallback.rotation;
-			}
+			(Vector3 slotPos, Quaternion slotRot) = GetRestOrientation(arm, subject);
 
 			// The root is the sheathe anchor, so shift to where the grip will end up.
 			// Kept in world units — dividing by the root's scale would not match the hand's.
@@ -1234,6 +1725,7 @@ namespace SpaxUtils
 					if (ik != null)
 					{
 						ik.RemoveInfluencer(this, transitions[i].Arm.IKChain);
+						ik.RemoveHintInfluencer(this, transitions[i].Arm.IKChain);
 					}
 					transitions.RemoveAt(i);
 				}
@@ -1284,6 +1776,9 @@ namespace SpaxUtils
 
 		private enum TransitionLeg { None, ToStow, ToDraw, Recover, Done }
 
+		/// <summary>How a leg takes the hand off the animation and hands it back.</summary>
+		private enum LegBlend { In, Hold, Out }
+
 		/// <summary>A swap whose button is still down, counting toward the unarm threshold.</summary>
 		private class PendingSwap
 		{
@@ -1301,22 +1796,45 @@ namespace SpaxUtils
 			public TransitionLeg Leg;
 			public float Time;
 			public float Duration;
-			public float WeightFrom;
-			public float WeightTo;
+			public LegBlend Blend;
 
-			/// <summary>Endpoints of the current leg. Null means the frozen hand-over point.</summary>
+			/// <summary>Endpoints of the current leg. Null start means the frozen pose, null end means home.</summary>
 			public RuntimeEquipedData From;
 			public RuntimeEquipedData To;
 
-			/// <summary>How long the outward reach took — recovery retraces it.</summary>
-			public float ReachDuration;
+			/// <summary>The straight slide out of and into a sheathe, in agent space.</summary>
+			public Vector3 StartAxis;
+			public float StartDepth;
+			public Vector3 EndAxis;
+			public float EndDepth;
 
-			/// <summary>IK influence applied this frame. Movement control follows it.</summary>
+			/// <summary>Share of this leg's time spent sliding rather than swinging.</summary>
+			public float WithdrawFraction;
+			public float InsertFraction;
+
+			/// <summary>How far past the skin the middle of this leg's arc rides.</summary>
+			public float Clearance;
+
+			/// <summary>IK influence applied this frame.</summary>
 			public float Weight;
+
+			/// <summary>How far out on a limb this leg has the arm. Movement control follows it.</summary>
+			public float Commitment;
 
 			/// <summary>Hand-over point, in agent space so it follows the body.</summary>
 			public Vector3 FrozenPosition;
 			public Quaternion FrozenRotation;
+
+			/// <summary>Where the animation had the hand when the arm was claimed — what recovery returns to.</summary>
+			public Vector3 HomePosition;
+			public Quaternion HomeRotation;
+
+			/// <summary>And where it had the elbow, as an angle from hanging on its solution circle.</summary>
+			public float HomeRoll;
+			public bool HasHomeRoll;
+
+			/// <summary>The torso's twist against the root when the arm was claimed. Debug only.</summary>
+			public Quaternion HomeTwist;
 		}
 
 		/// <summary>
