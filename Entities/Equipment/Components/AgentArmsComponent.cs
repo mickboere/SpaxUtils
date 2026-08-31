@@ -13,6 +13,16 @@ namespace SpaxUtils
 		/// <summary>Seconds a leg spends taking the hand off the animation, or handing it back.</summary>
 		private const float HANDOVER_TIME = 0.1f;
 
+		/// <summary>How far over the shoulder, in arm lengths, a grip must sit to be reached over it.</summary>
+		private const float OVER_SHOULDER_MARGIN = 0.1f;
+
+		/// <summary>Share of the arm a slide may use. Below 1 it stops short of a locked-out arm.</summary>
+		private const float SLIDE_REACH = 0.8f;
+
+		/// <summary>Where a reach behind the shoulder passes, above and in front of it, in arm lengths.</summary>
+		private const float OVER_SHOULDER_RISE = 0.35f;
+		private const float OVER_SHOULDER_LEAD = 0.4f;
+
 		/// <summary>
 		/// Invoked when the sheathed state is changed.
 		/// </summary>
@@ -561,6 +571,9 @@ namespace SpaxUtils
 			// Where the arm was before we took it — recovery brings it back here.
 			CaptureHome(transition);
 
+			// How Drawing comes clear of ITS sheathe, while it is still sitting there to measure.
+			(transition.WithdrawAxis, transition.WithdrawDepth) = InsertMotion(arm, transition.Drawing);
+
 			// Reserve the resting place up front, so the hand has somewhere definite to reach for.
 			if (sheathe != null && transition.Stowing != null)
 			{
@@ -654,8 +667,57 @@ namespace SpaxUtils
 				WithdrawFraction = transition.WithdrawFraction,
 				InsertFraction = transition.InsertFraction,
 				ClearanceOffset = transition.Clearance,
+				Body = BodyProfile(),
+				TurnDirection = transition.TurnDirection,
+				Carrying = transition.Carrying,
+				CarriedIn = transition.CarriedIn,
+				TurnsOver = transition.TurnsOver,
 				SideSign = transition.Arm.IsLeft ? -1f : 1f
 			};
+		}
+
+		/// <summary>
+		/// The body's girth by height, measured off the rig: the hip joints span the pelvis, the shoulder
+		/// joints the chest, and above them only the head is left to get around.
+		/// </summary>
+		private ArmPath.BodyProfile BodyProfile()
+		{
+			(Vector3 origin, Quaternion rotation) body = BodyFrame();
+			Quaternion inverse = Quaternion.Inverse(body.rotation);
+
+			Transform leftLeg = lookup.Lookup(HumanBoneIdentifiers.LEFT_UPPER_LEG);
+			Transform rightLeg = lookup.Lookup(HumanBoneIdentifiers.RIGHT_UPPER_LEG);
+			Transform leftArmBone = lookup.Lookup(HumanBoneIdentifiers.LEFT_UPPER_ARM);
+			Transform rightArmBone = lookup.Lookup(HumanBoneIdentifiers.RIGHT_UPPER_ARM);
+			Transform neck = lookup.Lookup(HumanBoneIdentifiers.NECK);
+			Transform head = lookup.Lookup(HumanBoneIdentifiers.HEAD);
+
+			ArmPath.BodyProfile profile = default;
+
+			if (leftLeg != null && rightLeg != null)
+			{
+				profile.WaistRadius = Vector3.Distance(leftLeg.position, rightLeg.position) * 0.5f;
+				profile.WaistHeight = (inverse * (Vector3.Lerp(leftLeg.position, rightLeg.position, 0.5f) - body.origin)).y;
+			}
+
+			profile.ChestRadius = profile.WaistRadius;
+			profile.ChestHeight = profile.WaistHeight;
+			if (leftArmBone != null && rightArmBone != null)
+			{
+				Vector3 a = inverse * (leftArmBone.position - body.origin);
+				Vector3 b = inverse * (rightArmBone.position - body.origin);
+				profile.ChestRadius = Mathf.Max(new Vector2(a.x, a.z).magnitude, new Vector2(b.x, b.z).magnitude);
+				profile.ChestHeight = (a.y + b.y) * 0.5f;
+			}
+
+			// Neck-to-head stands in for the head's own radius; nothing else on the rig measures it.
+			profile.HeadRadius = neck != null && head != null
+				? Vector3.Distance(neck.position, head.position)
+				: profile.ChestRadius * 0.5f;
+			profile.HeadHeight = Mathf.Max(profile.ChestHeight,
+				head != null ? (inverse * (head.position - body.origin)).y : profile.ChestHeight + profile.ChestRadius);
+
+			return profile;
 		}
 
 		/// <summary>
@@ -868,6 +930,155 @@ namespace SpaxUtils
 			}
 		}
 
+
+		/// <summary>
+		/// Logs both hand-posed arms and where their elbows sit on the solution circle, in pelvis space.
+		/// Edit-time ground truth for the elbow rule: reads the posed bones only, no dependencies.
+		/// </summary>
+		[ContextMenu("Log Arm Pose")]
+		private void LogArmPose()
+		{
+			TransformLookup posed = lookup == null ? gameObject.GetComponentRelative<TransformLookup>() : lookup;
+			if (posed == null)
+			{
+				SpaxDebug.Error("ARMPOSE", "No TransformLookup found.");
+				return;
+			}
+
+			Transform hips = posed.Lookup(HumanBoneIdentifiers.HIPS);
+			Transform spineBone = posed.Lookup(HumanBoneIdentifiers.SPINE);
+			Transform leftLeg = posed.Lookup(HumanBoneIdentifiers.LEFT_UPPER_LEG);
+			Transform rightLeg = posed.Lookup(HumanBoneIdentifiers.RIGHT_UPPER_LEG);
+			if (hips == null || spineBone == null || leftLeg == null || rightLeg == null)
+			{
+				SpaxDebug.Error("ARMPOSE", "Missing pelvis bones.");
+				return;
+			}
+
+			// The same frame the rule uses: positions only, all three bones rigid to the pelvis.
+			Vector3 origin = hips.position;
+			Vector3 rise = spineBone.position - hips.position;
+			Quaternion rotation = Quaternion.LookRotation(Vector3.Cross(rightLeg.position - leftLeg.position, rise), rise);
+			Quaternion inverse = Quaternion.Inverse(rotation);
+			Vector3 spine = rotation * Vector3.up;
+
+			Transform chest = posed.Lookup(HumanBoneIdentifiers.UPPER_CHEST);
+			if (chest == null)
+			{
+				chest = posed.Lookup(HumanBoneIdentifiers.CHEST);
+			}
+			SpaxDebug.Log("ARMPOSE", $"BODY spine {(inverse * (spineBone.position - origin)).ToString("F3")}" +
+				$" chest {(chest == null ? "none" : (inverse * (chest.position - origin)).ToString("F3"))}" +
+				// How far the chest twists off the pelvis, for the VRIK frame question.
+				$" chestTwist {(chest == null ? "none" : (inverse * chest.rotation).eulerAngles.ToString("F1"))}");
+
+			Quaternion chestRotation = chest == null ? rotation : chest.rotation;
+			LogPosedArm(posed, true, origin, inverse, spine, chestRotation);
+			LogPosedArm(posed, false, origin, inverse, spine, chestRotation);
+		}
+
+		/// <summary>
+		/// VRIK's bend preference (<c>IKSolverVRArm.GetBendNormal</c>), as a roll vector. Returned before
+		/// the cross with <paramref name="dir"/>, which only projects it onto the solution circle.
+		/// </summary>
+		private static Vector3 VrikBend(Quaternion chest, Vector3 dir, Vector3 armDir, Vector3 palm, Vector3 thumb)
+		{
+			Quaternion inverse = Quaternion.Inverse(chest);
+			Quaternion q = Quaternion.FromToRotation(Vector3.down, inverse * dir.normalized + Vector3.forward);
+			Vector3 b = q * Vector3.back;
+
+			q = Quaternion.FromToRotation(inverse * armDir, inverse * dir);
+			b = chest * (q * b);
+
+			return b + armDir - palm - thumb * 0.5f;
+		}
+
+		/// <summary>The bone-local cardinal axis nearest a world direction — VRIK's hand axis convention.</summary>
+		private static Vector3 CardinalAxis(Transform bone, Vector3 direction)
+		{
+			Vector3 local = Quaternion.Inverse(bone.rotation) * direction;
+			float x = Mathf.Abs(local.x), y = Mathf.Abs(local.y), z = Mathf.Abs(local.z);
+			if (x >= y && x >= z)
+			{
+				return new Vector3(Mathf.Sign(local.x), 0f, 0f);
+			}
+			return y >= z ? new Vector3(0f, Mathf.Sign(local.y), 0f) : new Vector3(0f, 0f, Mathf.Sign(local.z));
+		}
+
+		/// <summary>
+		/// One posed arm's joints, its elbow's solution circle, and the elbow's actual place on it
+		/// measured against every direction the rule builds from.
+		/// </summary>
+		private void LogPosedArm(TransformLookup posed, bool isLeft, Vector3 origin, Quaternion inverse, Vector3 spine, Quaternion chest)
+		{
+			Transform shoulder = posed.Lookup(isLeft ? HumanBoneIdentifiers.LEFT_UPPER_ARM : HumanBoneIdentifiers.RIGHT_UPPER_ARM);
+			Transform elbow = posed.Lookup(isLeft ? HumanBoneIdentifiers.LEFT_LOWER_ARM : HumanBoneIdentifiers.RIGHT_LOWER_ARM);
+			Transform hand = posed.Lookup(isLeft ? HumanBoneIdentifiers.LEFT_HAND : HumanBoneIdentifiers.RIGHT_HAND);
+			Transform clavicle = posed.Lookup(isLeft ? HumanBoneIdentifiers.LEFT_SHOULDER : HumanBoneIdentifiers.RIGHT_SHOULDER);
+			Transform thumbBone = posed.Lookup(isLeft ? HumanBoneIdentifiers.LEFT_THUMB_PROXIMAL : HumanBoneIdentifiers.RIGHT_THUMB_PROXIMAL);
+
+			if (shoulder == null || elbow == null || hand == null ||
+				!LimbHint.TryGetCircle(shoulder, elbow, hand, hand.position,
+					out Vector3 centre, out float radius, out Vector3 axis))
+			{
+				SpaxDebug.Error("ARMPOSE", $"{(isLeft ? "LEFT" : "RIGHT")} arm bones missing or degenerate.");
+				return;
+			}
+
+			// Taken from the posed hand, so the circle passes exactly through the posed elbow.
+			Vector3 actual = Vector3.ProjectOnPlane(elbow.position - centre, axis).normalized;
+			Vector3 fromSpine = Vector3.ProjectOnPlane(centre - origin, spine);
+			Vector3 outward = Vector3.ProjectOnPlane(fromSpine, axis);
+			float decides = fromSpine.sqrMagnitude < 0.000001f ? 0f : Mathf.Clamp01(outward.magnitude / fromSpine.magnitude);
+			Vector3 hang = Vector3.ProjectOnPlane(-spine, axis).normalized;
+			Vector3 level = Vector3.Cross(axis, spine);
+
+			float upper = Vector3.Distance(shoulder.position, elbow.position);
+			float fore = Vector3.Distance(elbow.position, hand.position);
+			float span = Vector3.Distance(shoulder.position, hand.position);
+
+			SpaxDebug.Log("ARMPOSE", $"{(isLeft ? "LEFT" : "RIGHT")}" +
+				$" | shoulder {(inverse * (shoulder.position - origin)).ToString("F3")}" +
+				$" elbow {(inverse * (elbow.position - origin)).ToString("F3")}" +
+				$" hand {(inverse * (hand.position - origin)).ToString("F3")}" +
+				$" clavicle {(clavicle == null ? "none" : (inverse * (clavicle.position - origin)).ToString("F3"))}" +
+				$" | upper {upper:0.###} fore {fore:0.###} straight {span / Mathf.Max(upper + fore, 0.0001f):0.###}" +
+				$" | centre {(inverse * (centre - origin)).ToString("F3")} radius {radius:0.###} axis {(inverse * axis).ToString("F3")}" +
+				$" | actual {(inverse * actual).ToString("F3")}" +
+				$" | hang {(inverse * hang).ToString("F3")} outward {(inverse * outward.normalized).ToString("F3")}" +
+				$" level {(inverse * level.normalized).ToString("F3")} levelMag {level.magnitude:0.###} decides {decides:0.###}" +
+				// Where the posed elbow lies as an angle on its own circle, off each candidate direction.
+				$" | fromHang {Vector3.SignedAngle(hang, actual, axis):0.#}" +
+				$" fromOut {Vector3.SignedAngle(outward.normalized, actual, axis):0.#}" +
+				$" fromLevel {Vector3.SignedAngle(level.normalized, actual, axis):0.#}");
+
+			if (clavicle == null || thumbBone == null)
+			{
+				SpaxDebug.Error("ARMPOSE", $"{(isLeft ? "LEFT" : "RIGHT")} no clavicle or thumb, skipping VRIK.");
+				return;
+			}
+
+			// VRIK's own inputs: the clavicle's aim, and the hand's palm and thumb cardinal axes.
+			Vector3 dir = hand.position - shoulder.position;
+			Vector3 armDir = (shoulder.position - clavicle.position).normalized;
+			Vector3 toForearm = elbow.position - hand.position;
+			Vector3 handNormal = Vector3.Cross(-toForearm, thumbBone.position - hand.position);
+			Vector3 palm = hand.rotation * CardinalAxis(hand, -toForearm);
+			Vector3 thumb = hand.rotation * CardinalAxis(hand, Vector3.Cross(handNormal, -toForearm));
+
+			Vector3 byPelvis = Vector3.ProjectOnPlane(VrikBend(Quaternion.Inverse(inverse), dir, armDir, palm, thumb), axis).normalized;
+			Vector3 byChest = Vector3.ProjectOnPlane(VrikBend(chest, dir, armDir, palm, thumb), axis).normalized;
+
+			SpaxDebug.Log("ARMPOSE", $"{(isLeft ? "LEFT" : "RIGHT")} VRIK" +
+				$" | armDir {(inverse * armDir).ToString("F3")} palm {(inverse * palm).ToString("F3")} thumb {(inverse * thumb).ToString("F3")}" +
+				$" | handX {(inverse * (hand.rotation * Vector3.right)).ToString("F3")}" +
+				$" handY {(inverse * (hand.rotation * Vector3.up)).ToString("F3")}" +
+				$" handZ {(inverse * (hand.rotation * Vector3.forward)).ToString("F3")}" +
+				// How far each chest-frame variant lands from the posed elbow, on the circle.
+				$" | pelvisFrame {(inverse * byPelvis).ToString("F3")} err {Vector3.SignedAngle(byPelvis, actual, axis):0.#}" +
+				$" | chestFrame {(inverse * byChest).ToString("F3")} err {Vector3.SignedAngle(byChest, actual, axis):0.#}");
+		}
+
 		private Transform Shoulder(ArmState arm)
 		{
 			return lookup.Lookup(arm.IsLeft ? HumanBoneIdentifiers.LEFT_UPPER_ARM : HumanBoneIdentifiers.RIGHT_UPPER_ARM);
@@ -876,6 +1087,12 @@ namespace SpaxUtils
 		private Transform Elbow(ArmState arm)
 		{
 			return lookup.Lookup(arm.IsLeft ? HumanBoneIdentifiers.LEFT_LOWER_ARM : HumanBoneIdentifiers.RIGHT_LOWER_ARM);
+		}
+
+		/// <summary>The clavicle — the top of the shoulder, which is what a reach has to clear.</summary>
+		private Transform ShoulderTop(ArmState arm)
+		{
+			return lookup.Lookup(arm.IsLeft ? HumanBoneIdentifiers.LEFT_SHOULDER : HumanBoneIdentifiers.RIGHT_SHOULDER);
 		}
 
 		private void FinishLeg(ArmTransition transition, Vector3 position, Quaternion rotation)
@@ -921,6 +1138,7 @@ namespace SpaxUtils
 		{
 			transition.Leg = leg;
 			transition.Time = 0f;
+
 
 			switch (leg)
 			{
@@ -985,13 +1203,89 @@ namespace SpaxUtils
 		/// </summary>
 		private void SetSlide(ArmTransition transition, RuntimeEquipedData leaving, RuntimeEquipedData arriving)
 		{
-			(Vector3 axis, float depth) start = InsertMotion(transition.Arm, leaving);
+			// Recover's leaving item is always Drawing, and by then it has already left its sheathe and
+			// been reoriented to the grip — measuring fresh here would read that instead of the withdraw.
+			(Vector3 axis, float depth) start = leaving != null && leaving == transition.Drawing
+				? (transition.WithdrawAxis, transition.WithdrawDepth)
+				: InsertMotion(transition.Arm, leaving);
 			(Vector3 axis, float depth) end = InsertMotion(transition.Arm, arriving);
+
+			// An empty hand carries nothing out, but it still has to come at the grip from somewhere, and
+			// behind the shoulder there is only one way in. An armament's own slide already leaves that way.
+			transition.StartGated = start.depth <= 0f;
+			transition.EndGated = end.depth <= 0f;
+			if (transition.StartGated)
+			{
+				start = OverShoulder(transition.Arm, LegStart(transition).pos);
+				transition.StartGated = start.depth > 0f;
+			}
+			if (transition.EndGated)
+			{
+				end = OverShoulder(transition.Arm, LegEnd(transition).pos);
+				transition.EndGated = end.depth > 0f;
+			}
 
 			transition.StartAxis = start.axis;
 			transition.StartDepth = start.depth;
 			transition.EndAxis = end.axis;
 			transition.EndDepth = end.depth;
+
+			// Which end the armament's own sheathe is at, and whether the arm has to get over the shoulder
+			// to reach it — the only place the pose has a wrong way round to turn.
+			transition.Carrying = leaving != null || arriving != null;
+			transition.CarriedIn = arriving != null;
+			transition.TurnsOver = transition.Carrying && OverShoulderGrip(transition.Arm,
+				(transition.CarriedIn ? LegEnd(transition) : LegStart(transition)).pos);
+		}
+
+		/// <summary>
+		/// Whether a grip sits over the shoulder rather than under it. Measured against the top of the
+		/// shoulder, not the joint, and by a clear margin: a sheathe stack shifts a grip a centimetre or
+		/// two, and that must never be what decides which way the arm comes at it.
+		/// </summary>
+		private bool OverShoulderGrip(ArmState arm, Vector3 grip)
+		{
+			Transform top = ShoulderTop(arm);
+			Transform reference = top == null ? Shoulder(arm) : top;
+			float reach = ArmLength(arm.IsLeft);
+			if (reference == null)
+			{
+				return false;
+			}
+
+			Vector3 up = BodyFrame().rotation * Vector3.up;
+			return Vector3.Dot(grip - reference.position, up) > reach * OVER_SHOULDER_MARGIN;
+		}
+
+		/// <summary>
+		/// The way in to a grip that sits over the shoulder: up and in front of it. Anything at or below
+		/// the shoulder is reached under it instead, which the orbit already does by going round the body.
+		/// </summary>
+		private (Vector3 axis, float depth) OverShoulder(ArmState arm, Vector3 grip)
+		{
+			Transform shoulder = Shoulder(arm);
+			float reach = ArmLength(arm.IsLeft);
+			if (shoulder == null || reach <= 0f || !OverShoulderGrip(arm, grip))
+			{
+				return (Vector3.zero, 0f);
+			}
+
+			(Vector3 origin, Quaternion rotation) body = BodyFrame();
+			Vector3 forward = body.rotation * Vector3.forward;
+			Vector3 up = body.rotation * Vector3.up;
+
+			Vector3 gate = shoulder.position + up * (reach * OVER_SHOULDER_RISE) + forward * (reach * OVER_SHOULDER_LEAD);
+			Vector3 approach = gate - grip;
+			float distance = approach.magnitude;
+			if (distance <= 0.0001f)
+			{
+				return (Vector3.zero, 0f);
+			}
+
+			// Held the way an armament's is: pointing in, so the withdraw runs back out along it.
+			approach /= distance;
+			return (Quaternion.Inverse(Agent.Transform.rotation) * -approach,
+				Mathf.Min(distance, ReachLimit(arm, grip, approach)));
 		}
 
 		/// <summary>
@@ -999,18 +1293,36 @@ namespace SpaxUtils
 		/// </summary>
 		private void SetupLeg(ArmTransition transition)
 		{
-			float length = BuildPath(transition).Length;
+			ArmPath path = BuildPath(transition);
+			float length = path.Length;
 
 			transition.WithdrawFraction = length <= 0f ? 0f : transition.StartDepth / length;
 			transition.InsertFraction = length <= 0f ? 0f : transition.EndDepth / length;
 			transition.Duration = DurationFor(length);
+			transition.TurnDirection = path.ChooseTurn(out float shortWay, out float longWay);
 
 			if (debugPath)
 			{
 				SpaxDebug.Log("ARMPATH",
 					$"{(transition.Arm.IsLeft ? "LEFT" : "RIGHT")} {transition.Leg} | {BuildPath(transition).Describe()}" +
+					$" | gated {(transition.StartGated ? 1 : 0)}/{(transition.EndGated ? 1 : 0)}" +
+					// The height the over/under decision is taken against, and the joint it used to.
+					$" | top {Height(ShoulderTop(transition.Arm)):0.###} joint {Height(Shoulder(transition.Arm)):0.###}" +
+					// Worst clearance the carried length keeps each way round, and which one won.
+					$" | turn {(transition.TurnDirection < 0f ? "long" : "short")} {shortWay:0.###}/{longWay:0.###}" +
+					$" carrying {(transition.Carrying ? (transition.CarriedIn ? "in" : "out") : "-")}" +
+					// The withdraw as measured at the sheathe, for comparing against this leg's actual depth.
+					$" captured {transition.WithdrawDepth:0.###}" +
+					$" over {(transition.TurnsOver ? 1 : 0)}" +
 					$" | slotFrom {SlotInfo(transition.From)} slotTo {SlotInfo(transition.To)}");
 			}
+		}
+
+		/// <summary>A bone's height in the torso's frame, for logging. Debug only.</summary>
+		private float Height(Transform bone)
+		{
+			(Vector3 origin, Quaternion rotation) body = BodyFrame();
+			return bone == null ? float.NaN : (Quaternion.Inverse(body.rotation) * (bone.position - body.origin)).y;
 		}
 
 		/// <summary>Where an armament's own resting anchor sits in agent space, for logging.</summary>
@@ -1195,7 +1507,11 @@ namespace SpaxUtils
 				return float.MaxValue;
 			}
 
+			// Stop short of a locked-out arm: a slide run to the very edge of reach ends dead straight.
+			// Never inside where the grip already is, or a grip further out would have no slide at all.
 			Vector3 offset = origin - shoulder.position;
+			reach = Mathf.Max(reach * SLIDE_REACH, offset.magnitude);
+
 			float along = Vector3.Dot(offset, direction);
 			float outside = Vector3.Dot(offset, offset) - reach * reach;
 			float discriminant = along * along - outside;
@@ -1793,6 +2109,15 @@ namespace SpaxUtils
 			public RuntimeEquipedData Stowing;
 			public RuntimeEquipedData Drawing;
 
+			/// <summary>
+			/// How <see cref="Drawing"/> slides clear of its OWN sheathe, captured before the transition
+			/// touches anything. By the time Recover needs it, <see cref="Drawing"/> has already been
+			/// pulled from the sheathe registry and reoriented to the grip, so asking then reads that
+			/// instead — the withdraw has to be measured while it is still true.
+			/// </summary>
+			public Vector3 WithdrawAxis;
+			public float WithdrawDepth;
+
 			public TransitionLeg Leg;
 			public float Time;
 			public float Duration;
@@ -1807,6 +2132,20 @@ namespace SpaxUtils
 			public float StartDepth;
 			public Vector3 EndAxis;
 			public float EndDepth;
+
+			/// <summary>Which ends took the over-shoulder way in rather than an armament's own slide. Debug only.</summary>
+			public bool StartGated;
+			public bool EndGated;
+
+			/// <summary>Which way round the pose turns, settled when the leg begins so it cannot flip.</summary>
+			public float TurnDirection;
+
+
+			/// <summary>What the hand holds on this leg: whether it holds anything, which way that is
+			/// headed, and whether its sheathe is over the shoulder.</summary>
+			public bool Carrying;
+			public bool CarriedIn;
+			public bool TurnsOver;
 
 			/// <summary>Share of this leg's time spent sliding rather than swinging.</summary>
 			public float WithdrawFraction;
