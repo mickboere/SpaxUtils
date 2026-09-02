@@ -6,8 +6,11 @@ namespace SpaxUtils
 	/// Physical carry data for anything held or worn on the body: its girths and where the hands grip it.
 	/// The root is the sheathe anchor, so an item whose grip is off-centre points <see cref="MainHand"/> at it.
 	/// </summary>
-	public class CarryableItemComponent : MonoBehaviour, ICarryableItem
+	public class CarryableItemComponent : MonoBehaviour, ICarryableItem, IExcludeFromSkeleton
 	{
+		/// <summary>Held or sheathed, this is never part of the body it hangs on.</summary>
+		public bool Exclude => true;
+
 		/// <inheritdoc/>
 		public float CarryRadius => carryRadius;
 		/// <inheritdoc/>

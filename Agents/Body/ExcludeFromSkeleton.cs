@@ -2,5 +2,6 @@
 
 namespace SpaxUtils
 {
-	public class ExcludeFromSkeleton : MonoBehaviour { public bool Exclude => true; }
+	/// <summary>Keeps this transform and everything under it out of the skeleton walk.</summary>
+	public class ExcludeFromSkeleton : MonoBehaviour, IExcludeFromSkeleton { public bool Exclude => true; }
 }

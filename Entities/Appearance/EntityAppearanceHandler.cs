@@ -87,9 +87,14 @@ namespace SpaxUtils
 			// Collect bodyparts to map out base body skin locations.
 			body = bodyParts.ToDictionary((k) => k.Location, (v) => v.Skin);
 
-			// Gather skeleton colliders for cloth renderers.
-			capsuleColliders = skeletonRoot.GetComponentsInChildren<CapsuleCollider>();
-			sphereColliders = skeletonRoot.GetComponentsInChildren<SphereCollider>().Select((c) => new ClothSphereColliderPair(c)).ToArray();
+			// Gather skeleton colliders for cloth renderers. The body's own registry excludes equipment,
+			// which a plain children sweep would drag in the moment anything is sheathed or held.
+			IAgentBody agentBody = gameObject.GetComponentRelative<IAgentBody>();
+			IEnumerable<Collider> colliders = agentBody != null
+				? (IEnumerable<Collider>)agentBody.BodyColliders
+				: skeletonRoot.GetComponentsInChildren<Collider>();
+			capsuleColliders = colliders.OfType<CapsuleCollider>().ToArray();
+			sphereColliders = colliders.OfType<SphereCollider>().Select((c) => new ClothSphereColliderPair(c)).ToArray();
 
 			// If auto collect, collect all skin-sharers.
 			if (autoCollectApparel)

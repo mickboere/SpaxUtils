@@ -26,7 +26,17 @@ namespace SpaxUtils
 		CapsuleCollider Bumper { get; }
 		Transform SkeletonRootBone { get; }
 		IReadOnlyList<Transform> Skeleton { get; }
+
+		/// <summary>Every collider on the body itself. Sheathes, equipment and their children are excluded.</summary>
+		IReadOnlyList<Collider> BodyColliders { get; }
+
 		IReadOnlyList<Renderer> Renderers { get; }
 		Vector3 Center { get; }
+
+		/// <summary>The colliders on <paramref name="boneID"/>'s own bone, by human bone name or transform name.</summary>
+		bool TryGetBoneColliders(string boneID, out IReadOnlyList<Collider> colliders);
+
+		/// <summary>Drops the cached skeleton. Only needed when bones are added or removed at runtime.</summary>
+		void RefreshSkeleton();
 	}
 }

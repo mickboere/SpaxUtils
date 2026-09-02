@@ -7,8 +7,11 @@ namespace SpaxUtils
 	/// A place on the body where equipment rests when it isn't in hand. Authored flush with the skin —
 	/// each item is pushed out by its own carry radius, and siblings stack sideways from there.
 	/// </summary>
-	public class SheathePoint : MonoBehaviour
+	public class SheathePoint : MonoBehaviour, IExcludeFromSkeleton
 	{
+		/// <summary>What rests here is not part of the body, so the skeleton walk stops at this point.</summary>
+		public bool Exclude => true;
+
 		/// <summary>
 		/// Which point this is. Fixed identifiers so a point can be addressed and overridden directly.
 		/// </summary>

@@ -14,6 +14,8 @@ namespace SpaxUtils
 		public CapsuleCollider Bumper => bumper;
 		public Transform SkeletonRootBone => skeletonRootBone;
 		public IReadOnlyList<Transform> Skeleton => GetSkeleton();
+		/// <summary>Every collider on the body itself. Sheathes, equipment and their children are excluded.</summary>
+		public IReadOnlyList<Collider> BodyColliders { get { GetSkeleton(); return _colliders; } }
 		public IReadOnlyList<Renderer> Renderers => renderers;
 		public Vector3 Center => SkeletonRootBone == null ? transform.position : SkeletonRootBone.position;
 
@@ -35,8 +37,12 @@ namespace SpaxUtils
 		private ITargetable targetableComponent;
 		private RuntimeDataCollection runtimeData;
 
+		private TransformLookup lookup;
+
 		private List<Transform> _skeleton;
 		private Dictionary<Transform, SkeletonBoneOptions> _boneOptions;
+		private List<Collider> _colliders;
+		private Dictionary<Transform, List<Collider>> _boneColliders;
 
 		public void InjectDependencies(RigidbodyWrapper rigidbodyWrapper, AnimatorWrapper animatorWrapper, ITargetable targetableComponent,
 			[Optional] RuntimeDataCollection runtimeData)
@@ -48,7 +54,9 @@ namespace SpaxUtils
 
 		protected void OnEnable()
 		{
-			GetSkeleton();
+			// Dropped rather than rebuilt: the walk is only paid for if something actually reads it, and
+			// domain reload being off means a cache from a previous session would otherwise survive.
+			RefreshSkeleton();
 
 			// Apply base mass.
 			if (HasRigidbody && Entity.Stats.TryGetStat(AgentStatIdentifiers.MASS, out EntityStat mass))
@@ -81,6 +89,7 @@ namespace SpaxUtils
 		protected void OnValidate()
 		{
 			EnsureAllComponents();
+			RefreshSkeleton();
 		}
 
 		protected void Reset()
@@ -100,21 +109,77 @@ namespace SpaxUtils
 			return component;
 		}
 
+		/// <summary>
+		/// The colliders on <paramref name="boneID"/>'s own bone, by <see cref="HumanBoneIdentifiers"/> or name.
+		/// </summary>
+		public bool TryGetBoneColliders(string boneID, out IReadOnlyList<Collider> colliders)
+		{
+			GetSkeleton();
+			if (lookup == null)
+			{
+				lookup = gameObject.GetComponentRelative<TransformLookup>();
+			}
+
+			Transform bone = lookup == null ? null : lookup.Lookup(boneID);
+			if (bone != null && _boneColliders != null && _boneColliders.TryGetValue(bone, out List<Collider> found))
+			{
+				colliders = found;
+				return true;
+			}
+
+			colliders = null;
+			return false;
+		}
+
+		/// <summary>
+		/// Drops the cached skeleton, so the next read walks the rig again. Only needed when bones are
+		/// added or removed at runtime — equipment coming and going never enters it.
+		/// </summary>
+		public void RefreshSkeleton()
+		{
+			_skeleton = null;
+		}
+
+		/// <summary>
+		/// Walks the rig once and caches it. Anything marked <see cref="IExcludeFromSkeleton"/> is dropped
+		/// along with everything under it, which is what keeps sheathes and equipment out.
+		/// </summary>
 		private List<Transform> GetSkeleton(bool refresh = false)
 		{
-			if (_skeleton == null || refresh)
+			if ((_skeleton != null && !refresh) || SkeletonRootBone == null)
 			{
-				_skeleton = SkeletonRootBone.CollectChildrenRecursive((t) => !t.TryGetComponent(out IExcludeFromSkeleton ex) || ex.Exclude);
-				_boneOptions = new Dictionary<Transform, SkeletonBoneOptions>();
-				foreach (Transform bone in _skeleton)
+				return _skeleton;
+			}
+
+			// The root bone carries colliders of its own, so it belongs in the walk with the rest.
+			_skeleton = SkeletonRootBone.CollectChildrenRecursive(IsBone, includeParent: true);
+			_boneOptions = new Dictionary<Transform, SkeletonBoneOptions>();
+			_boneColliders = new Dictionary<Transform, List<Collider>>();
+			_colliders = new List<Collider>();
+
+			List<Collider> bodyColliders = new List<Collider>();
+			foreach (Transform bone in _skeleton)
+			{
+				if (bone.TryGetComponent(out SkeletonBoneOptions options))
 				{
-					if (bone.TryGetComponent(out SkeletonBoneOptions options))
-					{
-						_boneOptions.Add(bone, options);
-					}
+					_boneOptions.Add(bone, options);
+				}
+
+				bone.GetComponents(bodyColliders);
+				if (bodyColliders.Count > 0)
+				{
+					_boneColliders.Add(bone, new List<Collider>(bodyColliders));
+					_colliders.AddRange(bodyColliders);
 				}
 			}
+
 			return _skeleton;
+		}
+
+		/// <summary>Whether a transform is part of the body, as opposed to a mount or what is hanging off it.</summary>
+		private static bool IsBone(Transform transform)
+		{
+			return !transform.TryGetComponent(out IExcludeFromSkeleton exclude) || !exclude.Exclude;
 		}
 
 		protected void OnDrawGizmosSelected()
