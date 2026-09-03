@@ -56,14 +56,8 @@ namespace SpaxUtils
 		/// </summary>
 		public BodyCapsule[] Body;
 
-		/// <summary>Whether the hand has an armament in it for this leg.</summary>
+		/// <summary>Whether the hand has an armament in it for this leg. An empty one owes no way round.</summary>
 		public bool Carrying;
-
-		/// <summary>Whether what is carried is going into the sheathe at the end, rather than out at the start.</summary>
-		public bool CarriedIn;
-
-		/// <summary>Whether that sheathe sits over the shoulder, where the turn has a wrong way round.</summary>
-		public bool TurnsOver;
 
 		/// <summary>
 		/// Whether this leg reaches over the shoulder, where the swing comes round the front. Under the
@@ -175,7 +169,7 @@ namespace SpaxUtils
 		/// The hand partway round the swing: carried by the PATH, then the one thing the path cannot say
 		/// laid on top. Exactly <see cref="StartRotation"/> at 0 and <see cref="EndRotation"/> at 1.
 		/// </summary>
-		public Quaternion Turned(float u)
+		private Quaternion Turned(float u)
 		{
 			u = Mathf.Clamp01(u);
 			Quaternion inverse = Quaternion.Inverse(Rotation);
@@ -223,13 +217,8 @@ namespace SpaxUtils
 		/// <summary>
 		/// Which way round the leftover roll goes. Called ONCE when the leg begins — the end pose is live,
 		/// so deciding this per frame lets it flip mid-swing and the hand reverses on itself.
+		/// The terms come back out with it, so a wrong answer says which one decided it.
 		/// </summary>
-		public float SettleWinding()
-		{
-			return SettleWinding(out _, out _, out _);
-		}
-
-		/// <summary>The same decision with its own terms exposed, so a wrong answer says which term did it.</summary>
 		public float SettleWinding(out float dot, out float swing, out float shortWay)
 		{
 			Quaternion inverse = Quaternion.Inverse(Rotation);
@@ -297,12 +286,15 @@ namespace SpaxUtils
 				return swept;
 			}
 
-			Vector3 point = LocalArc(a, b, 0f);
+			// Read off the curve WITHOUT the body's push. That push engages with a kink where a capsule
+			// starts biting, and a kink in the curve is a step in the turn — the hand twitches skimming
+			// a collider it never touches. Where the hand GOES still has the avoidance in full.
+			Vector3 point = LocalArc(a, b, 0f, false);
 			Vector3 previous = Vector3.zero;
 			for (int i = 1; i <= TURN_SAMPLES; i++)
 			{
 				float at = Mathf.Min(u, i / (float)TURN_SAMPLES);
-				Vector3 next = LocalArc(a, b, at);
+				Vector3 next = LocalArc(a, b, at, false);
 				Vector3 step = next - point;
 				point = next;
 				if (step.sqrMagnitude > 0.000000001f)
@@ -327,12 +319,6 @@ namespace SpaxUtils
 		/// <summary>Reported instead of a swing position when the hand is sliding in or out of a sheathe.</summary>
 		public const float SLIDING = -1f;
 
-		/// <summary>The hand's position partway round the swing, for the arm to read its own line off.</summary>
-		public Vector3 Swing(float u)
-		{
-			return Arc(WithdrawPoint, PreInsertPoint, u);
-		}
-
 		/// <summary>
 		/// The hand swings between the two poses on the circle that has them at opposite ends of it, taking
 		/// the half that passes in front of the body. A quadratic through its halfway point, so the arc
@@ -341,14 +327,16 @@ namespace SpaxUtils
 		private Vector3 Arc(Vector3 from, Vector3 to, float u)
 		{
 			Quaternion inverse = Quaternion.Inverse(Rotation);
-			return Origin + Rotation * LocalArc(inverse * (from - Origin), inverse * (to - Origin), u);
+			return Origin + Rotation * LocalArc(inverse * (from - Origin), inverse * (to - Origin), u, true);
 		}
 
 		/// <summary>
 		/// The same curve in the torso's own frame. The turn is integrated here rather than in world, so a
 		/// body that walks or turns underneath the swing cannot leak into the hand as twist.
 		/// </summary>
-		private Vector3 LocalArc(Vector3 a, Vector3 b, float u)
+		/// <param name="avoid">Whether the body's push is applied. The push is a POSITIONAL correction —
+		/// going round a chest does not roll a wrist — and it engages with a kink the turn would read.</param>
+		private Vector3 LocalArc(Vector3 a, Vector3 b, float u, bool avoid)
 		{
 			Vector3 chord = b - a;
 			Vector3 middle = (a + b) * 0.5f;
@@ -403,7 +391,9 @@ namespace SpaxUtils
 
 			// The body only ever pushes the arc further out, so it can never undo the way round it took.
 			// Windowed, so both ends still land exactly where the slides put them.
-			return Vector3.Lerp(local, Clear(local, Margin(a, b)), Mathf.Sin(u * Mathf.PI));
+			return avoid
+				? Vector3.Lerp(local, Clear(local, Margin(a, b)), Mathf.Sin(u * Mathf.PI))
+				: local;
 		}
 
 		/// <summary>
@@ -522,35 +512,6 @@ namespace SpaxUtils
 		{
 			Vector3 out2D = new Vector3(from.x, 0f, from.z);
 			return out2D.sqrMagnitude > 0.000001f ? out2D.normalized : new Vector3(SideSign, 0f, 0f);
-		}
-
-		/// <summary>
-		/// One of the body's own collision capsules, reduced to the segment between its end-sphere centres
-		/// and a radius, in the torso's frame. Authored on the rig, so it is the shape actually seen.
-		/// </summary>
-		public struct BodyCapsule
-		{
-			public Vector3 Start;
-			public Vector3 End;
-			public float Radius;
-
-			/// <summary>The point on the capsule's axis nearest <paramref name="local"/>.</summary>
-			public Vector3 Closest(Vector3 local)
-			{
-				Vector3 along = End - Start;
-				float length = along.sqrMagnitude;
-				if (length < 0.000001f)
-				{
-					return Start;
-				}
-
-				return Start + along * Mathf.Clamp01(Vector3.Dot(local - Start, along) / length);
-			}
-
-			public override string ToString()
-			{
-				return $"{Start}-{End} r {Radius:0.###}";
-			}
 		}
 
 		/// <summary>How this path is being shaped, for logging. Debug only.</summary>
