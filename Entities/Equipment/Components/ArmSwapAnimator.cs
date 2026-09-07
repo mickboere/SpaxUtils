@@ -254,7 +254,7 @@ namespace SpaxUtils
 					transition.To = transition.Stowing;
 					transition.Blend = LegBlend.In;
 					SetSlide(transition, null, transition.Stowing);
-					transition.Clearance = HandRadius(transition.Arm);
+					transition.Clearance = HandRadius(transition.Arm.IsLeft);
 					break;
 
 				case TransitionLeg.ToDraw:
@@ -285,7 +285,7 @@ namespace SpaxUtils
 					// withdraw point exists only because a hand DRAGS an armament clear along its own axis;
 					// with the armament still resting there, an empty hand goes straight to the grip.
 					SetSlide(transition, null, null);
-					transition.Clearance = HandRadius(transition.Arm);
+					transition.Clearance = HandRadius(transition.Arm.IsLeft);
 					break;
 
 				case TransitionLeg.Recover:
@@ -296,7 +296,7 @@ namespace SpaxUtils
 
 					// Only something actually in hand has to come out first; an empty hand just leaves.
 					SetSlide(transition, transition.Drawing, null);
-					transition.Clearance = HandRadius(transition.Arm);
+					transition.Clearance = HandRadius(transition.Arm.IsLeft);
 					break;
 			}
 
@@ -448,7 +448,7 @@ namespace SpaxUtils
 		/// The torso's own collision capsules in the body's frame — the authored shape, not a guess at it.
 		/// Refilled into one buffer so rebuilding the path every frame allocates nothing.
 		/// </summary>
-		private BodyCapsule[] BodyCapsules()
+		public BodyCapsule[] BodyCapsules()
 		{
 			(Vector3 origin, Quaternion rotation) body = BodyFrame();
 			Quaternion inverse = Quaternion.Inverse(body.rotation);
@@ -480,13 +480,28 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
+		/// The torso as a solid to test against: its capsules and the frame they are expressed in.
+		/// Shares <see cref="BodyCapsules"/>' buffer, so consume it before calling either again.
+		/// </summary>
+		public ElbowHintSolver.Torso Torso()
+		{
+			(Vector3 origin, Quaternion rotation) body = BodyFrame();
+			return new ElbowHintSolver.Torso
+			{
+				Capsules = BodyCapsules(),
+				Origin = body.origin,
+				Rotation = body.rotation
+			};
+		}
+
+		/// <summary>
 		/// The pelvis' frame — the thing the arm is reaching around, and the one part of the torso the
 		/// arm cannot move: full-body IK lets a reach drag the shoulders with it, so a frame taken from
 		/// them would be partly an output of the reach it is meant to decide.
 		/// Built from bone positions alone, all three rigid to the pelvis, so no rig's axis convention
 		/// or animated twist can enter into it.
 		/// </summary>
-		private (Vector3 origin, Quaternion rotation) BodyFrame()
+		public (Vector3 origin, Quaternion rotation) BodyFrame()
 		{
 			Transform hips = lookup.Lookup(HumanBoneIdentifiers.HIPS);
 			Transform spine = lookup.Lookup(HumanBoneIdentifiers.SPINE);
@@ -727,10 +742,10 @@ namespace SpaxUtils
 		/// How far past the body a swing rides: the hand's own collision sphere, and nothing else. What it
 		/// grips sits inside that sphere, so it has nothing of its own to clear.
 		/// </summary>
-		private float HandRadius(ArmState arm)
+		public float HandRadius(bool isLeft)
 		{
 			if (agentBody == null || !agentBody.TryGetBoneColliders(
-				arm.IsLeft ? HumanBoneIdentifiers.LEFT_HAND : HumanBoneIdentifiers.RIGHT_HAND,
+				isLeft ? HumanBoneIdentifiers.LEFT_HAND : HumanBoneIdentifiers.RIGHT_HAND,
 				out IReadOnlyList<Collider> colliders))
 			{
 				return 0f;

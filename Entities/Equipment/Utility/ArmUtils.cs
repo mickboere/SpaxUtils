@@ -139,6 +139,64 @@ namespace SpaxUtils
 			return false;
 		}
 
+		/// <summary>
+		/// Whether a blade from <paramref name="grip"/> to <paramref name="tip"/> crosses the body, both in
+		/// the torso's frame. Height is dropped, so the torso reads as the footprint it holds at any height.
+		/// </summary>
+		public static bool CrossesBody(BodyCapsule[] capsules, Vector3 grip, Vector3 tip, float margin)
+		{
+			if (capsules == null)
+			{
+				return false;
+			}
+
+			Vector2 a = new Vector2(grip.x, grip.z);
+			Vector2 b = new Vector2(tip.x, tip.z);
+			for (int i = 0; i < capsules.Length; i++)
+			{
+				Vector2 c = new Vector2(capsules[i].Start.x, capsules[i].Start.z);
+				Vector2 d = new Vector2(capsules[i].End.x, capsules[i].End.z);
+				if (SegmentDistance(a, b, c, d) < capsules[i].Radius + margin)
+				{
+					return true;
+				}
+			}
+
+			return false;
+		}
+
+		/// <summary>Nearest approach between two segments in the plane. Zero wherever they cross.</summary>
+		private static float SegmentDistance(Vector2 a, Vector2 b, Vector2 c, Vector2 d)
+		{
+			// Straddling both ways is the only way two segments meet, and no endpoint is nearest then.
+			if (Side(d - c, a - c) * Side(d - c, b - c) < 0f &&
+				Side(b - a, c - a) * Side(b - a, d - a) < 0f)
+			{
+				return 0f;
+			}
+
+			return Mathf.Min(
+				Mathf.Min(PointDistance(a, c, d), PointDistance(b, c, d)),
+				Mathf.Min(PointDistance(c, a, b), PointDistance(d, a, b)));
+		}
+
+		/// <summary>Which side of a direction a point falls on. Sign only; the magnitude is twice an area.</summary>
+		private static float Side(Vector2 direction, Vector2 point)
+		{
+			return direction.x * point.y - direction.y * point.x;
+		}
+
+		/// <summary>Distance from a point to a segment, which collapses to its start when that has no length.</summary>
+		private static float PointDistance(Vector2 point, Vector2 start, Vector2 end)
+		{
+			Vector2 along = end - start;
+			float length = along.sqrMagnitude;
+			Vector2 closest = length < 0.000001f
+				? start
+				: start + along * Mathf.Clamp01(Vector2.Dot(point - start, along) / length);
+			return Vector2.Distance(point, closest);
+		}
+
 		#endregion Body shape
 
 		#region Armaments

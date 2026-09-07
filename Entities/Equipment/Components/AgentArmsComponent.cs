@@ -316,6 +316,18 @@ namespace SpaxUtils
 			return SafeAnimator.ArmLength(isLeft);
 		}
 
+		/// <inheritdoc cref="ArmSwapAnimator.Torso"/>
+		public ElbowHintSolver.Torso Torso()
+		{
+			return SafeAnimator.Torso();
+		}
+
+		/// <inheritdoc cref="ArmSwapAnimator.HandRadius"/>
+		public float HandRadius(bool isLeft)
+		{
+			return SafeAnimator.HandRadius(isLeft);
+		}
+
 		#region Requests
 
 		/// <summary>

@@ -179,6 +179,9 @@ namespace SpaxUtils
 		/// </summary>
 		public Vector3 LastSafePosition { get; private set; }
 
+		/// <summary>What counts as world geometry. Shared so anything probing the ground agrees with the feet.</summary>
+		public LayerMask LayerMask => layerMask;
+
 		[SerializeField] private LayerMask layerMask;
 		[SerializeField] private float gravity = 9.8f;
 		[SerializeField] private OptimizationSettings settings = new OptimizationSettings(1, 3, 5, 8, 16);

@@ -48,5 +48,52 @@ namespace SpaxUtils
 		/// Where a second hand grips, for two-handed use. Optional.
 		/// </summary>
 		Transform OffHand { get; }
+
+		/// <summary>
+		/// The wielding grip itself, falling back to the root for items whose root is the grip.
+		/// </summary>
+		Transform Grip { get; }
+
+		/// <summary>
+		/// Where the wielding hand meets this item, in world space.
+		/// </summary>
+		Vector3 GripPosition { get; }
+
+		/// <summary>
+		/// Whether both ends are marked, so this item's extent is authored rather than measured.
+		/// </summary>
+		bool HasExtent { get; }
+
+		/// <summary>
+		/// The butt end — pommel, haft end, the bottom rim of a shield. The far side from <see cref="Tip"/>.
+		/// </summary>
+		Transform Butt { get; }
+
+		/// <summary>
+		/// The far end: a blade's point, a hammer's head, the top rim of a shield.
+		/// </summary>
+		Transform Tip { get; }
+
+		/// <summary>
+		/// Where this item's weight sits, in world space. Behind the guard for a pommel-heavy sword.
+		/// </summary>
+		Vector3 CenterOfMass { get; }
+
+		/// <summary>
+		/// Effective lever for rotation about the grip. Resistance to being turned goes as its square, which
+		/// is why a greatsword is ponderous while a heavier, shorter hammer is not.
+		/// </summary>
+		float GyrationRadius { get; }
+
+		/// <summary>
+		/// Which way this points when held, in world space — the item's own line, not the hand's.
+		/// </summary>
+		Vector3 AimDirection { get; }
+
+		/// <summary>
+		/// Whether <see cref="AimDirection"/> means anything — whether this is pointed at things. False for
+		/// a shield or a torch, which have a line but nothing to aim along it.
+		/// </summary>
+		bool HasAim { get; }
 	}
 }

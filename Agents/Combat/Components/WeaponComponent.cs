@@ -3,13 +3,13 @@ using UnityEngine;
 namespace SpaxUtils
 {
 	/// <summary>
-	/// Home of a weapon's physical information: where it begins and ends, how far it reaches, and what it
-	/// actually delivers when thrust versus swung. Carry girths and grips come from the base.
+	/// Home of a weapon's physical information: where its blade begins, how far it reaches, and what it
+	/// actually delivers when thrust versus swung. Extent, weight and grips come from the base.
 	/// </summary>
 	public class WeaponComponent : CarryableItemComponent
 	{
-		[field: SerializeField] public Transform Base { get; private set; }
-		[field: SerializeField] public Transform Tip { get; private set; }
+		[field: SerializeField, Header("Weapon"), Tooltip("Where the blade or head begins. Butt and Tip mark the whole weapon; this marks only the business end.")]
+		public Transform Base { get; private set; }
 
 		[SerializeField, ReadOnly, Tooltip("Reach derived from this weapon's geometry (MainHand to Tip). Reference only — refreshed on inspector changes; the live value is read from the transforms.")]
 		private float baseReach;
@@ -32,15 +32,15 @@ namespace SpaxUtils
 		[SerializeField, Range(0f, 1f), Tooltip("Fraction of the weapon's PIERCE realized when swung.")] private float swingPierce = 1f;
 
 		/// <summary>
-		/// How far this weapon extends past the hand: <see cref="ICarryableItem.MainHand"/> to <see cref="Tip"/>.
+		/// How far this weapon extends past the hand: <see cref="ICarryableItem.MainHand"/> to <see cref="ICarryableItem.Tip"/>.
 		/// Falls back to the root for weapons whose root IS the grip (natural weapons, unmigrated prefabs).
 		/// </summary>
 		public float Reach => overrideReach
 			? reachOverride
 			: Tip != null ? Vector3.Distance(GripPosition, Tip.position) : 0f;
 
-		/// <summary>Where the wielding hand meets this weapon, in world space.</summary>
-		public Vector3 GripPosition => MainHand != null ? MainHand.position : transform.position;
+		/// <inheritdoc/>
+		public override bool HasAim => Tip != null;
 
 		/// <summary>
 		/// The blade, measured along the insert axis — what has to slide clear before the weapon swings free.
@@ -63,8 +63,10 @@ namespace SpaxUtils
 		/// </summary>
 		public Vector3 SwingProfile => new Vector3(swingSlash, 1f, swingPierce);
 
-		protected void OnValidate()
+		protected override void OnValidate()
 		{
+			base.OnValidate();
+
 			baseReach = Tip != null ? Vector3.Distance(GripPosition, Tip.position) : 0f;
 		}
 
@@ -79,7 +81,7 @@ namespace SpaxUtils
 
 			if (Base != null && Tip != null)
 			{
-				// The blade.
+				// The blade — the part of the weapon's line that actually cuts.
 				Gizmos.color = Color.red;
 				Gizmos.DrawLine(Base.position, Tip.position);
 			}
