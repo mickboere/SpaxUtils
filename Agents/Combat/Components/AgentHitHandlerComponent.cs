@@ -178,52 +178,44 @@ namespace SpaxUtils
 				rigidbodyWrapper.ResetVelocity();
 				stunHandler.EnterStun(hitData);
 			}
-			else if (neglect)
-			{
-				// Perfectly negated (block/parry/deflect): the attacker eats the stun, we just take the shunt.
-				rigidbodyWrapper.Push(hitData.Direction * force, 1f);
-			}
 
 			// --- KNOCKBACK ---
 			// CLASH = the collision, FORCE = the strike. Both scale by impact and by the target's footing.
-			if (!neglect)
-			{
-				Vector3 normal = (rigidbodyWrapper.Position - hitData.Hitter.Transform.position)
-					.FlattenY().normalized;
+			Vector3 normal = (rigidbodyWrapper.Position - hitData.Hitter.Transform.position)
+				.FlattenY().normalized;
 
-				// Strike direction, so an uppercut launches; geometry-less moves fall back to the normal.
-				Vector3 push = hitData.Direction.sqrMagnitude > 0.0001f
-					? hitData.Direction.normalized
-					: normal;
+			// Strike direction, so an uppercut launches; geometry-less moves fall back to the normal.
+			Vector3 push = hitData.Direction.sqrMagnitude > 0.0001f
+				? hitData.Direction.normalized
+				: normal;
 
-				float elasticity = 1f + combatSettings.Restitution;
+			float elasticity = 1f + combatSettings.Restitution;
 
-				// Recoverable, not Max — the reserve is the ceiling they can fight back up to. Post-drain.
-				float spent = statHandler.PointStats.W.PercentageRecoverable.InvertClamped();
-				float footing = 1f - spent;
+			// Recoverable, not Max — the reserve is the ceiling they can fight back up to. Post-drain.
+			float spent = statHandler.PointStats.W.PercentageRecoverable.InvertClamped();
+			float footing = 1f - spent;
 
-				// Closing speed less our own outbound share — full relative speed would double-count a mutual clash.
-				float receiverOut = Mathf.Max(0f, Vector3.Dot(rigidbodyWrapper.PredictedVelocity, normal));
-				float closing = Mathf.Max(0f, Vector3.Dot(hitData.Inertia, normal) - receiverOut) * impact;
-				float totalMass = hitData.HitterMass + rigidbodyWrapper.Mass;
-				Vector3 clashPush = totalMass > 0f
-					? normal * (closing * Mathf.Lerp(1f, hitData.HitterMass / totalMass, footing) * elasticity)
-					: Vector3.zero;
-				Vector3 clashBrake = totalMass > 0f
-					? -normal * (closing * (rigidbodyWrapper.Mass / totalMass) * footing * elasticity)
-					: Vector3.zero;
+			// Closing speed less our own outbound share — full relative speed would double-count a mutual clash.
+			float receiverOut = Mathf.Max(0f, Vector3.Dot(rigidbodyWrapper.PredictedVelocity, normal));
+			float closing = Mathf.Max(0f, Vector3.Dot(hitData.Inertia, normal) - receiverOut) * impact;
+			float totalMass = hitData.HitterMass + rigidbodyWrapper.Mass;
+			Vector3 clashPush = totalMass > 0f
+				? normal * (closing * Mathf.Lerp(1f, hitData.HitterMass / totalMass, footing) * elasticity)
+				: Vector3.zero;
+			Vector3 clashBrake = totalMass > 0f
+				? -normal * (closing * (rigidbodyWrapper.Mass / totalMass) * footing * elasticity)
+				: Vector3.zero;
 
-				// FORCE — same footing rule: an even split while they can hold their stance, all theirs when spent.
-				float receiverShare = Mathf.Lerp(0.5f, 1f, spent);
-				float impulse = force * elasticity;
+			// FORCE — same footing rule: an even split while they can hold their stance, all theirs when spent.
+			float receiverShare = Mathf.Lerp(0.5f, 1f, spent);
+			float impulse = force * elasticity;
 
-				rigidbodyWrapper.Push(clashPush + push * (impulse * receiverShare / rigidbodyWrapper.Mass));
+			rigidbodyWrapper.Push(clashPush + push * (impulse * receiverShare / rigidbodyWrapper.Mass));
 
-				// Hitter's half is applied on its side in ProcessHit.
-				hitData.Data.SetValue(HitDataIdentifiers.INERTIA_BRAKE, hitData.HitterMass > 0f
-					? clashBrake - push * (impulse * (1f - receiverShare) / hitData.HitterMass)
-					: clashBrake);
-			}
+			// Hitter's half is applied on its side in ProcessHit.
+			hitData.Data.SetValue(HitDataIdentifiers.INERTIA_BRAKE, hitData.HitterMass > 0f
+				? clashBrake - push * (impulse * (1f - receiverShare) / hitData.HitterMass)
+				: clashBrake);
 
 			// --- HP DAMAGE & MALICE ---
 			if (!Invulnerable)
@@ -279,8 +271,8 @@ namespace SpaxUtils
 				float built = staticThreat * combatSettings.DeflectStaticPercent;
 				statHandler.PointStats.NE.Current.BaseValue += built;
 
-				// LIGHT: a parry pays for the threat it neutralised, measured in the Static it grounded.
-				statHandler.RewardExpPoints(Element.Light, built, ExpSources.PARRY);
+				// LIGHT: a deflect pays for the threat it neutralised, measured in the Static it grounded.
+				statHandler.RewardExpPoints(Element.Light, built, ExpSources.DEFLECT);
 			}
 			else if (blocked)
 			{
@@ -292,11 +284,14 @@ namespace SpaxUtils
 			}
 
 			// --- HIT PAUSE ---
+			// A deflect pauses for a fixed beat; everything else scales with impact.
+			float pauseTime = deflected ? combatSettings.DeflectHitPause : combatSettings.HitPauseReceiver.Lerp(impact);
+
 			hitPauseMod?.Dispose();
 			hitPauseMod = new TimedCurveModifier(
 				ModMethod.Absolute,
 				combatSettings.HitPauseCurve,
-				new TimerStruct(combatSettings.HitPauseReceiver.Lerp(impact)),
+				new TimerStruct(pauseTime),
 				callbackService);
 
 			timescaleStat.RemoveModifier(this);

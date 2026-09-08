@@ -10,7 +10,7 @@ namespace SpaxUtils
 		public AnimationCurve HitPauseCurve => hitPauseCurve;
 		public float BlockedStunTime => blockedStunTime;
 		public float ParriedStunTime => parriedStunTime;
-		public float DeflectedStunTime => deflectedStunTime;
+		public float DeflectHitPause => deflectHitPause;
 		public float StaticGain => staticGain;
 		public float MaliceGain => maliceGain;
 		public float DeflectStaticPercent => deflectStaticPercent;
@@ -46,7 +46,8 @@ namespace SpaxUtils
 		[SerializeField] private AnimationCurve hitPauseCurve;
 		[SerializeField] private float blockedStunTime = 1.25f;
 		[SerializeField] private float parriedStunTime = 1.5f;
-		[SerializeField] private float deflectedStunTime = 1f;
+		[SerializeField, Tooltip("Fixed hit-pause (s) on a deflect, for both parties. Ignores impact — a deflect always reads the same.")]
+		private float deflectHitPause = 0.25f;
 
 		[Header("Static / Charge Economy")]
 		[SerializeField, Tooltip("Base Static (NE) restored per unit of threat (attack Mass × Power). The per-outcome fractions below scale it. Tune until a parry visibly refuels a charged counter.")]

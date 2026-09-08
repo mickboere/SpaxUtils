@@ -7,7 +7,7 @@
 		public const string TARGET = "Target";
 
 		public const string GUARD = "Guard";
-		public const string PARRY = "Parry";
+		public const string DEFLECT = "Deflect";
 
 		public const string SHEATHE = "Sheathe";
 

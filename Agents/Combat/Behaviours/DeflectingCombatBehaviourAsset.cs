@@ -12,13 +12,14 @@ namespace SpaxUtils
 	{
 		protected bool InWindow =>
 			Performer.ChargeTime > Move.MinCharge * windowShift &&
-			Performer.ChargeTime < Move.MinCharge * windowShift + deflectWindow;
+			Performer.ChargeTime < Move.MinCharge * windowShift + window;
 
-		[SerializeField, Range(0f, 1f)] private float deflectWindow = 0.1f;
+		[Header("Deflecting")]
 		[SerializeField, Range(0f, 1f), Tooltip("0 is at beginning of charge, 1 is at end of minimum charge.")] private float windowShift = 1f;
 
 		private AgentStatHandler agentStatHandler;
 		private PointsStat chargeStat;
+		private EntityStat window;
 		private IHittable hittable;
 
 		private FloatFuncModifier enduranceDamageMod;
@@ -31,6 +32,7 @@ namespace SpaxUtils
 			this.hittable = hittable;
 
 			agentStatHandler.TryGetPointStat(Move.ChargeCost.Stat, out chargeStat);
+			Agent.Stats.TryGetStat(AgentStatIdentifiers.WINDOW, out window);
 		}
 
 		public override void Start()

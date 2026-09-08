@@ -464,6 +464,40 @@ namespace SpaxUtils
 			return floor ? Mathf.Floor(Formula()) : Formula();
 		}
 
+		/// <summary>
+		/// Standardized saturating formula: rises from 0 and asymptotes to <paramref name="ceiling"/>.
+		/// Output is exactly half the ceiling at <paramref name="half"/>, whatever the power.
+		/// </summary>
+		/// <param name="x">The input value (negatives clamp to 0).</param>
+		/// <param name="ceiling">The upper value approached but never reached.</param>
+		/// <param name="half">The input at which the output is half the ceiling.</param>
+		/// <param name="power">Approach shape: 1 = steepest at 0, &gt;1 = S-curve, &lt;1 = sharper early knee.</param>
+		public static float Saturate(float x, float ceiling = 1f, float half = 1f, float power = 1f)
+		{
+			float h = Mathf.Max(0.0001f, half);
+			float p = Mathf.Max(0.0001f, power);
+			return ceiling * (1f - Mathf.Pow(2f, -Mathf.Pow(Mathf.Max(0f, x) / h, p)));
+		}
+
+		/// <summary>
+		/// Inverse of <see cref="Saturate"/>: the input required to reach <paramref name="y"/>.
+		/// Returns infinity for outputs at or beyond the unreachable ceiling.
+		/// </summary>
+		public static float InvSaturate(float y, float ceiling = 1f, float half = 1f, float power = 1f)
+		{
+			if (Mathf.Abs(ceiling) < 0.0001f) return 0f;
+
+			float h = Mathf.Max(0.0001f, half);
+			float p = Mathf.Max(0.0001f, power);
+			float remainder = 1f - y / ceiling;
+
+			if (remainder <= 0f) return Mathf.Infinity;
+			if (remainder >= 1f) return 0f;
+
+			// y = c * (1 - 2^-(x/h)^p)  ->  x = h * (-log2(1 - y/c))^(1/p)
+			return h * Mathf.Pow(-Mathf.Log(remainder, 2f), 1f / p);
+		}
+
 		#endregion Standard Curves
 
 		#region Rarity

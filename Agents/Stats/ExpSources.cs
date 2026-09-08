@@ -15,7 +15,7 @@ namespace SpaxUtils
 		private const string LIGHT = "LIGHT/";
 		public const string PIERCE_OUTPUT = LIGHT + "Pierce Output"; // Crit damage dealt.
 		public const string STATIC_HIT = LIGHT + "Static Hit"; // Landing a Static-charged attack.
-		public const string PARRY = LIGHT + "Parry"; // Parrying or deflecting an attack.
+		public const string DEFLECT = LIGHT + "Deflect"; // Deflecting an incoming attack.
 
 		// Air
 		private const string AIR = "AIR/";

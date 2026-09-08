@@ -44,6 +44,10 @@ namespace SpaxUtils
 		[SerializeField, Conditional(nameof(formula), enumValues: new int[] { 5, 6 })] private Vector2 pointA;
 		[SerializeField, Conditional(nameof(formula), enumValues: new int[] { 5, 6 })] private Vector2 pointB;
 
+		[SerializeField, Conditional(nameof(formula), 11), Tooltip("The upper value approached but never reached.")] private float satCeiling = 1f;
+		[SerializeField, Conditional(nameof(formula), 11), Tooltip("Input at which the output is half the ceiling.")] private float satHalf = 50f;
+		[SerializeField, Conditional(nameof(formula), 11), Tooltip("Approach shape: 1 = steepest at 0, above 1 = S-curve, below 1 = sharper knee.")] private float satPower = 1f;
+
 		[SerializeField] private float scale = 1f;
 
 		[SerializeField, Tooltip("Adds to the final value.")] private float shift = 0f;
@@ -60,6 +64,7 @@ namespace SpaxUtils
 			float logConstant = 0.1f, float logPower = 2f, float logShift = 0f,
 			AnimationCurve curve = null,
 			Vector2 pointA = default, Vector2 pointB = default,
+			float satCeiling = 1f, float satHalf = 50f, float satPower = 1f,
 			float scale = 1f, float shift = 0f,
 			ModMethod modMethod = ModMethod.Base, Operation operation = Operation.Set)
 		{
@@ -81,6 +86,9 @@ namespace SpaxUtils
 			this.curve = curve;
 			this.pointA = pointA;
 			this.pointB = pointB;
+			this.satCeiling = satCeiling;
+			this.satHalf = satHalf;
+			this.satPower = satPower;
 			this.scale = scale;
 			this.shift = shift;
 			this.modMethod = modMethod;
@@ -121,6 +129,9 @@ namespace SpaxUtils
 				case FormulaType.ExpToRank:
 					// Summed-octad EXP to rank; replaces InvExp with a 0.125 pre-scale.
 					return shift + SpaxFormulas.RankFromPoints(input) * scale;
+				case FormulaType.Saturate:
+					// Ceiling is its own field; scale/shift stay pure post-ops, so the asymptote is shift + ceiling * scale.
+					return shift + SpaxFormulas.Saturate(input, satCeiling, satHalf, satPower) * scale;
 				default:
 					return shift + input * scale;
 			}
@@ -179,6 +190,9 @@ namespace SpaxUtils
 
 				case FormulaType.ExpToRank:
 					return SpaxFormulas.PointsFromRank(scale != 0f ? input / scale : 0f);
+
+				case FormulaType.Saturate:
+					return SpaxFormulas.InvSaturate(scale != 0f ? input / scale : 0f, satCeiling, satHalf, satPower);
 
 				case FormulaType.Curve:
 					SpaxDebug.Error($"Inverse modifier not supported for 'Curve' type (requires iterative solver). Calculation failed.");

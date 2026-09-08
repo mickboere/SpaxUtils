@@ -150,6 +150,13 @@ namespace SpaxUtils
 					yield return "scale";
 					yield return "shift";
 					break;
+				case FormulaType.Saturate:
+					yield return "satCeiling";
+					yield return "satHalf";
+					yield return "satPower";
+					yield return "scale";
+					yield return "shift";
+					break;
 				default:
 					// LevelToPointsStat (7), LevelToPhysic (8), ExpToLevel (9) and ExpToRank (10):
 					// fixed curves, only scale and shift are configurable.

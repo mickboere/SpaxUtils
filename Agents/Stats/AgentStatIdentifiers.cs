@@ -48,7 +48,7 @@
 		// Void
 		public const string LETHALITY_EXP = BODY_EXP + "Lethality";
 		public const string LETHALITY_LVL = BODY_LVL + "Lethality";
-		
+
 		#endregion Bodily Attributes
 
 		// SOUL ATTRIBUTES
@@ -171,6 +171,7 @@
 		public const string PIERCE = BODY_LIGHT + "Pierce"; // PHYSIC: The body's piercing damage output (crits).
 		public const string STORM_SPEED = BODY_LIGHT + "Storm_Speed"; // Speed while storming during a charged attack.
 		public const string STICK_AIM = BODY_LIGHT + "Stick_Aim"; // How well a melee stick's heading can be corrected mid-swing (0-1).
+		public const string WINDOW = BODY_LIGHT + "Window"; // How much extra time one has to deflect or parry.
 
 		// Air
 		private const string BODY_AIR = BODY_STAT + "AIR/";

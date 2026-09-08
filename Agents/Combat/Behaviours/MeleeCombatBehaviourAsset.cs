@@ -980,12 +980,6 @@ namespace SpaxUtils
 				// This statement is entered after the target has fully processed the hit,
 				// meaning all return data is present in the hitData.
 
-				float force = hitData.Data.GetValue<float>(HitDataIdentifiers.FORCE);
-
-				// Our share of the strike's force, bounced back off the target's footing (computed receiver-side).
-				// Zero on a neglected hit (block/parry/deflect handles braking explicitly below).
-				rigidbodyWrapper.Push(hitData.Data.GetValue(HitDataIdentifiers.INERTIA_BRAKE, Vector3.zero));
-
 				if (hitData.Data.GetValue<bool>(HitDataIdentifiers.BLOCKED))
 				{
 					Performer.TryCancel(true);
@@ -999,17 +993,9 @@ namespace SpaxUtils
 					statHandler.PointStats.W.Current.BaseValue = 0f;
 					stunHandler.EnterStun(hitData, combatSettings.ParriedStunTime);
 				}
-				else if (hitData.Data.GetValue<bool>(HitDataIdentifiers.DEFLECTED))
-				{
-					Performer.TryCancel(true);
-					rigidbodyWrapper.ResetVelocity();
-					statHandler.PointStats.W.Current.BaseValue = 0f;
-					rigidbodyWrapper.Push(-hitData.Direction * force, 1f);
-					stunHandler.EnterStun(hitData, combatSettings.DeflectedStunTime);
-				}
 				else
 				{
-					// Hit landed (not blocked/parried/deflected). Reward the attacker's Static (NE).
+					// Hit landed, or was deflected — a deflect means nothing to the attacker, so they bank Static either way.
 					if (chargeStat != null)
 					{
 						// Transducer: grounded force (Mass × Power) → charge, a fraction of what a parry refunds.
@@ -1024,9 +1010,15 @@ namespace SpaxUtils
 					}
 				}
 
+				// Our share of the strike's force, bounced back off the target's footing (computed receiver-side).
+				// Applied after the outcome so a block or parry reset can't swallow the bounce.
+				rigidbodyWrapper.Push(hitData.Data.GetValue(HitDataIdentifiers.INERTIA_BRAKE, Vector3.zero));
+
+				// A deflect pauses for a fixed beat; everything else scales with impact.
 				float impact = hitData.Data.GetValue<float>(HitDataIdentifiers.IMPACT);
-				float hitPause = combatSettings.HitPauseReceiver.Lerp(
-					impact * (1f / performSpeedStat.Value));
+				float hitPause = hitData.Data.GetValue<bool>(HitDataIdentifiers.DEFLECTED)
+					? combatSettings.DeflectHitPause
+					: combatSettings.HitPauseSender.Lerp(impact * (1f / performSpeedStat.Value));
 
 				if (hitPauseMod == null || hitPause > hitPauseMod.Timer.Remaining)
 				{

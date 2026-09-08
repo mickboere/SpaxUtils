@@ -43,7 +43,6 @@ namespace SpaxUtils
 		protected float GroundLossGrace => groundLossGrace;
 
 		[Header("Control")]
-		[SerializeField] private float controlWeightSmoothing = 6f;
 		[SerializeField] private bool blockArms;
 
 		private FloatOperationModifier controlMod;
@@ -158,9 +157,10 @@ namespace SpaxUtils
 					HandleTimeline();
 					break;
 			}
-			// Set control from pose weight.
-			float control = 1f - Weight;
-			controlMod.SetValue(controlMod.Value < control ? Mathf.Lerp(controlMod.Value, control, controlWeightSmoothing * delta) : control);
+			// Control is whatever the pose is not using. The move's own blend already eases both ways, so
+			// this follows it exactly — smoothing it again only lagged it, and left it short of full control
+			// when the performance ended, spending the remainder in one frame.
+			controlMod.SetValue(1f - Weight);
 		}
 
 		protected virtual void HandleAnimation()

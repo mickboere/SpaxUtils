@@ -41,6 +41,10 @@ namespace SpaxUtils
 		[SerializeField, Conditional(nameof(formula), enumValues: new int[] { 5, 6 })] private Vector2 pointA;
 		[SerializeField, Conditional(nameof(formula), enumValues: new int[] { 5, 6 })] private Vector2 pointB;
 
+		[SerializeField, Conditional(nameof(formula), 11), Tooltip("The upper value approached but never reached.")] private float satCeiling = 1f;
+		[SerializeField, Conditional(nameof(formula), 11), Tooltip("Input at which the output is half the ceiling.")] private float satHalf = 50f;
+		[SerializeField, Conditional(nameof(formula), 11), Tooltip("Approach shape: 1 = steepest at 0, above 1 = S-curve, below 1 = sharper knee.")] private float satPower = 1f;
+
 		[SerializeField] private float scale = 1f;
 
 		[SerializeField, Tooltip("Adds to the final value.")] private float shift = 0f;
@@ -71,6 +75,7 @@ namespace SpaxUtils
 					logConstant, logPower, logShift,
 					curve,
 					pointA, pointB,
+					satCeiling, satHalf, satPower,
 					scale, shift,
 					modMethod, operation);
 			}
