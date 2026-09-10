@@ -1109,6 +1109,7 @@ namespace SpaxUtils
 			if (sheathe != null)
 			{
 				sheathe.TryAssign(data, arm.Side, ArmUtils.StowOrder(arm, data));
+				LogHandover(arm, data);
 				if (sheathe.Place(data))
 				{
 					return;
@@ -1119,6 +1120,56 @@ namespace SpaxUtils
 			transform.SetParent(arm.IsLeft ? LeftSheathe : RightSheathe);
 			transform.localPosition = Vector3.zero;
 			transform.localRotation = Quaternion.identity;
+		}
+
+		/// <summary>
+		/// What the hand is about to let go of, against where the slot is about to snap it. Debug only.
+		/// Separates an IK shortfall from a grip drifted off the palm from the anchor maths being wrong.
+		/// </summary>
+		private void LogHandover(ArmState arm, RuntimeEquipedData data)
+		{
+			if (!DebugLogging)
+			{
+				return;
+			}
+
+			Transform handBone = arm.IsLeft ? LeftHand : RightHand;
+			Transform root = data.EquipedInstance.transform;
+			if (root.parent != handBone)
+			{
+				// Never was in this hand — resting an idle armament says nothing about the hand-over.
+				return;
+			}
+
+			if (!sheathe.TryGetSlotOrientation(data, out Vector3 slotPos, out Quaternion slotRot))
+			{
+				SpaxDebug.Log("ARMSTOW", $"{(arm.IsLeft ? "LEFT" : "RIGHT")} {Name(data)} | NO SLOT reserved.");
+				return;
+			}
+
+			Transform grip = ArmUtils.GripOf(data);
+			(Vector3 pos, Quaternion rot) aim = GetSheathingOrientation(arm, data);
+			(Vector3 pos, Quaternion rot) palm = GetHandSlotOrientation(arm.IsLeft, false,
+				AgentSheatheComponent.WieldRadiusOf(data));
+
+			(Vector3 origin, Quaternion rotation) body = BodyFrame();
+			Quaternion inverse = Quaternion.Inverse(body.rotation);
+			Vector3 blade = data.Carryable == null ? Vector3.forward : data.Carryable.InsertAxis;
+
+			SpaxDebug.Log("ARMSTOW",
+				$"{(arm.IsLeft ? "LEFT" : "RIGHT")} {Name(data)}" +
+				// SNAP is the jump itself: the root now, against where Place is about to put it.
+				$" | SNAP {(inverse * (slotPos - root.position)).ToString("F3")}" +
+				$" {Quaternion.Angle(root.rotation, slotRot):0.#}deg" +
+				$" | blade {(inverse * (root.rotation * blade)).ToString("F2")}" +
+				$" -> {(inverse * (slotRot * blade)).ToString("F2")}" +
+				// hand = what the IK failed to deliver of the pose the leg actually asked for.
+				$" | hand {Vector3.Distance(handBone.position, aim.pos):0.###}" +
+				$" {Quaternion.Angle(handBone.rotation, aim.rot):0.#}deg" +
+				// grip = how far the item drifted off the live palm frame since Draw seated it there.
+				$" | grip {(grip == null ? 0f : Vector3.Distance(grip.position, palm.pos)):0.###}" +
+				$" {(grip == null ? 0f : Quaternion.Angle(grip.rotation, palm.rot)):0.#}deg" +
+				$" | scale root {root.lossyScale.ToString("F3")} hand {handBone.lossyScale.ToString("F3")}");
 		}
 
 		/// <summary>Takes an armament off the body and aligns its grip to the hand.</summary>

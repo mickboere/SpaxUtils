@@ -145,6 +145,10 @@ namespace SpaxUtils
 
 		// FLOATS
 		/// <summary>
+		/// Return data: the deflector's share of the negated stagger, drained from the hitter's endurance.
+		/// </summary>
+		public const string ENDURANCE_RETURN = "Endurance_Return";
+		/// <summary>
 		/// Return data defining the guard weight of the receiver during the hit (0=no guard, 1=full guard).
 		/// </summary>
 		public const string GUARD_WEIGHT = "GuardWeight";

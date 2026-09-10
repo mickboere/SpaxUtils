@@ -188,7 +188,9 @@ namespace SpaxUtils
 		{
 			Group(null)
 				.Field("name")
-				.Field("description");
+				.Field("description")
+				.Field("cancelDuration")
+				.Field("blockSelfOverlap");
 
 			// First, deliberately: the behaviours act the move out. Without them the rest is inert data.
 			Group("Behaviour")
@@ -222,8 +224,7 @@ namespace SpaxUtils
 				.Custom(() => Readout("Release", Move.Release), () => Move.UseTimeline)
 				.Field("chargeFadeout", () => Move.HasPerformance && Move.AnimationType == PerformanceAnimationType.Poser)
 				.Field("performSpeedMultiplier", () => Move.HasPerformance)
-				.Field("performCost", () => Move.HasPerformance)
-				.Field("cancelDuration");
+				.Field("performCost", () => Move.HasPerformance);
 
 			Group("Combat")
 				.Field("range");

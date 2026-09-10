@@ -58,6 +58,11 @@ namespace SpaxUtils
 		/// </summary>
 		IReadOnlyList<MoveFollowUp> FollowUps { get; }
 
+		/// <summary>
+		/// Whether a new instance is refused while one is still running (including its release).
+		/// </summary>
+		bool BlockSelfOverlap { get; }
+
 		#region Charging
 
 		/// <summary>

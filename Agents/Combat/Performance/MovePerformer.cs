@@ -137,6 +137,16 @@ namespace SpaxUtils
 		}
 
 		/// <inheritdoc/>
+		public bool PerformNow(float runTime)
+		{
+			released = true;
+			sample.ChargeTime = Mathf.Max(sample.ChargeTime, Move.MinCharge);
+			sample.RunTime = Mathf.Max(sample.RunTime, runTime);
+			sample.State = PerformanceState.Performing;
+			return true;
+		}
+
+		/// <inheritdoc/>
 		public bool TryCancel(bool force)
 		{
 			if (force || State == PerformanceState.Preparing || (State == PerformanceState.Performing && RunTime.Approx(0f)))

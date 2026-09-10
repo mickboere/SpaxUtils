@@ -27,5 +27,11 @@ namespace SpaxUtils
 		/// Whether the current performance should halt its the runtime once minimum duration has been reached.
 		/// </summary>
 		bool Prolong { get; set; }
+
+		/// <summary>
+		/// Completes the charge and performs NOW, RunTime seconds in, whatever the clock says. For a
+		/// reaction that must land on the frame it was earned, not once a hit pause lets time run again.
+		/// </summary>
+		bool PerformNow(float runTime);
 	}
 }

@@ -10,7 +10,9 @@ namespace SpaxUtils
 		public AnimationCurve HitPauseCurve => hitPauseCurve;
 		public float BlockedStunTime => blockedStunTime;
 		public float ParriedStunTime => parriedStunTime;
-		public float DeflectHitPause => deflectHitPause;
+		public float DeflectorHitPause => deflectorHitPause;
+		public float DeflectedHitPause => deflectedHitPause;
+		public float DeflectEnduranceShare => deflectEnduranceShare;
 		public float StaticGain => staticGain;
 		public float MaliceGain => maliceGain;
 		public float DeflectStaticPercent => deflectStaticPercent;
@@ -46,8 +48,12 @@ namespace SpaxUtils
 		[SerializeField] private AnimationCurve hitPauseCurve;
 		[SerializeField] private float blockedStunTime = 1.25f;
 		[SerializeField] private float parriedStunTime = 1.5f;
-		[SerializeField, Tooltip("Fixed hit-pause (s) on a deflect, for both parties. Ignores impact — a deflect always reads the same.")]
-		private float deflectHitPause = 0.25f;
+		[SerializeField, Tooltip("Fixed hit-pause (s) for the agent who deflected. Shorter than the attacker's, so recovering first is the reward.")]
+		private float deflectorHitPause = 0.5f;
+		[SerializeField, Tooltip("Fixed hit-pause (s) for the attacker whose blow was deflected. Ignores impact.")]
+		private float deflectedHitPause = 1f;
+		[SerializeField, Range(0f, 1f), Tooltip("Share of the stagger a deflect negated that the deflector still eats. The hitter takes the remainder.")]
+		private float deflectEnduranceShare = 0.5f;
 
 		[Header("Static / Charge Economy")]
 		[SerializeField, Tooltip("Base Static (NE) restored per unit of threat (attack Mass × Power). The per-outcome fractions below scale it. Tune until a parry visibly refuels a charged counter.")]

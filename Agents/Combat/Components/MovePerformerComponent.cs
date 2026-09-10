@@ -134,7 +134,19 @@ namespace SpaxUtils
 			}
 			IPerformanceMove move = Moveset[act.Title];
 
-			// 3. All behavioral prerequisites must be met.
+			// 3. A self-blocking move cannot be re-entered while an instance still runs out its release.
+			if (move.BlockSelfOverlap)
+			{
+				for (int i = 0; i < helpers.Count; i++)
+				{
+					if (helpers[i].Move == move)
+					{
+						return false;
+					}
+				}
+			}
+
+			// 4. All behavioral prerequisites must be met.
 			for (int i = 0; i < move.Behaviour.Count; i++)
 			{
 				BehaviourAsset behaviour = move.Behaviour[i];
@@ -144,7 +156,7 @@ namespace SpaxUtils
 				}
 			}
 
-			// 4. Utilized stats must exceed 0.
+			// 5. Utilized stats must exceed 0.
 			// Note: (most) stats don't have to exceed costs since they will overdraw from the "recoverable" stat.
 			if ((move.HasCharge && !ValidateStat(move.ChargeCost)) || (move.HasPerformance && !ValidateStat(move.PerformCost)))
 			{
@@ -188,6 +200,11 @@ namespace SpaxUtils
 			}
 
 			return MainPerformer.TryPerform();
+		}
+
+		public bool PerformNow(float runTime)
+		{
+			return MainPerformer != null && MainPerformer.PerformNow(runTime);
 		}
 
 		/// <inheritdoc/>

@@ -11,6 +11,8 @@ namespace SpaxUtils
 	{
 		#region Tooltips
 
+		private const string TT_CANCEL = "Fade-out time after cancelling. Applies to a cancelled CHARGE as well as a cancelled performance.";
+		private const string TT_SELF_OVERLAP = "Refuse a new instance while one is still running, so the move cannot be re-entered through its release.";
 		private const string TT_CHARGE_DURATION = "How long a full charge takes, in seconds. Charging itself can continue past it, until the charge stat drains.";
 		private const string TT_MIN_CHARGE = "Minimum charge required before performing, as a fraction of the charge duration.";
 		private const string TT_REQUIRE_MIN_CHARGE = "TRUE: Releasing input before completing charge will cancel.\nFALSE: Releasing input before completing charge will continue and automatically perform.";
@@ -57,6 +59,7 @@ namespace SpaxUtils
 		public StatCost PerformCost => performCost;
 
 		public float CancelDuration => cancelDuration;
+		public bool BlockSelfOverlap => blockSelfOverlap;
 
 		// MIGRATION LAYER, methods further down. Every timing member answers "timeline if authored, serialized
 		// float otherwise", so PoseSequence moves keep working and no consumer ever changes.
@@ -92,7 +95,8 @@ namespace SpaxUtils
 		[SerializeField] private AnimationTimeline timeline;
 		[SerializeField, Expandable] private List<BehaviourAsset> behaviour;
 		[SerializeField] private List<MoveFollowUp> followUps;
-		[SerializeField] private float cancelDuration = 0.25f;
+		[SerializeField, Tooltip(TT_CANCEL)] private float cancelDuration = 0.25f;
+		[SerializeField, Tooltip(TT_SELF_OVERLAP)] private bool blockSelfOverlap;
 		[SerializeField, Tooltip(TT_RELEASE)] private float release = 0.5f;
 
 		[SerializeField] private bool hasCharge;

@@ -1010,6 +1010,13 @@ namespace SpaxUtils
 					}
 				}
 
+				// A deflect hands us the half of the stagger it negated. No stun; it just opens us to a punish.
+				float enduranceReturn = hitData.Data.GetValue<float>(HitDataIdentifiers.ENDURANCE_RETURN);
+				if (enduranceReturn > 0f)
+				{
+					statHandler.PointStats.W.Drain(enduranceReturn);
+				}
+
 				// Our share of the strike's force, bounced back off the target's footing (computed receiver-side).
 				// Applied after the outcome so a block or parry reset can't swallow the bounce.
 				rigidbodyWrapper.Push(hitData.Data.GetValue(HitDataIdentifiers.INERTIA_BRAKE, Vector3.zero));
@@ -1017,7 +1024,7 @@ namespace SpaxUtils
 				// A deflect pauses for a fixed beat; everything else scales with impact.
 				float impact = hitData.Data.GetValue<float>(HitDataIdentifiers.IMPACT);
 				float hitPause = hitData.Data.GetValue<bool>(HitDataIdentifiers.DEFLECTED)
-					? combatSettings.DeflectHitPause
+					? combatSettings.DeflectedHitPause
 					: combatSettings.HitPauseSender.Lerp(impact * (1f / performSpeedStat.Value));
 
 				if (hitPauseMod == null || hitPause > hitPauseMod.Timer.Remaining)

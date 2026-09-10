@@ -118,9 +118,11 @@ namespace SpaxUtils
 		/// edit-mode fallbacks as <see cref="SafeLookup"/>/<see cref="SafeBody"/> before it has.
 		/// Never cached when thrown together this way — caching a pre-DI instance would freeze it with
 		/// null IK and sheathe references even after the real ones arrive.
+		/// <see cref="AgentComponentBase.Agent"/> lives on a frame object only present at runtime, so it
+		/// is null in edit mode — fall back to this component's own transform rather than crash on it.
 		/// </summary>
 		private ArmSwapAnimator SafeAnimator => animator ?? new ArmSwapAnimator(
-			this, SafeLookup, SafeBody, Agent.Transform, null, null, ikPriority,
+			this, SafeLookup, SafeBody, Agent == null ? transform : Agent.Transform, null, null, ikPriority,
 			handSpeed, minLegDuration, arcBulge, gripEasing);
 
 		[SerializeField, HideInInspector] private bool left;

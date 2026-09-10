@@ -159,7 +159,15 @@ namespace SpaxUtils
 			// Endurance is Earth's pool, so Earth's physic walls it. Only force is raw; slash/crit are already mitigated.
 			// Bracing absorbs what is left, clamped to x1 so a weak guard never amplifies it.
 			float stagger = SpaxFormulas.CalculateDamage(force, armorStat);
-			float toEndure = neglect ? 0f : (slashDamage + critDamage + stagger) / (guardStat.Value * guardWeight).Max(1f);
+			float full = (slashDamage + critDamage + stagger) / (guardStat.Value * guardWeight).Max(1f);
+
+			// A deflect splits what it negated: we eat our share, the hitter eats the rest (applied their side).
+			float toEndure = deflected ? full * combatSettings.DeflectEnduranceShare : (neglect ? 0f : full);
+			if (deflected)
+			{
+				hitData.Data.SetValue(HitDataIdentifiers.ENDURANCE_RETURN, full - toEndure);
+			}
+
 			float enduranceDamage = statHandler.PointStats.W.Drain(
 				toEndure,
 				out bool stunned,
@@ -206,8 +214,9 @@ namespace SpaxUtils
 				? -normal * (closing * (rigidbodyWrapper.Mass / totalMass) * footing * elasticity)
 				: Vector3.zero;
 
-			// FORCE — same footing rule: an even split while they can hold their stance, all theirs when spent.
-			float receiverShare = Mathf.Lerp(0.5f, 1f, spent);
+			// FORCE — an even split while they hold their stance, all theirs when spent.
+			// A negated hit withstands the strike and turns the whole of it back on the attacker.
+			float receiverShare = neglect ? 0f : Mathf.Lerp(0.5f, 1f, spent);
 			float impulse = force * elasticity;
 
 			rigidbodyWrapper.Push(clashPush + push * (impulse * receiverShare / rigidbodyWrapper.Mass));
@@ -285,7 +294,7 @@ namespace SpaxUtils
 
 			// --- HIT PAUSE ---
 			// A deflect pauses for a fixed beat; everything else scales with impact.
-			float pauseTime = deflected ? combatSettings.DeflectHitPause : combatSettings.HitPauseReceiver.Lerp(impact);
+			float pauseTime = deflected ? combatSettings.DeflectorHitPause : combatSettings.HitPauseReceiver.Lerp(impact);
 
 			hitPauseMod?.Dispose();
 			hitPauseMod = new TimedCurveModifier(
