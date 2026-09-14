@@ -53,6 +53,22 @@ namespace SpaxUtils
 		/// <param name="distance">Distance multiplier.</param>
 		public void Play(AudioSourceWrapper audioSourceWrapper, float volume = 1f, float pitch = 1f, float distance = 1f)
 		{
+			PlayClip(audioSourceWrapper, RandomVolume * volume, RandomPitch * pitch, distance);
+		}
+
+		/// <summary>
+		/// Plays a random clip with volume and pitch lerped through their ranges by <paramref name="roll"/> instead of
+		/// drawn at random, so several SFX handed the same roll come out as one event.
+		/// </summary>
+		/// <param name="roll">Position within the volume and pitch ranges (0-1).</param>
+		public void PlayRolled(AudioSourceWrapper audioSourceWrapper, float roll, float volume = 1f, float pitch = 1f, float distance = 1f)
+		{
+			roll = Mathf.Clamp01(roll);
+			PlayClip(audioSourceWrapper, volumeRange.Lerp(roll) * volume, pitchRange.Lerp(roll) * pitch, distance);
+		}
+
+		private void PlayClip(AudioSourceWrapper audioSourceWrapper, float volume, float pitch, float distance)
+		{
 			if (clips == null || clips.Count == 0)
 			{
 				//SpaxDebug.Warning("No clips defined.");
@@ -63,10 +79,10 @@ namespace SpaxUtils
 			audioSourceWrapper.Clip = RandomClip;
 			audioSourceWrapper.Loop = false;
 
-			audioSourceWrapper.AudioSource.pitch = RandomPitch * pitch;
+			audioSourceWrapper.AudioSource.pitch = pitch;
 			audioSourceWrapper.Pitch.BaseValue = audioSourceWrapper.AudioSource.pitch;
 
-			audioSourceWrapper.AudioSource.volume = RandomVolume * volume;
+			audioSourceWrapper.AudioSource.volume = volume;
 			audioSourceWrapper.Volume.BaseValue = audioSourceWrapper.AudioSource.volume;
 
 			audioSourceWrapper.MinDistance = MinDistance * distance;

@@ -17,26 +17,7 @@ namespace SpaxUtils
 
 		public SFXData GetImpactSFX(float impactForce)
 		{
-			if (impactSFX.Length == 0)
-			{
-				return null;
-			}
-			else if (impactSFX.Length == 1)
-			{
-				return impactSFX[0].SFX;
-			}
-			else
-			{
-				ImpactSFXData match = impactSFX[0];
-				for (int i = 1; i < impactSFX.Length; i++)
-				{
-					if (impactForce > impactSFX[i].Intensity && impactSFX[i].Intensity > match.Intensity)
-					{
-						match = impactSFX[i];
-					}
-				}
-				return match.SFX;
-			}
+			return ImpactSFXData.Select(impactSFX, impactForce);
 		}
 	}
 }

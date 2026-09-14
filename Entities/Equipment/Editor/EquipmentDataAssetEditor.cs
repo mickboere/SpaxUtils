@@ -33,21 +33,16 @@ namespace SpaxUtils
 				}
 			}
 
-			if (physicsDistributionProp == null) return;
-			if (prop.propertyPath != physicsDistributionProp.propertyPath) return;
-
-			float budget = SpaxFormulas.PointsFromRank(eq.Rank) * eq.Quality;
-
-			Vector8 lanePoints = SpaxFormulas.AllocatePointsForLevelRatios(eq.PhysicsDistribution, budget);
-
-			Vector8 shiftWeights = SpaxFormulas.EquipmentShiftWeights(eq.PhysicsDistribution);
-
-			Vector8 physics = Vector8.Zero;
-			for (int i = 0; i < 8; i++)
+			if (physicsDistributionProp == null)
 			{
-				float lvl = lanePoints[i] <= 0f ? 0f : SpaxFormulas.LevelFromPoints(lanePoints[i]);
-				physics[i] = Mathf.Round(SpaxFormulas.EquipmentPhysic(lvl, eq.Quality, shiftWeights[i]) * eq.PhysicsScaling);
+				return;
 			}
+			if (prop.propertyPath != physicsDistributionProp.propertyPath)
+			{
+				return;
+			}
+
+			Vector8 physics = SpaxFormulas.EquipmentPhysics(eq.PhysicsDistribution, eq.Rank, eq.Quality, eq.PhysicsScaling);
 
 			using (new EditorGUI.IndentLevelScope(1))
 			{

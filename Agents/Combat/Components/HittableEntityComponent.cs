@@ -14,13 +14,16 @@ namespace SpaxUtils
 
 		[SerializeField] private bool hittable = true;
 
-		private List<(object listener, Action<HitData> callback, int prio)> subscribers =
-			new List<(object listener, Action<HitData> callback, int prio)>();
+		private List<(object listener, Action<HitData> callback, int order)> subscribers =
+			new List<(object listener, Action<HitData> callback, int order)>();
 
 		/// <inheritdoc/>
 		public bool Hit(HitData hitData)
 		{
-			if (IsHittable)
+			// Captured up front: a killing blow turns hittability off mid-loop, but the hit itself still landed.
+			bool accepted = IsHittable;
+
+			if (accepted)
 			{
 				for (int i = 0; i < subscribers.Count; i++)
 				{
@@ -28,17 +31,19 @@ namespace SpaxUtils
 				}
 			}
 
-			return IsHittable;
+			return accepted;
 		}
 
 		/// <inheritdoc/>
-		public void Subscribe(object listener, Action<HitData> callback, int prio = 0)
+		public void Subscribe(object listener, Action<HitData> callback, int order = 0)
 		{
-			subscribers.Add((listener, callback, prio));
-			if (subscribers.Count > 2 && prio > subscribers[subscribers.Count - 2].prio)
+			// Ordered insert; equal orders keep their subscription order.
+			int index = subscribers.Count;
+			while (index > 0 && subscribers[index - 1].order > order)
 			{
-				subscribers.Sort((a, b) => b.prio.CompareTo(a.prio));
+				index--;
 			}
+			subscribers.Insert(index, (listener, callback, order));
 		}
 
 		/// <inheritdoc/>

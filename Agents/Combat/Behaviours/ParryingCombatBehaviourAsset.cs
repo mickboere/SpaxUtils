@@ -24,7 +24,7 @@ namespace SpaxUtils
 		{
 			base.Start();
 
-			hittable.Subscribe(this, OnHitEvent, 1000);
+			hittable.Subscribe(this, OnHitEvent, -1000);
 		}
 
 		public override void Stop()
@@ -57,10 +57,13 @@ namespace SpaxUtils
 						hitData.Inertia,
 						hitData.Point,
 						-hitData.Inertia.normalized,
-						hitData.Mass,
+						hitData.LimbMass,
+						hitData.BodyMassFraction,
 						0f,
 						hitData.Power,
 						0f,
+						hitData.PowerBand,
+						hitData.ForceBand,
 						0f);
 
 					base.ProcessHit(parriedHittable, parryHit);

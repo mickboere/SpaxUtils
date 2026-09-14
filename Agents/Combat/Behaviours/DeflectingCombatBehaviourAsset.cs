@@ -61,7 +61,7 @@ namespace SpaxUtils
 			// performance has started already lets one frame of the reaction through.
 			Performer.Paused = true;
 
-			hittable.Subscribe(this, OnHitEvent, 1000);
+			hittable.Subscribe(this, OnHitEvent, -1000);
 		}
 
 		public override void Stop()

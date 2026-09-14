@@ -20,12 +20,12 @@ namespace SpaxUtils
 		bool Hit(HitData hitData);
 
 		/// <summary>
-		/// Subscribes to all successful hit events. Invocation order is sorted by <paramref name="prio"/>, highest prio is invoked first.
+		/// Subscribes to all successful hit events. Sorted by <paramref name="order"/> like DefaultExecutionOrder; lowest goes first.
 		/// </summary>
 		/// <param name="listener">The listener object to subscribe.</param>
 		/// <param name="callback">The callback to invoke once the hittable is hit.</param>
-		/// <param name="prio">The priority of the listener, highest prio is invoked first.</param>
-		void Subscribe(object listener, Action<HitData> callback, int prio = 0);
+		/// <param name="order">Execution order of the listener, lowest is invoked first.</param>
+		void Subscribe(object listener, Action<HitData> callback, int order = 0);
 
 		/// <summary>
 		/// Unsubscribes from hit events.

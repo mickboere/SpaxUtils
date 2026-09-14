@@ -70,8 +70,6 @@ namespace SpaxUtils
 		private EntityStat limbMassStat;
 		private EntityStat strengthStat;
 
-		/// <summary>Limb mass blended toward whole-body by the move's BodyMassFraction, via the combat authority.</summary>
-		private float StrikeMass => combatComponent.ComputeStrikeMass(move);
 		private EntityStat pierceStat;
 		private EntityStat luckStat;
 		private EntityStat chargeStat;
@@ -882,7 +880,6 @@ namespace SpaxUtils
 						? move.StrikeDirection.Look(lookDir)
 						: hit.Direction;
 
-					float mass = StrikeMass;
 					float phase = Mathf.Clamp01(Performer.RunTime / Move.MinDuration);
 					float phaseMult = GetPhaseInertiaMultiplier(phase);
 
@@ -892,10 +889,15 @@ namespace SpaxUtils
 
 					// Per-axis base output (x=Slash, y=Power, z=Pierce) from AgentCombatComponent.
 					// Runtime modifiers (strength, charge, phase, malice) are applied below.
-					Vector3 baseOutput = combatComponent.GetMoveOutput(move).Output;
+					AgentCombatComponent.MoveOutput moveOutput = combatComponent.GetMoveOutput(move);
+					Vector3 baseOutput = moveOutput.Output;
 
-					float basePower = baseOutput.y * baseStrengthPowerFactor;
-					float powerValue = basePower * totalCharge * phaseMult;
+					float powerScale = baseStrengthPowerFactor * totalCharge * phaseMult;
+					float powerValue = baseOutput.y * powerScale;
+
+					// Both bands take the same runtime scaling as Power.
+					float powerBand = moveOutput.PowerBand * powerScale;
+					float forceBand = moveOutput.ForceBand * powerScale;
 
 					// Assemble the offence vector's runtime-modified channels before Malice.
 					float slashValue = baseOutput.x;
@@ -923,10 +925,13 @@ namespace SpaxUtils
 						inertia,
 						hit.Point,
 						direction,
-						mass,
+						combatComponent.ComputeLimbMass(move),
+						move.BodyMassFraction,
 						finalSlash,
 						finalPower,
 						finalPierce,
+						powerBand * maliceMult,
+						forceBand * maliceMult,
 						luckStat
 					);
 
@@ -951,7 +956,8 @@ namespace SpaxUtils
 			statHandler.RewardExp(Element.Fire,
 				hitData.Data.GetValue<float>(HitDataIdentifiers.BLUNT_DAMAGE) / healthMax, ExpSources.POWER_OUTPUT);
 			statHandler.RewardExp(Element.Light,
-				hitData.Data.GetValue<float>(HitDataIdentifiers.CRIT_DAMAGE) / healthMax, ExpSources.PIERCE_OUTPUT);
+				(hitData.Data.GetValue<float>(HitDataIdentifiers.PIERCE_DAMAGE) +
+				hitData.Data.GetValue<float>(HitDataIdentifiers.CRIT_DAMAGE)) / healthMax, ExpSources.PIERCE_OUTPUT);
 			statHandler.RewardExp(Element.Void,
 				hitData.Data.GetValue<float>(HitDataIdentifiers.SLASH_DAMAGE) / healthMax, ExpSources.SLASH_OUTPUT);
 
@@ -999,7 +1005,7 @@ namespace SpaxUtils
 					if (chargeStat != null)
 					{
 						// Transducer: grounded force (Mass × Power) → charge, a fraction of what a parry refunds.
-						chargeStat.BaseValue += hitData.Mass * hitData.Power * combatSettings.StaticGain * combatSettings.HitStaticPercent;
+						chargeStat.BaseValue += hitData.StrikeMass * hitData.Power * combatSettings.StaticGain * combatSettings.HitStaticPercent;
 					}
 
 					// A precise strike grounds its own charge: crits are Pierce-gated, so refuel Static off PIERCE —
@@ -1021,13 +1027,14 @@ namespace SpaxUtils
 				// Applied after the outcome so a block or parry reset can't swallow the bounce.
 				rigidbodyWrapper.Push(hitData.Data.GetValue(HitDataIdentifiers.INERTIA_BRAKE, Vector3.zero));
 
-				// A deflect pauses for a fixed beat; everything else scales with impact.
+				// Deflects and crits pause for a fixed beat; everything else scales with impact.
 				float impact = hitData.Data.GetValue<float>(HitDataIdentifiers.IMPACT);
-				float hitPause = hitData.Data.GetValue<bool>(HitDataIdentifiers.DEFLECTED)
-					? combatSettings.DeflectedHitPause
+				float hitPause = hitData.Data.GetValue<bool>(HitDataIdentifiers.DEFLECTED) ? combatSettings.DeflectedHitPause
+					: hitData.Data.GetValue<bool>(HitDataIdentifiers.CRIT) ? combatSettings.CritSenderHitPause
 					: combatSettings.HitPauseSender.Lerp(impact * (1f / performSpeedStat.Value));
 
-				if (hitPauseMod == null || hitPause > hitPauseMod.Timer.Remaining)
+				float remainingPause = hitPauseMod == null ? 0f : Mathf.Max(0f, hitPauseMod.Timer.Remaining);
+				if (hitPauseMod == null || hitPause > remainingPause)
 				{
 					hitPauseMod?.Dispose();
 					hitPauseMod = new TimedCurveModifier(
@@ -1039,6 +1046,13 @@ namespace SpaxUtils
 					timescaleStat.RemoveModifier(this);
 					timescaleStat.AddModifier(this, hitPauseMod);
 				}
+				else
+				{
+					// A longer pause is already running; the tail waits for that one to lift instead.
+					hitPause = remainingPause;
+				}
+
+				hitData.Data.SetValue(HitDataIdentifiers.HIT_PAUSE, hitPause);
 
 				comms.Send(hitData);
 				agentImpactHandler.ReportImpact(new ImpactData

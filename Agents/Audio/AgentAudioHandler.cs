@@ -10,14 +10,19 @@ namespace SpaxUtils
 		private AgentStatHandler agentStatHandler;
 		private Pool<PooledAudioSource> audioPool;
 
+		private AgentHitHandlerComponent hitHandler;
+
 		private float pitch;
 		private float lastHealth;
+		private float pendingDamage;
 		private PooledAudioSource audioSource;
 
-		public void InjectDependencies(AgentStatHandler agentStatHandler, Pool<PooledAudioSource> audioPool, [Optional] AgentAudioProfile audioProfile)
+		public void InjectDependencies(AgentStatHandler agentStatHandler, Pool<PooledAudioSource> audioPool,
+			[Optional] AgentAudioProfile audioProfile, [Optional] AgentHitHandlerComponent hitHandler)
 		{
 			this.agentStatHandler = agentStatHandler;
 			this.audioPool = audioPool;
+			this.hitHandler = hitHandler;
 
 			if (audioProfile != null)
 			{
@@ -40,11 +45,23 @@ namespace SpaxUtils
 		{
 			agentStatHandler.PointStats.SW.Current.ValueChangedEvent -= OnHealthChangedEvent;
 			Agent.DiedEvent -= OnDiedEvent;
+			pendingDamage = 0f;
+		}
+
+		protected void Update()
+		{
+			// The damage grunt is the receiving end's tail: it waits for the hit-pause to lift.
+			if (pendingDamage > 0f && (hitHandler == null || hitHandler.HitPauseRemaining <= 0f))
+			{
+				PlayDamage(pendingDamage);
+				pendingDamage = 0f;
+			}
 		}
 
 		#region Public Methods
 
-		public void Play(SFXData sfx, float volume = 1f, float distance = 1f)
+		/// <param name="scaledTime">Whether the entity's local timescale bends this sound's pitch.</param>
+		public void Play(SFXData sfx, float volume = 1f, float distance = 1f, bool scaledTime = true)
 		{
 			if (sfx == null)
 			{
@@ -55,8 +72,17 @@ namespace SpaxUtils
 			if (audioSource == null)
 			{
 				audioSource = audioPool.Request(Agent.Targetable.Point, Agent.Transform);
-				audioSource.AudioSourceWrapper.SetEntityTimeScale(EntityTimeScale);
 				audioSource.OnDisableEvent += OnASWDisabled;
+			}
+
+			// The source is shared between invokes, so the timescale link is decided per play.
+			if (scaledTime)
+			{
+				audioSource.AudioSourceWrapper.SetEntityTimeScale(EntityTimeScale);
+			}
+			else
+			{
+				audioSource.AudioSourceWrapper.ClearEntityTimeScale();
 			}
 
 			sfx.Play(audioSource.AudioSourceWrapper, volume, pitch, distance * distanceMultiplier);
@@ -91,8 +117,9 @@ namespace SpaxUtils
 				return;
 			}
 
+			// Exempt from the death timescale lerp to 0, which would drag the cry down with it.
 			SFXData sfx = profile.GetDeathSFX();
-			Play(sfx, volume, distance);
+			Play(sfx, volume, distance, false);
 		}
 
 		public void PlaySatisfy(float volume = 1f, float distance = 1f)
@@ -133,14 +160,16 @@ namespace SpaxUtils
 			float damage = lastHealth - current;
 			if (damage > 0f && current > 0f)
 			{
-				float fraction = damage / agentStatHandler.PointStats.SW.Max;
-				PlayDamage(fraction);
+				// Queued, not played: the hit-pause is only applied after the health drain that got us here.
+				pendingDamage = Mathf.Max(pendingDamage, damage / agentStatHandler.PointStats.SW.Max);
 			}
 			lastHealth = agentStatHandler.PointStats.SW.Current;
 		}
 
 		private void OnDiedEvent(DeathContext deathContext)
 		{
+			// A queued grunt would cut the death cry off on the shared source.
+			pendingDamage = 0f;
 			PlayDeath();
 		}
 

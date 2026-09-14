@@ -37,40 +37,7 @@ namespace SpaxUtils
 
 		private SFXData GetIntensitySFX(ImpactSFXData[] entries, float intensity)
 		{
-			if (entries == null || entries.Length == 0)
-			{
-				return null;
-			}
-			else if (entries.Length == 1)
-			{
-				return entries[0].SFX;
-			}
-
-			intensity = Mathf.Clamp01(intensity);
-
-			ImpactSFXData match = null;
-			ImpactSFXData fallback = null;
-
-			for (int i = 0; i < entries.Length; i++)
-			{
-				ImpactSFXData entry = entries[i];
-				if (entry == null || entry.SFX == null)
-				{
-					continue;
-				}
-
-				if (fallback == null || entry.Intensity < fallback.Intensity)
-				{
-					fallback = entry;
-				}
-
-				if (entry.Intensity <= intensity && (match == null || entry.Intensity > match.Intensity))
-				{
-					match = entry;
-				}
-			}
-
-			return match != null ? match.SFX : fallback != null ? fallback.SFX : null;
+			return ImpactSFXData.Select(entries, Mathf.Clamp01(intensity));
 		}
 	}
 }

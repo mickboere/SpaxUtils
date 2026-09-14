@@ -13,6 +13,9 @@ namespace SpaxUtils
 
 		public bool Invulnerable => agent.RuntimeData.GetValue(AgentDataIdentifiers.INVULNERABLE, false);
 
+		/// <summary>Seconds until this agent's current hit-pause lifts; 0 when none is running.</summary>
+		public float HitPauseRemaining => hitPauseMod == null ? 0f : Mathf.Max(0f, hitPauseMod.Timer.Remaining);
+
 		[SerializeField, Tooltip("When enabled, hits landing toward this agent's back raise effective Vulnerability toward 1 (shaped by CombatSettings.RearExposureCurve), letting crits land from behind even through guard. When disabled, only the base Vulnerability stat is used regardless of hit angle.")]
 		private bool backTurnWeakness = false;
 
@@ -33,7 +36,6 @@ namespace SpaxUtils
 		private EntityStat yieldStat;
 		private EntityStat wardStat;
 		private EntityStat luckStat;
-		private EntityStat guardStat;
 
 		private TimedCurveModifier hitPauseMod;
 
@@ -66,9 +68,8 @@ namespace SpaxUtils
 			yieldStat = agent.Stats.GetStat(AgentStatIdentifiers.YIELD, true);
 			wardStat = agent.Stats.GetStat(AgentStatIdentifiers.WARD, true);
 			luckStat = agent.Stats.GetStat(AgentStatIdentifiers.LUCK, true);
-			guardStat = agent.Stats.GetStat(AgentStatIdentifiers.GUARD, true);
 
-			hittable.Subscribe(this, OnHitEvent, 100);
+			hittable.Subscribe(this, OnHitEvent, -100);
 		}
 
 		protected void OnDisable()
@@ -83,67 +84,79 @@ namespace SpaxUtils
 			bool deflected = hitData.Data.GetValue<bool>(HitDataIdentifiers.DEFLECTED);
 			bool neglect = blocked || parried || deflected;
 
-			// --- 1. CRIT LAYER ---
-			// Rear exposure: hits toward the back lerp Vulnerability up toward 1 (guard only lowers the base lerped from).
+			// --- 1. GUARD ---
+			// Rear exposure lifts Vulnerability toward 1 and takes the guard off that hit.
+			float guardWeight = Mathf.Clamp01(hitData.Data.GetValue<float>(HitDataIdentifiers.GUARD_WEIGHT));
 			float vulnerability = vulnerabilityStat.Value;
+			float frontal = 1f;
 			if (backTurnWeakness)
 			{
 				Vector3 toHitter = (hitData.Hitter.Transform.position - rigidbodyWrapper.Position).FlattenY().normalized;
 				float rearParam = toHitter.NormalizedDot(rigidbodyWrapper.Forward).Invert();
 				float rearExposure = Mathf.Clamp01(combatSettings.RearExposureCurve.Evaluate(rearParam));
 				vulnerability = Mathf.Lerp(vulnerability, 1f, rearExposure);
+				frontal = 1f - rearExposure;
 			}
+			float guard = guardWeight * frontal;
 
-			float coupling = SpaxFormulas.CalculateCoupling(hitData.Pierce, yieldStat);
+			// Guard (Earth) flattens edges: the full Armor, shield included, comes off the Slash.
+			// Points only run the wall twice and never reach zero; dashing (Air) is their real counter.
+			float slashIn = neglect ? 0f : Mathf.Max(0f, hitData.Slash - armorStat * guard);
+			float couplingOpen = SpaxFormulas.CalculateCoupling(hitData.Pierce, yieldStat, combatSettings.CritPivot);
+			float pierceIn = Mathf.Lerp(hitData.Pierce, hitData.Pierce * couplingOpen, guard);
+
+			// --- 2. CONTESTS ---
+			// Edge vs Armor, point vs Yield, on what guard let through; whatever neither takes lands as blunt below.
+			float band = hitData.PowerBand;
+			float penetration = SpaxFormulas.Transfer(slashIn, armorStat);
+			float coupling = SpaxFormulas.CalculateCoupling(pierceIn, yieldStat, combatSettings.CritPivot);
+
+			// Each flank needs the power band behind it to get past the OTHER wall.
+			float slashDrive = SpaxFormulas.Transfer(band, yieldStat);
+			float pierceDrive = SpaxFormulas.Transfer(band, armorStat);
+
+			// --- 3. SLASH ---
+			float slashDamage = slashIn * SpaxFormulas.Contests(penetration, slashDrive, combatSettings.ContestPower);
+
+			// --- 4. PIERCE & CRIT ---
+			// A crit found a gap: its odds come from the guarded point, but it lands with the unguarded one.
+			float pierceOpen = neglect ? 0f : hitData.Pierce * SpaxFormulas.Contests(couplingOpen, pierceDrive, combatSettings.ContestPower);
+			float pierceDamage = neglect ? 0f : pierceIn * SpaxFormulas.Contests(coupling, pierceDrive, combatSettings.ContestPower);
 			bool isCrit = !neglect &&
 				hitData.Pierce > 0f &&
 				Random.value < SpaxFormulas.CalculateCritChance(coupling, vulnerability, hitData.Luck, luckStat);
-
-			float critDamage = isCrit
-				? SpaxFormulas.CalculateDamage(hitData.Pierce, yieldStat)
-				: 0f;
+			float critDamage = isCrit ? pierceOpen * combatSettings.CritMultiplier : 0f;
 
 			hitData.Data.SetValue(HitDataIdentifiers.CRIT, isCrit);
 			hitData.Data.SetValue(HitDataIdentifiers.COUPLING, coupling);
-			hitData.Data.SetValue(HitDataIdentifiers.CRIT_DAMAGE, critDamage);
-
-			// --- 2. SLASH LAYER ---
-			float slashDamage = 0f;
-			float penetration = 0f;
-
-			if (!neglect && hitData.Slash > 0f)
-			{
-				// Armor defends slashing; penetration = fraction that landed.
-				slashDamage = SpaxFormulas.CalculateDamage(hitData.Slash, armorStat);
-				penetration = Mathf.Clamp01(slashDamage / hitData.Slash);
-			}
-
 			hitData.Data.SetValue(HitDataIdentifiers.PENETRATION, penetration);
 			hitData.Data.SetValue(HitDataIdentifiers.SLASH_DAMAGE, slashDamage);
+			hitData.Data.SetValue(HitDataIdentifiers.PIERCE_DAMAGE, pierceDamage);
+			hitData.Data.SetValue(HitDataIdentifiers.CRIT_DAMAGE, critDamage);
 
-			// --- 3. BLUNT LAYER ---
-			// What neither cut nor caught; either one high lets the strike pass through instead of transmitting.
-			float bluntness = Mathf.Clamp01((1f - penetration) * (1f - coupling));
-			float bluntEffectiveness = Mathf.Sqrt(Mathf.Clamp01(hardnessStat) * bluntness);
+			// --- 5. BLUNT ---
+			// What neither cut nor caught, carried by the whole power band. Centre-octad, so walled by the mean.
+			float meanDefence = (armorStat + yieldStat) * 0.5f;
+			float Blunt(float edge, float point, out float effectiveness, out float wall)
+			{
+				effectiveness = Mathf.Sqrt(Mathf.Clamp01(hardnessStat) * Mathf.Clamp01((1f - edge) * (1f - point)));
+				float offence = band * effectiveness * combatSettings.BluntScale;
+				wall = SpaxFormulas.Transfer(offence, meanDefence, combatSettings.BluntWallExponent);
+				return offence * SpaxFormulas.Contests(wall, SpaxFormulas.Transfer(band, meanDefence), combatSettings.ContestPower);
+			}
+			float blunt = Blunt(penetration, coupling, out float bluntEffectiveness, out float bluntWall);
+			float bluntDamage = neglect ? 0f : blunt;
 
-			// Centre-octad, so walled by the MEAN of its two flanking defences, not their sum.
-			float bluntOffence = hitData.Power * bluntEffectiveness;
-			float bluntDamage = neglect
-				? 0f
-				: SpaxFormulas.CalculateDamage(bluntOffence, (armorStat + yieldStat) * 0.5f);
-
-			// Momentum TRANSMITTED, not damage dealt: what the defence refused is what made the contact rigid.
-			float guardWeight = Mathf.Clamp01(hitData.Data.GetValue<float>(HitDataIdentifiers.GUARD_WEIGHT));
-			float rigidity = bluntOffence > 0f
-				? Mathf.Max(guardWeight, Mathf.Clamp01(1f - bluntDamage / bluntOffence))
-				: guardWeight;
+			// Momentum TRANSMITTED: what the own wall refused made the contact rigid, and guard stiffens the rest.
+			// A failed drive didn't deliver, so it's excluded.
+			float rigidity = 1f - (1f - guard) * bluntWall;
 			float impact = Mathf.Lerp(bluntEffectiveness, 1f, rigidity);
 
 			hitData.Data.SetValue(HitDataIdentifiers.IMPACT, impact);
 			hitData.Data.SetValue(HitDataIdentifiers.BLUNT_DAMAGE, bluntDamage);
 
-			// --- 4. TOTAL PHYSICS DAMAGE ---
-			float totalDamage = critDamage + slashDamage + bluntDamage;
+			// --- 6. TOTAL PHYSICS DAMAGE ---
+			float totalDamage = slashDamage + pierceDamage + critDamage + bluntDamage;
 			hitData.Data.SetValue(HitDataIdentifiers.DAMAGE_TOTAL, totalDamage);
 
 			// The hitter measures its output against this; non-agent hittables report nothing and pay no EXP.
@@ -151,15 +164,14 @@ namespace SpaxUtils
 			hitData.Data.SetValue(HitDataIdentifiers.HEALTH_MAX, healthMax);
 
 			// --- IMPACT & FORCE ---
-			// Mass and Power ADD so neither zeroes the other; impact is the fraction that transmits.
-			float force = (hitData.Mass + hitData.Power) * impact;
+			// The force band, scaled by mass as ratios so a heavy club outpushes a light one at any level.
+			float force = hitData.ForceBand * combatSettings.ForceMassFactor(hitData.LimbMass, hitData.HitterMass, hitData.BodyMassFraction) * impact;
 			hitData.Data.SetValue(HitDataIdentifiers.FORCE, force);
 
 			// --- ENDURANCE DAMAGE ---
-			// Endurance is Earth's pool, so Earth's physic walls it. Only force is raw; slash/crit are already mitigated.
-			// Bracing absorbs what is left, clamped to x1 so a weak guard never amplifies it.
-			float stagger = SpaxFormulas.CalculateDamage(force, armorStat);
-			float full = (slashDamage + critDamage + stagger) / (guardStat.Value * guardWeight).Max(1f);
+			// Damage wears endurance at post-guard rates; force is centre-octad like blunt, so walled by the mean.
+			float stagger = SpaxFormulas.CalculateDamage(force, meanDefence);
+			float full = combatSettings.StaggerDamageWeight * (slashDamage + pierceDamage + critDamage) + stagger;
 
 			// A deflect splits what it negated: we eat our share, the hitter eats the rest (applied their side).
 			float toEndure = deflected ? full * combatSettings.DeflectEnduranceShare : (neglect ? 0f : full);
@@ -229,10 +241,20 @@ namespace SpaxUtils
 			// --- HP DAMAGE & MALICE ---
 			if (!Invulnerable)
 			{
-				// Guard trades health for stance: blunt is cancelled off health by guard weight. The endurance hit above already
-				// carries that blunt as force, so guard pays for it there instead (already divided by GUARD above). Pierce/crit untouched.
-				float guarded = bluntDamage * guardWeight;
+				// Guard trades health for stance: blunt is cancelled off health by guard weight, and already rides endurance
+				// as force. Edges and points were converted upstream; only a crit strikes through.
+				float guarded = bluntDamage * guard;
 				float healthDamage = Mathf.Max(0f, totalDamage - guarded);
+
+				// A broken guard only held the share endurance paid for; the rest lands as if unguarded.
+				if (stunned && guard > 0f && !neglect)
+				{
+					float openPenetration = SpaxFormulas.Transfer(hitData.Slash, armorStat);
+					float unguarded = hitData.Slash * SpaxFormulas.Contests(openPenetration, slashDrive, combatSettings.ContestPower) + pierceOpen + critDamage
+						+ Blunt(openPenetration, couplingOpen, out _, out _);
+					healthDamage += Mathf.Max(0f, unguarded - healthDamage) * (1f - endured);
+					guarded *= endured;
+				}
 
 				// EARTH: the damage the guard cancelled, measured against our own health.
 				if (guarded > 0f && healthMax > 0f)
@@ -274,7 +296,7 @@ namespace SpaxUtils
 			}
 
 			// Build Static (NE) for defending. Threat = potential force (Mass × Power); each outcome takes its own fraction (partial guard scales further by guard weight).
-			float staticThreat = hitData.Mass * hitData.Power * combatSettings.StaticGain;
+			float staticThreat = hitData.StrikeMass * hitData.Power * combatSettings.StaticGain;
 			if (parried || deflected)
 			{
 				float built = staticThreat * combatSettings.DeflectStaticPercent;
@@ -293,8 +315,10 @@ namespace SpaxUtils
 			}
 
 			// --- HIT PAUSE ---
-			// A deflect pauses for a fixed beat; everything else scales with impact.
-			float pauseTime = deflected ? combatSettings.DeflectorHitPause : combatSettings.HitPauseReceiver.Lerp(impact);
+			// Deflects and crits pause for a fixed beat; everything else scales with impact.
+			float pauseTime = deflected ? combatSettings.DeflectorHitPause
+				: isCrit ? combatSettings.CritReceiverHitPause
+				: combatSettings.HitPauseReceiver.Lerp(impact);
 
 			hitPauseMod?.Dispose();
 			hitPauseMod = new TimedCurveModifier(

@@ -59,6 +59,9 @@ namespace SpaxUtils
 		/// </summary>
 		public Vector3 Offense { get; private set; }
 
+		/// <summary>The dominant hand's power band: body + weapon Power before the damage-type filter.</summary>
+		public float OffensePowerBand { get; private set; }
+
 		/// <summary>The current raw POWER stat (e.g. for knockback force / mass coupling), not damage output.</summary>
 		public float Power => powerStat.Value;
 
@@ -178,6 +181,9 @@ namespace SpaxUtils
 			float bodyMass = Agent.Stats.GetStat(AgentStatIdentifiers.MASS) ?? 0f;
 			return Mathf.Lerp(LimbMass(move), bodyMass, melee.BodyMassFraction);
 		}
+
+		/// <summary>Limb+weapon mass <paramref name="move"/> swings, unblended with the body; 0 for limb-less strikes.</summary>
+		public float ComputeLimbMass(IPerformanceMove move) => LimbMass(move);
 
 		/// <summary>
 		/// What performing <paramref name="move"/> costs its cost-stat: the authored PerformCost priced by the mass it
@@ -320,10 +326,15 @@ namespace SpaxUtils
 		private void OnReceivedHit(HitData hitData)
 		{
 			float damage = hitData.Data.GetValue<float>(HitDataIdentifiers.DAMAGE_TOTAL, 0f);
-			if (damage <= 0f || StatHandler == null) return;
+			if (damage <= 0f || StatHandler == null)
+			{
+				return;
+			}
 			float maxHealth = StatHandler.PointStats.SW.Max;
 			if (maxHealth > 0f)
+			{
 				RecentDamageNormalized = Mathf.Clamp01(RecentDamageNormalized + damage / maxHealth);
+			}
 			LastAttacker = hitData.Hitter;
 		}
 
@@ -361,7 +372,9 @@ namespace SpaxUtils
 			RuntimeEquipedData rightEquip = arms == null ? null : arms.RightEquip;
 			LeftHandOutput = new CombatOutput(OffensivePhysics(leftEquip), DistributionOf(leftEquip, Vector3.one));
 			RightHandOutput = new CombatOutput(OffensivePhysics(rightEquip), DistributionOf(rightEquip, Vector3.one));
-			Offense = (LeftHandOutput.Magnitude >= RightHandOutput.Magnitude ? LeftHandOutput : RightHandOutput).Output;
+			CombatOutput dominantOutput = LeftHandOutput.Magnitude >= RightHandOutput.Magnitude ? LeftHandOutput : RightHandOutput;
+			Offense = dominantOutput.Output;
+			OffensePowerBand = dominantOutput.BodyPhysics.y;
 
 			// Recency tracking: when a fresh combo opens (no move → move), remember its opener act.
 			if (CurrentCombatMove != null && lastFrameCombatMove == null && !string.IsNullOrEmpty(PreferredAct))
@@ -650,8 +663,14 @@ namespace SpaxUtils
 			float pool = Agent.Stats.GetStat(cost.Stat) ?? 0f;
 			float unitCost = amount * (Agent.Stats.GetStat(cost.Stat.SubStat(AgentStatIdentifiers.SUB_DRAIN)) ?? 1f);
 
-			if (unitCost <= 0f) return 1f;
-			if (pool <= 0f) return 0f;
+			if (unitCost <= 0f)
+			{
+				return 1f;
+			}
+			if (pool <= 0f)
+			{
+				return 0f;
+			}
 
 			float r = pool / unitCost;
 			return Mathf.Clamp01(r / (1f + r));
@@ -943,14 +962,20 @@ namespace SpaxUtils
 			public readonly Vector3 Filter;
 			/// <summary>Per-axis base output = BodyPhysics ⊙ Filter (pre charge/phase/strength).</summary>
 			public readonly Vector3 Output;
+			/// <summary>Body + weapon Power before the filter (×OutputScale); drives both flanks and carries blunt.</summary>
+			public readonly float PowerBand;
+			/// <summary>Body Power plus the weapon's Power lane × the filter's Power share (×OutputScale); feeds force.</summary>
+			public readonly float ForceBand;
 
-			public MoveOutput(CombatOutput weapon, Vector3 moveSliders, Vector3 combinedRaw, Vector3 filter, Vector3 output)
+			public MoveOutput(CombatOutput weapon, Vector3 moveSliders, Vector3 combinedRaw, Vector3 filter, Vector3 output, float powerBand, float forceBand)
 			{
 				Weapon = weapon;
 				MoveSliders = moveSliders;
 				CombinedRaw = combinedRaw;
 				Filter = filter;
 				Output = output;
+				PowerBand = powerBand;
+				ForceBand = forceBand;
 			}
 
 			public float Slash => Output.x;
@@ -1059,7 +1084,7 @@ namespace SpaxUtils
 			{
 				// Non-melee combat move — neutral fallback; extension seam for future ranged/magic.
 				Vector3 neutral = new Vector3(1f, 1f, 1f).normalized;
-				return new MoveOutput(new CombatOutput(body, Vector3.one), Vector3.one, Vector3.one, neutral, body);
+				return new MoveOutput(new CombatOutput(body, Vector3.one), Vector3.one, Vector3.one, neutral, body, body.y, body.y);
 			}
 
 			// Armed strikes swing the weapon's physics alongside the body's; unarmed moves are body-only.
@@ -1082,23 +1107,37 @@ namespace SpaxUtils
 			// Finishers hit harder than the base stats allow, without changing what they hit WITH.
 			filter *= melee.OutputScale;
 
+			// Force takes the weapon's Power only in the share this strike swings it; the body is always behind it.
+			float powerShare = filterMag > 0f ? combinedRaw.y / filterMag : 0f;
+			float forceBand = melee.UseArmament ? BodyPhysics.y + WeaponPhysics(weapon).y * powerShare : body.y;
+
 			Vector3 output = Vector3.Scale(body, filter);
-			return new MoveOutput(new CombatOutput(body, weaponDist), moveDist, combinedRaw, filter, output);
+			return new MoveOutput(new CombatOutput(body, weaponDist), moveDist, combinedRaw, filter, output,
+				body.y * melee.OutputScale, forceBand * melee.OutputScale);
 		}
 
 		/// <summary>
-		/// Heuristic estimate of the raw physics damage an incoming <paramref name="offence"/> (x=Slash,
-		/// y=Power, z=Pierce) would deal to THIS agent, mirroring <see cref="AgentHitHandlerComponent"/>'s
-		/// per-layer defence mapping via <see cref="SpaxFormulas.CalculateDamage"/>. Simplified for AI threat
-		/// assessment: ignores crit-chance and the impact/penetration coupling on the blunt layer, so it reads
-		/// as a representative (upper-ish) threat rather than an exact expected value.
+		/// Estimated raw damage an unguarded hit of <paramref name="offence"/> (x=Slash, y=Power, z=Pierce) driven by
+		/// <paramref name="powerBand"/> would deal to THIS agent, mirroring <see cref="AgentHitHandlerComponent"/> minus crits.
 		/// </summary>
-		public float EstimateIncomingDamage(Vector3 offence)
+		public float EstimateIncomingDamage(Vector3 offence, float powerBand)
 		{
-			Vector3 def = Defense;
-			return SpaxFormulas.CalculateDamage(offence.x, def.x)   // Slash  vs Armor
-				 + SpaxFormulas.CalculateDamage(offence.y, def.y)   // Power  vs (Armor+Yield)/2
-				 + SpaxFormulas.CalculateDamage(offence.z, def.z);  // Pierce vs Yield
+			float armor = Armor;
+			float yield = Yield;
+			float mean = (armor + yield) * 0.5f;
+			float pivot = combatSettings == null ? 0f : combatSettings.CritPivot;
+			float bluntScale = combatSettings == null ? 1f : combatSettings.BluntScale;
+			float bluntExponent = combatSettings == null ? 1f : combatSettings.BluntWallExponent;
+			float contestPower = combatSettings == null ? 1f : combatSettings.ContestPower;
+			float hardness = Agent.Stats.GetStat(AgentStatIdentifiers.HARDNESS) ?? 0.5f;
+
+			float penetration = SpaxFormulas.Transfer(offence.x, armor);
+			float coupling = SpaxFormulas.CalculateCoupling(offence.z, yield, pivot);
+			float bluntOffence = powerBand * bluntScale * Mathf.Sqrt(Mathf.Clamp01(hardness) * (1f - penetration) * (1f - coupling));
+
+			return offence.x * SpaxFormulas.Contests(penetration, SpaxFormulas.Transfer(powerBand, yield), contestPower)
+				+ offence.z * SpaxFormulas.Contests(coupling, SpaxFormulas.Transfer(powerBand, armor), contestPower)
+				+ bluntOffence * SpaxFormulas.Contests(SpaxFormulas.Transfer(bluntOffence, mean, bluntExponent), SpaxFormulas.Transfer(powerBand, mean), contestPower);
 		}
 
 		#endregion Combat Output

@@ -320,7 +320,7 @@ namespace SpaxUtils
 			// Offence lethality: expected physics damage the enemy's per-axis output (Offense) would deal
 			// against OUR per-axis Defense (Armor/Yield mapping), relative to our health. This replaces
 			// the legacy "Offense / Armor" — Armor only defends Slash (+half Power), not all output.
-			float expectedDamage = combatComponent.EstimateIncomingDamage(info.CombatComp.Offense);
+			float expectedDamage = combatComponent.EstimateIncomingDamage(info.CombatComp.Offense, info.CombatComp.OffensePowerBand);
 			float myMaxHealth = Mathf.Max(combatComponent.StatHandler.PointStats.SW.Max, 0.001f);
 			float offenseLeth = expectedDamage / (expectedDamage + myMaxHealth);
 			float powerLeth = powerRatio / (powerRatio + 1f);

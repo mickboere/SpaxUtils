@@ -118,36 +118,19 @@ namespace SpaxUtils
 			float intensity,
 			out float weightedHardness)
 		{
-			Dictionary<SurfaceConfiguration, float> mix = new Dictionary<SurfaceConfiguration, float>();
 			weightedHardness = 0f;
 
 			if (surfaces == null || surfaces.Count == 0 || intensity <= 0f)
 			{
-				return mix;
+				return new Dictionary<SurfaceConfiguration, float>();
 			}
-
-			float sumSquares = 0f;
-			foreach (KeyValuePair<SurfaceConfiguration, float> config in surfaces)
-			{
-				float weight = Mathf.Max(0f, config.Value);
-				sumSquares += weight * weight;
-				weightedHardness += config.Key.Hardness * weight;
-			}
-
-			float normalization = sumSquares > 0.0001f ? 1f / Mathf.Sqrt(sumSquares) : 1f;
 
 			foreach (KeyValuePair<SurfaceConfiguration, float> config in surfaces)
 			{
-				float weight = Mathf.Max(0f, config.Value);
-				if (weight <= 0f)
-				{
-					continue;
-				}
-
-				mix[config.Key] = weight * intensity * normalization;
+				weightedHardness += config.Key.Hardness * Mathf.Max(0f, config.Value);
 			}
 
-			return mix;
+			return AudioMixUtils.NormalizedMix(surfaces, intensity);
 		}
 
 		#endregion

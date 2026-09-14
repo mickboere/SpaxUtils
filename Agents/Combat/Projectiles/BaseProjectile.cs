@@ -138,9 +138,12 @@ namespace SpaxUtils
 					hit.point,
 					Velocity.normalized,
 					mass,
+					0f,
 					Speed,
 					Speed,
 					0f,
+					Speed,
+					Speed,
 					0f
 				);
 

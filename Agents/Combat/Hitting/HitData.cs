@@ -39,9 +39,19 @@ namespace SpaxUtils
 		public Vector3 Direction { get; }
 
 		/// <summary>
-		/// Mass behind the strike: the limb+weapon blended toward whole-body by the move's BodyMassFraction.
+		/// Mass of the swung limb+weapon, unblended with the body.
 		/// </summary>
-		public float Mass { get; }
+		public float LimbMass { get; }
+
+		/// <summary>
+		/// Share of the hitter's whole body the strike commits (0 = limb alone, 1 = whole body).
+		/// </summary>
+		public float BodyMassFraction { get; }
+
+		/// <summary>
+		/// Mass behind the strike: <see cref="LimbMass"/> blended toward <see cref="HitterMass"/> by <see cref="BodyMassFraction"/>.
+		/// </summary>
+		public float StrikeMass => Mathf.Lerp(LimbMass, HitterMass, BodyMassFraction);
 
 		/// <summary>
 		/// The total slashing power of the hit, defines penetration damage.
@@ -57,6 +67,17 @@ namespace SpaxUtils
 		/// Total crit quality behind the hit.
 		/// </summary>
 		public float Pierce { get; }
+
+		/// <summary>
+		/// The whole force behind the hit (body + weapon Power, before the damage-type filter). Drives both
+		/// flanks through the other wall and carries blunt, so a pure point still transfers the arm behind it.
+		/// </summary>
+		public float PowerBand { get; }
+
+		/// <summary>
+		/// Body Power plus the weapon's Power share this strike swings; the basis of force.
+		/// </summary>
+		public float ForceBand { get; }
 
 		/// <summary>
 		/// Total luck of the hitter.
@@ -75,10 +96,13 @@ namespace SpaxUtils
 			Vector3 inertia,
 			Vector3 point,
 			Vector3 direction,
-			float mass,
+			float limbMass,
+			float bodyMassFraction,
 			float slash,
 			float power,
 			float pierce,
+			float powerBand,
+			float forceBand,
 			float luck,
 			RuntimeDataCollection data = null)
 		{
@@ -88,10 +112,13 @@ namespace SpaxUtils
 			Inertia = inertia;
 			Point = point;
 			Direction = direction;
-			Mass = mass;
+			LimbMass = limbMass;
+			BodyMassFraction = Mathf.Clamp01(bodyMassFraction);
 			Slash = slash;
 			Power = power;
 			Pierce = pierce;
+			PowerBand = powerBand;
+			ForceBand = forceBand;
 			Luck = luck;
 			Data = data ?? new RuntimeDataCollection(null);
 		}
@@ -105,10 +132,14 @@ namespace SpaxUtils
 				$"\nInertia={Inertia}," +
 				$"\nPoint={Point}," +
 				$"\nDirection={Direction}," +
-				$"\nMass={Mass}," +
+				$"\nLimbMass={LimbMass}," +
+				$"\nBodyMassFraction={BodyMassFraction}," +
+				$"\nStrikeMass={StrikeMass}," +
 				$"\nSlash={Slash}," +
 				$"\nPower={Power}," +
 				$"\nPierce={Pierce}," +
+				$"\nPowerBand={PowerBand}," +
+				$"\nForceBand={ForceBand}," +
 				$"\n\nData:\n{Data},";
 		}
 	}
@@ -165,6 +196,10 @@ namespace SpaxUtils
 		/// </summary>
 		public const string CRIT_DAMAGE = "Crit_Damage";
 		/// <summary>
+		/// Return data defining the amount of piercing damage, not counting a crit's bonus.
+		/// </summary>
+		public const string PIERCE_DAMAGE = "Pierce_Damage";
+		/// <summary>
 		/// Return data defining the percentage of penetration dealt to receiver (0-1~).
 		/// </summary>
 		public const string PENETRATION = "Penetration";
@@ -209,6 +244,10 @@ namespace SpaxUtils
 		///     1 = The full force of the hit was endured by the receiver, receiver is NOT stunned.
 		/// </summary>
 		public const string ENDURED = "Endured";
+		/// <summary>
+		/// Written by the hitter: seconds of hit-pause their strike runs, so its audio/FX tail can await the release.
+		/// </summary>
+		public const string HIT_PAUSE = "Hit_Pause";
 		#endregion Return
 	}
 }

@@ -14,14 +14,22 @@ namespace SpaxUtils
 		public const float SCALE = 100f;
 
 		// Scale/shift constants for converting EXP levels to physics and pointstat values.
+		// Keep every SHIFT at 10x its SCALE, or fights grow more or less lethal as levels rise.
 		public const float POINTSSTAT_SCALE = 10f;
 		public const float POINTSSTAT_SHIFT = 100f;
-		public const float PHYSIC_SCALE = 2f;
-		public const float PHYSIC_SHIFT = 20f;
+		public const float PHYSIC_SCALE = 3f;
+		public const float PHYSIC_SHIFT = 30f;
 
 		// Relative equipment mass growth per rank (density fiction: same shape, denser material).
 		// Also the rate at which exertion cost keeps pace with a growing Energy pool — gear is the only lane that does.
 		public const float MASS_GROWTH = 0.04f;
+
+		// How much an equipment lane leans on QUALITY. Power is weight and shape; a point needs less honing than an edge.
+		public const float QUALITY_BIAS_POWER = 0.1f;
+		public const float QUALITY_BIAS_PIERCE = 0.8f;
+
+		// Softens the quality curve: a worn item keeps more of its physics, a mythic one gains less.
+		public const float QUALITY_EXPONENT = 0.66f;
 
 		#region Combat
 
@@ -74,7 +82,10 @@ namespace SpaxUtils
 			float o = Mathf.Max(0f, offence);
 			float d = Mathf.Max(0f, defence);
 
-			if (o <= 0.0001f) return 0f;
+			if (o <= 0.0001f)
+			{
+				return 0f;
+			}
 
 			float c = Mathf.Max(0f, crossFactor);
 			float n = Mathf.Max(0.0001f, exponent);
@@ -86,20 +97,39 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
-		/// Calculates the coupling factor (0..1) representing how cleanly a hit can couple into the target.
-		/// Higher attacker Pierce increases coupling, higher defender Yield decreases it.
+		/// The share (0..1) of <paramref name="offence"/> that gets past <paramref name="defence"/>: o^k / (o^k + d^k).
+		/// 0.5 at an equal match at any <paramref name="exponent"/>; higher steepens the contest around it.
 		/// </summary>
-		/// <param name="pierce">Attacker Pierce (>= 0).</param>
-		/// <param name="yield">Defender Yield (>= 0).</param>
-		/// <param name="physicsPivot">Pivot constant for the contest (typically SCALE=100).</param>
-		/// <returns>Coupling factor in 0..1.</returns>
-		public static float CalculateCoupling(float pierce, float yield, float physicsPivot = SCALE)
+		public static float Transfer(float offence, float defence, float exponent = 1f)
+		{
+			float o = Mathf.Max(0f, offence);
+			if (o <= 0.0001f)
+			{
+				return 0f;
+			}
+			float d = Mathf.Max(0f, defence);
+			return exponent == 1f ? o / (o + d) : 1f / (1f + Mathf.Pow(d / o, exponent));
+		}
+
+		/// <summary>
+		/// Two contests of one damage channel, softened by <paramref name="power"/>; below 1 a lopsided match compounds less.
+		/// An even match (both at 0.5) deals the same at any power.
+		/// </summary>
+		public static float Contests(float a, float b, float power)
+		{
+			return Mathf.Pow(Mathf.Max(0f, a * b), power) * Mathf.Pow(4f, power - 1f);
+		}
+
+		/// <summary>
+		/// How cleanly a point couples into the target (0..1). Yield walls it <paramref name="yieldPivot"/> extra
+		/// times over, proportionally, so the contest holds at every level; crit is the payback for that wall.
+		/// </summary>
+		public static float CalculateCoupling(float pierce, float yield, float yieldPivot)
 		{
 			float pi = Mathf.Max(0f, pierce);
-			float yi = Mathf.Max(0f, yield);
+			float yi = Mathf.Max(0f, yield) * (1f + Mathf.Max(0f, yieldPivot));
 
-			float coupling = pi / (pi + yi + physicsPivot);
-			return Mathf.Clamp01(coupling);
+			return pi <= 0.0001f ? 0f : Mathf.Clamp01(pi / (pi + yi));
 		}
 
 		/// <summary>
@@ -306,36 +336,60 @@ namespace SpaxUtils
 			=> baseMass * (1f + MASS_GROWTH * rank * distribution[0].Max(distribution[6]));
 
 		/// <summary>
-		/// Per-lane weights for equipment's SHIFT: the distribution normalized to sum 1, scaled by the number
-		/// of covered lanes. An evenly spread item therefore receives the full shift in each lane it covers,
-		/// while a lopsided one concentrates its floor where its budget went.
+		/// Per-lane weights for equipment's SHIFT: the distribution normalized to sum 1, scaled by its
+		/// EFFECTIVE lane count, so an even spread gets the full shift per lane and a lopsided one less.
 		/// </summary>
 		public static Vector8 EquipmentShiftWeights(Vector8 distribution)
 		{
 			GetRatioWeightsAndCoverage(distribution, out Vector8 ratioWeights, out _);
 
-			int lanes = 0;
+			// sum^2/sumSq, not a tally of non-zero lanes: a tally steps a whole unit off a token lane,
+			// jumping every OTHER lane's floor with it. Equals n exactly for n equal lanes.
+			float sum = 0f;
+			float sumSq = 0f;
 			for (int i = 0; i < 8; i++)
 			{
-				if (distribution[i] > 0f)
-				{
-					lanes++;
-				}
+				float v = Mathf.Max(0f, distribution[i]);
+				sum += v;
+				sumSq += v * v;
 			}
 
-			return lanes > 0 ? ratioWeights * lanes : Vector8.Zero;
+			return sumSq > 0f ? ratioWeights * (sum * sum / sumSq) : Vector8.Zero;
 		}
 
 		/// <summary>
-		/// Equipment's physic contribution for a single lane, before coverage.
-		/// <paramref name="level"/> already carries sqrt(QUALITY) through the points budget, so the shift gets
-		/// the same sqrt treatment to keep QUALITY acting uniformly across both terms.
-		/// <paramref name="shiftWeight"/> comes from <see cref="EquipmentShiftWeights"/>. The 4-lane geometry
-		/// is itself the QUALITY 0.5 parity anchor: at n=4 and QUALITY 0.5 the effective level equals rank,
-		/// matching the body's curve.
+		/// One lane's physic: <paramref name="level"/> × <see cref="PHYSIC_SCALE"/>, plus a rank-free floor of <see cref="PHYSIC_SHIFT"/>
+		/// scaled by sqrt(<paramref name="quality"/>) and <paramref name="shiftWeight"/> (see <see cref="EquipmentShiftWeights"/>).
 		/// </summary>
 		public static float EquipmentPhysic(float level, float quality, float shiftWeight)
 			=> level * PHYSIC_SCALE + PHYSIC_SHIFT * Mathf.Sqrt(Mathf.Max(0f, quality)) * Mathf.Max(0f, shiftWeight);
+
+		/// <summary>
+		/// QUALITY as equipment lane <paramref name="lane"/> feels it: pivoted around 1 by its QUALITY_BIAS, raised to <see cref="QUALITY_EXPONENT"/>.
+		/// </summary>
+		public static float EquipmentLaneQuality(float quality, int lane)
+		{
+			float bias = lane == 0 ? QUALITY_BIAS_POWER : lane == 1 ? QUALITY_BIAS_PIERCE : 1f;
+			return Mathf.Pow(Mathf.Max(0f, 1f + (quality - 1f) * bias), QUALITY_EXPONENT);
+		}
+
+		/// <summary>
+		/// All 8 physics of an equipment item: rank points spread by its distribution, each lane at its own quality.
+		/// </summary>
+		public static Vector8 EquipmentPhysics(Vector8 distribution, float rank, float quality, float scaling)
+		{
+			Vector8 lanePoints = AllocatePointsForLevelRatios(distribution, PointsFromRank(rank));
+			Vector8 shiftWeights = EquipmentShiftWeights(distribution);
+			Vector8 physics = Vector8.Zero;
+			for (int i = 0; i < 8; i++)
+			{
+				float laneQuality = EquipmentLaneQuality(quality, i);
+				float points = lanePoints[i] * laneQuality;
+				float level = points <= 0f ? 0f : LevelFromPoints(points);
+				physics[i] = Mathf.Round(EquipmentPhysic(level, laneQuality, shiftWeights[i]) * scaling);
+			}
+			return physics;
+		}
 
 		#endregion Standardized Formulas
 
@@ -485,14 +539,23 @@ namespace SpaxUtils
 		/// </summary>
 		public static float InvSaturate(float y, float ceiling = 1f, float half = 1f, float power = 1f)
 		{
-			if (Mathf.Abs(ceiling) < 0.0001f) return 0f;
+			if (Mathf.Abs(ceiling) < 0.0001f)
+			{
+				return 0f;
+			}
 
 			float h = Mathf.Max(0.0001f, half);
 			float p = Mathf.Max(0.0001f, power);
 			float remainder = 1f - y / ceiling;
 
-			if (remainder <= 0f) return Mathf.Infinity;
-			if (remainder >= 1f) return 0f;
+			if (remainder <= 0f)
+			{
+				return Mathf.Infinity;
+			}
+			if (remainder >= 1f)
+			{
+				return 0f;
+			}
 
 			// y = c * (1 - 2^-(x/h)^p)  ->  x = h * (-log2(1 - y/c))^(1/p)
 			return h * Mathf.Pow(-Mathf.Log(remainder, 2f), 1f / p);

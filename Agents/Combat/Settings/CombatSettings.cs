@@ -12,6 +12,8 @@ namespace SpaxUtils
 		public float ParriedStunTime => parriedStunTime;
 		public float DeflectorHitPause => deflectorHitPause;
 		public float DeflectedHitPause => deflectedHitPause;
+		public float CritSenderHitPause => critSenderHitPause;
+		public float CritReceiverHitPause => critReceiverHitPause;
 		public float DeflectEnduranceShare => deflectEnduranceShare;
 		public float StaticGain => staticGain;
 		public float MaliceGain => maliceGain;
@@ -39,8 +41,12 @@ namespace SpaxUtils
 		public float ExertionCostAtRef => exertionCostAtRef;
 		public float ExertionRefMass => exertionRefMass;
 		public float ExertionRefBodyMass => exertionRefBodyMass;
-		public float ExertionMassExponent => exertionMassExponent;
-		public float ExertionFloorMass => exertionFloorMass;
+		public float CritPivot => critPivot;
+		public float CritMultiplier => critMultiplier;
+		public float StaggerDamageWeight => staggerDamageWeight;
+		public float BluntScale => bluntScale;
+		public float BluntWallExponent => bluntWallExponent;
+		public float ContestPower => contestPower;
 
 		[Header("Hit Pause Settings")]
 		[SerializeField, MinMaxRange(0f, 1f)] private Vector2 hitPauseReceiver = new Vector2(0.05f, 0.75f);
@@ -52,8 +58,35 @@ namespace SpaxUtils
 		private float deflectorHitPause = 0.5f;
 		[SerializeField, Tooltip("Fixed hit-pause (s) for the attacker whose blow was deflected. Ignores impact.")]
 		private float deflectedHitPause = 1f;
+		[SerializeField, Tooltip("Fixed hit-pause (s) for the attacker who landed a crit. Ignores impact.")]
+		private float critSenderHitPause = 0.5f;
+		[SerializeField, Tooltip("Fixed hit-pause (s) for the agent who was critted. Ignores impact.")]
+		private float critReceiverHitPause = 1f;
 		[SerializeField, Range(0f, 1f), Tooltip("Share of the stagger a deflect negated that the deflector still eats. The hitter takes the remainder.")]
 		private float deflectEnduranceShare = 0.5f;
+
+		// Tuned in SpecGraph (Tools/Graphs/damage.model.json); keep the two in step.
+		[Header("Damage")]
+		[SerializeField, Min(0f), Tooltip("How many extra times over Yield walls a point, proportionally. Higher = weaker pierce and rarer crits.")]
+		private float critPivot = 3.5f;
+		[SerializeField, Min(0f), Tooltip("A crit adds this many times the pierce hit it came from, sized as if unguarded.")]
+		private float critMultiplier = 3f;
+		[SerializeField, Min(0f), Tooltip("How much damage wears endurance down, next to force which always counts in full. Lower = power staggers comparatively harder.")]
+		private float staggerDamageWeight = 1f;
+		[SerializeField, Min(0f), Tooltip("Multiplies blunt offence: Power's level, leaving its flat quality scaling alone.")]
+		private float bluntScale = 1.2f;
+		[SerializeField, Min(0.01f), Tooltip("Steepness of blunt against its wall. Higher = weaker when outranked, crushing when outranking.")]
+		private float bluntWallExponent = 3f;
+		[SerializeField, Range(0.05f, 1f), Tooltip("How hard each channel's two contests compound. Below 1 a lopsided match hits less extreme; an even match is unchanged.")]
+		private float contestPower = 0.4f;
+
+		[Header("Force")]
+		[SerializeField, Min(0.01f), Tooltip("Limb+weapon mass (kg) at which the LIMB share of force is exactly the power band times impact.")]
+		private float forceRefLimbMass = 2.5f;
+		[SerializeField, Min(0.01f), Tooltip("Whole-body mass (kg) at which the BODY share of force is exactly the power band times impact. The move's BodyMassFraction blends the two.")]
+		private float forceRefBodyMass = 30f;
+		[SerializeField, Range(0f, 2f), Tooltip("How hard mass scales force around each reference. 0 = mass ignored, 1 = proportional.")]
+		private float forceMassExponent = 0.8f;
 
 		[Header("Static / Charge Economy")]
 		[SerializeField, Tooltip("Base Static (NE) restored per unit of threat (attack Mass × Power). The per-outcome fractions below scale it. Tune until a parry visibly refuels a charged counter.")]
@@ -168,6 +201,17 @@ namespace SpaxUtils
 		public float ExertionFactor(float mass, float referenceMass)
 		{
 			return Mathf.Pow(Mathf.Max(mass, exertionFloorMass) / Mathf.Max(referenceMass, 0.01f), exertionMassExponent);
+		}
+
+		/// <summary>
+		/// Force multiplier: the limb's ratio to <c>forceRefLimbMass</c> and the body's to <c>forceRefBodyMass</c>, each raised
+		/// to <c>forceMassExponent</c>, blended by <paramref name="bodyMassFraction"/>. Ratios keep mass relevant at every level.
+		/// </summary>
+		public float ForceMassFactor(float limbMass, float hitterMass, float bodyMassFraction)
+		{
+			float limb = Mathf.Pow(Mathf.Max(limbMass, 1f) / forceRefLimbMass, forceMassExponent);
+			float body = Mathf.Pow(Mathf.Max(hitterMass, 1f) / forceRefBodyMass, forceMassExponent);
+			return Mathf.Lerp(limb, body, bodyMassFraction);
 		}
 	}
 }

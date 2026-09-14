@@ -22,10 +22,16 @@ namespace SpaxUtils
 
 		public void Start()
 		{
-			if (Running) return;
+			if (Running)
+			{
+				return;
+			}
 			Running = true;
 
-			if (runtimeItemData == null || agentStatHandler == null) return;
+			if (runtimeItemData == null || agentStatHandler == null)
+			{
+				return;
+			}
 
 			runtimeItemData.RuntimeData.DataUpdatedEvent += OnItemDataUpdated;
 			RecalculatePhysics();
@@ -33,7 +39,10 @@ namespace SpaxUtils
 
 		public void Stop()
 		{
-			if (!Running) return;
+			if (!Running)
+			{
+				return;
+			}
 			Running = false;
 
 			if (runtimeItemData != null && runtimeItemData.RuntimeData != null)
@@ -49,7 +58,10 @@ namespace SpaxUtils
 
 		private void OnItemDataUpdated(RuntimeDataEntry entry)
 		{
-			if (!Running || entry == null) return;
+			if (!Running || entry == null)
+			{
+				return;
+			}
 
 			if (entry.ID == ItemDataIdentifiers.RANK || entry.ID == ItemDataIdentifiers.QUALITY)
 			{
@@ -59,22 +71,22 @@ namespace SpaxUtils
 
 		private void RecalculatePhysics()
 		{
-			if (!(runtimeItemData.ItemData is IEquipmentData eq)) return;
+			if (!(runtimeItemData.ItemData is IEquipmentData eq))
+			{
+				return;
+			}
 
 			StatOctad physicsIDs = agentStatHandler.Physics;
-			if (physicsIDs == null) return;
+			if (physicsIDs == null)
+			{
+				return;
+			}
 
-			float budget = runtimeItemData.CalculateBudget();
-
-			Vector8 lanePoints = SpaxFormulas.AllocatePointsForLevelRatios(eq.PhysicsDistribution, budget);
-
-			// Shift is spread across the distribution, so an item only gets a floor where its budget went.
-			Vector8 shiftWeights = SpaxFormulas.EquipmentShiftWeights(eq.PhysicsDistribution);
+			Vector8 physics = SpaxFormulas.EquipmentPhysics(eq.PhysicsDistribution, runtimeItemData.Rank, runtimeItemData.Quality, eq.PhysicsScaling);
 
 			for (int i = 0; i < 8; i++)
 			{
-				float lvl = lanePoints[i] <= 0f ? 0f : SpaxFormulas.LevelFromPoints(lanePoints[i]);
-				float physic = Mathf.Round(SpaxFormulas.EquipmentPhysic(lvl, runtimeItemData.Quality, shiftWeights[i]) * eq.PhysicsScaling);
+				float physic = physics[i];
 
 				string id = physicsIDs.GetIdentifier(i);
 				if (!string.IsNullOrEmpty(id))
