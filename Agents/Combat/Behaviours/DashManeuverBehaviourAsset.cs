@@ -62,7 +62,7 @@ namespace SpaxUtils
 		private AgentTrailEffect agentTrailEffect;
 		private GrounderComponent grounder;
 
-		private PointsStat pointStat;
+		private ResourceStat resourceStat;
 		private EntityStat massStat;
 		private EntityStat dashSpeedStat;
 		private EntityStat glideSpeedStat;
@@ -85,7 +85,7 @@ namespace SpaxUtils
 			}
 
 			return dependencies.TryGet(out AgentStatHandler statHandler) &&
-				!statHandler.PointStats.E.IsRecoveringFromZero;
+				!statHandler.ResourceStats.E.IsRecoveringFromZero;
 		}
 
 		public void InjectDependencies(AgentStatHandler statHandler, CallbackService callbackService, IAgentMovementHandler movementHandler,
@@ -100,7 +100,7 @@ namespace SpaxUtils
 			this.agentTrailEffect = agentTrailEffect;
 			this.grounder = grounder;
 
-			statHandler.TryGetPointStat(Move.ChargeCost.Stat, out pointStat);
+			statHandler.TryGetResourceStat(Move.ChargeCost.Stat, out resourceStat);
 			massStat = Agent.Stats.GetStat(AgentStatIdentifiers.MASS);
 			dashSpeedStat = Agent.Stats.GetStat(AgentStatIdentifiers.DASH_SPEED);
 			glideSpeedStat = Agent.Stats.GetStat(AgentStatIdentifiers.GLIDE_SPEED);
@@ -140,10 +140,10 @@ namespace SpaxUtils
 			// Drain stat. Physical factors only: mass (which already includes equip load) and encumberment. Deliberately
 			// NOT scaled by Dash_Speed — Agility already pays out as a bigger stamina pool, so charging it here too
 			// would count the same attribute twice.
-			if (pointStat != null)
+			if (resourceStat != null)
 			{
 				float cost = massStat * dashSpeed * Move.ChargeCost.Cost * 0.1f / LoadMod;
-				float drained = pointStat.Drain(cost);
+				float drained = resourceStat.Drain(cost);
 
 				// AIR: pay for the burst.
 				statHandler.RewardExpPoints(Element.Air, drained, ExpSources.DASH);
@@ -229,11 +229,11 @@ namespace SpaxUtils
 				SetDirection(movementHandler.InputSmooth);
 			}
 
-			if (!exited && State == PerformanceState.Preparing && !Bursting && pointStat != null)
+			if (!exited && State == PerformanceState.Preparing && !Bursting && resourceStat != null)
 			{
 				// Gliding, drain stat. Physical factors only, same reasoning as the burst cost.
 				float cost = massStat * glideSpeed * Move.ChargeCost.Cost * delta * 0.1f / LoadMod;
-				float spent = pointStat.Drain(cost, out bool drained);
+				float spent = resourceStat.Drain(cost, out bool drained);
 				statHandler.RewardExpPoints(Element.Air, spent, ExpSources.DASH);
 				if (drained)
 				{

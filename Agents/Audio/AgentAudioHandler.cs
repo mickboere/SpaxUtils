@@ -35,15 +35,15 @@ namespace SpaxUtils
 			if (profile != null)
 			{
 				pitch = Agent.RuntimeData.GetValue(EntityDataIdentifiers.AUDIO_PITCH, 1f);
-				lastHealth = agentStatHandler.PointStats.SW.Current;
-				agentStatHandler.PointStats.SW.Current.ValueChangedEvent += OnHealthChangedEvent;
+				lastHealth = agentStatHandler.ResourceStats.SW.Current;
+				agentStatHandler.ResourceStats.SW.Current.ValueChangedEvent += OnHealthChangedEvent;
 				Agent.DiedEvent += OnDiedEvent;
 			}
 		}
 
 		protected void OnDisable()
 		{
-			agentStatHandler.PointStats.SW.Current.ValueChangedEvent -= OnHealthChangedEvent;
+			agentStatHandler.ResourceStats.SW.Current.ValueChangedEvent -= OnHealthChangedEvent;
 			Agent.DiedEvent -= OnDiedEvent;
 			pendingDamage = 0f;
 		}
@@ -156,14 +156,14 @@ namespace SpaxUtils
 
 		private void OnHealthChangedEvent()
 		{
-			float current = agentStatHandler.PointStats.SW.Current;
+			float current = agentStatHandler.ResourceStats.SW.Current;
 			float damage = lastHealth - current;
 			if (damage > 0f && current > 0f)
 			{
 				// Queued, not played: the hit-pause is only applied after the health drain that got us here.
-				pendingDamage = Mathf.Max(pendingDamage, damage / agentStatHandler.PointStats.SW.Max);
+				pendingDamage = Mathf.Max(pendingDamage, damage / agentStatHandler.ResourceStats.SW.Max);
 			}
-			lastHealth = agentStatHandler.PointStats.SW.Current;
+			lastHealth = agentStatHandler.ResourceStats.SW.Current;
 		}
 
 		private void OnDiedEvent(DeathContext deathContext)

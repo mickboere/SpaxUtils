@@ -13,10 +13,10 @@ namespace SpaxUtils
 		public const float POWER = 2.5f;
 		public const float SCALE = 100f;
 
-		// Scale/shift constants for converting EXP levels to physics and pointstat values.
+		// Scale/shift constants for converting EXP levels to physics and resource values.
 		// Keep every SHIFT at 10x its SCALE, or fights grow more or less lethal as levels rise.
-		public const float POINTSSTAT_SCALE = 10f;
-		public const float POINTSSTAT_SHIFT = 100f;
+		public const float RESOURCE_SCALE = 10f;
+		public const float RESOURCE_SHIFT = 100f;
 		public const float PHYSIC_SCALE = 3f;
 		public const float PHYSIC_SHIFT = 30f;
 
@@ -321,8 +321,8 @@ namespace SpaxUtils
 			return r;
 		}
 
-		public static float LevelToPointsStat(float level, bool shift = true)
-			=> level * POINTSSTAT_SCALE + (shift ? POINTSSTAT_SHIFT : 0f);
+		public static float LevelToResource(float level, bool shift = true)
+			=> level * RESOURCE_SCALE + (shift ? RESOURCE_SHIFT : 0f);
 
 		public static float LevelToPhysic(float level, bool shift = true)
 			=> level * PHYSIC_SCALE + (shift ? PHYSIC_SHIFT : 0f);

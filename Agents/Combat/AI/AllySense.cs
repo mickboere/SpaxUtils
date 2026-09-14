@@ -217,7 +217,7 @@ namespace SpaxUtils
 
 				float healthRatio = 1f;
 				{
-					var sw = info.StatHandler?.PointStats.SW;
+					var sw = info.StatHandler?.ResourceStats.SW;
 					if (sw != null && sw.Max > 0f)
 						healthRatio = sw.Current / sw.Max;
 				}

@@ -9,7 +9,7 @@ namespace SpaxUtils
 	/// Class that manages a stat which defines points. This class will handle capping, damage recovery and all other sub-stats related to points.
 	/// </summary>
 	[Serializable]
-	public class PointsStat
+	public class ResourceStat
 	{
 		#region Tooltips
 		private const string TT_defaultIsFull = "When true, a full recovery of the agent will ensure the stat is also fully recovered.";
@@ -108,7 +108,7 @@ namespace SpaxUtils
 		{
 			if (string.IsNullOrEmpty(stat))
 			{
-				SpaxDebug.Warning($"{entity.Identification.ID}: Could not initialize PointStat", $"Stat identifier is NULL.");
+				SpaxDebug.Warning($"{entity.Identification.ID}: Could not initialize ResourceStat", $"Stat identifier is NULL.");
 				return;
 			}
 
@@ -356,9 +356,9 @@ namespace SpaxUtils
 			}
 		}
 
-		public static implicit operator float(PointsStat pointsStat)
+		public static implicit operator float(ResourceStat resourceStat)
 		{
-			return pointsStat.Current ?? 0f;
+			return resourceStat.Current ?? 0f;
 		}
 	}
 }

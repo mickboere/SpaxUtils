@@ -81,7 +81,7 @@
 		public const string SENSITIVITY_EXP = SOUL_EXP + "Sensitivity"; // Improves mana efficiency and proficiency curve.
 		public const string SENSITIVITY_LVL = SOUL_LVL + "Sensitivity";
 		// Nature
-		public const string FECUNDITY_EXP = SOUL_EXP + "Fecundity"; // Improves recovery of all point-stats.
+		public const string FECUNDITY_EXP = SOUL_EXP + "Fecundity"; // Improves recovery of all resource stats.
 		public const string FECUNDITY_LVL = SOUL_LVL + "Fecundity";
 		// Earth
 		public const string GRAVITY_EXP = SOUL_EXP + "Gravity"; // Make heavy; improves knockback resistance and effectiveness of heavy forces.
@@ -128,7 +128,7 @@
 		public const string DISTRIBUTION = ATTRIBUTES + "Distribution"; // General normalized distribution key.
 
 		// < Stats >
-		// Stats are either measured in Points (PointStats & Physics), percentages (0..1) or in real values (kg, m/s, etc).
+		// Stats are either measured in Points (ResourceStats & PhysicStats), percentages (0..1) or in real values (kg, m/s, etc).
 
 		// MIND STATS
 		#region Mind Stats
@@ -161,13 +161,13 @@
 
 		// Fire
 		private const string BODY_FIRE = BODY_STAT + "FIRE/";
-		public const string ENERGY = BODY_FIRE + "Energy"; // POINTSTAT: Amount of spendable force-points.
+		public const string ENERGY = BODY_FIRE + "Energy"; // RESOURCE: Amount of spendable force-points.
 		public const string POWER = BODY_FIRE + "Power"; // PHYSIC: The body's blunt damage output.
 		public const string STRENGTH = BODY_FIRE + "Strength"; // The body's lifting strength in KG.
 
 		// Light
 		private const string BODY_LIGHT = BODY_STAT + "LIGHT/";
-		public const string STATIC = BODY_LIGHT + "Static"; // POINTSTAT: Amount of spendable charging points.
+		public const string STATIC = BODY_LIGHT + "Static"; // RESOURCE: Amount of spendable charging points.
 		public const string PIERCE = BODY_LIGHT + "Pierce"; // PHYSIC: The body's piercing damage output (crits).
 		public const string STORM_SPEED = BODY_LIGHT + "Storm_Speed"; // Speed while storming during a charged attack.
 		public const string STICK_AIM = BODY_LIGHT + "Stick_Aim"; // How well a melee stick's heading can be corrected mid-swing (0-1).
@@ -175,7 +175,7 @@
 
 		// Air
 		private const string BODY_AIR = BODY_STAT + "AIR/";
-		public const string STAMINA = BODY_AIR + "Stamina"; // POINTSTAT: Amount of spendable movement points.
+		public const string STAMINA = BODY_AIR + "Stamina"; // RESOURCE: Amount of spendable movement points.
 		public const string YIELD = BODY_AIR + "Yield"; // PHYSIC: The ability to roll with hits (100% crit, 50% blunt defense).
 		public const string SPRINT_SPEED = BODY_AIR + "Sprint_Speed"; // Sprint top-speed multiplier.
 		public const string DASH_SPEED = BODY_AIR + "Dash_Speed"; // Speed of the initial dash burst.
@@ -186,33 +186,33 @@
 
 		// Spirit
 		private const string BODY_SPIRIT = BODY_STAT + "SPIRIT/";
-		public const string GRACE = BODY_SPIRIT + "Grace"; // POINTSTAT: Amount of spendable damage negation points.
+		public const string GRACE = BODY_SPIRIT + "Grace"; // RESOURCE: Amount of spendable damage negation points.
 		public const string WARD = BODY_SPIRIT + "Ward"; // PHYSIC: Defends against all non-physical damage. (magic / status resistance)
 
 		// Water
 		private const string BODY_WATER = BODY_STAT + "WATER/";
-		public const string MANA = BODY_WATER + "Mana"; // POINTSTAT: Amount of spendable magic points.
+		public const string MANA = BODY_WATER + "Mana"; // RESOURCE: Amount of spendable magic points.
 		public const string POTENCY = BODY_WATER + "Potency"; // PHYSIC: The body's magic power output (increases non-physical damage).
 		public const string PROFICIENCY = BODY_WATER + "Proficiency"; // The mind's magic proficiency vs spell complexity.
 
 		// Nature
 		private const string BODY_NATURE = BODY_STAT + "NATURE/";
-		public const string HEALTH = BODY_NATURE + "Health"; // POINTSTAT: Amount of life points away from death.
+		public const string HEALTH = BODY_NATURE + "Health"; // RESOURCE: Amount of life points away from death.
 		public const string COMFORT = BODY_NATURE + "Comfort"; // PHYSIC: The body's resistance to sustained damage (lowers frailty & recovery delay)
-		public const string RECOVERY = BODY_NATURE + "Recovery"; // Overall PointStat recovery multiplier.
-		public const string RECOVERY_DELAY = BODY_NATURE + "Recovery_Delay"; // Overall PointStat recovery delay multiplier.
-		public const string FRAILTY = BODY_NATURE + "Frailty"; // Overall PointStat frailty multiplier, defines vulnerability of reserves.
+		public const string RECOVERY = BODY_NATURE + "Recovery"; // Overall ResourceStat recovery multiplier.
+		public const string RECOVERY_DELAY = BODY_NATURE + "Recovery_Delay"; // Overall ResourceStat recovery delay multiplier.
+		public const string FRAILTY = BODY_NATURE + "Frailty"; // Overall ResourceStat frailty multiplier, defines vulnerability of reserves.
 
 		// Earth
 		private const string BODY_EARTH = BODY_STAT + "EARTH/";
-		public const string ENDURANCE = BODY_EARTH + "Endurance"; // POINTSTAT: Amount absorbable force points before being stunned.
+		public const string ENDURANCE = BODY_EARTH + "Endurance"; // RESOURCE: Amount absorbable force points before being stunned.
 		public const string ARMOR = BODY_EARTH + "Armor"; // PHYSIC: The ability to take to hits head on. (100% slash, 50% blunt defense)
 		public const string POISE = BODY_EARTH + "Poise"; // Composure; dampens the off-balance endurance-drain penalty while moving/attacking (never below x1).
 		public const string GUARD = BODY_EARTH + "Guard"; // Total amount of active guarding defence.
 
 		// Void
 		private const string BODY_VOID = BODY_STAT + "VOID/";
-		public const string MALICE = BODY_VOID + "Malice"; // POINTSTAT: Amount of available damage bonus points.
+		public const string MALICE = BODY_VOID + "Malice"; // RESOURCE: Amount of available damage bonus points.
 		public const string SLASH = BODY_VOID + "Slash"; // PHYSIC: The body's slashing damage output.
 
 		#endregion Bodily Stats
@@ -262,7 +262,7 @@
 		/// </summary>
 		public const string SUB_STAT = IStatIdentifiers.STATS + "SUB/";
 
-		// Point-stats
+		// Resources
 		public const string SUB_MAX = SUB_STAT + "Max"; // Maximum amount of points.
 		public const string SUB_RESERVE = SUB_STAT + "Reserve"; // Recoverable amount of points.
 		public const string SUB_FRAILTY = SUB_STAT + "Frailty"; // Vulnerability of the reserve.

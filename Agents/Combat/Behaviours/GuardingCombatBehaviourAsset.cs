@@ -26,7 +26,7 @@ namespace SpaxUtils
 		private ITargeter targeter;
 		private IAgentMovementHandler movementHandler;
 
-		private PointsStat chargeStat;
+		private ResourceStat chargeStat;
 		private Vector3 entryForward;
 
 		public void InjectDependencies(AgentStatHandler agentStatHandler, IHittable hittable,
@@ -36,7 +36,7 @@ namespace SpaxUtils
 			this.targeter = targeter;
 			this.movementHandler = movementHandler;
 
-			agentStatHandler.TryGetPointStat(Move.ChargeCost.Stat, out chargeStat);
+			agentStatHandler.TryGetResourceStat(Move.ChargeCost.Stat, out chargeStat);
 		}
 
 		public override void Start()

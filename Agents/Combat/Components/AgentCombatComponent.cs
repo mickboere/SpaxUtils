@@ -118,7 +118,7 @@ namespace SpaxUtils
 				float reach = PreferredMoveReach;
 				if (PreferredMove is IMeleeCombatMove && combatSettings != null && StatHandler != null)
 				{
-					float staticBudget = StatHandler.PointStats.NE;
+					float staticBudget = StatHandler.ResourceStats.NE;
 					float maxExtra = Mathf.Max(0f, Mathf.Min(combatSettings.MaxChargeMultiplier - 1f, staticBudget * combatSettings.ChargeConversionRatio));
 					reach += ComputeStormRange(PreferredMove, 1f + maxExtra);
 				}
@@ -189,7 +189,7 @@ namespace SpaxUtils
 		/// What performing <paramref name="move"/> costs its cost-stat: the authored PerformCost priced by the mass it
 		/// swings (<see cref="CombatSettings.ExertionFactor"/>). THE authority — the performer drains this, and
 		/// move-selection and the AI's affordability gate read it before the swing so all three agree.
-		/// Raw, pre-<c>SUB/Drain</c>: this is the value handed to <c>PointsStat.Drain</c>, which applies it.
+		/// Raw, pre-<c>SUB/Drain</c>: this is the value handed to <c>ResourceStat.Drain</c>, which applies it.
 		/// </summary>
 		public float ComputePerformCost(IPerformanceMove move)
 		{
@@ -330,7 +330,7 @@ namespace SpaxUtils
 			{
 				return;
 			}
-			float maxHealth = StatHandler.PointStats.SW.Max;
+			float maxHealth = StatHandler.ResourceStats.SW.Max;
 			if (maxHealth > 0f)
 			{
 				RecentDamageNormalized = Mathf.Clamp01(RecentDamageNormalized + damage / maxHealth);
@@ -355,7 +355,7 @@ namespace SpaxUtils
 
 			// Openness: the easier you can be staggered (low Endurance), the more "open" you are.
 			Openness = !InCombatMode || Stunned ? 1f
-				: (1f / StatHandler.PointStats.W.DrainMult).InvertClamped();
+				: (1f / StatHandler.ResourceStats.W.DrainMult).InvertClamped();
 
 			// Global REACH (limb-agnostic). The per-move path adds the acting limb on top of THIS, not BaseReach,
 			// so the hand is never counted twice. BaseReach keeps the best-hand term for the moveless resting reach.
@@ -455,7 +455,7 @@ namespace SpaxUtils
 			// Storm only extends a move's usable reach when the agent has built-up Static to overcharge
 			// with — otherwise the long storm reach wrongly marks every move "engageable from afar" and
 			// (with maxRangeError) collapses every melee move's range-fit to 0.
-			float staticAvail = StatHandler != null ? StatHandler.PointStats.NE.PercentageRecoverable : 0f;
+			float staticAvail = StatHandler != null ? StatHandler.ResourceStats.NE.PercentageRecoverable : 0f;
 			// Gated by BOTH available Static AND charge inclination (SHARPNESS): a full-Static agent with
 			// no intent to overcharge gets no storm-reach credit.
 			float stormGate = Mathf.Clamp01(staticAvail) * chargePref;
@@ -1046,7 +1046,7 @@ namespace SpaxUtils
 			}
 
 			RuntimeDataCollection data = weapon.RuntimeItemData.RuntimeData;
-			StatOctad ids = StatHandler.Physics;
+			StatOctad ids = StatHandler.PhysicStats;
 			return new Vector3(
 				data.GetValue<float>(ids.northWest),
 				data.GetValue<float>(ids.north),

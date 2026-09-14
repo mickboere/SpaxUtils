@@ -12,7 +12,7 @@
 		Curve = 4,
 		Interpolate = 5,
 		Extrapolate = 6,
-		LevelToPointsStat = 7,
+		LevelToResource = 7,
 		LevelToPhysic = 8,
 		ExpToLevel = 9,
 		ExpToRank = 10,

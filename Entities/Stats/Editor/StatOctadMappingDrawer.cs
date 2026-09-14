@@ -185,7 +185,7 @@ namespace SpaxUtils
 					yield return "shift";
 					break;
 				default:
-					// LevelToPointsStat (7), LevelToPhysic (8), ExpToLevel (9) and ExpToRank (10):
+					// LevelToResource (7), LevelToPhysic (8), ExpToLevel (9) and ExpToRank (10):
 					// fixed curves, only scale and shift are configurable.
 					yield return "scale";
 					yield return "shift";

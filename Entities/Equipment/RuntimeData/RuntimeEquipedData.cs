@@ -288,13 +288,13 @@ namespace SpaxUtils
 
 			for (int i = 0; i < 8; i++)
 			{
-				string physicId = statHandler.Physics.GetIdentifier(i);
+				string physicId = statHandler.PhysicStats.GetIdentifier(i);
 				RuntimeDataEntry physicEntry = RuntimeItemData.RuntimeData.GetEntry(physicId);
 				if (physicEntry == null)
 				{
 					continue;
 				}
-				EntityStat physicsStat = statHandler.Physics[i];
+				EntityStat physicsStat = statHandler.PhysicStats[i];
 				string modId = GetModID($"physics_{i}");
 				if (!physicsStat.HasModifier(modId))
 				{

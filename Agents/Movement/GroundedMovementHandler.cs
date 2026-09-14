@@ -198,7 +198,7 @@ namespace SpaxUtils
 
 			// Calculate appropriate input value according to stats.
 			processedInput =
-				statHandler.PointStats.E.IsRecoveringFromZero && InputRaw != Vector3.zero
+				statHandler.ResourceStats.E.IsRecoveringFromZero && InputRaw != Vector3.zero
 					? InputRaw.ClampMagnitude(tiredInputLimiter)
 					: InputRaw;
 
@@ -280,7 +280,7 @@ namespace SpaxUtils
 					{
 						// Apply sprint cost. Mass already carries equip weight; dividing by loadSpeedMod adds the
 						// over-capacity penalty on top, same as the dash.
-						float spent = statHandler.PointStats.E.Drain(
+						float spent = statHandler.ResourceStats.E.Drain(
 							sprintCost * rigidbodyWrapper.Mass *
 							(rigidbodyWrapper.Speed / (FullSpeed * 1.5f * sprintSpeedStat * moveSpeedStat)) *
 							rigidbodyWrapper.Control * delta / loadSpeedMod);

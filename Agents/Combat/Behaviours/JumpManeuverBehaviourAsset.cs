@@ -50,7 +50,7 @@ namespace SpaxUtils
 		private Pool<PooledAudioSource> audioPool;
 		private AgentAudioHandler agentAudio;
 
-		private PointsStat staminaStat;
+		private ResourceStat staminaStat;
 		private EntityStat massStat;
 		private EntityStat loadPenaltyStat;
 		// Floors the rescale divisor so a near-horizontal slide normal can't blow the horizontal component up.
@@ -94,7 +94,7 @@ namespace SpaxUtils
 			}
 
 			return dependencies.TryGet(out AgentStatHandler statHandler) &&
-				!statHandler.PointStats.E.IsRecoveringFromZero;
+				!statHandler.ResourceStats.E.IsRecoveringFromZero;
 		}
 
 		public void InjectDependencies(GrounderComponent grounder, IAgentMovementHandler movementHandler,
@@ -106,7 +106,7 @@ namespace SpaxUtils
 			this.audioPool = audioPool;
 			this.agentAudio = agentAudio;
 
-			statHandler.TryGetPointStat(Move.ChargeCost.Stat, out staminaStat);
+			statHandler.TryGetResourceStat(Move.ChargeCost.Stat, out staminaStat);
 			massStat = Agent.Stats.GetStat(AgentStatIdentifiers.MASS);
 			loadPenaltyStat = Agent.Stats.GetStat(AgentStatIdentifiers.LOAD_PENALTY, true, 1f);
 		}

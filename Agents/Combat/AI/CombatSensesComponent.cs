@@ -201,7 +201,7 @@ namespace SpaxUtils
 				return;
 			}
 
-			float curHealth = statHandler.PointStats.SW.Current;
+			float curHealth = statHandler.ResourceStats.SW.Current;
 
 			// Impact in [0..1]:
 			//  - small when it's a tiny chip off a healthy pool

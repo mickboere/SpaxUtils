@@ -282,8 +282,8 @@ namespace SpaxUtils
 				// 1. Calculate Drain Rate based on PIERCE (PhysicStat)
 				float actualDrain = pierceStat * delta * (chargeSpeedStat != null ? chargeSpeedStat.Value : 1f);
 
-				// 2. Drain the Static (PointStat)
-				float damage = statHandler.PointStats.NE.Drain(actualDrain, out bool drained);
+				// 2. Drain the Static (ResourceStat)
+				float damage = statHandler.ResourceStats.NE.Drain(actualDrain, out bool drained);
 
 				// 3. Store raw drain for Pierce calc (Uncapped)
 				accumulatedChargePoints += damage;
@@ -841,8 +841,8 @@ namespace SpaxUtils
 
 			// Exertion: priced on LIMB mass by the combat authority, not the strike's mass — what a swing costs the
 			// body is what it wields, while StrikeMass is what the hit lands with. Play the audio off the drain.
-			float drained = statHandler.PointStats.N.Drain(combatComponent.ComputePerformCost(move));
-			float fraction = drained / statHandler.PointStats.N.Reserve;
+			float drained = statHandler.ResourceStats.N.Drain(combatComponent.ComputePerformCost(move));
+			float fraction = drained / statHandler.ResourceStats.N.Reserve;
 			agentAudioHandler.PlayExertion(fraction);
 		}
 
@@ -910,7 +910,7 @@ namespace SpaxUtils
 					float maliceDrained = 0f;
 					if (totalOffence > 0f)
 					{
-						maliceDrained = statHandler.PointStats.NW.Drain(totalOffence, true);
+						maliceDrained = statHandler.ResourceStats.NW.Drain(totalOffence, true);
 						maliceMult += maliceDrained / totalOffence; // Ceiling is 1 + DrainMult; cap it via the Hostility→Drain mapping.
 					}
 
@@ -996,7 +996,7 @@ namespace SpaxUtils
 				{
 					Performer.TryCancel(true);
 					rigidbodyWrapper.ResetVelocity();
-					statHandler.PointStats.W.Current.BaseValue = 0f;
+					statHandler.ResourceStats.W.Current.BaseValue = 0f;
 					stunHandler.EnterStun(hitData, combatSettings.ParriedStunTime);
 				}
 				else
@@ -1012,7 +1012,7 @@ namespace SpaxUtils
 					// a Power-independent self-sustain for Light builds (Pierce → crit → Static → Pierce charge).
 					if (hitData.Data.GetValue<bool>(HitDataIdentifiers.CRIT))
 					{
-						statHandler.PointStats.NE.Current.BaseValue += hitData.Pierce * combatSettings.StaticGain * combatSettings.CritStaticPercent;
+						statHandler.ResourceStats.NE.Current.BaseValue += hitData.Pierce * combatSettings.StaticGain * combatSettings.CritStaticPercent;
 					}
 				}
 
@@ -1020,7 +1020,7 @@ namespace SpaxUtils
 				float enduranceReturn = hitData.Data.GetValue<float>(HitDataIdentifiers.ENDURANCE_RETURN);
 				if (enduranceReturn > 0f)
 				{
-					statHandler.PointStats.W.Drain(enduranceReturn);
+					statHandler.ResourceStats.W.Drain(enduranceReturn);
 				}
 
 				// Our share of the strike's force, bounced back off the target's footing (computed receiver-side).

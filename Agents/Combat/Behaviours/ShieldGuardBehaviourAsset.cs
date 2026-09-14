@@ -82,10 +82,10 @@ namespace SpaxUtils
 
 		private void CachePhysics()
 		{
-			physic_W = runtimeItemData.RuntimeData.GetValue<float>(agentStatHandler.Physics.GetIdentifier(6), 0f);
-			physic_E = runtimeItemData.RuntimeData.GetValue<float>(agentStatHandler.Physics.GetIdentifier(2), 0f);
-			physic_SE = runtimeItemData.RuntimeData.GetValue<float>(agentStatHandler.Physics.GetIdentifier(3), 0f);
-			physic_SW = runtimeItemData.RuntimeData.GetValue<float>(agentStatHandler.Physics.GetIdentifier(5), 0f);
+			physic_W = runtimeItemData.RuntimeData.GetValue<float>(agentStatHandler.PhysicStats.GetIdentifier(6), 0f);
+			physic_E = runtimeItemData.RuntimeData.GetValue<float>(agentStatHandler.PhysicStats.GetIdentifier(2), 0f);
+			physic_SE = runtimeItemData.RuntimeData.GetValue<float>(agentStatHandler.PhysicStats.GetIdentifier(3), 0f);
+			physic_SW = runtimeItemData.RuntimeData.GetValue<float>(agentStatHandler.PhysicStats.GetIdentifier(5), 0f);
 		}
 
 		private void OnDataUpdated(RuntimeDataEntry entry)

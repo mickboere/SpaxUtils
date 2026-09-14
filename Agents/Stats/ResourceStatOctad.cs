@@ -4,32 +4,32 @@ using UnityEngine;
 namespace SpaxUtils
 {
 	/// <summary>
-	/// Octad implementation that manages 8 <see cref="PointsStat"/>s, meaning 8 stats that have a max- and recoverable current value.
+	/// Octad implementation that manages 8 <see cref="ResourceStat"/>s, meaning 8 stats that have a max- and recoverable current value.
 	/// </summary>
 	[Serializable]
-	public class PointStatOctad : IOctad
+	public class ResourceStatOctad : IOctad
 	{
 		public Vector8 Vector8 => Current;
 		public Vector8 Current => new Vector8(N, NE, E, SE, S, SW, W, NW);
 		public Vector8 Max => new Vector8(N.Max ?? 0f, NE.Max ?? 0f, E.Max ?? 0f, SE.Max ?? 0f, S.Max ?? 0f, SW.Max ?? 0f, W.Max ?? 0f, NW.Max ?? 0f);
 		public Vector8 Recoverable => new Vector8(N.Reserve ?? 0f, NE.Reserve ?? 0f, E.Reserve ?? 0f, SE.Reserve ?? 0f, S.Reserve ?? 0f, SW.Reserve ?? 0f, W.Reserve ?? 0f, NW.Reserve ?? 0f);
 
-		public PointsStat N => north;
-		[SerializeField] private PointsStat north;
-		public PointsStat NE => northEast;
-		[SerializeField] private PointsStat northEast;
-		public PointsStat E => east;
-		[SerializeField] private PointsStat east;
-		public PointsStat SE => southEast;
-		[SerializeField] private PointsStat southEast;
-		public PointsStat S => south;
-		[SerializeField] private PointsStat south;
-		public PointsStat SW => southWest;
-		[SerializeField] private PointsStat southWest;
-		public PointsStat W => west;
-		[SerializeField] private PointsStat west;
-		public PointsStat NW => northWest;
-		[SerializeField] private PointsStat northWest;
+		public ResourceStat N => north;
+		[SerializeField] private ResourceStat north;
+		public ResourceStat NE => northEast;
+		[SerializeField] private ResourceStat northEast;
+		public ResourceStat E => east;
+		[SerializeField] private ResourceStat east;
+		public ResourceStat SE => southEast;
+		[SerializeField] private ResourceStat southEast;
+		public ResourceStat S => south;
+		[SerializeField] private ResourceStat south;
+		public ResourceStat SW => southWest;
+		[SerializeField] private ResourceStat southWest;
+		public ResourceStat W => west;
+		[SerializeField] private ResourceStat west;
+		public ResourceStat NW => northWest;
+		[SerializeField] private ResourceStat northWest;
 
 		public void Initialize(IEntity entity)
 		{
@@ -48,7 +48,7 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
-		/// Recovers all octad members that have <see cref="PointsStat.DefaultIsFull"/> set to true.
+		/// Recovers all octad members that have <see cref="ResourceStat.DefaultIsFull"/> set to true.
 		/// </summary>
 		public void Recover()
 		{
@@ -64,7 +64,7 @@ namespace SpaxUtils
 		/// <summary>
 		/// Implicit <see cref="SpaxUtils.Vector8"/> conversion.
 		/// </summary>
-		public static implicit operator Vector8(PointStatOctad octon)
+		public static implicit operator Vector8(ResourceStatOctad octon)
 		{
 			return octon.Current;
 		}
@@ -74,7 +74,7 @@ namespace SpaxUtils
 		/// </summary>
 		/// <param name="index">The index of the member to access with 0 starting at NORTH, going clockwise.</param>
 		/// <returns>The value of the member corresponding to <paramref name="index"/></returns>.
-		public PointsStat this[int index]
+		public ResourceStat this[int index]
 		{
 			get
 			{
@@ -98,7 +98,7 @@ namespace SpaxUtils
 		{
 			return $"({M("N", N)}, {M("NE", NE)}, {M("E", E)}, {M("SE", SE)}, {M("S", S)}, {M("SW", SW)}, {M("W", W)}, {M("NW", NW)})";
 
-			string M(string heading, PointsStat stat)
+			string M(string heading, ResourceStat stat)
 			{
 				return $"\"{stat.Identifier}\"({heading})={stat.Current.Value}";
 			}

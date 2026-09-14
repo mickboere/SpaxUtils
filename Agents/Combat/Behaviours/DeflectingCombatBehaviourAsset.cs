@@ -27,7 +27,7 @@ namespace SpaxUtils
 		[SerializeField, Tooltip("Logs the whole deflect lifecycle per frame to Debuddy.")] private bool debug;
 
 		private AgentStatHandler agentStatHandler;
-		private PointsStat chargeStat;
+		private ResourceStat chargeStat;
 		private EntityStat window;
 		private EntityStat chargeSpeed;
 		private IHittable hittable;
@@ -44,7 +44,7 @@ namespace SpaxUtils
 			this.hittable = hittable;
 			this.movementHandler = movementHandler;
 
-			agentStatHandler.TryGetPointStat(Move.ChargeCost.Stat, out chargeStat);
+			agentStatHandler.TryGetResourceStat(Move.ChargeCost.Stat, out chargeStat);
 			Agent.Stats.TryGetStat(AgentStatIdentifiers.WINDOW, out window);
 			chargeSpeed = Agent.Stats.GetStat(Move.ChargeSpeedMultiplierStat, false);
 		}

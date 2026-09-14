@@ -5,7 +5,7 @@ namespace SpaxUtils
 {
 	/// <summary>
 	/// Keeps an equipment item's derived Physics data in sync with its Rank, Quality, and PhysicsDistribution.
-	/// Writes 8 physics values into the item's RuntimeData using identifiers from AgentStatHandler.Physics.
+	/// Writes 8 physics values into the item's RuntimeData using identifiers from AgentStatHandler.PhysicStats.
 	/// </summary>
 	public sealed class EquipmentInventoryBehaviour : IBehaviour
 	{
@@ -76,7 +76,7 @@ namespace SpaxUtils
 				return;
 			}
 
-			StatOctad physicsIDs = agentStatHandler.Physics;
+			StatOctad physicsIDs = agentStatHandler.PhysicStats;
 			if (physicsIDs == null)
 			{
 				return;

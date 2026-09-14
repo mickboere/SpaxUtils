@@ -64,7 +64,7 @@ namespace SpaxUtils
 					if (processedInput.magnitude > 1.01f)
 					{
 						// Apply sprint cost (same as base).
-						float spent = statHandler.PointStats.E.Drain(
+						float spent = statHandler.ResourceStats.E.Drain(
 							sprintCost * rigidbodyWrapper.Mass *
 							(rigidbodyWrapper.Speed / (FullSpeed * 1.5f * sprintSpeedStat * moveSpeedStat)) *
 							rigidbodyWrapper.Control * delta);

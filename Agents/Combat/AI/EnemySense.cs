@@ -75,7 +75,7 @@ namespace SpaxUtils
 		private readonly CombatSensesSettings settings;
 		private readonly TargetingService targetingService;
 
-		private float pointSum;
+		private float resourceSum;
 		private List<ITargetable> visible;
 
 		private HashSet<ITargetable> visibleSet = new HashSet<ITargetable>();
@@ -181,7 +181,7 @@ namespace SpaxUtils
 
 		private void GatherEnemyData(float delta)
 		{
-			pointSum = statHandler.PointStats.Vector8.Sum();
+			resourceSum = statHandler.ResourceStats.Vector8.Sum();
 
 			List<ITargetable> enemyList = agent.Targeter.Enemies.Components;
 
@@ -312,21 +312,21 @@ namespace SpaxUtils
 			}
 
 			// Lethality of enemy to agent.
-			float enemyPointSum = info.StatHandler.PointStats.Vector8.Sum();
-			float pointRatio = enemyPointSum <= Mathf.Epsilon ? 0.5f : enemyPointSum / pointSum;
+			float enemyResourceSum = info.StatHandler.ResourceStats.Vector8.Sum();
+			float resourceRatio = enemyResourceSum <= Mathf.Epsilon ? 0.5f : enemyResourceSum / resourceSum;
 			float powerRatio = info.CombatComp.Power / agent.Body.RigidbodyWrapper.Mass;
 
-			float pointLeth = pointRatio / (pointRatio + 1f);
+			float resourceLeth = resourceRatio / (resourceRatio + 1f);
 			// Offence lethality: expected physics damage the enemy's per-axis output (Offense) would deal
 			// against OUR per-axis Defense (Armor/Yield mapping), relative to our health. This replaces
 			// the legacy "Offense / Armor" — Armor only defends Slash (+half Power), not all output.
 			float expectedDamage = combatComponent.EstimateIncomingDamage(info.CombatComp.Offense, info.CombatComp.OffensePowerBand);
-			float myMaxHealth = Mathf.Max(combatComponent.StatHandler.PointStats.SW.Max, 0.001f);
+			float myMaxHealth = Mathf.Max(combatComponent.StatHandler.ResourceStats.SW.Max, 0.001f);
 			float offenseLeth = expectedDamage / (expectedDamage + myMaxHealth);
 			float powerLeth = powerRatio / (powerRatio + 1f);
 
 			info.Lethality = Mathf.Clamp01(
-				LETHALITY_POINTS_WEIGHT * pointLeth +
+				LETHALITY_POINTS_WEIGHT * resourceLeth +
 				LETHALITY_OFFENCE_WEIGHT * offenseLeth +
 				LETHALITY_POWER_WEIGHT * powerLeth);
 
@@ -414,8 +414,8 @@ namespace SpaxUtils
 			if (info.CombatComp != null && info.CombatComp.StatHandler != null)
 			{
 				// W = endurance (guard), E = stamina (evade). Open when even their best defense is depleted.
-				float endFrac = info.CombatComp.StatHandler.PointStats.W.PercentageMax;
-				float staFrac = info.CombatComp.StatHandler.PointStats.E.PercentageMax;
+				float endFrac = info.CombatComp.StatHandler.ResourceStats.W.PercentageMax;
+				float staFrac = info.CombatComp.StatHandler.ResourceStats.E.PercentageMax;
 				resourceOpenness = 1f - Mathf.Max(endFrac, staFrac);
 			}
 			// MAX of the weighted opening types — the single strongest opening defines the opportunity (no stacking).
@@ -490,9 +490,9 @@ namespace SpaxUtils
 				float hate01 = Mathf.Clamp01(factionHate * 0.3f + personalHate);          // faction = 30% ceiling, personal history = full driver
 
 				// Resource deficits.
-				float healthDef = statHandler.PointStats.SW.PercentageMax.Invert();
-				float staminaDef = statHandler.PointStats.E.PercentageMax.Invert().Remap(-1f, 1f);
-				float enduranceDef = statHandler.PointStats.W.PercentageMax.Invert();
+				float healthDef = statHandler.ResourceStats.SW.PercentageMax.Invert();
+				float staminaDef = statHandler.ResourceStats.E.PercentageMax.Invert().Remap(-1f, 1f);
+				float enduranceDef = statHandler.ResourceStats.W.PercentageMax.Invert();
 				float resourceDef = Mathf.Clamp01(Mathf.Max(healthDef, Mathf.Max(staminaDef, enduranceDef)));
 
 				// Spike when enemy is winding up an attack on us.
@@ -589,7 +589,7 @@ namespace SpaxUtils
 				// whether the agent actually yields — cooperative yields, ruthless doesn't.
 				int otherTargeters = Mathf.Max(0, targetingService.TargeterCount(info.Agent.Targetable) - 1);
 				float crowding = Mathf.Clamp01(otherTargeters * 0.5f); // 0 alone, 0.5 one other, 1 two+
-				float enemyHealthDef = info.StatHandler.PointStats.SW.PercentageMax.Invert(); // 1 = enemy at death's door
+				float enemyHealthDef = info.StatHandler.ResourceStats.SW.PercentageMax.Invert(); // 1 = enemy at death's door
 				float mercy = enemyHealthDef * (1f - hate01) * SE_MERCY_WEIGHT * AEMOI.MAX_STIM; // spare the beaten — unless hated
 				float support = crowding * AEMOI.MAX_STIM * 0.5f + mercy;
 

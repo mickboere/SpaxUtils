@@ -120,8 +120,8 @@ namespace SpaxUtils
 					return shift + (pointA.y + (input - pointA.x) * y) * scale;
 				case FormulaType.LevelToPhysic:
 					return shift + SpaxFormulas.LevelToPhysic(input) * scale;
-				case FormulaType.LevelToPointsStat:
-					return shift + SpaxFormulas.LevelToPointsStat(input) * scale;
+				case FormulaType.LevelToResource:
+					return shift + SpaxFormulas.LevelToResource(input) * scale;
 				case FormulaType.ExpToLevel:
 					// No local constants: tracks SpaxFormulas.CONSTANT/POWER so the level curve can never
 					// drift from the rank and level-up-cost curves.
@@ -181,9 +181,9 @@ namespace SpaxUtils
 					if (scale == 0f || SpaxFormulas.PHYSIC_SCALE == 0f) return 0f;
 					return (input / scale - SpaxFormulas.PHYSIC_SHIFT) / SpaxFormulas.PHYSIC_SCALE;
 
-				case FormulaType.LevelToPointsStat:
-					if (scale == 0f || SpaxFormulas.POINTSSTAT_SCALE == 0f) return 0f;
-					return (input / scale - SpaxFormulas.POINTSSTAT_SHIFT) / SpaxFormulas.POINTSSTAT_SCALE;
+				case FormulaType.LevelToResource:
+					if (scale == 0f || SpaxFormulas.RESOURCE_SCALE == 0f) return 0f;
+					return (input / scale - SpaxFormulas.RESOURCE_SHIFT) / SpaxFormulas.RESOURCE_SCALE;
 
 				case FormulaType.ExpToLevel:
 					return SpaxFormulas.PointsFromLevel(scale != 0f ? input / scale : 0f);

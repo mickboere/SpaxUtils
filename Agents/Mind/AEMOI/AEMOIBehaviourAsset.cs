@@ -32,7 +32,7 @@ namespace SpaxUtils
 		protected CombatSensesComponent CombatSenses { get; private set; }
 		protected AEMOISettings AEMOISettings { get; private set; }
 		protected CombatSensesSettings CombatSensesSettings { get; private set; }
-		protected PointStatOctad PointStats => StatHandler.PointStats;
+		protected ResourceStatOctad ResourceStats => StatHandler.ResourceStats;
 
 		/// <summary>Shared skill-gated back-off distance (world units, ≥0) — the OUT reasons only, no N/S. For behaviours
 		/// that already have their own N/S band (Hostile) and just want the winded/outmatched/mercy push-out on top.</summary>
@@ -65,7 +65,7 @@ namespace SpaxUtils
 		/// (Emotion), and outmatch ((1−Balance.NE)·Drive.NE — bounded & competence-gated, so dumb agents ignore it).
 		/// Raw SW stays out: its distance-growing demand has no satisfier and diverges.</summary>
 		private float OutDesire =>
-			(Mind.Drive.W * (1f - PointStats.W.PercentageRecoverable))
+			(Mind.Drive.W * (1f - ResourceStats.W.PercentageRecoverable))
 				.Max(Mind.EmotionNormalized.SE)
 				.Max((1f - Mind.Balance.NE) * Mind.Drive.NE);
 

@@ -160,7 +160,7 @@ namespace SpaxUtils
 			hitData.Data.SetValue(HitDataIdentifiers.DAMAGE_TOTAL, totalDamage);
 
 			// The hitter measures its output against this; non-agent hittables report nothing and pay no EXP.
-			float healthMax = statHandler.PointStats.SW.Max;
+			float healthMax = statHandler.ResourceStats.SW.Max;
 			hitData.Data.SetValue(HitDataIdentifiers.HEALTH_MAX, healthMax);
 
 			// --- IMPACT & FORCE ---
@@ -180,7 +180,7 @@ namespace SpaxUtils
 				hitData.Data.SetValue(HitDataIdentifiers.ENDURANCE_RETURN, full - toEndure);
 			}
 
-			float enduranceDamage = statHandler.PointStats.W.Drain(
+			float enduranceDamage = statHandler.ResourceStats.W.Drain(
 				toEndure,
 				out bool stunned,
 				out float enduranceOverdraw);
@@ -212,7 +212,7 @@ namespace SpaxUtils
 			float elasticity = 1f + combatSettings.Restitution;
 
 			// Recoverable, not Max — the reserve is the ceiling they can fight back up to. Post-drain.
-			float spent = statHandler.PointStats.W.PercentageRecoverable.InvertClamped();
+			float spent = statHandler.ResourceStats.W.PercentageRecoverable.InvertClamped();
 			float footing = 1f - spent;
 
 			// Closing speed less our own outbound share — full relative speed would double-count a mutual clash.
@@ -263,16 +263,16 @@ namespace SpaxUtils
 				}
 
 				// Grace absorbs only the mortal overflow, leaving at least 1 HP while it lasts.
-				float mortal = healthDamage - Mathf.Max(0f, statHandler.PointStats.SW.Value - 1f);
+				float mortal = healthDamage - Mathf.Max(0f, statHandler.ResourceStats.SW.Value - 1f);
 				if (mortal > 0f)
 				{
-					float drained = statHandler.PointStats.SE.Drain(mortal);
+					float drained = statHandler.ResourceStats.SE.Drain(mortal);
 					healthDamage -= drained;
 					hitData.Data.SetValue(HitDataIdentifiers.GRACE, drained);
 				}
 
 				hitData.Data.SetValue(HitDataIdentifiers.DAMAGE_DEALT,
-					statHandler.PointStats.SW.Drain(healthDamage, out bool dead, out _));
+					statHandler.ResourceStats.SW.Drain(healthDamage, out bool dead, out _));
 
 				// --- MALICE BUILDUP ---
 				// Spite answers the offence aimed at us, not the wound it left; a fully guarded hit builds the same as a clean one.
@@ -282,7 +282,7 @@ namespace SpaxUtils
 					float incomingOffence = hitData.Slash + hitData.Power + hitData.Pierce;
 					if (incomingOffence > 0f)
 					{
-						statHandler.PointStats.NW.Gain(incomingOffence * combatSettings.MaliceGain);
+						statHandler.ResourceStats.NW.Gain(incomingOffence * combatSettings.MaliceGain);
 					}
 				}
 
@@ -300,18 +300,18 @@ namespace SpaxUtils
 			if (parried || deflected)
 			{
 				float built = staticThreat * combatSettings.DeflectStaticPercent;
-				statHandler.PointStats.NE.Current.BaseValue += built;
+				statHandler.ResourceStats.NE.Current.BaseValue += built;
 
 				// LIGHT: a deflect pays for the threat it neutralised, measured in the Static it grounded.
 				statHandler.RewardExpPoints(Element.Light, built, ExpSources.DEFLECT);
 			}
 			else if (blocked)
 			{
-				statHandler.PointStats.NE.Current.BaseValue += staticThreat * combatSettings.BlockStaticPercent;
+				statHandler.ResourceStats.NE.Current.BaseValue += staticThreat * combatSettings.BlockStaticPercent;
 			}
 			else if (guardWeight > 0f)
 			{
-				statHandler.PointStats.NE.Current.BaseValue += staticThreat * combatSettings.BlockStaticPercent * guardWeight;
+				statHandler.ResourceStats.NE.Current.BaseValue += staticThreat * combatSettings.BlockStaticPercent * guardWeight;
 			}
 
 			// --- HIT PAUSE ---
@@ -343,10 +343,10 @@ namespace SpaxUtils
 			// Damage balance instrumentation; uncomment and set Debuddy's filter to "DMGTEST" to capture fights.
 			//SpaxDebug.Log($"[DMGTEST]", hitData.ToString() +
 			//	$"\nDefence: Armor={armorStat.Value:F1}, Yield={yieldStat.Value:F1}, Hardness={hardnessStat.Value:F2}, Ward={wardStat.Value:F1}, Vulnerability={vulnerabilityStat.Value:F2}" +
-			//	$"\nHealth(SW)={statHandler.PointStats.SW.Value:F1}/{statHandler.PointStats.SW.Max.Value:F1}" +
-			//	$"\nEndurance(W)={statHandler.PointStats.W.Value:F1}/{statHandler.PointStats.W.Max.Value:F1}" +
+			//	$"\nHealth(SW)={statHandler.ResourceStats.SW.Value:F1}/{statHandler.ResourceStats.SW.Max.Value:F1}" +
+			//	$"\nEndurance(W)={statHandler.ResourceStats.W.Value:F1}/{statHandler.ResourceStats.W.Max.Value:F1}" +
 			//	$"\nBodyLevels={statHandler.BodyLevels.Vector8.ToStringShort()}" +
-			//	$"\nPhysics={statHandler.Physics.Vector8.ToStringShort()}");
+			//	$"\nPhysics={statHandler.PhysicStats.Vector8.ToStringShort()}");
 
 			if (debug)
 			{

@@ -6,7 +6,7 @@ namespace SpaxUtils
 {
 	/// <summary>
 	/// The single location for all EXP reward balancing.
-	/// EXP is rewarded in BARS: 1 bar equals a full emptying of the element's point-stat, so every deed
+	/// EXP is rewarded in BARS: 1 bar equals a full emptying of the element's resource, so every deed
 	/// is comparable across the eight elements regardless of what it was measured in.
 	/// </summary>
 	[CreateAssetMenu(fileName = nameof(ExpSettings), menuName = "ScriptableObjects/Stats/" + nameof(ExpSettings))]

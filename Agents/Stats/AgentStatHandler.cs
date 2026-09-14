@@ -13,9 +13,9 @@ namespace SpaxUtils
 		// All data accessors self-initialize; stat data is valid regardless of component Awake order.
 		public StatOctad BodyLevels { get { EnsureInitialized(); return _bodyLevels; } private set { _bodyLevels = value; } }
 		public StatOctad BodyExperience { get { EnsureInitialized(); return _bodyExperience; } private set { _bodyExperience = value; } }
-		public StatOctad Physics { get { EnsureInitialized(); return _physics; } private set { _physics = value; } }
+		public StatOctad PhysicStats { get { EnsureInitialized(); return _physicStats; } private set { _physicStats = value; } }
 		public Vector8 BodyDistribution { get { EnsureInitialized(); return _bodyDistribution; } private set { _bodyDistribution = value; } }
-		public PointStatOctad PointStats { get { EnsureInitialized(); return pointStatOctad; } }
+		public ResourceStatOctad ResourceStats { get { EnsureInitialized(); return resourceStatOctad; } }
 
 		public StatOctad SoulLevels { get { EnsureInitialized(); return _soulLevels; } private set { _soulLevels = value; } }
 		public StatOctad SoulExperience { get { EnsureInitialized(); return _soulExperience; } private set { _soulExperience = value; } }
@@ -27,9 +27,9 @@ namespace SpaxUtils
 		[Header("BODY")]
 		[SerializeField] private StatOctadAsset bodyLevels;
 		[SerializeField] private StatOctadAsset bodyExperience;
-		[SerializeField] private StatOctadAsset physicsOctad;
+		[SerializeField] private StatOctadAsset physicStatOctad;
 		[SerializeField] private StatMap bodyAttributeMap;
-		[SerializeField] private PointStatOctad pointStatOctad; // Locally defined.
+		[SerializeField] private ResourceStatOctad resourceStatOctad; // Locally defined.
 		[Header("SOUL")]
 		[SerializeField] private StatOctadAsset soulLevels;
 		[SerializeField] private StatOctadAsset soulExperience;
@@ -46,7 +46,7 @@ namespace SpaxUtils
 
 		private StatOctad _bodyLevels;
 		private StatOctad _bodyExperience;
-		private StatOctad _physics;
+		private StatOctad _physicStats;
 		private Vector8 _bodyDistribution;
 		private StatOctad _soulLevels;
 		private StatOctad _soulExperience;
@@ -150,8 +150,8 @@ namespace SpaxUtils
 				soulRanked = true;
 			}
 
-			pointStatOctad.Initialize(agent);
-			Physics = physicsOctad.Initialize(agent);
+			resourceStatOctad.Initialize(agent);
+			PhysicStats = physicStatOctad.Initialize(agent);
 
 			// Cache both EXP gain multipliers per element; body level drives the soul's rate and vice versa.
 			bodyExpGain = new EntityStat[8];
@@ -292,7 +292,7 @@ namespace SpaxUtils
 				recoveryMod.SetValue(agent.Body.RigidbodyWrapper.Control);
 			}
 
-			pointStatOctad.Update(delta);
+			resourceStatOctad.Update(delta);
 			UpdateExpDecay(delta);
 		}
 
@@ -301,26 +301,26 @@ namespace SpaxUtils
 		/// </summary>
 		public void RecoverAll()
 		{
-			pointStatOctad.Recover();
+			resourceStatOctad.Recover();
 		}
 
 		/// <summary>
-		/// Will try to return a defined <see cref="PointsStat"/> with ID <paramref name="stat"/>.
+		/// Will try to return a defined <see cref="ResourceStat"/> with ID <paramref name="stat"/>.
 		/// </summary>
 		/// <param name="stat"></param>
-		/// <param name="pointStat"></param>
+		/// <param name="resourceStat"></param>
 		/// <returns></returns>
-		public bool TryGetPointStat(string stat, out PointsStat pointStat)
+		public bool TryGetResourceStat(string stat, out ResourceStat resourceStat)
 		{
 			for (int i = 0; i < 8; i++)
 			{
-				if (pointStatOctad[i].Identifier == stat)
+				if (resourceStatOctad[i].Identifier == stat)
 				{
-					pointStat = pointStatOctad[i];
+					resourceStat = resourceStatOctad[i];
 					return true;
 				}
 			}
-			pointStat = null;
+			resourceStat = null;
 			return false;
 		}
 
@@ -328,7 +328,7 @@ namespace SpaxUtils
 
 		/// <summary>
 		/// Rewards experience for an amount measured in BARS: 1 bar equals a full emptying of <paramref name="element"/>'s
-		/// point-stat, which is what makes rewards comparable across the eight elements.
+		/// resource, which is what makes rewards comparable across the eight elements.
 		/// </summary>
 		/// <param name="source">Optional <see cref="ExpSources"/> identifier; carries the weight and anti-farm decay.</param>
 		/// <param name="bodyShare">Fraction rewarded to the body attribute. Spellwork feeds the soul only.</param>
@@ -357,7 +357,7 @@ namespace SpaxUtils
 
 			ExpSettings.Source config = expSettings.GetSource(source);
 			float exp = bars * ConsumeDecay(source, config.decayTime, bars) * config.weight *
-				expSettings.GetElementWeight(element) * PointStats[element].Max;
+				expSettings.GetElementWeight(element) * ResourceStats[element].Max;
 
 			if (exp <= 0f)
 			{
@@ -379,11 +379,11 @@ namespace SpaxUtils
 
 		/// <summary>
 		/// <see cref="RewardExp(Element, float, string, float, float)"/> for an amount measured in points of
-		/// <paramref name="element"/>'s own point-stat; converts to bars.
+		/// <paramref name="element"/>'s own resource; converts to bars.
 		/// </summary>
 		public float RewardExpPoints(Element element, float points, string source = null, float bodyShare = 1f, float soulShare = 1f)
 		{
-			float max = PointStats[(int)element].Max;
+			float max = ResourceStats[(int)element].Max;
 			return max > 0f ? RewardExp(element, points / max, source, bodyShare, soulShare) : 0f;
 		}
 
@@ -438,40 +438,40 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
-		/// Hooks the EXP conditions the point-stats report themselves: overdrawing, recovering and regaining reserve.
+		/// Hooks the EXP conditions the resource stats report themselves: overdrawing, recovering and regaining reserve.
 		/// Act-shaped conditions (striking, guarding, jumping) reward from their own call sites.
-		/// Uses <see cref="pointStatOctad"/> directly; the point-stats exist before initialization, so a subscription
+		/// Uses <see cref="resourceStatOctad"/> directly; the resource stats exist before initialization, so a subscription
 		/// here never forces it.
 		/// </summary>
 		private void SubscribeExpConditions()
 		{
-			pointStatOctad.N.ReserveLostEvent += OnEnergyReserveLost;
-			pointStatOctad.SE.RecoveredEvent += OnGraceGained;
-			pointStatOctad.SE.DrainedEvent += OnGraceDrained;
-			pointStatOctad.S.DrainedEvent += OnManaSpent;
-			pointStatOctad.SW.RecoveredEvent += OnHealthRecovered;
+			resourceStatOctad.N.ReserveLostEvent += OnEnergyReserveLost;
+			resourceStatOctad.SE.RecoveredEvent += OnGraceGained;
+			resourceStatOctad.SE.DrainedEvent += OnGraceDrained;
+			resourceStatOctad.S.DrainedEvent += OnManaSpent;
+			resourceStatOctad.SW.RecoveredEvent += OnHealthRecovered;
 
 			// Any stat's reserve recovery pays Nature; cached per index so they can be unsubscribed again.
 			reserveGainedHandlers ??= CreateReserveGainedHandlers();
 			for (int i = 0; i < 8; i++)
 			{
-				pointStatOctad[i].ReserveGainedEvent += reserveGainedHandlers[i];
+				resourceStatOctad[i].ReserveGainedEvent += reserveGainedHandlers[i];
 			}
 		}
 
 		private void UnsubscribeExpConditions()
 		{
-			pointStatOctad.N.ReserveLostEvent -= OnEnergyReserveLost;
-			pointStatOctad.SE.RecoveredEvent -= OnGraceGained;
-			pointStatOctad.SE.DrainedEvent -= OnGraceDrained;
-			pointStatOctad.S.DrainedEvent -= OnManaSpent;
-			pointStatOctad.SW.RecoveredEvent -= OnHealthRecovered;
+			resourceStatOctad.N.ReserveLostEvent -= OnEnergyReserveLost;
+			resourceStatOctad.SE.RecoveredEvent -= OnGraceGained;
+			resourceStatOctad.SE.DrainedEvent -= OnGraceDrained;
+			resourceStatOctad.S.DrainedEvent -= OnManaSpent;
+			resourceStatOctad.SW.RecoveredEvent -= OnHealthRecovered;
 
 			if (reserveGainedHandlers != null)
 			{
 				for (int i = 0; i < 8; i++)
 				{
-					pointStatOctad[i].ReserveGainedEvent -= reserveGainedHandlers[i];
+					resourceStatOctad[i].ReserveGainedEvent -= reserveGainedHandlers[i];
 				}
 			}
 		}
@@ -496,7 +496,7 @@ namespace SpaxUtils
 		private void OnReserveGained(int index, float amount)
 		{
 			// Measured against the stat that regained it, rewarded to Nature which owns all recovery.
-			float max = PointStats[index].Max;
+			float max = ResourceStats[index].Max;
 			if (max > 0f)
 			{
 				RewardExp(Element.Nature, amount / max, ExpSources.RESERVE_RECOVERY);
