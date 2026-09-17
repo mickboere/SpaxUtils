@@ -95,6 +95,8 @@ namespace SpaxUtils
 		private float maxStick;
 		private float maxReach;
 		private bool stickTravelling;
+		private IStormFeedback stormFeedback;
+		private bool storming;
 		private float stickTravelTimer;
 		private float stickDesired;
 		private Vector3 stickHeading;
@@ -146,7 +148,8 @@ namespace SpaxUtils
 			AgentStatHandler statHandler,
 			AgentCombatComponent combatComponent,
 			AgentImpactHandler agentImpactHandler,
-			AgentAudioHandler agentAudioHandler)
+			AgentAudioHandler agentAudioHandler,
+			[Optional] IStormFeedback stormFeedback)
 		{
 			this.move = move;
 			this.callbackService = callbackService;
@@ -162,6 +165,7 @@ namespace SpaxUtils
 			this.combatComponent = combatComponent;
 			this.agentImpactHandler = agentImpactHandler;
 			this.agentAudioHandler = agentAudioHandler;
+			this.stormFeedback = stormFeedback;
 
 			timescaleStat = Agent.Stats.GetStat(EntityStatIdentifiers.TIMESCALE, true, 1f);
 			limbMassStat = Agent.Stats.GetStat(AgentStatIdentifiers.MASS.SubStat(this.move.Limb));
@@ -269,6 +273,7 @@ namespace SpaxUtils
 
 			stormShake?.Dispose();
 			swingShake?.Dispose();
+			UpdateStormFeedback();
 		}
 
 		public override void ExternalUpdate(float delta)
@@ -351,6 +356,7 @@ namespace SpaxUtils
 			{
 				swingShake.Intensity = (Performer.RunTime / Move.MinDuration).InvertClamped();
 			}
+			UpdateStormFeedback();
 			if (stormShake != null)
 			{
 				// Driven by SPEED, not raw acceleration — acceleration spikes into the thousands during the drive
@@ -549,6 +555,33 @@ namespace SpaxUtils
 		private float LeapSpeed(float distance)
 		{
 			return distance / LeapTime(distance);
+		}
+
+		/// <summary>
+		/// Storm feedback follows the storm LEAP only; polled because travel ends in several places.
+		/// </summary>
+		private void UpdateStormFeedback()
+		{
+			if (stormFeedback == null)
+			{
+				return;
+			}
+
+			bool active = hasStorm && stickTravelling;
+			if (active && !storming)
+			{
+				stormFeedback.BeginStorm(stickHeading);
+			}
+			else if (!active && storming)
+			{
+				stormFeedback.EndStorm();
+			}
+			storming = active;
+
+			if (storming)
+			{
+				stormFeedback.UpdateStorm(Mathf.Clamp01(rigidbodyWrapper.Speed / Mathf.Max(stickSpeed, 0.01f)));
+			}
 		}
 
 		/// <summary>
@@ -961,9 +994,9 @@ namespace SpaxUtils
 			statHandler.RewardExp(Element.Void,
 				hitData.Data.GetValue<float>(HitDataIdentifiers.SLASH_DAMAGE) / healthMax, ExpSources.SLASH_OUTPUT);
 
+			// A deflected hit still connected, so the charge it delivered is still paid for.
 			bool neglected = hitData.Data.GetValue<bool>(HitDataIdentifiers.BLOCKED) ||
-				hitData.Data.GetValue<bool>(HitDataIdentifiers.PARRIED) ||
-				hitData.Data.GetValue<bool>(HitDataIdentifiers.DEFLECTED);
+				hitData.Data.GetValue<bool>(HitDataIdentifiers.PARRIED);
 
 			// A charge is worthless until it connects; pay once per swing for the charge that was delivered.
 			if (!chargeRewarded && accumulatedChargePoints > 0f && !neglected)

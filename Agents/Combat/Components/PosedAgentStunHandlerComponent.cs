@@ -8,8 +8,7 @@ namespace SpaxUtils
 	public class PosedAgentStunHandlerComponent : AgentStunHandlerComponent
 	{
 		#region Tooltips
-		private const string TT_RECOVERY_THRESH = "Upper velocity threshold below which Agent begins to recover.";
-		private const string TT_RECOVERED_THRESH = "Lower velocity threshold below which control is fully returned to Agent.";
+		private const string TT_RECOVERY_THRESH = "Grounded speed below which recovery starts. Recovery lasts the predicted braking time from that speed.";
 		#endregion Tooltips
 
 		protected override bool DefaultExitBehavior => false;
@@ -18,14 +17,12 @@ namespace SpaxUtils
 		[Header("Grounded")]
 		[SerializeField] private PoseBlendMap hitBlendTree;
 		[SerializeField, Tooltip(TT_RECOVERY_THRESH)] protected float recoveryThreshold = 3f;
-		[SerializeField, Tooltip(TT_RECOVERED_THRESH)] protected float recoveredThreshold = 2f;
 
 		[Header("Flying")]
 		[SerializeField] private float horizontalFlyThreshold = 15f;
 		[SerializeField] private float verticalFlyThreshold = 1f;
 		[SerializeField] private AnimationClip airbornePoseClip;
 		[SerializeField] private AnimationClip flooredPoseClip;
-		[SerializeField] private float getUpTime = 0.5f;
 		[SerializeField] private AnimationClip fallPoseClip;
 		[SerializeField] private float fallThreshold = 10f;
 		[SerializeField] private AnimationClip crashPoseClip;
@@ -58,8 +55,7 @@ namespace SpaxUtils
 
 		private bool flying;
 		private float smoothedFlyingAmount;
-
-		private TimerClass getUpTimer;
+		private TimerClass recoveryTimer;
 		private TimerClass crashTimer;
 		private RaycastHit crashHit;
 
@@ -137,19 +133,29 @@ namespace SpaxUtils
 
 			flying = flying || shouldFly;
 
-			UpdateGroundedStun();
-
-			// IMPORTANT:
-			// UpdateGroundedStun can call ExitStun(), which disposes timers.
-			// Do not run flying logic after that in the same frame.
-			if (!Stunned)
+			// Latch once, so regained movement can't hold us above the threshold. Planted decel is constant: t = 2d/v.
+			float speed = rigidbodyWrapper.PredictedVelocity.magnitude;
+			if (recoveryTimer == null && speed < recoveryThreshold && (grounder == null || grounder.Grounded))
 			{
-				return;
+				float time = speed > 0.0001f ? 2f * movementHandler.PredictBrakingDistance(speed) / speed : 0f;
+				recoveryTimer = new TimerClass(Mathf.Max(time, 0.0001f), () => EntityTimeScale, callbackService, UpdateMode.FixedUpdate);
 			}
+
+			UpdateGroundedStun();
 
 			if (flying)
 			{
 				UpdateFlyingStun();
+			}
+
+			// Unblock at recovery; performers gate themselves on the returning Control.
+			if (recoveryTimer != null && stunTimer.Expired)
+			{
+				Agent.Actor.RemoveBlocker(this);
+				if (recoveryTimer.Expired)
+				{
+					ExitStun();
+				}
 			}
 		}
 
@@ -188,29 +194,26 @@ namespace SpaxUtils
 
 		private void UpdateGroundedStun()
 		{
+			// OutQuad of the remaining time mirrors the old speed ramp under constant deceleration.
 			float stunAmount =
 				Mathf.Max(
 					stunTimer.Progress.InvertClamped().InOutExpo(),
-					Mathf.InverseLerp(recoveredThreshold, recoveryThreshold, rigidbodyWrapper.Speed).OutQuad());
+					recoveryTimer != null ? recoveryTimer.Progress.InvertClamped().OutQuad() : 1f);
 
 			IPoserInstructions instructions =
 				hitBlendTree.GetInstructions(0f, -stunHit.Direction.LocalizeDirection(rigidbodyWrapper.transform));
 
 			animatorPoser.ProvideInstructions(hitBlendTree, PoserLayerConstants.BODY, instructions, 10, stunAmount);
 			armsMod.SetValue(stunAmount.Invert());
+			controlMod.SetValue(stunAmount.Invert());
 
 			if (Debug)
 			{
 				SpaxDebug.Log("Stun: Grounded",
 					"velocity=" + rigidbodyWrapper.Velocity +
 					" crashTimer=" + (crashTimer != null ? crashTimer.Time.ToString("0.###") : "NULL") +
-					" getUpTimer=" + (getUpTimer != null ? getUpTimer.Time.ToString("0.###") : "NULL") +
+					" recoveryTimer=" + (recoveryTimer != null ? recoveryTimer.Time.ToString("0.###") : "NULL") +
 					"\nstunAmount=" + stunAmount.ToString("0.###"));
-			}
-
-			if (stunTimer.Expired && rigidbodyWrapper.Speed < recoveredThreshold)
-			{
-				ExitStun();
 			}
 		}
 
@@ -272,23 +275,15 @@ namespace SpaxUtils
 			float blend = (grounder != null && grounder.Grounded && crashTimer == null) ? 0f : fallAmount;
 			PoserInstructions pose = new PoserInstructions(blastedPose, fallingPose, blend);
 
-			// Get-up timer.
-			float stunWeight = 1f;
-			if (getUpTimer != null)
-			{
-				stunWeight *= getUpTimer.Progress.InvertClamped();
-			}
-			else if (grounder != null && grounder.Grounded && rigidbodyWrapper.Speed < recoveryThreshold)
-			{
-				getUpTimer = new TimerClass(getUpTime, () => EntityTimeScale, callbackService, UpdateMode.FixedUpdate);
-			}
+			// Get up over the recovery timer.
+			float stunWeight = recoveryTimer != null ? recoveryTimer.Progress.InvertClamped() : 1f;
 
 			if (Debug)
 			{
 				SpaxDebug.Log("Stun: Flying",
 					"velocity=" + rigidbodyWrapper.Velocity +
 					" crashTimer=" + (crashTimer != null ? crashTimer.Time.ToString("0.###") : "NULL") +
-					" getUpTimer=" + (getUpTimer != null ? getUpTimer.Time.ToString("0.###") : "NULL") +
+					" recoveryTimer=" + (recoveryTimer != null ? recoveryTimer.Time.ToString("0.###") : "NULL") +
 					"\nrawGround=" + (grounder != null ? grounder.GroundedAmount.ToString("0.###") : "NULL") +
 					" fly=" + smoothedFlyingAmount.ToString("0.###") +
 					" grounded=" + groundedAmount.ToString("0.###") +
@@ -303,17 +298,12 @@ namespace SpaxUtils
 
 			animatorPoser.ProvideInstructions(airbornePose, PoserLayerConstants.BODY, pose, 11, stunWeight);
 			armsMod.SetValue(stunWeight.Invert());
-
-			if (getUpTimer != null && getUpTimer.Expired)
-			{
-				ExitStun();
-			}
 		}
 
 		private void CleanTimers()
 		{
-			getUpTimer?.Dispose();
-			getUpTimer = null;
+			recoveryTimer?.Dispose();
+			recoveryTimer = null;
 
 			crashTimer?.Dispose();
 			crashTimer = null;

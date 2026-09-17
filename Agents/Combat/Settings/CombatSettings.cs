@@ -8,13 +8,13 @@ namespace SpaxUtils
 		public Vector2 HitPauseReceiver => hitPauseReceiver;
 		public Vector2 HitPauseSender => hitPauseSender;
 		public AnimationCurve HitPauseCurve => hitPauseCurve;
+		public float MinStunTime => minStunTime;
 		public float BlockedStunTime => blockedStunTime;
 		public float ParriedStunTime => parriedStunTime;
 		public float DeflectorHitPause => deflectorHitPause;
 		public float DeflectedHitPause => deflectedHitPause;
 		public float CritSenderHitPause => critSenderHitPause;
 		public float CritReceiverHitPause => critReceiverHitPause;
-		public float DeflectEnduranceShare => deflectEnduranceShare;
 		public float StaticGain => staticGain;
 		public float MaliceGain => maliceGain;
 		public float DeflectStaticPercent => deflectStaticPercent;
@@ -52,6 +52,8 @@ namespace SpaxUtils
 		[SerializeField, MinMaxRange(0f, 1f)] private Vector2 hitPauseReceiver = new Vector2(0.05f, 0.75f);
 		[SerializeField, MinMaxRange(0f, 1f)] private Vector2 hitPauseSender = new Vector2(0.05f, 0.25f);
 		[SerializeField] private AnimationCurve hitPauseCurve;
+		[SerializeField, Tooltip("Minimum duration (s) of a stun from depleted endurance.")]
+		private float minStunTime = 0.5f;
 		[SerializeField] private float blockedStunTime = 1.25f;
 		[SerializeField] private float parriedStunTime = 1.5f;
 		[SerializeField, Tooltip("Fixed hit-pause (s) for the agent who deflected. Shorter than the attacker's, so recovering first is the reward.")]
@@ -62,8 +64,6 @@ namespace SpaxUtils
 		private float critSenderHitPause = 0.5f;
 		[SerializeField, Tooltip("Fixed hit-pause (s) for the agent who was critted. Ignores impact.")]
 		private float critReceiverHitPause = 1f;
-		[SerializeField, Range(0f, 1f), Tooltip("Share of the stagger a deflect negated that the deflector still eats. The hitter takes the remainder.")]
-		private float deflectEnduranceShare = 0.5f;
 
 		// Tuned in SpecGraph (Tools/Graphs/damage.model.json); keep the two in step.
 		[Header("Damage")]

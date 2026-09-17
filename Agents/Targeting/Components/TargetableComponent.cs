@@ -70,6 +70,19 @@ namespace SpaxUtils
 			this.headProvider = headProvider;
 		}
 
+		/// <summary>Drops the renderer cache; domain reload is off, so it would otherwise outlive the session.</summary>
+		protected void OnEnable()
+		{
+			renderersAtStart = null;
+		}
+
+#if UNITY_EDITOR
+		protected void OnValidate()
+		{
+			renderersAtStart = null;
+		}
+#endif
+
 		protected virtual void Start()
 		{
 			GetRenderers();
@@ -83,7 +96,8 @@ namespace SpaxUtils
 				SpaxDebug.Error("Fetching renderers from non-existing targetable.", $"Entity: {Entity.Identification}");
 			}
 
-			if (renderersAtStart == null || renderersAtStart.Any(r => r == null))
+			// An empty cache is re-fetched too: renderers may not exist yet the first time this runs.
+			if (renderersAtStart == null || renderersAtStart.Length == 0 || renderersAtStart.Any(r => r == null))
 			{
 				renderersAtStart = GetComponentsInChildren<Renderer>(); ;
 			}

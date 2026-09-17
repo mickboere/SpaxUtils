@@ -22,6 +22,8 @@ namespace SpaxUtils
 		[Header("Deflecting")]
 		[SerializeField, Range(0f, 1f), Tooltip("0 is at beginning of charge, 1 is at end of minimum charge.")]
 		private float windowShift = 0.5f;
+		[SerializeField, Range(0f, 1f), Tooltip("Leading fraction of the window that counts as perfect: no endurance or health lost.")]
+		private float perfectFraction = 0.2f;
 		[SerializeField, Tooltip("Clip seconds the reaction jumps to the instant a deflect lands, so the arm reacts before the hit-paused clock catches up.")]
 		private float reactionLead = 0.015f;
 		[SerializeField, Tooltip("Logs the whole deflect lifecycle per frame to Debuddy.")] private bool debug;
@@ -94,8 +96,8 @@ namespace SpaxUtils
 				return;
 			}
 
-			// Only a window that CLOSED empty is a failure; leaving Preparing never was.
-			if (!deflected && WindowClosed)
+			// Released without deflecting anything: the deflect is over.
+			if (!deflected)
 			{
 				Performer.TryCancel(true);
 			}
@@ -132,11 +134,31 @@ namespace SpaxUtils
 				$"paused:{Performer.Paused} weight:{Weight:0.00} head:{(TimelinePlayer == null ? -1f : TimelinePlayer.Time):0.000}");
 		}
 
+		/// <summary>Timing quality 0-1: rises to window-open, holds over the perfect span, falls to 0 at close.</summary>
+		private float Quality()
+		{
+			float open = Move.MinCharge * windowShift;
+			float perfect = open + window * perfectFraction;
+			float close = open + window;
+
+			if (elapsed < open)
+			{
+				return Mathf.Clamp01(elapsed / open);
+			}
+			if (elapsed <= perfect)
+			{
+				return 1f;
+			}
+			return close > perfect ? Mathf.Clamp01(1f - (elapsed - perfect) / (close - perfect)) : 0f;
+		}
+
 		private void OnHitEvent(HitData hitData)
 		{
-			if (InWindow)
+			// Held means still charging; any hit while held is deflected, timing only sets the cost.
+			if (Performer.State == PerformanceState.Preparing)
 			{
 				hitData.Data.SetValue(HitDataIdentifiers.DEFLECTED, true);
+				hitData.Data.SetValue(HitDataIdentifiers.DEFLECT_QUALITY, Quality());
 				deflected = true;
 				deflectTime = Performer.ChargeTime;
 
@@ -151,7 +173,7 @@ namespace SpaxUtils
 
 				if (debug)
 				{
-					SpaxDebug.Log("DEFLECT hit", $"elapsed:{elapsed:0.000} chargeTime:{Performer.ChargeTime:0.000}");
+					SpaxDebug.Log("DEFLECT hit", $"elapsed:{elapsed:0.000} quality:{Quality():0.00} chargeTime:{Performer.ChargeTime:0.000}");
 				}
 			}
 		}

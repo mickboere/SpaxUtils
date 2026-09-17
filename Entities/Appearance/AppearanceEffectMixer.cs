@@ -8,7 +8,7 @@ namespace SpiritAxis
 	/// Mixes appearance effect requests (id, prio, weight) into final shader values.
 	/// Shared by <see cref="EntityAppearanceEffectHandler"/> and the editor preview.
 	/// </summary>
-	public class AppearanceEffectMixer
+	public class AppearanceEffectMixer : IAppearanceEffects
 	{
 		private struct FlashRequest
 		{
@@ -25,6 +25,21 @@ namespace SpiritAxis
 			public float fade;
 		}
 
+		private struct RippleRequest
+		{
+			public DeformRipple ripple;
+			public float floor;
+			public float height;
+			public int order;
+		}
+
+		private struct SmearRequest
+		{
+			public DeformSmear smear;
+			public float floor;
+			public float height;
+		}
+
 		/// <summary>
 		/// Whether any request changed since the last <see cref="ApplyTo"/>.
 		/// </summary>
@@ -32,17 +47,10 @@ namespace SpiritAxis
 
 		private readonly Dictionary<object, FlashRequest> flashRequests = new Dictionary<object, FlashRequest>();
 		private readonly Dictionary<object, FadeRequest> fadeRequests = new Dictionary<object, FadeRequest>();
-		private readonly Dictionary<object, float> amplitudeRequests = new Dictionary<object, float>();
+		private readonly Dictionary<object, RippleRequest> rippleRequests = new Dictionary<object, RippleRequest>();
+		private readonly Dictionary<object, SmearRequest> smearRequests = new Dictionary<object, SmearRequest>();
 
-		private float offsetFloor;
-		private float offsetHeight = 1f;
-		private Vector3 wavePoint;
-		private Vector3 waveDirection = Vector3.forward;
-		private float waveRadius;
-		private float waveLength = 1f;
-		private float waveDecay = 1f;
-		private float waveFalloff = 1000f;
-		private float waveStretch;
+		private int rippleOrder;
 
 		public void RequestFlash(object id, int prio, float weight, Color color, float amount)
 		{
@@ -77,36 +85,28 @@ namespace SpiritAxis
 			Dirty = true;
 		}
 
-		/// <summary>
-		/// Requests vertex offset strength along the wave direction; requests sum.
-		/// Zero at <paramref name="floor"/>, full strength <paramref name="height"/> above it.
-		/// </summary>
-		public void RequestAmplitude(object id, float amplitude, float floor, float height)
+		/// <inheritdoc/>
+		public void RequestRipple(object id, DeformRipple ripple, float floor, float height)
 		{
 			if (id == null)
 			{
 				return;
 			}
 
-			amplitudeRequests[id] = amplitude;
-			offsetFloor = floor;
-			offsetHeight = height;
+			int order = rippleRequests.TryGetValue(id, out RippleRequest existing) ? existing.order : ++rippleOrder;
+			rippleRequests[id] = new RippleRequest { ripple = ripple, floor = floor, height = height, order = order };
 			Dirty = true;
 		}
 
-		/// <summary>
-		/// Sets the ripple the vertex offset rides on; a newer hit replaces the running wave.
-		/// </summary>
-		public void RequestWave(Vector3 point, Vector3 direction, float radius,
-			float length, float decay, float falloff, float stretch)
+		/// <inheritdoc/>
+		public void RequestSmear(object id, DeformSmear smear, float floor, float height)
 		{
-			wavePoint = point;
-			waveDirection = direction;
-			waveRadius = radius;
-			waveLength = length;
-			waveDecay = decay;
-			waveFalloff = falloff;
-			waveStretch = stretch;
+			if (id == null)
+			{
+				return;
+			}
+
+			smearRequests[id] = new SmearRequest { smear = smear, floor = floor, height = height };
 			Dirty = true;
 		}
 
@@ -119,7 +119,8 @@ namespace SpiritAxis
 
 			bool removed = flashRequests.Remove(id);
 			removed |= fadeRequests.Remove(id);
-			removed |= amplitudeRequests.Remove(id);
+			removed |= rippleRequests.Remove(id);
+			removed |= smearRequests.Remove(id);
 
 			if (removed)
 			{
@@ -127,11 +128,21 @@ namespace SpiritAxis
 			}
 		}
 
+		/// <summary>
+		/// The smear and feet pin the current requests resolve to.
+		/// </summary>
+		public void GetSmear(out DeformSmear smear, out float floor, out float height)
+		{
+			smear = CalculateSmear();
+			CalculatePin(out floor, out height);
+		}
+
 		public void ClearAll()
 		{
 			flashRequests.Clear();
 			fadeRequests.Clear();
-			amplitudeRequests.Clear();
+			rippleRequests.Clear();
+			smearRequests.Clear();
 			Dirty = true;
 		}
 
@@ -142,13 +153,14 @@ namespace SpiritAxis
 		{
 			CalculateFlash(out Color flashColor, out float flashAmount);
 			CalculateFade(out float alphaFade);
+			CalculatePin(out float floor, out float height);
 
 			renderer.SetEffectColor(flashColor);
 			renderer.SetEffectAmount(flashAmount);
 			renderer.SetAlphaFade(alphaFade);
-			renderer.SetShake(CalculateAmplitude(), offsetFloor, offsetHeight);
-			renderer.SetWave(wavePoint, waveDirection, waveRadius,
-				waveLength, waveDecay, waveFalloff, waveStretch);
+			renderer.SetPin(floor, height);
+			renderer.SetRipple(CalculateRipple());
+			renderer.SetSmear(CalculateSmear());
 
 			Dirty = false;
 		}
@@ -269,16 +281,75 @@ namespace SpiritAxis
 			fade = Mathf.Clamp01(1f - visibility);
 		}
 
-		private float CalculateAmplitude()
+		private DeformRipple CalculateRipple()
 		{
-			float sum = 0f;
+			DeformRipple result = new DeformRipple();
+			int latest = int.MinValue;
 
-			foreach (KeyValuePair<object, float> kv in amplitudeRequests)
+			foreach (KeyValuePair<object, RippleRequest> kv in rippleRequests)
 			{
-				sum += kv.Value;
+				if (kv.Value.order > latest)
+				{
+					latest = kv.Value.order;
+					result = kv.Value.ripple;
+				}
 			}
 
-			return sum;
+			return result;
+		}
+
+		/// <summary>
+		/// One pin for every offset: the lowest floor and highest top any request asks for.
+		/// </summary>
+		private void CalculatePin(out float floor, out float height)
+		{
+			bool any = false;
+			float low = 0f;
+			float top = 1f;
+
+			void Include(float requestFloor, float requestHeight)
+			{
+				float requestTop = requestFloor + requestHeight;
+				low = any ? Mathf.Min(low, requestFloor) : requestFloor;
+				top = any ? Mathf.Max(top, requestTop) : requestTop;
+				any = true;
+			}
+
+			foreach (KeyValuePair<object, RippleRequest> kv in rippleRequests)
+			{
+				Include(kv.Value.floor, kv.Value.height);
+			}
+
+			foreach (KeyValuePair<object, SmearRequest> kv in smearRequests)
+			{
+				Include(kv.Value.floor, kv.Value.height);
+			}
+
+			floor = low;
+			height = Mathf.Max(top - low, 0.01f);
+		}
+
+		private DeformSmear CalculateSmear()
+		{
+			DeformSmear result = new DeformSmear { Falloff = 1f, StreakScale = 1f };
+			Vector3 sum = Vector3.zero;
+			float strongest = -1f;
+
+			foreach (KeyValuePair<object, SmearRequest> kv in smearRequests)
+			{
+				DeformSmear smear = kv.Value.smear;
+				sum += smear.Vector;
+
+				float strength = smear.Vector.sqrMagnitude;
+				if (strength > strongest)
+				{
+					strongest = strength;
+					result = smear;
+				}
+			}
+
+			result.Vector = sum;
+			return result;
 		}
 
 		private static int CompareFlash(FlashRequest a, FlashRequest b)

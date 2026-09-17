@@ -16,6 +16,11 @@ namespace SpaxUtils
 		/// <summary>Seconds until this agent's current hit-pause lifts; 0 when none is running.</summary>
 		public float HitPauseRemaining => hitPauseMod == null ? 0f : Mathf.Max(0f, hitPauseMod.Timer.Remaining);
 
+		/// <summary>Current value of the hit-pause curve (the timescale it applies); 1 when no pause is running.</summary>
+		public float HitPauseCurveValue => hitPauseMod == null || hitPauseMod.Timer.Expired
+			? 1f
+			: combatSettings.HitPauseCurve.Evaluate(hitPauseMod.Timer.Progress);
+
 		[SerializeField, Tooltip("When enabled, hits landing toward this agent's back raise effective Vulnerability toward 1 (shaped by CombatSettings.RearExposureCurve), letting crits land from behind even through guard. When disabled, only the base Vulnerability stat is used regardless of hit angle.")]
 		private bool backTurnWeakness = false;
 
@@ -82,7 +87,10 @@ namespace SpaxUtils
 			bool blocked = hitData.Data.GetValue<bool>(HitDataIdentifiers.BLOCKED);
 			bool parried = hitData.Data.GetValue<bool>(HitDataIdentifiers.PARRIED);
 			bool deflected = hitData.Data.GetValue<bool>(HitDataIdentifiers.DEFLECTED);
-			bool neglect = blocked || parried || deflected;
+			bool neglect = blocked || parried;
+
+			// A deflect resolves as a real hit; its timing quality decides how much of it endurance pays.
+			float deflectQuality = deflected ? Mathf.Clamp01(hitData.Data.GetValue<float>(HitDataIdentifiers.DEFLECT_QUALITY)) : 0f;
 
 			// --- 1. GUARD ---
 			// Rear exposure lifts Vulnerability toward 1 and takes the guard off that hit.
@@ -122,7 +130,7 @@ namespace SpaxUtils
 			// A crit found a gap: its odds come from the guarded point, but it lands with the unguarded one.
 			float pierceOpen = neglect ? 0f : hitData.Pierce * SpaxFormulas.Contests(couplingOpen, pierceDrive, combatSettings.ContestPower);
 			float pierceDamage = neglect ? 0f : pierceIn * SpaxFormulas.Contests(coupling, pierceDrive, combatSettings.ContestPower);
-			bool isCrit = !neglect &&
+			bool isCrit = !neglect && !deflected &&
 				hitData.Pierce > 0f &&
 				Random.value < SpaxFormulas.CalculateCritChance(coupling, vulnerability, hitData.Luck, luckStat);
 			float critDamage = isCrit ? pierceOpen * combatSettings.CritMultiplier : 0f;
@@ -173,11 +181,11 @@ namespace SpaxUtils
 			float stagger = SpaxFormulas.CalculateDamage(force, meanDefence);
 			float full = combatSettings.StaggerDamageWeight * (slashDamage + pierceDamage + critDamage) + stagger;
 
-			// A deflect splits what it negated: we eat our share, the hitter eats the rest (applied their side).
-			float toEndure = deflected ? full * combatSettings.DeflectEnduranceShare : (neglect ? 0f : full);
+			// Deflect timing splits the cost: we pay what it missed, the hitter what it caught (applied their side).
+			float toEndure = neglect ? 0f : full * (1f - deflectQuality);
 			if (deflected)
 			{
-				hitData.Data.SetValue(HitDataIdentifiers.ENDURANCE_RETURN, full - toEndure);
+				hitData.Data.SetValue(HitDataIdentifiers.ENDURANCE_RETURN, full * deflectQuality);
 			}
 
 			float enduranceDamage = statHandler.ResourceStats.W.Drain(
@@ -227,8 +235,8 @@ namespace SpaxUtils
 				: Vector3.zero;
 
 			// FORCE — an even split while they hold their stance, all theirs when spent.
-			// A negated hit withstands the strike and turns the whole of it back on the attacker.
-			float receiverShare = neglect ? 0f : Mathf.Lerp(0.5f, 1f, spent);
+			// A negated hit turns the whole strike back on the attacker; a deflect does so by its quality.
+			float receiverShare = neglect ? 0f : Mathf.Lerp(Mathf.Lerp(0.5f, 1f, spent), 0f, deflectQuality);
 			float impulse = force * elasticity;
 
 			rigidbodyWrapper.Push(clashPush + push * (impulse * receiverShare / rigidbodyWrapper.Mass));
@@ -244,10 +252,11 @@ namespace SpaxUtils
 				// Guard trades health for stance: blunt is cancelled off health by guard weight, and already rides endurance
 				// as force. Edges and points were converted upstream; only a crit strikes through.
 				float guarded = bluntDamage * guard;
-				float healthDamage = Mathf.Max(0f, totalDamage - guarded);
+				// A deflect holds everything for as long as endurance pays for it.
+				float healthDamage = deflected ? 0f : Mathf.Max(0f, totalDamage - guarded);
 
-				// A broken guard only held the share endurance paid for; the rest lands as if unguarded.
-				if (stunned && guard > 0f && !neglect)
+				// A broken guard or deflect only held the share endurance paid for; the rest lands as if unguarded.
+				if (stunned && (guard > 0f || deflected) && !neglect)
 				{
 					float openPenetration = SpaxFormulas.Transfer(hitData.Slash, armorStat);
 					float unguarded = hitData.Slash * SpaxFormulas.Contests(openPenetration, slashDrive, combatSettings.ContestPower) + pierceOpen + critDamage
@@ -299,7 +308,7 @@ namespace SpaxUtils
 			float staticThreat = hitData.StrikeMass * hitData.Power * combatSettings.StaticGain;
 			if (parried || deflected)
 			{
-				float built = staticThreat * combatSettings.DeflectStaticPercent;
+				float built = staticThreat * combatSettings.DeflectStaticPercent * (deflected ? deflectQuality : 1f);
 				statHandler.ResourceStats.NE.Current.BaseValue += built;
 
 				// LIGHT: a deflect pays for the threat it neutralised, measured in the Static it grounded.
@@ -315,8 +324,8 @@ namespace SpaxUtils
 			}
 
 			// --- HIT PAUSE ---
-			// Deflects and crits pause for a fixed beat; everything else scales with impact.
-			float pauseTime = deflected ? combatSettings.DeflectorHitPause
+			// Crits pause for a fixed beat, deflects earn their advantage by quality; the rest scales with impact.
+			float pauseTime = deflected ? Mathf.Lerp(combatSettings.DeflectedHitPause, combatSettings.DeflectorHitPause, deflectQuality)
 				: isCrit ? combatSettings.CritReceiverHitPause
 				: combatSettings.HitPauseReceiver.Lerp(impact);
 

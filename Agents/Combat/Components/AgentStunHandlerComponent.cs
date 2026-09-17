@@ -13,18 +13,19 @@ namespace SpaxUtils
 
 		protected virtual bool DefaultExitBehavior { get; } = true;
 
-		[SerializeField] protected float minStunTime = 0.5f;
-
 		protected CallbackService callbackService;
 		protected RigidbodyWrapper rigidbodyWrapper;
+		protected CombatSettings combatSettings;
 		protected FloatOperationModifier controlMod;
 		protected HitData stunHit;
 		protected TimerClass stunTimer;
 
-		public void InjectDependencies(CallbackService callbackService, RigidbodyWrapper rigidbodyWrapper)
+		public void InjectDependencies(CallbackService callbackService, RigidbodyWrapper rigidbodyWrapper,
+			CombatSettings combatSettings)
 		{
 			this.callbackService = callbackService;
 			this.rigidbodyWrapper = rigidbodyWrapper;
+			this.combatSettings = combatSettings;
 		}
 
 		protected virtual void Awake()
@@ -68,7 +69,7 @@ namespace SpaxUtils
 			this.stunHit = stunHit;
 			controlMod.SetValue(0f);
 			stunTimer?.Dispose();
-			stunTimer = new TimerClass(duration > 0f ? duration : minStunTime, () => EntityTimeScale, callbackService, UpdateMode.FixedUpdate);
+			stunTimer = new TimerClass(duration > 0f ? duration : combatSettings.MinStunTime, () => EntityTimeScale, callbackService, UpdateMode.FixedUpdate);
 			Agent.Actor.AddBlocker(this);
 
 			EnteredStunEvent?.Invoke();

@@ -176,9 +176,13 @@ namespace SpaxUtils
 
 		// FLOATS
 		/// <summary>
-		/// Return data: the deflector's share of the negated stagger, drained from the hitter's endurance.
+		/// Return data: the stagger a deflect turned back, drained from the hitter's endurance.
 		/// </summary>
 		public const string ENDURANCE_RETURN = "Endurance_Return";
+		/// <summary>
+		/// Return data: deflect timing quality, 0 (mistimed, acts as an unguarded hit) to 1 (perfect).
+		/// </summary>
+		public const string DEFLECT_QUALITY = "Deflect_Quality";
 		/// <summary>
 		/// Return data defining the guard weight of the receiver during the hit (0=no guard, 1=full guard).
 		/// </summary>

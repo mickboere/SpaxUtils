@@ -49,6 +49,13 @@ namespace SpaxUtils
 		[Header("Load")]
 		[SerializeField, Tooltip("Exponent applied to the LoadPenalty stat. 1 = as encumbered as general movement, higher = dashing suffers more. Never locks the dash out, only degrades it.")]
 		private float loadSensitivity = 2f;
+		[Header("Trail")]
+		[SerializeField, Tooltip("How trail snapshots carry the dash smear: frozen at capture or still scrolling.")]
+		private TrailSmearMode trailSmear = TrailSmearMode.Frozen;
+		[SerializeField, Tooltip("Stretch each trail snapshot's smear back to the previous snapshot so the trail reads connected.")]
+		private bool trailSmearMatchSpacing = true;
+		[SerializeField, Tooltip("Multiplier on the matched smear length, to close gaps the streaks and pin leave.")]
+		private float trailSmearReach = 1f;
 		[Header("SFX")]
 		[SerializeField] private SFXData dashSFX;
 		[SerializeField] private SFXData glideSFX;
@@ -61,6 +68,7 @@ namespace SpaxUtils
 		private Pool<PooledAudioSource> audioPool;
 		private AgentTrailEffect agentTrailEffect;
 		private GrounderComponent grounder;
+		private IDashFeedback dashFeedback;
 
 		private ResourceStat resourceStat;
 		private EntityStat massStat;
@@ -90,8 +98,9 @@ namespace SpaxUtils
 
 		public void InjectDependencies(AgentStatHandler statHandler, CallbackService callbackService, IAgentMovementHandler movementHandler,
 			AgentImpactHandler senseComponent, Pool<PooledAudioSource> audioPool, AgentTrailEffect agentTrailEffect,
-			GrounderComponent grounder)
+			GrounderComponent grounder, [Optional] IDashFeedback dashFeedback)
 		{
+			this.dashFeedback = dashFeedback;
 			this.statHandler = statHandler;
 			this.callbackService = callbackService;
 			this.movementHandler = movementHandler;
@@ -126,6 +135,7 @@ namespace SpaxUtils
 
 			// VFX
 			agentTrailEffect.End();
+			dashFeedback?.EndDash();
 		}
 
 		private void InitiateDash()
@@ -171,7 +181,8 @@ namespace SpaxUtils
 			glideSFX.PlayLoop(glideAudio, true);
 
 			// VFX
-			agentTrailEffect.Begin();
+			agentTrailEffect.Begin(trailSmear, trailSmearMatchSpacing, trailSmearReach);
+			dashFeedback?.BeginDash(direction);
 		}
 
 		// Applies physics.
@@ -251,6 +262,9 @@ namespace SpaxUtils
 				shakeSource.Frequency = IShakeSource.DEFAULT_FREQUENCY * RigidbodyWrapper.Acceleration.magnitude.InvertClamped();
 				shakeSource.Intensity = RigidbodyWrapper.Speed.InverseLerp(movementHandler.FullSpeed, glideSpeed);
 			}
+
+			// Appearance feedback reads the burst itself: run speed is 0, full dash speed is 1.
+			dashFeedback?.UpdateDash(Mathf.Clamp01(RigidbodyWrapper.Speed.InverseLerp(movementHandler.FullSpeed, DashSpeed)));
 
 			// Normalized against the BASE glide speed, not the stat-scaled target — dividing by the live target would
 			// cancel the very thing being expressed and make every level sound identical.

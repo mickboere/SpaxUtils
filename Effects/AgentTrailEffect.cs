@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using SpiritAxis;
 
 namespace SpaxUtils
 {
@@ -14,13 +15,24 @@ namespace SpaxUtils
 		{
 			public Mesh Mesh;
 			public float StartTime;
+			public DeformSmear Smear;
+			public float PinFloor;
+			public float PinHeight;
 		}
 
+		private static readonly int AlphaId = Shader.PropertyToID("_Alpha");
+		private const float MATCHED_FALLOFF = 1000f;
+
+		public Material TrailMaterial => trailMaterial;
+		public float Spacing => spacing;
+		public float Duration => duration;
+
 		[SerializeField] private Material trailMaterial;
-		[SerializeField] private float interval = 0.05f;
+		[SerializeField, Tooltip("Meters travelled between snapshots.")] private float spacing = 0.75f;
 		[SerializeField] private float duration = 0.5f;
 
 		private EntityAppearanceHandler entityAppearanceHandler;
+		private EntityAppearanceEffectHandler appearanceEffects;
 
 		private readonly List<Mesh> meshPool = new List<Mesh>();
 		private readonly List<Snapshot> activeSnapshots = new List<Snapshot>();
@@ -29,23 +41,24 @@ namespace SpaxUtils
 		private MaterialPropertyBlock propertyBlock;
 		private Mesh combinedMesh;
 
-		private float timeSinceLastSnapshot;
+		private Vector3 lastCapturePosition;
+		private bool matchSpacing;
+		private float matchReach = 1f;
 		private bool capturing;
+		private TrailSmearMode smearMode;
 
-		public void InjectDependencies(EntityAppearanceHandler entityAppearanceHandler)
+		public void InjectDependencies(EntityAppearanceHandler entityAppearanceHandler,
+			[Optional] EntityAppearanceEffectHandler appearanceEffects)
 		{
 			this.entityAppearanceHandler = entityAppearanceHandler;
+			this.appearanceEffects = appearanceEffects;
 		}
 
 		protected void Start()
 		{
 			propertyBlock = new MaterialPropertyBlock();
 
-			int maxSnapshots = (duration / interval).CeilToInt();
-			for (int i = 0; i < maxSnapshots; i++)
-			{
-				meshPool.Add(new Mesh());
-			}
+			EnsureMeshPoolSize(8);
 		}
 
 		protected void OnDestroy()
@@ -70,26 +83,54 @@ namespace SpaxUtils
 		{
 			if (capturing)
 			{
-				timeSinceLastSnapshot += Time.deltaTime;
-				if (timeSinceLastSnapshot >= interval)
+				// Distance, not time: even spacing at any speed, so snapshots can be smeared into each other.
+				Vector3 travel = transform.position - lastCapturePosition;
+				if (travel.sqrMagnitude >= spacing * spacing)
 				{
-					timeSinceLastSnapshot = 0f;
-					CaptureSnapshot();
+					CaptureSnapshot(travel);
+					lastCapturePosition = transform.position;
 				}
 			}
 
 			DrawAndCleanupSnapshots();
 		}
 
-		public void Begin()
+		/// <summary>
+		/// Starts capturing; <paramref name="smearMode"/> decides how snapshots carry the body's smear.
+		/// <paramref name="matchSpacing"/> stretches each smear back to the previous snapshot (× <paramref name="reach"/>).
+		/// </summary>
+		public void Begin(TrailSmearMode smearMode = TrailSmearMode.None, bool matchSpacing = false, float reach = 1f)
 		{
+			this.smearMode = smearMode;
+			this.matchSpacing = matchSpacing;
+			matchReach = reach;
 			capturing = true;
-			timeSinceLastSnapshot = 0f;
+			lastCapturePosition = transform.position;
 		}
 
 		public void End()
 		{
 			capturing = false;
+		}
+
+		/// <summary>
+		/// Fade and smear of a snapshot <paramref name="age"/> seconds old; shared with the editor preview.
+		/// </summary>
+		public static void SetSnapshotProperties(MaterialPropertyBlock mpb, DeformSmear smear,
+			float pinFloor, float pinHeight, float age, float duration)
+		{
+			mpb.SetFloat(AlphaId, 1f - age / Mathf.Max(duration, 0.0001f));
+			smear.Phase += age * smear.Scroll;
+			MaterialEffectRenderer.SetSmearProperties(mpb, smear, pinFloor, pinHeight);
+		}
+
+		/// <summary>
+		/// Stretches a snapshot smear back along <paramref name="travel"/> × <paramref name="reach"/>, ignoring falloff.
+		/// </summary>
+		public static void MatchSpacing(ref DeformSmear smear, Vector3 travel, float reach)
+		{
+			smear.Vector = -travel * reach;
+			smear.Falloff = MATCHED_FALLOFF;
 		}
 
 		private void EnsureMeshPoolSize(int required)
@@ -100,7 +141,7 @@ namespace SpaxUtils
 			}
 		}
 
-		private void CaptureSnapshot()
+		private void CaptureSnapshot(Vector3 travel)
 		{
 			List<SkinnedMeshRenderer> renderers = entityAppearanceHandler.ActiveRenderers;
 			if (renderers == null || renderers.Count == 0)
@@ -154,11 +195,28 @@ namespace SpaxUtils
 			}
 
 			Mesh snapshotMesh = Object.Instantiate(combinedMesh);
-			activeSnapshots.Add(new Snapshot
+			Snapshot snapshot = new Snapshot
 			{
 				Mesh = snapshotMesh,
-				StartTime = Time.time
-			});
+				StartTime = Time.time,
+				PinHeight = 1f,
+			};
+
+			if (smearMode != TrailSmearMode.None && appearanceEffects != null)
+			{
+				appearanceEffects.GetSmear(out snapshot.Smear, out snapshot.PinFloor, out snapshot.PinHeight);
+				// Snapshot streaks run from the smear's phase at capture, not the render clock.
+				if (smearMode == TrailSmearMode.Frozen)
+				{
+					snapshot.Smear.Scroll = 0f;
+				}
+				if (matchSpacing)
+				{
+					MatchSpacing(ref snapshot.Smear, travel, matchReach);
+				}
+			}
+
+			activeSnapshots.Add(snapshot);
 		}
 
 		private void DrawAndCleanupSnapshots()
@@ -175,8 +233,7 @@ namespace SpaxUtils
 					continue;
 				}
 
-				float alpha = 1f - (age / duration);
-				propertyBlock.SetFloat("_Alpha", alpha);
+				SetSnapshotProperties(propertyBlock, snapshot.Smear, snapshot.PinFloor, snapshot.PinHeight, age, duration);
 
 				Graphics.DrawMesh(
 					snapshot.Mesh,

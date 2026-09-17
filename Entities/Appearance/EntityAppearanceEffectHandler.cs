@@ -8,7 +8,7 @@ namespace SpiritAxis
 	/// Applies results to all active visual renderers using MaterialPropertyBlock.
 	/// </summary>
 	[DefaultExecutionOrder(60)]
-	public class EntityAppearanceEffectHandler : EntityComponentMono
+	public class EntityAppearanceEffectHandler : EntityComponentMono, IAppearanceEffects
 	{
 		private EntityAppearanceHandler appearanceHandler;
 		private MaterialEffectRenderer effectRenderer;
@@ -63,22 +63,27 @@ namespace SpiritAxis
 			mixer.RequestFade(id, prio, weight, fade01);
 		}
 
-		/// <inheritdoc cref="AppearanceEffectMixer.RequestAmplitude"/>
-		public void RequestAmplitude(object id, float amplitude, float floor, float height)
+		/// <inheritdoc/>
+		public void RequestRipple(object id, DeformRipple ripple, float floor, float height)
 		{
-			mixer.RequestAmplitude(id, amplitude, floor, height);
+			mixer.RequestRipple(id, ripple, floor, height);
 		}
 
-		/// <inheritdoc cref="AppearanceEffectMixer.RequestWave"/>
-		public void RequestWave(Vector3 point, Vector3 direction, float radius,
-			float length, float decay, float falloff, float stretch)
+		/// <inheritdoc/>
+		public void RequestSmear(object id, DeformSmear smear, float floor, float height)
 		{
-			mixer.RequestWave(point, direction, radius, length, decay, falloff, stretch);
+			mixer.RequestSmear(id, smear, floor, height);
 		}
 
 		public void Clear(object id)
 		{
 			mixer.Clear(id);
+		}
+
+		/// <inheritdoc cref="AppearanceEffectMixer.GetSmear"/>
+		public void GetSmear(out DeformSmear smear, out float floor, out float height)
+		{
+			mixer.GetSmear(out smear, out floor, out height);
 		}
 
 		#endregion Requests

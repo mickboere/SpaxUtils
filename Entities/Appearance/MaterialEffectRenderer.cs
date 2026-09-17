@@ -12,16 +12,25 @@ namespace SpaxUtils
 		private static readonly int EffectColorId = Shader.PropertyToID("_Effect_Color");
 		private static readonly int EffectAmountId = Shader.PropertyToID("_Effect_Amount");
 		private static readonly int AlphaFadeId = Shader.PropertyToID("_AlphaFade");
-		private static readonly int HitAmplitudeId = Shader.PropertyToID("_HitAmplitude");
-		private static readonly int HitShakeFloorId = Shader.PropertyToID("_HitShakeFloor");
-		private static readonly int HitShakeHeightId = Shader.PropertyToID("_HitShakeHeight");
-		private static readonly int HitPointId = Shader.PropertyToID("_HitPoint");
-		private static readonly int HitWaveRadiusId = Shader.PropertyToID("_HitWaveRadius");
-		private static readonly int HitDirectionId = Shader.PropertyToID("_HitDirection");
-		private static readonly int HitWaveLengthId = Shader.PropertyToID("_HitWaveLength");
-		private static readonly int HitWaveDecayId = Shader.PropertyToID("_HitWaveDecay");
-		private static readonly int HitFalloffId = Shader.PropertyToID("_HitFalloff");
-		private static readonly int HitWaveStretchId = Shader.PropertyToID("_HitWaveStretch");
+		private static readonly int PinFloorId = Shader.PropertyToID("_DeformPinFloor");
+		private static readonly int PinHeightId = Shader.PropertyToID("_DeformPinHeight");
+		private static readonly int RipplePointId = Shader.PropertyToID("_DeformRipplePoint");
+		private static readonly int RippleDirectionId = Shader.PropertyToID("_DeformRippleDirection");
+		private static readonly int RippleAmplitudeId = Shader.PropertyToID("_DeformRippleAmplitude");
+		private static readonly int RippleRadiusId = Shader.PropertyToID("_DeformRippleRadius");
+		private static readonly int RippleLengthId = Shader.PropertyToID("_DeformRippleLength");
+		private static readonly int RippleDecayId = Shader.PropertyToID("_DeformRippleDecay");
+		private static readonly int RippleFalloffId = Shader.PropertyToID("_DeformRippleFalloff");
+		private static readonly int RippleStretchId = Shader.PropertyToID("_DeformRippleStretch");
+		private static readonly int RippleOutwardId = Shader.PropertyToID("_DeformRippleOutward");
+		private static readonly int RippleReboundId = Shader.PropertyToID("_DeformRippleRebound");
+		private static readonly int SmearId = Shader.PropertyToID("_DeformSmear");
+		private static readonly int SmearOriginId = Shader.PropertyToID("_DeformSmearOrigin");
+		private static readonly int SmearFalloffId = Shader.PropertyToID("_DeformSmearFalloff");
+		private static readonly int SmearPhaseId = Shader.PropertyToID("_DeformSmearPhase");
+		private static readonly int SmearStreakScaleId = Shader.PropertyToID("_DeformSmearStreakScale");
+		private static readonly int SmearStreakAmountId = Shader.PropertyToID("_DeformSmearStreakAmount");
+		private static readonly int SmearDitherId = Shader.PropertyToID("_DeformSmearDither");
 
 		private readonly List<Renderer> renderers = new List<Renderer>();
 		private readonly MaterialPropertyBlock mpb = new MaterialPropertyBlock();
@@ -29,25 +38,20 @@ namespace SpaxUtils
 		private Color effectColor;
 		private float effectAmount;
 		private float alphaFade;
-		private float shakeAmplitude;
-		private float shakeFloor;
-		private float shakeHeight;
-		private Vector3 wavePoint;
-		private Vector3 waveDirection = Vector3.forward;
-		private float waveRadius;
-		private float waveLength = 1f;
-		private float waveDecay = 1f;
-		private float waveFalloff = 1000f;
-		private float waveStretch;
+		private float pinFloor;
+		private float pinHeight;
+		private DeformRipple ripple;
+		private DeformSmear smear;
 
 		public MaterialEffectRenderer()
 		{
 			effectColor = Color.black;
 			effectAmount = 0f;
 			alphaFade = 0f;
-			shakeAmplitude = 0f;
-			shakeFloor = 0f;
-			shakeHeight = 1f;
+			pinFloor = 0f;
+			pinHeight = 1f;
+			smear.Falloff = 1f;
+			smear.StreakScale = 1f;
 		}
 
 		public void SetRenderers(IEnumerable<Renderer> renderers)
@@ -82,30 +86,38 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
-		/// Vertex offset strength along the hit direction: zero at <paramref name="floor"/>,
-		/// full strength <paramref name="height"/> above it.
+		/// Deformation is zero at <paramref name="floor"/> and full <paramref name="height"/> above it.
 		/// </summary>
-		public void SetShake(float amplitude, float floor, float height)
+		public void SetPin(float floor, float height)
 		{
-			shakeAmplitude = amplitude;
-			shakeFloor = floor;
-			shakeHeight = height;
+			pinFloor = floor;
+			pinHeight = height;
+		}
+
+		public void SetRipple(DeformRipple ripple)
+		{
+			this.ripple = ripple;
+		}
+
+		public void SetSmear(DeformSmear smear)
+		{
+			this.smear = smear;
 		}
 
 		/// <summary>
-		/// Ripple rings spreading from the axis through <paramref name="point"/> along <paramref name="direction"/>,
-		/// front at <paramref name="radius"/>, fading out <paramref name="falloff"/> meters from the point.
+		/// Writes the feet pin and smear into <paramref name="mpb"/>; shared with trail snapshots.
 		/// </summary>
-		public void SetWave(Vector3 point, Vector3 direction, float radius,
-			float length, float decay, float falloff, float stretch)
+		public static void SetSmearProperties(MaterialPropertyBlock mpb, DeformSmear smear, float floor, float height)
 		{
-			wavePoint = point;
-			waveDirection = direction;
-			waveRadius = radius;
-			waveLength = length;
-			waveDecay = decay;
-			waveFalloff = falloff;
-			waveStretch = stretch;
+			mpb.SetFloat(PinFloorId, floor);
+			mpb.SetFloat(PinHeightId, height);
+			mpb.SetVector(SmearId, smear.Vector);
+			mpb.SetVector(SmearOriginId, smear.Origin);
+			mpb.SetFloat(SmearFalloffId, smear.Falloff);
+			mpb.SetFloat(SmearPhaseId, smear.Phase);
+			mpb.SetFloat(SmearStreakScaleId, smear.StreakScale);
+			mpb.SetFloat(SmearStreakAmountId, smear.StreakAmount);
+			mpb.SetFloat(SmearDitherId, smear.Dither);
 		}
 
 		public void Apply()
@@ -123,16 +135,17 @@ namespace SpaxUtils
 				mpb.SetColor(EffectColorId, effectColor);
 				mpb.SetFloat(EffectAmountId, effectAmount);
 				mpb.SetFloat(AlphaFadeId, alphaFade);
-				mpb.SetFloat(HitAmplitudeId, shakeAmplitude);
-				mpb.SetFloat(HitShakeFloorId, shakeFloor);
-				mpb.SetFloat(HitShakeHeightId, shakeHeight);
-				mpb.SetVector(HitPointId, wavePoint);
-				mpb.SetVector(HitDirectionId, waveDirection);
-				mpb.SetFloat(HitWaveRadiusId, waveRadius);
-				mpb.SetFloat(HitWaveLengthId, waveLength);
-				mpb.SetFloat(HitWaveDecayId, waveDecay);
-				mpb.SetFloat(HitFalloffId, waveFalloff);
-				mpb.SetFloat(HitWaveStretchId, waveStretch);
+				SetSmearProperties(mpb, smear, pinFloor, pinHeight);
+				mpb.SetVector(RipplePointId, ripple.Point);
+				mpb.SetVector(RippleDirectionId, ripple.Direction);
+				mpb.SetFloat(RippleAmplitudeId, ripple.Amplitude);
+				mpb.SetFloat(RippleRadiusId, ripple.Radius);
+				mpb.SetFloat(RippleLengthId, ripple.Length);
+				mpb.SetFloat(RippleDecayId, ripple.Decay);
+				mpb.SetFloat(RippleFalloffId, ripple.Falloff);
+				mpb.SetFloat(RippleStretchId, ripple.Stretch);
+				mpb.SetFloat(RippleOutwardId, ripple.Outward);
+				mpb.SetFloat(RippleReboundId, ripple.Rebound);
 
 				renderer.SetPropertyBlock(mpb);
 			}
