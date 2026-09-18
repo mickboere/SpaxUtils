@@ -10,19 +10,16 @@ namespace SpaxUtils
 		public AnimationCurve HitPauseCurve => hitPauseCurve;
 		public float MinStunTime => minStunTime;
 		public float BlockedStunTime => blockedStunTime;
-		public float ParriedStunTime => parriedStunTime;
-		public float DeflectorHitPause => deflectorHitPause;
-		public float DeflectedHitPause => deflectedHitPause;
+		public float ParrierHitPause => parrierHitPause;
+		public float ParriedHitPause => parriedHitPause;
 		public float CritSenderHitPause => critSenderHitPause;
 		public float CritReceiverHitPause => critReceiverHitPause;
-		public float StaticGain => staticGain;
+		public float StaticPerDamage => staticPerDamage;
 		public float MaliceGain => maliceGain;
-		public float DeflectStaticPercent => deflectStaticPercent;
-		public float BlockStaticPercent => blockStaticPercent;
-		public float HitStaticPercent => hitStaticPercent;
-		public float CritStaticPercent => critStaticPercent;
-		public float ChargeConversionRatio => chargeConversionRatio;
-		public float MaxChargeMultiplier => maxChargeMultiplier;
+		public float ChargePowerPerPoint => chargePowerPerPoint;
+		public float ChargePiercePerPoint => chargePiercePerPoint;
+		public float ChargeEfficiencyDecay => chargeEfficiencyDecay;
+		public float ChargeEmptyGrace => chargeEmptyGrace;
 		public float ChargeBalance => chargeBalance;
 		public float PerformBalance => performBalance;
 		public float Restitution => restitution;
@@ -55,11 +52,10 @@ namespace SpaxUtils
 		[SerializeField, Tooltip("Minimum duration (s) of a stun from depleted endurance.")]
 		private float minStunTime = 0.5f;
 		[SerializeField] private float blockedStunTime = 1.25f;
-		[SerializeField] private float parriedStunTime = 1.5f;
-		[SerializeField, Tooltip("Fixed hit-pause (s) for the agent who deflected. Shorter than the attacker's, so recovering first is the reward.")]
-		private float deflectorHitPause = 0.5f;
-		[SerializeField, Tooltip("Fixed hit-pause (s) for the attacker whose blow was deflected. Ignores impact.")]
-		private float deflectedHitPause = 1f;
+		[SerializeField, Tooltip("Fixed hit-pause (s) for the agent who parried. Shorter than the attacker's, so recovering first is the reward.")]
+		private float parrierHitPause = 0.5f;
+		[SerializeField, Tooltip("Fixed hit-pause (s) for the attacker whose blow was parried. Ignores impact.")]
+		private float parriedHitPause = 1f;
 		[SerializeField, Tooltip("Fixed hit-pause (s) for the attacker who landed a crit. Ignores impact.")]
 		private float critSenderHitPause = 0.5f;
 		[SerializeField, Tooltip("Fixed hit-pause (s) for the agent who was critted. Ignores impact.")]
@@ -89,20 +85,19 @@ namespace SpaxUtils
 		private float forceMassExponent = 0.8f;
 
 		[Header("Static / Charge Economy")]
-		[SerializeField, Tooltip("Base Static (NE) restored per unit of threat (attack Mass × Power). The per-outcome fractions below scale it. Tune until a parry visibly refuels a charged counter.")]
-		private float staticGain = 1f;
-		[SerializeField, Range(0f, 1f), Tooltip("Fraction of Static built when deflecting or parrying an attack — both fully neutralise it.")]
-		private float deflectStaticPercent = 1f;
-		[SerializeField, Range(0f, 1f), Tooltip("Fraction of Static built when blocking/guarding an attack (partial guard scales this further by guard weight).")]
-		private float blockStaticPercent = 0.5f;
-		[SerializeField, Range(0f, 1f), Tooltip("Fraction of Static the attacker builds when landing a clean hit (Mass × Power basis).")]
-		private float hitStaticPercent = 0.25f;
-		[SerializeField, Range(0f, 1f), Tooltip("Fraction of Static the attacker builds on a crit — scaled by the attack's PIERCE (not Power), so precision self-sustains charge for Light builds.")]
-		private float critStaticPercent = 1f;
-		[SerializeField, Tooltip("Charge multiplier gained per unit of Static drained while charging. 0.005 = 100 Static drained → +0.5× power. The global Static→charge conversion.")]
-		private float chargeConversionRatio = 0.005f;
-		[SerializeField, Tooltip("Hard cap on the charge multiplier (e.g. 3 = up to 3× power / storm distance). Universal across charged moves.")]
-		private float maxChargeMultiplier = 3f;
+		// CLOSED LEDGER: every point of offence becomes Static for someone — the attacker for what got
+		// through, the defender for what did not. Damage type is irrelevant to it.
+		[SerializeField, Min(0f), Tooltip("Static built per point of damage landed (attacker) or stopped (defender). 1 = an offence point is always exactly one Static, banked by whoever won it.")]
+		private float staticPerDamage = 1f;
+		// Tuned in SpecGraph (Tools/Graphs/charge.json). There is no charge cap: draining the pool IS the cap.
+		[SerializeField, Tooltip("Charge multiplier gained per point STORED (post-efficiency). 0.02 = 50 points → +1× power.")]
+		private float chargePowerPerPoint = 0.02f;
+		[SerializeField, Range(0f, 1f), Tooltip("Pierce offence added per point STORED. The charge's second payout, beside the power multiplier.")]
+		private float chargePiercePerPoint = 0.25f;
+		[SerializeField, Min(0.01f), Tooltip("Fraction of the Static pool spent per HALVING of charge efficiency. Lower = the charge goes wasteful sooner.")]
+		private float chargeEfficiencyDecay = 0.3f;
+		[SerializeField, Min(0f), Tooltip("Seconds the warning loops with the pool empty before the attack auto-releases.")]
+		private float chargeEmptyGrace = 0.75f;
 
 		[Header("Malice")]
 		[SerializeField, Min(0f), Tooltip("Malice (NW) built per unit of INCOMING offence (Slash+Power+Pierce), regardless of what the hit ended up dealing. Same basis Malice is spent against, so the ledger is symmetric. The Hostility→Gain mapping remains the per-agent dial; this is the global rate.")]
@@ -141,7 +136,7 @@ namespace SpaxUtils
 		private float stickAcquireAngle = 60f;
 
 		// STORM: the charged upgrade to a stick. Extends the same leap and homes instead of committing to a
-		// heading; both terms scale with charge, reaching full only at MaxChargeMultiplier.
+		// heading; both terms scale with the charge fraction, reaching full only on a pool-deep charge.
 		[Header("Storming")]
 		[SerializeField, Min(0f), Tooltip("Extra distance (metres) a FULLY charged storm adds on top of StickRange. Scaled by charge (0 at no overcharge) and by the same StickRangeThrustScale lane as the stick, so a sweep storms less far than a thrust.")]
 		private float stormRange = 6f;
@@ -159,6 +154,8 @@ namespace SpaxUtils
 		private float speedCurveExponent = 2f;
 		[SerializeField, Min(1f), Tooltip("Wield ratio (strength / limb mass) at which the over-strength speed bonus reaches strengthSpeedModRange.y. E.g. 10 = need 10x the limb mass in strength.")]
 		private float overStrengthFullRatio = 10f;
+		[SerializeField, Range(0f, 1f), Tooltip("Power multiplier when badly under-strength (wield ratio 0), rising to 1 at a mass-equal wield. Universal, for the same reason the speed curve is: the per-move difference is mass.")]
+		private float minWieldPowerFactor = 0.4f;
 
 		/// <summary>
 		/// Universal wield speed factor for a strength/limb-mass <paramref name="wieldRatio"/>: the multiplier a melee
@@ -175,6 +172,15 @@ namespace SpaxUtils
 			}
 			float extra = Mathf.Clamp01((wieldRatio - 1f) / (overStrengthFullRatio - 1f));
 			return Mathf.Lerp(1f, strengthSpeedModRange.y, extra);
+		}
+
+		/// <summary>
+		/// Universal wield POWER factor: a swing too heavy for its wielder lands softer, down to
+		/// <c>minWieldPowerFactor</c>. No over-strength bonus — extra strength buys speed, not output.
+		/// </summary>
+		public float WieldPowerFactor(float wieldRatio)
+		{
+			return wieldRatio >= 1f ? 1f : Mathf.Lerp(minWieldPowerFactor, 1f, Mathf.Clamp01(wieldRatio));
 		}
 
 		// EXERTION: what a swing costs in Energy is BODILY EFFORT, never output — a weapon that pierces well is no

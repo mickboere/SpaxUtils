@@ -15,7 +15,15 @@ namespace SpaxUtils
 		public float ChargeMultiplier => totalCharge;
 
 		/// <inheritdoc/>
+		public float ChargeFraction => chargeCeiling > 0f ? Mathf.Clamp01(chargePoints / chargeCeiling) : 0f;
+
+		/// <inheritdoc/>
+		public bool ChargeDepleted => chargeDepleted;
+
+		/// <inheritdoc/>
 		public bool Lunging => stickTravelling;
+
+		public TrailSettings StormTrail => stormTrail;
 
 		/// <summary>
 		/// How much of the gap has closed, not how long it has taken - a slow leap and a fast one both read
@@ -33,23 +41,18 @@ namespace SpaxUtils
 		// — it's a universal mechanic and the AI's move-selection + strike-timing need to read it before the swing.
 		// Exertion cost (mass curve + its constants) lives in CombatSettings — the AI has to price a swing before
 		// performing it, same reason the wield speed curve moved there.
-		[SerializeField, Range(0f, 1f), Tooltip("Minimum power factor when heavily under-strengthed.")]
-		private float minPowerFactor = 0.4f;
 		[SerializeField, Range(0f, 1f), Tooltip("Minimum swing speed factor at the start of a very heavy swing.")]
 		private float minInertiaSpeedFactor = 0.4f;
 		[SerializeField] private float swingShakeMagnitude = 1.5f;
 
-		[Header("Charging")]
-		// chargeConversionRatio + maxChargeMultiplier moved to CombatSettings (global Static→charge economy).
-		[SerializeField, Tooltip("How much extra crit chance rating per unit of extraCharge")]
-		private float chargeCritBonusFactor = 1f;
-		[SerializeField, Range(0f, 1f)] float chargeDamageEfficiency = 0.25f;
+		// The whole charge economy (power, pierce, efficiency, grace) lives in CombatSettings.
 
 		[Header("Storming")]
 		[SerializeField] private float maxAcceleration = 20000f;
 		[SerializeField] private float maxDeceleration = 2000f;
 		[SerializeField] private float power = 50f;
 		[SerializeField] private Vector3 stormShakeMagnitude = Vector3.one * 2;
+		[SerializeField] private TrailSettings stormTrail = new TrailSettings();
 
 		protected IMeleeCombatMove move;
 		protected CallbackService callbackService;
@@ -89,13 +92,19 @@ namespace SpaxUtils
 		private float lastRunTime;
 		private TimedCurveModifier hitPauseMod;
 		private float totalCharge;
-		private float accumulatedChargePoints; // New: Tracks raw drain for pierce
+		private float chargePoints; // Points STORED after efficiency decay - what the swing actually uses.
+		private float rawChargeSpent; // Raw Static paid for them; the deed EXP is priced off this.
+		private float chargeReference; // Points per efficiency halving, pool-scaled.
+		private float chargeCeiling; // Most points this pool could ever store.
+		private bool chargeDepleted;
+		private float chargeGraceTimer;
 		private bool chargeRewarded; // Whether this swing's charge has already paid Light EXP.
 		private ITargetable target;
 		private float maxStick;
 		private float maxReach;
 		private bool stickTravelling;
 		private IStormFeedback stormFeedback;
+		private AgentTrailEffect agentTrailEffect;
 		private bool storming;
 		private float stickTravelTimer;
 		private float stickDesired;
@@ -149,7 +158,8 @@ namespace SpaxUtils
 			AgentCombatComponent combatComponent,
 			AgentImpactHandler agentImpactHandler,
 			AgentAudioHandler agentAudioHandler,
-			[Optional] IStormFeedback stormFeedback)
+			[Optional] IStormFeedback stormFeedback,
+			[Optional] AgentTrailEffect agentTrailEffect)
 		{
 			this.move = move;
 			this.callbackService = callbackService;
@@ -166,6 +176,7 @@ namespace SpaxUtils
 			this.agentImpactHandler = agentImpactHandler;
 			this.agentAudioHandler = agentAudioHandler;
 			this.stormFeedback = stormFeedback;
+			this.agentTrailEffect = agentTrailEffect;
 
 			timescaleStat = Agent.Stats.GetStat(EntityStatIdentifiers.TIMESCALE, true, 1f);
 			limbMassStat = Agent.Stats.GetStat(AgentStatIdentifiers.MASS.SubStat(this.move.Limb));
@@ -193,8 +204,16 @@ namespace SpaxUtils
 			callbackService.SubscribeUpdate(UpdateMode.LateUpdate, this, LateUpdateHitDetection);
 
 			totalCharge = 1f;
-			accumulatedChargePoints = 0f;
+			chargePoints = 0f;
+			rawChargeSpent = 0f;
+			chargeDepleted = false;
+			chargeGraceTimer = 0f;
 			chargeRewarded = false;
+
+			// Pool-scaled, so the efficiency curve and the time to burn the pool are the same at any rank.
+			float staticMax = statHandler.ResourceStats.NE.Max;
+			chargeReference = CombatUtils.ChargeReference(staticMax, combatSettings.ChargeEfficiencyDecay);
+			chargeCeiling = CombatUtils.ChargeCeiling(staticMax, chargeReference);
 			maxStick = 0f;
 			maxReach = 0f;
 			stickTravelling = false;
@@ -222,7 +241,7 @@ namespace SpaxUtils
 			}
 
 			baseStrengthSpeedFactor = combatSettings.WieldSpeedFactor(wieldRatio);
-			baseStrengthPowerFactor = ComputeBaseStrengthPowerFactor(wieldRatio);
+			baseStrengthPowerFactor = combatSettings.WieldPowerFactor(wieldRatio);
 
 			// Base strength-speed modifier (constant over the swing).
 			speedMod = new FloatFuncModifier(
@@ -284,23 +303,33 @@ namespace SpaxUtils
 
 			if (Performer.State == PerformanceState.Preparing && Performer.ChargeTime >= Move.MinCharge)
 			{
-				// 1. Calculate Drain Rate based on PIERCE (PhysicStat)
-				float actualDrain = pierceStat * delta * (chargeSpeedStat != null ? chargeSpeedStat.Value : 1f);
-
-				// 2. Drain the Static (ResourceStat)
-				float damage = statHandler.ResourceStats.NE.Drain(actualDrain, out bool drained);
-
-				// 3. Store raw drain for Pierce calc (Uncapped)
-				accumulatedChargePoints += damage;
-
-				// 4. Calculate Power Multiplier (Clamped)
-				float rawMultiplier = 1f + (accumulatedChargePoints * combatSettings.ChargeConversionRatio);
-				totalCharge = Mathf.Min(rawMultiplier, combatSettings.MaxChargeMultiplier);
-
-				if (drained)
+				if (chargeDepleted)
 				{
-					// Pool empty, force release
-					Performer.TryPerform();
+					// Pool empty: the warning loops, then the swing leaves on its own.
+					chargeGraceTimer += delta;
+					if (chargeGraceTimer >= combatSettings.ChargeEmptyGrace)
+					{
+						Performer.TryPerform();
+					}
+				}
+				else
+				{
+					// Points are STORED at a constant rate (Pierce), so progress is timeable; each one costs
+					// more Static than the last, which is what makes the drain accelerate.
+					float speed = chargeSpeedStat != null ? chargeSpeedStat.Value : 1f;
+					float gain = pierceStat * delta * speed;
+					float cost = CombatUtils.ChargeCost(chargePoints, gain, chargeReference);
+
+					float paid = statHandler.ResourceStats.NE.Drain(cost, out bool drained);
+					rawChargeSpent += paid;
+					chargePoints = CombatUtils.ChargeStore(chargePoints, paid, chargeReference);
+					totalCharge = 1f + chargePoints * combatSettings.ChargePowerPerPoint;
+
+					if (drained)
+					{
+						chargeDepleted = true;
+						chargeGraceTimer = 0f;
+					}
 				}
 			}
 
@@ -405,18 +434,6 @@ namespace SpaxUtils
 			{
 				OnNewHitDetected(newHits);
 			}
-		}
-
-		/// <summary>
-		/// Computes base power factor from strength/mass ratio.
-		/// </summary>
-		private float ComputeBaseStrengthPowerFactor(float ratio)
-		{
-			if (ratio >= 1f)
-			{
-				return 1f;
-			}
-			return Mathf.Lerp(minPowerFactor, 1f, Mathf.Clamp01(ratio));
 		}
 
 		/// <summary>
@@ -558,27 +575,24 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
-		/// Storm feedback follows the storm LEAP only; polled because travel ends in several places.
+		/// Storm feedback and trail follow the storm LEAP only; polled because travel ends in several places.
 		/// </summary>
 		private void UpdateStormFeedback()
 		{
-			if (stormFeedback == null)
-			{
-				return;
-			}
-
 			bool active = hasStorm && stickTravelling;
 			if (active && !storming)
 			{
-				stormFeedback.BeginStorm(stickHeading);
+				stormFeedback?.BeginStorm(stickHeading);
+				agentTrailEffect?.Begin(this, stormTrail);
 			}
 			else if (!active && storming)
 			{
-				stormFeedback.EndStorm();
+				stormFeedback?.EndStorm();
+				agentTrailEffect?.End(this);
 			}
 			storming = active;
 
-			if (storming)
+			if (storming && stormFeedback != null)
 			{
 				stormFeedback.UpdateStorm(Mathf.Clamp01(rigidbodyWrapper.Speed / Mathf.Max(stickSpeed, 0.01f)));
 			}
@@ -626,7 +640,7 @@ namespace SpaxUtils
 			stickSpeed = hasStorm
 				? Mathf.Lerp(leapSpeed,
 					Mathf.Max(combatSettings.StormSpeed * (stormSpeedStat ?? 1f), leapSpeed),
-					combatComponent.ChargeFraction(totalCharge))
+					ChargeFraction)
 				: leapSpeed;
 			stickSpeed = Mathf.Max(stickSpeed, 0.01f);
 			stickDesired = desired;
@@ -836,7 +850,7 @@ namespace SpaxUtils
 			stickBraking = false;
 
 			// Storm is the same leap with a charge-extended budget — charge buys reach on top of the stick.
-			float storm = combatComponent.ComputeStormRange(move, totalCharge);
+			float storm = combatComponent.ComputeStormRange(move, ChargeFraction);
 			hasStorm = storm > 0f;
 			maxStick = combatComponent.ComputeStickRange(move) + storm;
 			// ABSOLUTE maximum reach of this swing, leap included — the acquisition horizon. Taken from the combat
@@ -857,7 +871,7 @@ namespace SpaxUtils
 			{
 				// Scaled by the charge so a light overcharge stays subtle and a full one screams.
 				stormShake = new ContinuousShakeSource(
-					stormShakeMagnitude * Mathf.Clamp01(totalCharge - 1f),
+					stormShakeMagnitude * ChargeFraction,
 					-rigidbodyWrapper.TargetVelocity);
 				agentImpactHandler.ReportImpact(new ImpactData
 				{
@@ -934,7 +948,7 @@ namespace SpaxUtils
 
 					// Assemble the offence vector's runtime-modified channels before Malice.
 					float slashValue = baseOutput.x;
-					float pierceValue = baseOutput.z + (accumulatedChargePoints * chargeDamageEfficiency);
+					float pierceValue = baseOutput.z + (chargePoints * combatSettings.ChargePiercePerPoint);
 
 					// MALICE: spite scales the WHOLE offence vector. Coverage = the fraction the pool pays for
 					// (Drain applies the Hostility-driven DrainMult). Symmetrical to Grace.
@@ -994,15 +1008,14 @@ namespace SpaxUtils
 			statHandler.RewardExp(Element.Void,
 				hitData.Data.GetValue<float>(HitDataIdentifiers.SLASH_DAMAGE) / healthMax, ExpSources.SLASH_OUTPUT);
 
-			// A deflected hit still connected, so the charge it delivered is still paid for.
-			bool neglected = hitData.Data.GetValue<bool>(HitDataIdentifiers.BLOCKED) ||
-				hitData.Data.GetValue<bool>(HitDataIdentifiers.PARRIED);
+			// A parried hit still connected, so the charge it delivered is still paid for.
+			bool neglected = hitData.Data.GetValue<bool>(HitDataIdentifiers.BLOCKED);
 
 			// A charge is worthless until it connects; pay once per swing for the charge that was delivered.
-			if (!chargeRewarded && accumulatedChargePoints > 0f && !neglected)
+			if (!chargeRewarded && rawChargeSpent > 0f && !neglected)
 			{
 				chargeRewarded = true;
-				statHandler.RewardExpPoints(Element.Light, accumulatedChargePoints, ExpSources.STATIC_HIT);
+				statHandler.RewardExpPoints(Element.Light, rawChargeSpent, ExpSources.STATIC_HIT);
 			}
 
 			// Only the spite that actually finished someone.
@@ -1025,31 +1038,19 @@ namespace SpaxUtils
 					rigidbodyWrapper.ResetVelocity();
 					stunHandler.EnterStun(hitData, combatSettings.BlockedStunTime);
 				}
-				else if (hitData.Data.GetValue<bool>(HitDataIdentifiers.PARRIED))
-				{
-					Performer.TryCancel(true);
-					rigidbodyWrapper.ResetVelocity();
-					statHandler.ResourceStats.W.Current.BaseValue = 0f;
-					stunHandler.EnterStun(hitData, combatSettings.ParriedStunTime);
-				}
 				else
 				{
-					// Hit landed, or was deflected — a deflect means nothing to the attacker, so they bank Static either way.
-					if (chargeStat != null)
+					// Hit landed, or was parried — a parry means nothing to the attacker, so they bank Static either way.
+					// MIRROR of Trauma (NW): they build spite off the health they LOSE, we build charge off the
+					// health we TAKE — stolen vitality. A crit needs no branch; its damage is already in here.
+					float dealt = hitData.Data.GetValue<float>(HitDataIdentifiers.DAMAGE_DEALT);
+					if (chargeStat != null && dealt > 0f)
 					{
-						// Transducer: grounded force (Mass × Power) → charge, a fraction of what a parry refunds.
-						chargeStat.BaseValue += hitData.StrikeMass * hitData.Power * combatSettings.StaticGain * combatSettings.HitStaticPercent;
-					}
-
-					// A precise strike grounds its own charge: crits are Pierce-gated, so refuel Static off PIERCE —
-					// a Power-independent self-sustain for Light builds (Pierce → crit → Static → Pierce charge).
-					if (hitData.Data.GetValue<bool>(HitDataIdentifiers.CRIT))
-					{
-						statHandler.ResourceStats.NE.Current.BaseValue += hitData.Pierce * combatSettings.StaticGain * combatSettings.CritStaticPercent;
+						chargeStat.BaseValue += dealt * combatSettings.StaticPerDamage;
 					}
 				}
 
-				// A deflect hands us the half of the stagger it negated. No stun; it just opens us to a punish.
+				// A parry hands us the half of the stagger it negated. No stun; it just opens us to a punish.
 				float enduranceReturn = hitData.Data.GetValue<float>(HitDataIdentifiers.ENDURANCE_RETURN);
 				if (enduranceReturn > 0f)
 				{
@@ -1060,9 +1061,9 @@ namespace SpaxUtils
 				// Applied after the outcome so a block or parry reset can't swallow the bounce.
 				rigidbodyWrapper.Push(hitData.Data.GetValue(HitDataIdentifiers.INERTIA_BRAKE, Vector3.zero));
 
-				// Deflects and crits pause for a fixed beat; everything else scales with impact.
+				// Parries and crits pause for a fixed beat; everything else scales with impact.
 				float impact = hitData.Data.GetValue<float>(HitDataIdentifiers.IMPACT);
-				float hitPause = hitData.Data.GetValue<bool>(HitDataIdentifiers.DEFLECTED) ? combatSettings.DeflectedHitPause
+				float hitPause = hitData.Data.GetValue<bool>(HitDataIdentifiers.PARRIED) ? combatSettings.ParriedHitPause
 					: hitData.Data.GetValue<bool>(HitDataIdentifiers.CRIT) ? combatSettings.CritSenderHitPause
 					: combatSettings.HitPauseSender.Lerp(impact * (1f / performSpeedStat.Value));
 

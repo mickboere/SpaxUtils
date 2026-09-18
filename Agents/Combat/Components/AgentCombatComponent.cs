@@ -53,15 +53,6 @@ namespace SpaxUtils
 		/// <summary>Total reach the agent can actually hit at right now — the active move's limb reach + lunge included (or the resting threat reach when no move is active).</summary>
 		public float ActiveReach => CurrentCombatMove == null ? RestingThreatReach : ComputeEffectiveReach(CurrentCombatMove);
 
-		/// <summary>
-		/// The agent's per-axis offensive output (x=Slash, y=Power, z=Pierce) of its dominant hand.
-		/// Symmetric with <see cref="Defense"/>; feed into a defender's <see cref="EstimateIncomingDamage"/>.
-		/// </summary>
-		public Vector3 Offense { get; private set; }
-
-		/// <summary>The dominant hand's power band: body + weapon Power before the damage-type filter.</summary>
-		public float OffensePowerBand { get; private set; }
-
 		/// <summary>The current raw POWER stat (e.g. for knockback force / mass coupling), not damage output.</summary>
 		public float Power => powerStat.Value;
 
@@ -71,11 +62,13 @@ namespace SpaxUtils
 		/// <summary>Crit/pierce-defence stat (also half of blunt defence).</summary>
 		public float Yield => yieldStat.Value;
 
-		/// <summary>
-		/// Per-axis defence (x=vs Slash, y=vs Power, z=vs Pierce), mirroring the hit layers in
-		/// <see cref="AgentHitHandlerComponent"/>: Slash←Armor, Power←(Armor+Yield)/2, Pierce←Yield.
-		/// </summary>
-		public Vector3 Defense => new Vector3(Armor, (Armor + Yield) * 0.5f, Yield);
+		/// <summary>This agent as a target: both walls plus the anatomy that shapes blunt and crit.</summary>
+		public DefenceData DefenceProfile =>
+			new DefenceData(Armor, Yield, hardnessStat ?? 0.5f, vulnerabilityStat ?? 0.5f, luckStat ?? 0f);
+
+		/// <summary>How much guard this agent is currently holding up (0 when not guarding).</summary>
+		public float GuardWeight =>
+			Mathf.Clamp01(Agent.RuntimeData.GetValue<float>(AgentDataIdentifiers.GUARD_WEIGHT, 0f));
 
 		/// <summary>Live moveless offensive output through the left-hand weapon (or fists). For UI / queries.</summary>
 		public CombatOutput LeftHandOutput { get; private set; }
@@ -100,15 +93,40 @@ namespace SpaxUtils
 		/// <summary>Live charge multiplier of the active performance (1 = uncharged); pulled from the move performer.</summary>
 		public float CurrentChargeMultiplier => moveHandler != null ? moveHandler.ChargeMultiplier : 1f;
 
+		/// <summary>How charged the active performance is, 0..1 of what the Static pool could fund.</summary>
+		public float CurrentChargeFraction => moveHandler != null ? moveHandler.ChargeFraction : 0f;
+
+		/// <summary>
+		/// Fraction of a full charge the CURRENT Static could still buy, 0..1 — a drained pool can only
+		/// fund a partial storm. Full = what the pool at max would store.
+		/// </summary>
+		public float FundableChargeFraction
+		{
+			get
+			{
+				if (combatSettings == null || StatHandler == null)
+				{
+					return 0f;
+				}
+
+				ResourceStat stat = StatHandler.ResourceStats.NE;
+				float reference = CombatUtils.ChargeReference(stat.Max, combatSettings.ChargeEfficiencyDecay);
+				float ceiling = CombatUtils.ChargeCeiling(stat.Max, reference);
+				return ceiling > 0f
+					? Mathf.Clamp01(CombatUtils.ChargeCeiling(stat.Value, reference) / ceiling)
+					: 0f;
+			}
+		}
+
 		/// <summary>
 		/// Live total reach while charging: <see cref="ActiveReach"/> + the storm distance the CURRENT charge buys.
 		/// Equals ActiveReach for uncharged moves.
 		/// </summary>
-		public float CurrentStormReach => ActiveReach + ComputeStormRange(CurrentCombatMove, CurrentChargeMultiplier);
+		public float CurrentStormReach => ActiveReach + ComputeStormRange(CurrentCombatMove, CurrentChargeFraction);
 
 		/// <summary>
 		/// Furthest the agent could storm RIGHT NOW given its current Static: <see cref="PreferredMoveReach"/> plus
-		/// the max storm distance fundable by draining all of NE (capped at the charge-multiplier ceiling). Used by
+		/// the storm distance draining all of NE would fund. Used by
 		/// the Storm behaviour's Valid gate — no point entering Storm if this can't reach the target.
 		/// </summary>
 		public float ProjectedStormReach
@@ -118,9 +136,7 @@ namespace SpaxUtils
 				float reach = PreferredMoveReach;
 				if (PreferredMove is IMeleeCombatMove && combatSettings != null && StatHandler != null)
 				{
-					float staticBudget = StatHandler.ResourceStats.NE;
-					float maxExtra = Mathf.Max(0f, Mathf.Min(combatSettings.MaxChargeMultiplier - 1f, staticBudget * combatSettings.ChargeConversionRatio));
-					reach += ComputeStormRange(PreferredMove, 1f + maxExtra);
+					reach += ComputeStormRange(PreferredMove, FundableChargeFraction);
 				}
 				return reach;
 			}
@@ -240,11 +256,6 @@ namespace SpaxUtils
 		[SerializeField, Range(0f, 1f),
 		 Tooltip("How strongly a move's damage type must match the agent's NW/N/NE (Slash/Power/Pierce) alignment.")]
 		private float alignmentWeight = 0.6f;
-		[SerializeField, Range(0.05f, 5f),
-		 Tooltip("Body-normalised output-per-second at which the offence factor saturates to 0.5. " +
-				 "Level-invariant (DPS is divided by the agent's body magnitude). Lower = raw damage " +
-				 "matters more / saturates sooner. Order ~1.")]
-		private float offenceHalf = 1f;
 		[SerializeField, Range(0f, 1f),
 		 Tooltip("Upper clamp on predictability so some selection noise always remains (prevents identical repeats).")]
 		private float maxPredictability = 0.85f;
@@ -275,7 +286,23 @@ namespace SpaxUtils
 		private EntityStat yieldStat;
 		private EntityStat slashStat;
 		private EntityStat pierceStat;
+		private EntityStat hardnessStat;
+		private EntityStat vulnerabilityStat;
+		private EntityStat luckStat;
 		private AgentArmsComponent arms;
+
+		// Heaviest opener, cached: it only changes with equipment, so an observer needn't rescan every tick.
+		private const float HEAVIEST_MOVE_REFRESH = 1f;
+		private ICombatMove heaviestMove;
+		private float heaviestMoveTime = -999f;
+
+		// Resolved combat component of the current target, for scoring moves against its real defences.
+		private ITargetable cachedDefenderTarget;
+		private AgentCombatComponent cachedDefender;
+
+		// Reused across selections; offence can only be judged once every candidate's value is known.
+		private readonly List<MoveCandidate> candidates = new List<MoveCandidate>();
+		private readonly List<float> followUpValues = new List<float>();
 
 		private ICombatMove lastFrameCombatMove;
 		private string lastOpenedAct;
@@ -309,6 +336,9 @@ namespace SpaxUtils
 			yieldStat = Agent.Stats.GetStat(AgentStatIdentifiers.YIELD);
 			slashStat = Agent.Stats.GetStat(AgentStatIdentifiers.SLASH);
 			pierceStat = Agent.Stats.GetStat(AgentStatIdentifiers.PIERCE);
+			hardnessStat = Agent.Stats.GetStat(AgentStatIdentifiers.HARDNESS);
+			vulnerabilityStat = Agent.Stats.GetStat(AgentStatIdentifiers.VULNERABILITY);
+			luckStat = Agent.Stats.GetStat(AgentStatIdentifiers.LUCK);
 		}
 
 		protected void OnEnable()
@@ -372,9 +402,6 @@ namespace SpaxUtils
 			RuntimeEquipedData rightEquip = arms == null ? null : arms.RightEquip;
 			LeftHandOutput = new CombatOutput(OffensivePhysics(leftEquip), DistributionOf(leftEquip, Vector3.one));
 			RightHandOutput = new CombatOutput(OffensivePhysics(rightEquip), DistributionOf(rightEquip, Vector3.one));
-			CombatOutput dominantOutput = LeftHandOutput.Magnitude >= RightHandOutput.Magnitude ? LeftHandOutput : RightHandOutput;
-			Offense = dominantOutput.Output;
-			OffensePowerBand = dominantOutput.BodyPhysics.y;
 
 			// Recency tracking: when a fresh combo opens (no move → move), remember its opener act.
 			if (CurrentCombatMove != null && lastFrameCombatMove == null && !string.IsNullOrEmpty(PreferredAct))
@@ -443,11 +470,14 @@ namespace SpaxUtils
 			// Clamp so a noise floor always remains (otherwise sharp/low-SW agents become 100% deterministic).
 			float predictability = Mathf.Min(1f - Agent.Mind.Balance.SW, maxPredictability);
 
-			// Agent's live damage-type lean (Slash/Power/Pierce) for move alignment, plus the body
-			// output magnitude used to make the offence/DPS term level-invariant (it scales with level,
-			// so dividing by it cancels the level scaling and keeps offenceHalf meaningful at any level).
+			// Agent's live damage-type lean (Slash/Power/Pierce) for move alignment.
 			Vector3 agentDir = AlignmentDir();
-			float bodyMag = Mathf.Max(BodyPhysics.magnitude, 0.0001f);
+
+			// Who we are actually hitting, and the appetite for their stance: ruthlessness (NW) straight up,
+			// so at full it is worth as much as their health. Drive, not Balance — it carries difficulty.
+			AgentCombatComponent defender = DefenderOf(target);
+			float staggerWeight = Agent.Mind.Drive.NW;
+			candidates.Clear();
 
 			// How hard the enemy is closing (smoothed, 0..1) — drives the windup risk below.
 			float closingNorm = Mathf.Clamp01(smoothedClosing / Mathf.Max(closingRiskSpeed, 0.01f));
@@ -486,6 +516,8 @@ namespace SpaxUtils
 					distance,
 					predictability,
 					stormGate,
+					defender,
+					staggerWeight,
 					out string[] chain,
 					out ICombatMove finalMove);
 
@@ -531,7 +563,7 @@ namespace SpaxUtils
 				float stormPotential = 0f;
 				if (staticAvail > 0f)
 				{
-					float stormFull = ComputeStormRange(evalMove, combatSettings.MaxChargeMultiplier);
+					float stormFull = ComputeStormRange(evalMove, 1f);
 					stormPotential = stormFull / (stormFull + 1f) * staticAvail;
 				}
 				float chargeFactor = 1f + stormPotential;
@@ -594,15 +626,8 @@ namespace SpaxUtils
 
 				// Damage-type alignment: prefer moves whose output axis matches the agent's lean.
 				// Weapon-negated axes drop out of the move's profile, so they earn no affinity.
-				MoveOutput moveOutput = GetMoveOutput(evalMove);
-				float align = Mathf.Clamp01(Vector3.Dot(moveOutput.TypeDirection, agentDir));
+				float align = Mathf.Clamp01(Vector3.Dot(GetMoveOutput(evalMove).TypeDirection, agentDir));
 				score *= Mathf.Lerp(1f, align, alignmentWeight);
-
-				// Offence: output-per-second normalised by body magnitude, so the saturation point is
-				// level-invariant. Makes hard-hitting moves competitive; fierce minds weight it more.
-				float dpsNorm = moveOutput.Magnitude / (bodyMag * Mathf.Max(totalTime, 0.0001f));
-				float offenceNorm = dpsNorm / (dpsNorm + Mathf.Max(offenceHalf, 0.0001f));
-				score *= Mathf.Lerp(1f, offenceNorm, riskBias);
 
 				// Windup risk: while the enemy closes in, de-score long-charge (committal) moves so quick
 				// responsive moves win — avoids committing a slow wind-up from afar that gets baited/dodged.
@@ -619,18 +644,51 @@ namespace SpaxUtils
 					score *= Mathf.Lerp(1f - recencyPenalty, 1f, decay01);
 				}
 
+				// Offence is scored against the target, so it can only be judged once every candidate is in.
+				candidates.Add(new MoveCandidate
+				{
+					Act = rootAct,
+					Move = evalMove,
+					Chain = chain,
+					Reach = reach,
+					Score = score,
+					Value = StrikeValue(evalMove, defender, staggerWeight) / Mathf.Max(totalTime, 0.0001f),
+					RangeScore = rangeScore,
+					ScoringReach = maxReach,
+					SpeedFactor = speedFactor,
+					Align = align
+				});
+			}
+
+			// Offence, relative to the best this moveset can do to THIS target — level-invariant, and
+			// independent of how the damage constants are scaled. Fierce minds weight it more.
+			float bestValue = 0f;
+			for (int i = 0; i < candidates.Count; i++)
+			{
+				bestValue = Mathf.Max(bestValue, candidates[i].Value);
+			}
+
+			for (int i = 0; i < candidates.Count; i++)
+			{
+				MoveCandidate candidate = candidates[i];
+				float offenceNorm = bestValue > 0f ? candidate.Value / bestValue : 1f;
+				float score = candidate.Score * Mathf.Lerp(1f, offenceNorm, riskBias);
+
 				if (doLog)
 				{
-					sb.AppendLine($"  {rootAct} [{(evalMove as UnityEngine.Object)?.name ?? evalMove?.GetType().Name}] score={score:F3} | range={rangeScore:F2}(reach={ComputeScoringReach(evalMove, stormGate):F2} d={distance:F2}) speed={speedFactor:F2} align={align:F2} dps={offenceNorm:F2} chain={chain.Length}");
+					string moveName = candidate.Move is UnityEngine.Object obj && obj != null
+						? obj.name
+						: candidate.Move.GetType().Name;
+					sb.AppendLine($"  {candidate.Act} [{moveName}] score={score:F3} | range={candidate.RangeScore:F2}(reach={candidate.ScoringReach:F2} d={distance:F2}) speed={candidate.SpeedFactor:F2} align={candidate.Align:F2} offence={offenceNorm:F2} chain={candidate.Chain.Length}");
 				}
 
 				if (score > bestScore)
 				{
 					bestScore = score;
-					bestAct = rootAct;
-					bestMove = evalMove;
-					bestReach = reach;
-					bestChain = chain;
+					bestAct = candidate.Act;
+					bestMove = candidate.Move;
+					bestReach = candidate.Reach;
+					bestChain = candidate.Chain;
 				}
 			}
 
@@ -647,6 +705,68 @@ namespace SpaxUtils
 				lastSelectionLogTime = Time.time;
 				SpaxDebug.Log("MoveSelect", $"{Agent.Identification.ID} dist={distance:F2} best={bestAct ?? "none"}\n{sb}");
 			}
+		}
+
+		/// <summary>One scored candidate, held back until every move's value against the target is known.</summary>
+		private struct MoveCandidate
+		{
+			public string Act;
+			public ICombatMove Move;
+			public string[] Chain;
+			public float Reach;
+			public float Score;
+			public float Value;
+			public float RangeScore;
+			public float ScoringReach;
+			public float SpeedFactor;
+			public float Align;
+		}
+
+		/// <summary>
+		/// What one strike of <paramref name="move"/> is worth against <paramref name="defender"/>: the share of their
+		/// health it takes, plus the share of their stance, priced by what breaking that stance would open up.
+		/// </summary>
+		private float StrikeValue(ICombatMove move, AgentCombatComponent defender, float staggerWeight)
+		{
+			if (defender == null || defender.StatHandler == null)
+			{
+				return 0f;
+			}
+
+			StrikeData strike = EstimateStrike(move, true);
+			DefenceData defence = defender.DefenceProfile;
+			float guard = defender.GuardWeight;
+			DamageResult result = DamageResolver.Resolve(strike, defence, guard, combatSettings);
+
+			float healthMax = Mathf.Max(defender.StatHandler.ResourceStats.SW.Max, 0.0001f);
+			float health = result.ExpectedHealth / healthMax;
+
+			// What a stun is worth: this same strike landing unopposed. Against a guard that is the guard
+			// it strips; against an open target it is the free hit. Objective — only the appetite is personal.
+			float payoff = guard > 0f
+				? DamageResolver.Resolve(strike, defence, 0f, combatSettings).ExpectedHealth / healthMax
+				: health;
+
+			// Stance progress is measured against what endurance they have LEFT, so a worn-down guard invites the break.
+			float enduranceLeft = Mathf.Max(defender.StatHandler.ResourceStats.W.Value, 0.0001f);
+			float stagger = Mathf.Clamp01(result.ExpectedEndurance / enduranceLeft) * payoff;
+
+			return health + staggerWeight * stagger;
+		}
+
+		/// <summary>The target's combat component, cached until the target changes.</summary>
+		private AgentCombatComponent DefenderOf(ITargetable target)
+		{
+			if (target == null)
+			{
+				return null;
+			}
+			if (!ReferenceEquals(target, cachedDefenderTarget))
+			{
+				cachedDefenderTarget = target;
+				cachedDefender = target.Entity == null ? null : target.Entity.GetEntityComponent<AgentCombatComponent>();
+			}
+			return cachedDefender;
 		}
 
 		/// <summary>
@@ -686,6 +806,8 @@ namespace SpaxUtils
 			float distance,
 			float predictability,
 			float stormGate,
+			AgentCombatComponent defender,
+			float staggerWeight,
 			out string[] chain,
 			out ICombatMove finalMove)
 		{
@@ -695,7 +817,6 @@ namespace SpaxUtils
 			finalMove = current as ICombatMove;
 
 			Vector3 agentDir = AlignmentDir();
-			float bodyMag = Mathf.Max(BodyPhysics.magnitude, 0.0001f);
 
 			for (int depth = 0; depth < maxDepth; depth++)
 			{
@@ -705,6 +826,20 @@ namespace SpaxUtils
 				}
 
 				visited.Add(current);
+
+				// Value every follow-up against the target first; scoring is relative to the best sibling,
+				// which keeps it on fu.Prio's ~1 scale at any level.
+				followUpValues.Clear();
+				float bestValue = 0f;
+				for (int i = 0; i < current.FollowUps.Count; i++)
+				{
+					MoveFollowUp fu = current.FollowUps[i];
+					float value = fu != null && fu.Move is ICombatMove combatMove
+						? StrikeValue(combatMove, defender, staggerWeight)
+						: 0f;
+					followUpValues.Add(value);
+					bestValue = Mathf.Max(bestValue, value);
+				}
 
 				MoveFollowUp bestFU = null;
 				float bestFUScore = -1f;
@@ -721,17 +856,13 @@ namespace SpaxUtils
 
 					if (fu.Move is ICombatMove fuCombat)
 					{
-						// Offence the follow-up brings, body-normalised so it stays level-invariant and lands on
-						// the same ~1 scale as fu.Prio. Reads the resolved output rather than the raw sliders:
-						// those describe an ARMED move's distribution no longer.
-						MoveOutput fuOutput = GetMoveOutput(fuCombat);
-						score += fuOutput.Magnitude / bodyMag;
+						score += bestValue > 0f ? followUpValues[i] / bestValue : 0f;
 
 						float fuRangeFit = Mathf.InverseLerp(maxRangeError, 0f, Mathf.Abs(distance - ComputeScoringReach(fuCombat, stormGate)));
 						score *= Mathf.Lerp(0.5f, 1f, fuRangeFit);
 
 						// Deterministic damage-type alignment toward the agent's lean.
-						float fuAlign = Mathf.Clamp01(Vector3.Dot(fuOutput.TypeDirection, agentDir));
+						float fuAlign = Mathf.Clamp01(Vector3.Dot(GetMoveOutput(fuCombat).TypeDirection, agentDir));
 						score *= Mathf.Lerp(1f, fuAlign, alignmentWeight);
 					}
 
@@ -805,31 +936,17 @@ namespace SpaxUtils
 
 		/// <summary>
 		/// Extra distance a storm buys on top of the stick: the global <see cref="CombatSettings.StormRange"/>,
-		/// thrust-laned and scaled by charge — 0 uncharged, full only at MaxChargeMultiplier.
+		/// thrust-laned and scaled by the 0..1 charge fraction — 0 uncharged, full at a pool-deep charge.
 		/// </summary>
-		public float ComputeStormRange(ICombatMove move, float chargeMultiplier)
+		public float ComputeStormRange(ICombatMove move, float chargeFraction)
 		{
 			if (combatSettings == null || !(move is IMeleeCombatMove melee))
 			{
 				return 0f;
 			}
 
-			float charge = ChargeFraction(chargeMultiplier);
+			float charge = Mathf.Clamp01(chargeFraction);
 			return charge <= 0f ? 0f : combatSettings.StormRange * ThrustLane(melee) * charge;
-		}
-
-		/// <summary>
-		/// Overcharge as a 0..1 fraction of the configured headroom — 0 uncharged, 1 at MaxChargeMultiplier.
-		/// Shared by storm range and storm speed so the two can't drift apart.
-		/// </summary>
-		public float ChargeFraction(float chargeMultiplier)
-		{
-			if (combatSettings == null)
-			{
-				return 0f;
-			}
-
-			return Mathf.Clamp01((chargeMultiplier - 1f) / Mathf.Max(combatSettings.MaxChargeMultiplier - 1f, 0.01f));
 		}
 
 		/// <summary>
@@ -914,7 +1031,7 @@ namespace SpaxUtils
 		private float ComputeScoringReach(ICombatMove move, float stormGate)
 		{
 			return ComputeEffectiveReach(move) +
-				ComputeStormRange(move, combatSettings.MaxChargeMultiplier) * Mathf.Clamp01(stormGate);
+				ComputeStormRange(move, 1f) * Mathf.Clamp01(stormGate);
 		}
 
 		#region Combat Output
@@ -1117,27 +1234,90 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
-		/// Estimated raw damage an unguarded hit of <paramref name="offence"/> (x=Slash, y=Power, z=Pierce) driven by
-		/// <paramref name="powerBand"/> would deal to THIS agent, mirroring <see cref="AgentHitHandlerComponent"/> minus crits.
+		/// What a strike of <paramref name="move"/> would carry right now: no charge and no mid-swing phase, since
+		/// neither exists before the swing. Malice is only knowable from the inside, so an observer never passes it.
 		/// </summary>
-		public float EstimateIncomingDamage(Vector3 offence, float powerBand)
+		public StrikeData EstimateStrike(ICombatMove move, bool includeMalice = false)
 		{
-			float armor = Armor;
-			float yield = Yield;
-			float mean = (armor + yield) * 0.5f;
-			float pivot = combatSettings == null ? 0f : combatSettings.CritPivot;
-			float bluntScale = combatSettings == null ? 1f : combatSettings.BluntScale;
-			float bluntExponent = combatSettings == null ? 1f : combatSettings.BluntWallExponent;
-			float contestPower = combatSettings == null ? 1f : combatSettings.ContestPower;
-			float hardness = Agent.Stats.GetStat(AgentStatIdentifiers.HARDNESS) ?? 0.5f;
+			MoveOutput output = GetMoveOutput(move);
+			float powerScale = combatSettings == null ? 1f : combatSettings.WieldPowerFactor(WieldRatio(move));
 
-			float penetration = SpaxFormulas.Transfer(offence.x, armor);
-			float coupling = SpaxFormulas.CalculateCoupling(offence.z, yield, pivot);
-			float bluntOffence = powerBand * bluntScale * Mathf.Sqrt(Mathf.Clamp01(hardness) * (1f - penetration) * (1f - coupling));
+			float slash = output.Slash;
+			float power = output.Power * powerScale;
+			float pierce = output.Pierce;
+			float malice = includeMalice ? ExpectedMaliceMultiplier(slash + power + pierce) : 1f;
 
-			return offence.x * SpaxFormulas.Contests(penetration, SpaxFormulas.Transfer(powerBand, yield), contestPower)
-				+ offence.z * SpaxFormulas.Contests(coupling, SpaxFormulas.Transfer(powerBand, armor), contestPower)
-				+ bluntOffence * SpaxFormulas.Contests(SpaxFormulas.Transfer(bluntOffence, mean, bluntExponent), SpaxFormulas.Transfer(powerBand, mean), contestPower);
+			return new StrikeData(
+				slash * malice,
+				power * malice,
+				pierce * malice,
+				output.PowerBand * powerScale * malice,
+				output.ForceBand * powerScale * malice,
+				ComputeLimbMass(move),
+				Agent.Body.RigidbodyWrapper.Mass,
+				move is IMeleeCombatMove melee ? melee.BodyMassFraction : 0f,
+				luckStat ?? 0f);
+		}
+
+		/// <summary>
+		/// What one strike of <paramref name="move"/> from <paramref name="attacker"/> would do to THIS agent.
+		/// Resolved guard-down: a threat read that fell when we raised our guard would argue us out of guarding.
+		/// </summary>
+		public DamageResult EstimateIncoming(AgentCombatComponent attacker, ICombatMove move)
+		{
+			return DamageResolver.Resolve(attacker.EstimateStrike(move), DefenceProfile, 0f, combatSettings);
+		}
+
+		/// <summary>
+		/// The move an onlooker should brace for: the one in flight, else the one being planned, else the heaviest
+		/// this agent could open with.
+		/// </summary>
+		public ICombatMove ThreatMove => CurrentCombatMove ?? PreferredMove ?? HeaviestMove;
+
+		/// <summary>Heaviest opener in the moveset, refreshed on a slow timer — it only changes with equipment.</summary>
+		private ICombatMove HeaviestMove
+		{
+			get
+			{
+				if (Time.time - heaviestMoveTime < HEAVIEST_MOVE_REFRESH)
+				{
+					return heaviestMove;
+				}
+				heaviestMoveTime = Time.time;
+				heaviestMove = null;
+
+				if (moveHandler == null || moveHandler.Moveset == null)
+				{
+					return null;
+				}
+
+				float best = -1f;
+				foreach (KeyValuePair<string, IPerformanceMove> entry in moveHandler.Moveset)
+				{
+					if (entry.Value is not ICombatMove combatMove)
+					{
+						continue;
+					}
+					float magnitude = GetMoveOutput(combatMove).Magnitude;
+					if (magnitude > best)
+					{
+						best = magnitude;
+						heaviestMove = combatMove;
+					}
+				}
+				return heaviestMove;
+			}
+		}
+
+		/// <summary>Malice the pool could pay for on an offence of <paramref name="offence"/>: 1 + the covered share.</summary>
+		private float ExpectedMaliceMultiplier(float offence)
+		{
+			if (offence <= 0f || StatHandler == null)
+			{
+				return 1f;
+			}
+			ResourceStat malice = StatHandler.ResourceStats.NW;
+			return 1f + Mathf.Min(malice.Value, offence * malice.DrainMult) / offence;
 		}
 
 		#endregion Combat Output

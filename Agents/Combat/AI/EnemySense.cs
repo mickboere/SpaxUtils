@@ -24,13 +24,15 @@ namespace SpaxUtils
 		private const float THREAT_LETHALITY_WEIGHT = 0.3f;
 		private const float THREAT_INTENT_WEIGHT = 0.2f;
 
-		// Lethality composition weights (should sum to 1).
-		private const float LETHALITY_POINTS_WEIGHT = 0.5f;
-		private const float LETHALITY_OFFENCE_WEIGHT = 0.3f;
-		private const float LETHALITY_POWER_WEIGHT = 0.2f;
+		// Lethality composition weights (should sum to 1). Resource bulk is only a proxy for danger, so it
+		// weighs less than the two terms that resolve what a strike of theirs would actually do to us.
+		private const float LETHALITY_POINTS_WEIGHT = 0.3f;
+		private const float LETHALITY_OFFENCE_WEIGHT = 0.45f;
+		private const float LETHALITY_STAGGER_WEIGHT = 0.25f;
 
 		// NE / Opportunity. TODO 14: calibrate all 8 from real frequency×magnitude data.
 		private const float UTILIZE_WEIGHT = 0.5f;          // NE opportunity → danger scale (final magnitude).
+		private const float UTILIZE_N_SHARE = 0.5f;         // share of that opening feeding plain aggression (N), before Drive.N.
 		private const float OPPORTUNITY_RETREAT_SPEED = 2f; // enemy retreat speed (m/s) reading as a full "backing away" opening.
 		private const float PERFORMING_OPPORTUNITY = 0.7f;  // a mid-swing (Performing) enemy is a PARTIAL opening — NE starts charging here so it can release in the recovery; Finishing (recovery) is the full opening.
 		// Opportunity is the MAX of its weighted components (strongest single opening wins; weak ones don't stack). Tune each type's weight.
@@ -311,24 +313,34 @@ namespace SpaxUtils
 				info.Visible = false;
 			}
 
-			// Lethality of enemy to agent.
+			// Lethality of enemy to agent. Every term is a fraction of ourselves, so nothing shifts when
+			// the damage or resource constants are rescaled.
 			float enemyResourceSum = info.StatHandler.ResourceStats.Vector8.Sum();
 			float resourceRatio = enemyResourceSum <= Mathf.Epsilon ? 0.5f : enemyResourceSum / resourceSum;
-			float powerRatio = info.CombatComp.Power / agent.Body.RigidbodyWrapper.Mass;
-
 			float resourceLeth = resourceRatio / (resourceRatio + 1f);
-			// Offence lethality: expected physics damage the enemy's per-axis output (Offense) would deal
-			// against OUR per-axis Defense (Armor/Yield mapping), relative to our health. This replaces
-			// the legacy "Offense / Armor" — Armor only defends Slash (+half Power), not all output.
-			float expectedDamage = combatComponent.EstimateIncomingDamage(info.CombatComp.Offense, info.CombatComp.OffensePowerBand);
-			float myMaxHealth = Mathf.Max(combatComponent.StatHandler.ResourceStats.SW.Max, 0.001f);
-			float offenseLeth = expectedDamage / (expectedDamage + myMaxHealth);
-			float powerLeth = powerRatio / (powerRatio + 1f);
+
+			// What a strike of theirs would actually do to us: the move they are in, planning, or heaviest
+			// hold. Resolved guard-down — a threat that shrank as we guarded would argue us out of guarding.
+			float offenseLeth = 0f;
+			float staggerLeth = 0f;
+			ICombatMove threatMove = info.CombatComp == null ? null : info.CombatComp.ThreatMove;
+			if (threatMove != null)
+			{
+				DamageResult incoming = combatComponent.EstimateIncoming(info.CombatComp, threatMove);
+				float myMaxHealth = Mathf.Max(statHandler.ResourceStats.SW.Max, 0.001f);
+				float myMaxEndurance = Mathf.Max(statHandler.ResourceStats.W.Max, 0.001f);
+
+				// Saturating, so a foe that one-shots us still outranks one that three-shots us.
+				float health = incoming.ExpectedHealth / myMaxHealth;
+				float endurance = incoming.ExpectedEndurance / myMaxEndurance;
+				offenseLeth = health / (health + 1f);
+				staggerLeth = endurance / (endurance + 1f);
+			}
 
 			info.Lethality = Mathf.Clamp01(
 				LETHALITY_POINTS_WEIGHT * resourceLeth +
 				LETHALITY_OFFENCE_WEIGHT * offenseLeth +
-				LETHALITY_POWER_WEIGHT * powerLeth);
+				LETHALITY_STAGGER_WEIGHT * staggerLeth);
 
 			float effectiveReach = 0.5f;
 			if (info.CombatComp != null)
@@ -531,7 +543,7 @@ namespace SpaxUtils
 						// Immediate floor, growing toward MAX_STIM as the held charge builds a longer live dash.
 						// Off the overcharge itself, not their reach — reach carries the Agility-scaled stick,
 						// which says nothing about a building storm's threat.
-						float chargeGrowth = Mathf.Clamp01(info.CombatComp.CurrentChargeMultiplier - 1f);
+						float chargeGrowth = info.CombatComp.CurrentChargeFraction;
 						stormWindupDanger = stormProximity * Mathf.Lerp(STORM_WINDUP_FLOOR, 1f, chargeGrowth) * AEMOI.MAX_STIM;
 					}
 				}
@@ -577,6 +589,10 @@ namespace SpaxUtils
 				// drives. NOT hate-empowered: NE is Anticipation (perceiving/timing an opening), not contempt — hate lives on N+NW.
 				float utilize = info.Oppurtunity * AEMOI.MAX_STIM * UTILIZE_WEIGHT;
 
+				// An opening also invites a plain strike, less than it invites a charged one. Drive.N (competence)
+				// decides who pounces; unlike rage this is NOT threat-scaled, so a backed-off agent can still commit.
+				float seize = utilize * UTILIZE_N_SHARE * agent.Mind.Drive.N;
+
 				// E (Evade): identical danger profile to Guard (W). The base stimulus is neutral/objective, so the
 				// evade-vs-guard choice comes purely from the agent's inclination — not from a thumb on this scale.
 				// Wind-up is reach-gated exactly like Guard.
@@ -621,17 +637,19 @@ namespace SpaxUtils
 
 				// NW (Pierce/Pressure): pressure a SAFE STANDOFF. enemyRadial = enemy's OWN radial velocity (isolated from
 				// ours): <0 approaching (N's job), ~0 holding (steady → pressure), >0 retreating (lesser chase, NE's tell
-				// weighted down). `harmful` = the enemy winding up a strike at us — they plant, so steady would read 1, so
-				// gate the cue by (1 - harmful) AND add harmful to the relax (opposite effect): under a windup NW stops
-				// building and bleeds off, yielding to Guard/Evade. hateGain empowers; low health BOOSTS it (bait from range).
+				// weighted down). `harmful` keeps the storm windup out; hateGain empowers.
 				float enemyRadial = Vector3.Dot(info.Agent.Body.RigidbodyWrapper.Velocity, info.Direction);
-				float steady = 1f - Mathf.Clamp01(Mathf.Abs(enemyRadial) / NW_STANDOFF_SPEED);                  // 1 holding/jockeying, →0 on a decisive charge/flee
+				// No standoff while they commit a strike at us — that regime is Guard/Evade's. Holding or turtling
+				// still counts: refusing to engage is precisely what ruthlessness presses.
+				float committing = info.CombatComp != null && info.CombatComp.CurrentCombatMove != null ? 0f : 1f;
+				float steady = committing * (1f - Mathf.Clamp01(Mathf.Abs(enemyRadial) / NW_STANDOFF_SPEED)); // →0 on a decisive charge/flee
 				float retreating = Mathf.Clamp01(Mathf.Max(0f, enemyRadial) / OPPORTUNITY_RETREAT_SPEED);       // 0 holding/closing, →1 as they flee (NE's cue)
 				float harmful = Mathf.Clamp01((windupDanger + stormWindupDanger) / AEMOI.MAX_STIM);             // incoming windup (NOT mere proximity/recovery)
 				float nwCue = Mathf.Clamp01(steady + retreating * NW_RETREAT_WEIGHT) * (1f - harmful);
-				// Standoff is a RANGED bait/taunt game — the more hurt the agent, the MORE it should hover out and bait
-				// (preserve resources for guarding) rather than trade. So low health BOOSTS it, opposite of a close attack.
-				float targetNW = nwCue * AEMOI.MAX_STIM * RUTHLESS_WEIGHT * hateGain * (1f + healthDef * NW_HEALTH_BOOST);
+				// A ranged bait game, so being hurt BOOSTS it — but the gains may only reach the ceiling, never
+				// pass it: a demand stuck above MAX_STIM can't be drained by its own behaviour (Standoff lock).
+				float nwGain = Mathf.Min(hateGain * (1f + healthDef * NW_HEALTH_BOOST), 1f / RUTHLESS_WEIGHT);
+				float targetNW = nwCue * AEMOI.MAX_STIM * RUTHLESS_WEIGHT * nwGain;
 
 				// Finisher: enemy near death → press the kill (N + NW + a little NE). Aggression (Balance.N) presses always;
 				// bloodlust (Balance.NW) wanes near our own death; curved by FINISHER_HEALTH_POWER (only bites very low).
@@ -652,7 +670,7 @@ namespace SpaxUtils
 				);
 
 				Vector8 rawStim = new Vector8(
-					fight,    // N
+					fight + seize, // N
 					utilize,  // NE
 					evade,    // E
 					support,  // SE

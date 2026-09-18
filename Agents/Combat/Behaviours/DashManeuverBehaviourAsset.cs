@@ -23,6 +23,8 @@ namespace SpaxUtils
 		/// Real seconds the burst lasts. Distance is fixed, so a faster dash is a SHORTER one — Agility gets you out of
 		/// the way quicker, never further.
 		/// </summary>
+		public TrailSettings Trail => trail;
+
 		protected float DashDuration => dashDistance / DashSpeed;
 
 		protected bool Bursting => dashTime < DashDuration;
@@ -50,12 +52,7 @@ namespace SpaxUtils
 		[SerializeField, Tooltip("Exponent applied to the LoadPenalty stat. 1 = as encumbered as general movement, higher = dashing suffers more. Never locks the dash out, only degrades it.")]
 		private float loadSensitivity = 2f;
 		[Header("Trail")]
-		[SerializeField, Tooltip("How trail snapshots carry the dash smear: frozen at capture or still scrolling.")]
-		private TrailSmearMode trailSmear = TrailSmearMode.Frozen;
-		[SerializeField, Tooltip("Stretch each trail snapshot's smear back to the previous snapshot so the trail reads connected.")]
-		private bool trailSmearMatchSpacing = true;
-		[SerializeField, Tooltip("Multiplier on the matched smear length, to close gaps the streaks and pin leave.")]
-		private float trailSmearReach = 1f;
+		[SerializeField] private TrailSettings trail = new TrailSettings();
 		[Header("SFX")]
 		[SerializeField] private SFXData dashSFX;
 		[SerializeField] private SFXData glideSFX;
@@ -134,7 +131,7 @@ namespace SpaxUtils
 			shakeSource?.Dispose();
 
 			// VFX
-			agentTrailEffect.End();
+			agentTrailEffect.End(this);
 			dashFeedback?.EndDash();
 		}
 
@@ -181,7 +178,7 @@ namespace SpaxUtils
 			glideSFX.PlayLoop(glideAudio, true);
 
 			// VFX
-			agentTrailEffect.Begin(trailSmear, trailSmearMatchSpacing, trailSmearReach);
+			agentTrailEffect.Begin(this, trail);
 			dashFeedback?.BeginDash(direction);
 		}
 

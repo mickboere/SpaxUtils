@@ -86,11 +86,10 @@ namespace SpaxUtils
 		{
 			bool blocked = hitData.Data.GetValue<bool>(HitDataIdentifiers.BLOCKED);
 			bool parried = hitData.Data.GetValue<bool>(HitDataIdentifiers.PARRIED);
-			bool deflected = hitData.Data.GetValue<bool>(HitDataIdentifiers.DEFLECTED);
-			bool neglect = blocked || parried;
+			bool neglect = blocked;
 
-			// A deflect resolves as a real hit; its timing quality decides how much of it endurance pays.
-			float deflectQuality = deflected ? Mathf.Clamp01(hitData.Data.GetValue<float>(HitDataIdentifiers.DEFLECT_QUALITY)) : 0f;
+			// A parry resolves as a real hit; its timing quality decides how much of it endurance pays.
+			float parryQuality = parried ? Mathf.Clamp01(hitData.Data.GetValue<float>(HitDataIdentifiers.PARRY_QUALITY)) : 0f;
 
 			// --- 1. GUARD ---
 			// Rear exposure lifts Vulnerability toward 1 and takes the guard off that hit.
@@ -107,85 +106,48 @@ namespace SpaxUtils
 			}
 			float guard = guardWeight * frontal;
 
-			// Guard (Earth) flattens edges: the full Armor, shield included, comes off the Slash.
-			// Points only run the wall twice and never reach zero; dashing (Air) is their real counter.
-			float slashIn = neglect ? 0f : Mathf.Max(0f, hitData.Slash - armorStat * guard);
-			float couplingOpen = SpaxFormulas.CalculateCoupling(hitData.Pierce, yieldStat, combatSettings.CritPivot);
-			float pierceIn = Mathf.Lerp(hitData.Pierce, hitData.Pierce * couplingOpen, guard);
+			// --- 2. RESOLVE ---
+			// THE pipeline, shared with the AI's estimates; only the crit roll is the hit's own.
+			StrikeData strike = new StrikeData(hitData);
+			DefenceData defence = new DefenceData(armorStat, yieldStat, hardnessStat, vulnerability, luckStat);
+			DamageResult result = DamageResolver.Resolve(strike, defence, guard, combatSettings, neglect);
 
-			// --- 2. CONTESTS ---
-			// Edge vs Armor, point vs Yield, on what guard let through; whatever neither takes lands as blunt below.
-			float band = hitData.PowerBand;
-			float penetration = SpaxFormulas.Transfer(slashIn, armorStat);
-			float coupling = SpaxFormulas.CalculateCoupling(pierceIn, yieldStat, combatSettings.CritPivot);
-
-			// Each flank needs the power band behind it to get past the OTHER wall.
-			float slashDrive = SpaxFormulas.Transfer(band, yieldStat);
-			float pierceDrive = SpaxFormulas.Transfer(band, armorStat);
-
-			// --- 3. SLASH ---
-			float slashDamage = slashIn * SpaxFormulas.Contests(penetration, slashDrive, combatSettings.ContestPower);
-
-			// --- 4. PIERCE & CRIT ---
-			// A crit found a gap: its odds come from the guarded point, but it lands with the unguarded one.
-			float pierceOpen = neglect ? 0f : hitData.Pierce * SpaxFormulas.Contests(couplingOpen, pierceDrive, combatSettings.ContestPower);
-			float pierceDamage = neglect ? 0f : pierceIn * SpaxFormulas.Contests(coupling, pierceDrive, combatSettings.ContestPower);
-			bool isCrit = !neglect && !deflected &&
-				hitData.Pierce > 0f &&
-				Random.value < SpaxFormulas.CalculateCritChance(coupling, vulnerability, hitData.Luck, luckStat);
-			float critDamage = isCrit ? pierceOpen * combatSettings.CritMultiplier : 0f;
+			// A parry catches the point before it can find a gap, so it never crits.
+			bool isCrit = !parried && result.CritChance > 0f && Random.value < result.CritChance;
+			float critDamage = isCrit ? result.CritDamage : 0f;
+			float slashDamage = result.Slash;
+			float pierceDamage = result.Pierce;
+			float bluntDamage = result.Blunt;
+			float impact = result.Impact;
+			float force = result.Force;
 
 			hitData.Data.SetValue(HitDataIdentifiers.CRIT, isCrit);
-			hitData.Data.SetValue(HitDataIdentifiers.COUPLING, coupling);
-			hitData.Data.SetValue(HitDataIdentifiers.PENETRATION, penetration);
+			hitData.Data.SetValue(HitDataIdentifiers.COUPLING, result.Coupling);
+			hitData.Data.SetValue(HitDataIdentifiers.PENETRATION, result.Penetration);
 			hitData.Data.SetValue(HitDataIdentifiers.SLASH_DAMAGE, slashDamage);
 			hitData.Data.SetValue(HitDataIdentifiers.PIERCE_DAMAGE, pierceDamage);
 			hitData.Data.SetValue(HitDataIdentifiers.CRIT_DAMAGE, critDamage);
-
-			// --- 5. BLUNT ---
-			// What neither cut nor caught, carried by the whole power band. Centre-octad, so walled by the mean.
-			float meanDefence = (armorStat + yieldStat) * 0.5f;
-			float Blunt(float edge, float point, out float effectiveness, out float wall)
-			{
-				effectiveness = Mathf.Sqrt(Mathf.Clamp01(hardnessStat) * Mathf.Clamp01((1f - edge) * (1f - point)));
-				float offence = band * effectiveness * combatSettings.BluntScale;
-				wall = SpaxFormulas.Transfer(offence, meanDefence, combatSettings.BluntWallExponent);
-				return offence * SpaxFormulas.Contests(wall, SpaxFormulas.Transfer(band, meanDefence), combatSettings.ContestPower);
-			}
-			float blunt = Blunt(penetration, coupling, out float bluntEffectiveness, out float bluntWall);
-			float bluntDamage = neglect ? 0f : blunt;
-
-			// Momentum TRANSMITTED: what the own wall refused made the contact rigid, and guard stiffens the rest.
-			// A failed drive didn't deliver, so it's excluded.
-			float rigidity = 1f - (1f - guard) * bluntWall;
-			float impact = Mathf.Lerp(bluntEffectiveness, 1f, rigidity);
-
 			hitData.Data.SetValue(HitDataIdentifiers.IMPACT, impact);
 			hitData.Data.SetValue(HitDataIdentifiers.BLUNT_DAMAGE, bluntDamage);
+			hitData.Data.SetValue(HitDataIdentifiers.FORCE, force);
 
-			// --- 6. TOTAL PHYSICS DAMAGE ---
-			float totalDamage = slashDamage + pierceDamage + critDamage + bluntDamage;
+			// --- 3. TOTAL PHYSICS DAMAGE ---
+			float totalDamage = result.TotalWith(critDamage);
 			hitData.Data.SetValue(HitDataIdentifiers.DAMAGE_TOTAL, totalDamage);
 
 			// The hitter measures its output against this; non-agent hittables report nothing and pay no EXP.
 			float healthMax = statHandler.ResourceStats.SW.Max;
 			hitData.Data.SetValue(HitDataIdentifiers.HEALTH_MAX, healthMax);
 
-			// --- IMPACT & FORCE ---
-			// The force band, scaled by mass as ratios so a heavy club outpushes a light one at any level.
-			float force = hitData.ForceBand * combatSettings.ForceMassFactor(hitData.LimbMass, hitData.HitterMass, hitData.BodyMassFraction) * impact;
-			hitData.Data.SetValue(HitDataIdentifiers.FORCE, force);
-
 			// --- ENDURANCE DAMAGE ---
 			// Damage wears endurance at post-guard rates; force is centre-octad like blunt, so walled by the mean.
-			float stagger = SpaxFormulas.CalculateDamage(force, meanDefence);
-			float full = combatSettings.StaggerDamageWeight * (slashDamage + pierceDamage + critDamage) + stagger;
+			float full = result.EnduranceWith(critDamage);
 
-			// Deflect timing splits the cost: we pay what it missed, the hitter what it caught (applied their side).
-			float toEndure = neglect ? 0f : full * (1f - deflectQuality);
-			if (deflected)
+			// Parry timing splits the cost: we pay what it missed, the hitter what it caught (applied their side).
+			float toEndure = neglect ? 0f : full * (1f - parryQuality);
+			if (parried)
 			{
-				hitData.Data.SetValue(HitDataIdentifiers.ENDURANCE_RETURN, full * deflectQuality);
+				hitData.Data.SetValue(HitDataIdentifiers.ENDURANCE_RETURN, full * parryQuality);
 			}
 
 			float enduranceDamage = statHandler.ResourceStats.W.Drain(
@@ -235,8 +197,8 @@ namespace SpaxUtils
 				: Vector3.zero;
 
 			// FORCE — an even split while they hold their stance, all theirs when spent.
-			// A negated hit turns the whole strike back on the attacker; a deflect does so by its quality.
-			float receiverShare = neglect ? 0f : Mathf.Lerp(Mathf.Lerp(0.5f, 1f, spent), 0f, deflectQuality);
+			// A negated hit turns the whole strike back on the attacker; a parry does so by its quality.
+			float receiverShare = neglect ? 0f : Mathf.Lerp(Mathf.Lerp(0.5f, 1f, spent), 0f, parryQuality);
 			float impulse = force * elasticity;
 
 			rigidbodyWrapper.Push(clashPush + push * (impulse * receiverShare / rigidbodyWrapper.Mass));
@@ -252,15 +214,18 @@ namespace SpaxUtils
 				// Guard trades health for stance: blunt is cancelled off health by guard weight, and already rides endurance
 				// as force. Edges and points were converted upstream; only a crit strikes through.
 				float guarded = bluntDamage * guard;
-				// A deflect holds everything for as long as endurance pays for it.
-				float healthDamage = deflected ? 0f : Mathf.Max(0f, totalDamage - guarded);
+				// A parry holds everything for as long as endurance pays for it.
+				float healthDamage = parried ? 0f : Mathf.Max(0f, totalDamage - guarded);
 
-				// A broken guard or deflect only held the share endurance paid for; the rest lands as if unguarded.
-				if (stunned && (guard > 0f || deflected) && !neglect)
+				// What this hit would have done with no guard in the way — the total the Static ledger splits.
+				bool held = (guard > 0f || parried) && !neglect;
+				float unguarded = held
+					? DamageResolver.Resolve(strike, defence, 0f, combatSettings).TotalWith(critDamage)
+					: totalDamage;
+
+				// A broken guard or parry only held the share endurance paid for; the rest lands as if unguarded.
+				if (stunned && held)
 				{
-					float openPenetration = SpaxFormulas.Transfer(hitData.Slash, armorStat);
-					float unguarded = hitData.Slash * SpaxFormulas.Contests(openPenetration, slashDrive, combatSettings.ContestPower) + pierceOpen + critDamage
-						+ Blunt(openPenetration, couplingOpen, out _, out _);
 					healthDamage += Mathf.Max(0f, unguarded - healthDamage) * (1f - endured);
 					guarded *= endured;
 				}
@@ -280,12 +245,24 @@ namespace SpaxUtils
 					hitData.Data.SetValue(HitDataIdentifiers.GRACE, drained);
 				}
 
-				hitData.Data.SetValue(HitDataIdentifiers.DAMAGE_DEALT,
-					statHandler.ResourceStats.SW.Drain(healthDamage, out bool dead, out _));
+				float dealt = statHandler.ResourceStats.SW.Drain(healthDamage, out bool dead, out _);
+				hitData.Data.SetValue(HitDataIdentifiers.DAMAGE_DEALT, dealt);
 
-				// --- MALICE BUILDUP ---
-				// Spite answers the offence aimed at us, not the wound it left; a fully guarded hit builds the same as a clean one.
-				// Basis matches what Malice is spent against (MeleeCombatBehaviourAsset), keeping the ledger symmetric.
+				// --- MALICE + STATIC LEDGER ---
+				// The damage this hit carried splits in two and nothing is lost: what got THROUGH is the
+				// hitter's Static (banked their side), what we STOPPED is ours. Spite answers the offence.
+				float stopped = Mathf.Max(0f, unguarded - dealt);
+				if (stopped > 0f)
+				{
+					statHandler.ResourceStats.NE.Current.BaseValue += stopped * combatSettings.StaticPerDamage;
+
+					// LIGHT: a parry pays for the threat it neutralised.
+					if (parried)
+					{
+						statHandler.RewardExpPoints(Element.Light, stopped, ExpSources.PARRY);
+					}
+				}
+
 				if (hitData.Hitter != null && hitData.Hitter is IAgent)
 				{
 					float incomingOffence = hitData.Slash + hitData.Power + hitData.Pierce;
@@ -304,28 +281,9 @@ namespace SpaxUtils
 				}
 			}
 
-			// Build Static (NE) for defending. Threat = potential force (Mass × Power); each outcome takes its own fraction (partial guard scales further by guard weight).
-			float staticThreat = hitData.StrikeMass * hitData.Power * combatSettings.StaticGain;
-			if (parried || deflected)
-			{
-				float built = staticThreat * combatSettings.DeflectStaticPercent * (deflected ? deflectQuality : 1f);
-				statHandler.ResourceStats.NE.Current.BaseValue += built;
-
-				// LIGHT: a deflect pays for the threat it neutralised, measured in the Static it grounded.
-				statHandler.RewardExpPoints(Element.Light, built, ExpSources.DEFLECT);
-			}
-			else if (blocked)
-			{
-				statHandler.ResourceStats.NE.Current.BaseValue += staticThreat * combatSettings.BlockStaticPercent;
-			}
-			else if (guardWeight > 0f)
-			{
-				statHandler.ResourceStats.NE.Current.BaseValue += staticThreat * combatSettings.BlockStaticPercent * guardWeight;
-			}
-
 			// --- HIT PAUSE ---
-			// Crits pause for a fixed beat, deflects earn their advantage by quality; the rest scales with impact.
-			float pauseTime = deflected ? Mathf.Lerp(combatSettings.DeflectedHitPause, combatSettings.DeflectorHitPause, deflectQuality)
+			// Crits pause for a fixed beat, parries earn their advantage by quality; the rest scales with impact.
+			float pauseTime = parried ? Mathf.Lerp(combatSettings.ParriedHitPause, combatSettings.ParrierHitPause, parryQuality)
 				: isCrit ? combatSettings.CritReceiverHitPause
 				: combatSettings.HitPauseReceiver.Lerp(impact);
 

@@ -18,10 +18,16 @@ namespace SpaxUtils
 		float ChargeTime { get; }
 
 		/// <summary>
-		/// The current charge multiplier of the performance; 1 = uncharged, rising while charging (capped at the
-		/// move's max). Surfaced from the active <see cref="IChargeProvider"/> behaviour; 1 when none is charging.
+		/// The current charge multiplier of the performance; 1 = uncharged, rising while charging.
+		/// Surfaced from the active <see cref="IChargeProvider"/> behaviour; 1 when none is charging.
 		/// </summary>
 		float ChargeMultiplier { get; }
+
+		/// <summary>How charged the performance is, 0..1 of what the Static pool could fund; 0 when none.</summary>
+		float ChargeFraction { get; }
+
+		/// <summary>Whether the charge drained the pool dry and is waiting out its auto-release.</summary>
+		bool ChargeDepleted { get; }
 
 		/// <summary>
 		/// Whether the current performance should halt its the runtime once minimum duration has been reached.

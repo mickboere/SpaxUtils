@@ -14,6 +14,8 @@ namespace SpaxUtils
 		private struct Snapshot
 		{
 			public Mesh Mesh;
+			public Material Material;
+			public float Duration;
 			public float StartTime;
 			public DeformSmear Smear;
 			public float PinFloor;
@@ -22,14 +24,6 @@ namespace SpaxUtils
 
 		private static readonly int AlphaId = Shader.PropertyToID("_Alpha");
 		private const float MATCHED_FALLOFF = 1000f;
-
-		public Material TrailMaterial => trailMaterial;
-		public float Spacing => spacing;
-		public float Duration => duration;
-
-		[SerializeField] private Material trailMaterial;
-		[SerializeField, Tooltip("Meters travelled between snapshots.")] private float spacing = 0.75f;
-		[SerializeField] private float duration = 0.5f;
 
 		private EntityAppearanceHandler entityAppearanceHandler;
 		private EntityAppearanceEffectHandler appearanceEffects;
@@ -42,10 +36,8 @@ namespace SpaxUtils
 		private Mesh combinedMesh;
 
 		private Vector3 lastCapturePosition;
-		private bool matchSpacing;
-		private float matchReach = 1f;
-		private bool capturing;
-		private TrailSmearMode smearMode;
+		private object owner;
+		private TrailSettings settings;
 
 		public void InjectDependencies(EntityAppearanceHandler entityAppearanceHandler,
 			[Optional] EntityAppearanceEffectHandler appearanceEffects)
@@ -81,11 +73,11 @@ namespace SpaxUtils
 
 		protected void Update()
 		{
-			if (capturing)
+			if (settings != null)
 			{
 				// Distance, not time: even spacing at any speed, so snapshots can be smeared into each other.
 				Vector3 travel = transform.position - lastCapturePosition;
-				if (travel.sqrMagnitude >= spacing * spacing)
+				if (travel.sqrMagnitude >= settings.Spacing * settings.Spacing)
 				{
 					CaptureSnapshot(travel);
 					lastCapturePosition = transform.position;
@@ -96,21 +88,30 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
-		/// Starts capturing; <paramref name="smearMode"/> decides how snapshots carry the body's smear.
-		/// <paramref name="matchSpacing"/> stretches each smear back to the previous snapshot (× <paramref name="reach"/>).
+		/// Starts a trail looking like <paramref name="settings"/>, replacing any running one.
 		/// </summary>
-		public void Begin(TrailSmearMode smearMode = TrailSmearMode.None, bool matchSpacing = false, float reach = 1f)
+		public void Begin(object owner, TrailSettings settings)
 		{
-			this.smearMode = smearMode;
-			this.matchSpacing = matchSpacing;
-			matchReach = reach;
-			capturing = true;
+			if (settings == null || settings.Material == null)
+			{
+				return;
+			}
+
+			this.owner = owner;
+			this.settings = settings;
 			lastCapturePosition = transform.position;
 		}
 
-		public void End()
+		/// <summary>
+		/// Stops capturing if <paramref name="owner"/> still owns the trail; captured snapshots fade out on their own.
+		/// </summary>
+		public void End(object owner)
 		{
-			capturing = false;
+			if (this.owner == owner)
+			{
+				this.owner = null;
+				settings = null;
+			}
 		}
 
 		/// <summary>
@@ -198,21 +199,23 @@ namespace SpaxUtils
 			Snapshot snapshot = new Snapshot
 			{
 				Mesh = snapshotMesh,
+				Material = settings.Material,
+				Duration = settings.Duration,
 				StartTime = Time.time,
 				PinHeight = 1f,
 			};
 
-			if (smearMode != TrailSmearMode.None && appearanceEffects != null)
+			if (settings.Smear != TrailSmearMode.None && appearanceEffects != null)
 			{
 				appearanceEffects.GetSmear(out snapshot.Smear, out snapshot.PinFloor, out snapshot.PinHeight);
 				// Snapshot streaks run from the smear's phase at capture, not the render clock.
-				if (smearMode == TrailSmearMode.Frozen)
+				if (settings.Smear == TrailSmearMode.Frozen)
 				{
 					snapshot.Smear.Scroll = 0f;
 				}
-				if (matchSpacing)
+				if (settings.MatchSpacing)
 				{
-					MatchSpacing(ref snapshot.Smear, travel, matchReach);
+					MatchSpacing(ref snapshot.Smear, travel, settings.Reach);
 				}
 			}
 
@@ -226,19 +229,20 @@ namespace SpaxUtils
 				Snapshot snapshot = activeSnapshots[i];
 				float age = Time.time - snapshot.StartTime;
 
-				if (age >= duration)
+				if (age >= snapshot.Duration)
 				{
 					Object.Destroy(snapshot.Mesh);
 					activeSnapshots.RemoveAt(i);
 					continue;
 				}
 
-				SetSnapshotProperties(propertyBlock, snapshot.Smear, snapshot.PinFloor, snapshot.PinHeight, age, duration);
+				SetSnapshotProperties(propertyBlock, snapshot.Smear, snapshot.PinFloor, snapshot.PinHeight, age,
+					snapshot.Duration);
 
 				Graphics.DrawMesh(
 					snapshot.Mesh,
 					Matrix4x4.identity,
-					trailMaterial,
+					snapshot.Material,
 					gameObject.layer,
 					null,
 					0,

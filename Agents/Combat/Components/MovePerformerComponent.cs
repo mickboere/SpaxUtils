@@ -35,6 +35,10 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public float ChargeMultiplier => MainPerformer != null ? MainPerformer.ChargeMultiplier : 1f;
 		/// <inheritdoc/>
+		public float ChargeFraction => MainPerformer != null ? MainPerformer.ChargeFraction : 0f;
+		/// <inheritdoc/>
+		public bool ChargeDepleted => MainPerformer != null && MainPerformer.ChargeDepleted;
+		/// <inheritdoc/>
 		public bool Prolong
 		{
 			get { return MainPerformer != null ? MainPerformer.Prolong : false; }

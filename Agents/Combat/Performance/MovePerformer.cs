@@ -34,7 +34,16 @@ namespace SpaxUtils
 		public float ChargeTime => sample.ChargeTime;
 
 		/// <summary>Surfaces the live charge from whichever behaviour provides one (e.g. the melee swing); 1 when none.</summary>
-		public float ChargeMultiplier
+		public float ChargeMultiplier => Charger != null ? Charger.ChargeMultiplier : 1f;
+
+		/// <inheritdoc/>
+		public float ChargeFraction => Charger != null ? Charger.ChargeFraction : 0f;
+
+		/// <inheritdoc/>
+		public bool ChargeDepleted => Charger != null && Charger.ChargeDepleted;
+
+		/// <summary>The behaviour accumulating this performance's charge, if any.</summary>
+		private IChargeProvider Charger
 		{
 			get
 			{
@@ -42,10 +51,10 @@ namespace SpaxUtils
 				{
 					if (behaviour is IChargeProvider charge)
 					{
-						return charge.ChargeMultiplier;
+						return charge;
 					}
 				}
-				return 1f;
+				return null;
 			}
 		}
 

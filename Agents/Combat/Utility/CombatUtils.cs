@@ -314,50 +314,41 @@ namespace SpaxUtils
 
 		#endregion // Scan Points
 
-		#region Charge Prediction
+		#region Charge Economy
 
-		/// <summary>
-		/// Predict how much we intend to charge and how long that will take.
-		/// intent: 0..1 (0 = minimum charge only, 1 = as close to ChargeDuration as possible).
-		/// </summary>
-		public static void GetChargePrediction(
-			ICombatMove move,
-			float intent,
-			float chargeSpeed,
-			out float chargeTime,
-			out float chargeFactor)
+		// ONE curve: efficiency halves every `reference` points already stored, so the accelerating Static
+		// drain is its consequence. Stored points are what the swing uses; raw Static is what they cost.
+
+		/// <summary>Points per efficiency halving. Pool-scaled, so the curve's shape is identical at any rank.</summary>
+		public static float ChargeReference(float staticMax, float decay)
 		{
-			if (move == null || !move.HasCharge)
-			{
-				chargeTime = 0f;
-				chargeFactor = 1f; // no extra damage / storm
-				return;
-			}
-
-			float invSpeed = 1f / Mathf.Max(chargeSpeed, 0.01f);
-			float minT = move.MinCharge * invSpeed;
-			float maxT = move.ChargeDuration > 0f ? move.ChargeDuration * invSpeed : minT;
-
-			intent = Mathf.Clamp01(intent);
-			float t = Mathf.Lerp(minT, maxT, intent);
-
-			chargeTime = t;
-
-			// Map charge time into an "excess" factor 1..2:
-			//  1   = minimum charge,
-			//  2   = maximum charge.
-			if (maxT > minT)
-			{
-				float norm = Mathf.InverseLerp(minT, maxT, t); // 0..1
-				chargeFactor = 1f + norm; // 1..2
-			}
-			else
-			{
-				chargeFactor = 1f;
-			}
+			return Mathf.Max(0.0001f, decay * Mathf.Max(staticMax, 0f));
 		}
 
-		#endregion // Charge Prediction
+		/// <summary>Raw Static needed to store <paramref name="gain"/> more points on top of <paramref name="stored"/>.</summary>
+		public static float ChargeCost(float stored, float gain, float reference)
+		{
+			float from = Mathf.Pow(2f, stored / reference);
+			float to = Mathf.Pow(2f, (stored + gain) / reference);
+			return reference / LN2 * (to - from);
+		}
+
+		/// <summary>Points held after paying <paramref name="rawPaid"/> Static — the exact inverse of <see cref="ChargeCost"/>.</summary>
+		public static float ChargeStore(float stored, float rawPaid, float reference)
+		{
+			float from = Mathf.Pow(2f, stored / reference);
+			return reference * Mathf.Log(from + Mathf.Max(0f, rawPaid) * LN2 / reference, 2f);
+		}
+
+		/// <summary>Most points <paramref name="staticBudget"/> could ever buy. Draining the pool IS the cap.</summary>
+		public static float ChargeCeiling(float staticBudget, float reference)
+		{
+			return ChargeStore(0f, staticBudget, reference);
+		}
+
+		private const float LN2 = 0.6931472f;
+
+		#endregion // Charge Economy
 
 		#region Ally Threat
 

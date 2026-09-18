@@ -7,8 +7,8 @@ namespace SpaxUtils
 	/// <summary>
 	/// Behaviour that adjust the Agent's stats while guarding.
 	/// </summary>
-	[CreateAssetMenu(fileName = "CombatBehaviour_Deflecting", menuName = "ScriptableObjects/Combat/DeflectingCombatBehaviourAsset")]
-	public class DeflectingCombatBehaviourAsset : CorePerformanceMoveBehaviourAsset
+	[CreateAssetMenu(fileName = "CombatBehaviour_Parrying", menuName = "ScriptableObjects/Combat/ParryingCombatBehaviourAsset")]
+	public class ParryingCombatBehaviourAsset : CorePerformanceMoveBehaviourAsset
 	{
 		// Own clock in ChargeTime units: the real one freezes when the state leaves Preparing, which let
 		// a tap hold the window open for the rest of the move.
@@ -16,17 +16,17 @@ namespace SpaxUtils
 			elapsed > Move.MinCharge * windowShift &&
 			elapsed < Move.MinCharge * windowShift + window;
 
-		/// <summary>The window has been and gone with nothing deflected.</summary>
+		/// <summary>The window has been and gone with nothing parried.</summary>
 		protected bool WindowClosed => elapsed >= Move.MinCharge * windowShift + window;
 
-		[Header("Deflecting")]
+		[Header("Parrying")]
 		[SerializeField, Range(0f, 1f), Tooltip("0 is at beginning of charge, 1 is at end of minimum charge.")]
 		private float windowShift = 0.5f;
 		[SerializeField, Range(0f, 1f), Tooltip("Leading fraction of the window that counts as perfect: no endurance or health lost.")]
 		private float perfectFraction = 0.2f;
-		[SerializeField, Tooltip("Clip seconds the reaction jumps to the instant a deflect lands, so the arm reacts before the hit-paused clock catches up.")]
+		[SerializeField, Tooltip("Clip seconds the reaction jumps to the instant a parry lands, so the arm reacts before the hit-paused clock catches up.")]
 		private float reactionLead = 0.015f;
-		[SerializeField, Tooltip("Logs the whole deflect lifecycle per frame to Debuddy.")] private bool debug;
+		[SerializeField, Tooltip("Logs the whole parry lifecycle per frame to Debuddy.")] private bool debug;
 
 		private AgentStatHandler agentStatHandler;
 		private ResourceStat chargeStat;
@@ -35,8 +35,8 @@ namespace SpaxUtils
 		private IHittable hittable;
 		private IAgentMovementHandler movementHandler;
 
-		private bool deflected;
-		private float deflectTime;
+		private bool parried;
+		private float parryTime;
 		private float elapsed;
 
 		public void InjectDependencies(AgentStatHandler agentStatHandler,
@@ -55,8 +55,8 @@ namespace SpaxUtils
 		{
 			base.Start();
 
-			deflected = false;
-			deflectTime = 0f;
+			parried = false;
+			parryTime = 0f;
 			elapsed = 0f;
 
 			// Held from the very first frame: the clock runs BEFORE behaviours, so waiting until the
@@ -96,8 +96,8 @@ namespace SpaxUtils
 				return;
 			}
 
-			// Released without deflecting anything: the deflect is over.
-			if (!deflected)
+			// Released without parrying anything: the parry is over.
+			if (!parried)
 			{
 				Performer.TryCancel(true);
 			}
@@ -113,7 +113,7 @@ namespace SpaxUtils
 
 				weight = chargeWeight * Performer.Weight;
 
-				return new PoserInstructions(sequence.Evaluate(deflected ? Performer.ChargeTime - deflectTime : 0f));
+				return new PoserInstructions(sequence.Evaluate(parried ? Performer.ChargeTime - parryTime : 0f));
 			}
 			else
 			{
@@ -123,13 +123,13 @@ namespace SpaxUtils
 			}
 		}
 
-		/// <summary>Every quantity the deflect depends on, so a failure can be located instead of guessed at.</summary>
+		/// <summary>Every quantity the parry depends on, so a failure can be located instead of guessed at.</summary>
 		private void Trace()
 		{
 			float open = Move.MinCharge * windowShift;
-			SpaxDebug.Log("DEFLECT",
+			SpaxDebug.Log("PARRY",
 				$"t:{elapsed:0.000} window:{open:0.000}..{open + window:0.000} in:{InWindow} closed:{WindowClosed} " +
-				$"deflected:{deflected} state:{Performer.State} charge:{Performer.ChargeTime:0.000}/{Move.MinCharge:0.000} " +
+				$"parried:{parried} state:{Performer.State} charge:{Performer.ChargeTime:0.000}/{Move.MinCharge:0.000} " +
 				$"run:{Performer.RunTime:0.000}/{Move.MinDuration:0.000}+{Move.Release:0.000} " +
 				$"paused:{Performer.Paused} weight:{Weight:0.00} head:{(TimelinePlayer == null ? -1f : TimelinePlayer.Time):0.000}");
 		}
@@ -154,13 +154,13 @@ namespace SpaxUtils
 
 		private void OnHitEvent(HitData hitData)
 		{
-			// Held means still charging; any hit while held is deflected, timing only sets the cost.
+			// Held means still charging; any hit while held is parried, timing only sets the cost.
 			if (Performer.State == PerformanceState.Preparing)
 			{
-				hitData.Data.SetValue(HitDataIdentifiers.DEFLECTED, true);
-				hitData.Data.SetValue(HitDataIdentifiers.DEFLECT_QUALITY, Quality());
-				deflected = true;
-				deflectTime = Performer.ChargeTime;
+				hitData.Data.SetValue(HitDataIdentifiers.PARRIED, true);
+				hitData.Data.SetValue(HitDataIdentifiers.PARRY_QUALITY, Quality());
+				parried = true;
+				parryTime = Performer.ChargeTime;
 
 				// Jump straight into the reaction: the clock is hit-paused to a crawl, so waiting for RunTime
 				// to reach the swing would delay the parry by the entire pause.
@@ -173,7 +173,7 @@ namespace SpaxUtils
 
 				if (debug)
 				{
-					SpaxDebug.Log("DEFLECT hit", $"elapsed:{elapsed:0.000} quality:{Quality():0.00} chargeTime:{Performer.ChargeTime:0.000}");
+					SpaxDebug.Log("PARRY hit", $"elapsed:{elapsed:0.000} quality:{Quality():0.00} chargeTime:{Performer.ChargeTime:0.000}");
 				}
 			}
 		}

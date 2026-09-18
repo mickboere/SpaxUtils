@@ -158,10 +158,6 @@ namespace SpaxUtils
 		/// </summary>
 		public const string PARRIED = "Parried";
 		/// <summary>
-		/// Return data defining whether this hit was deflected by the receiver.
-		/// </summary>
-		public const string DEFLECTED = "Deflected";
-		/// <summary>
 		/// Return data defining whether this hit caused the receiver to be stunned.
 		/// </summary>
 		public const string STUNNED = "Stunned";
@@ -176,13 +172,13 @@ namespace SpaxUtils
 
 		// FLOATS
 		/// <summary>
-		/// Return data: the stagger a deflect turned back, drained from the hitter's endurance.
+		/// Return data: the stagger a parry turned back, drained from the hitter's endurance.
 		/// </summary>
 		public const string ENDURANCE_RETURN = "Endurance_Return";
 		/// <summary>
-		/// Return data: deflect timing quality, 0 (mistimed, acts as an unguarded hit) to 1 (perfect).
+		/// Return data: parry timing quality, 0 (mistimed, acts as an unguarded hit) to 1 (perfect).
 		/// </summary>
-		public const string DEFLECT_QUALITY = "Deflect_Quality";
+		public const string PARRY_QUALITY = "Parry_Quality";
 		/// <summary>
 		/// Return data defining the guard weight of the receiver during the hit (0=no guard, 1=full guard).
 		/// </summary>

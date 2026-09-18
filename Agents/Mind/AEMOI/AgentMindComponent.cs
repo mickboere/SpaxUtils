@@ -152,13 +152,14 @@ namespace SpaxUtils
 			{
 				return;
 			}
-			IEntity target = Motivation.target;
-			Vector8 dem = target != null ? RetrieveDemand(target) : Vector8.Zero;
-			Vector8 mot = target != null ? RetrieveStimuli(target) : Vector8.Zero;
-			float diff = Agent.RuntimeData.GetValue(EntityDataIdentifiers.DIFFICULTY, 0.5f);
-			Debug.Log($"[AEMOI-DBG] {Agent.Identification.Name} diff={diff:F2} beh={ActiveBehaviour?.Name ?? "none"} " +
-				$"inc={Fmt(Inclination)} per={Fmt(Personality)} emo={Fmt(Emotion)} emoN={Fmt(EmotionNormalized)} " +
-				$"bal={Fmt(Balance)} sbal={Fmt(SignedBalance)} drv={Fmt(Drive)} dem={Fmt(dem)} mot={Fmt(mot)}");
+			// Uncomment to watch the octad tick by tick; it fires every frame per debugged agent.
+			//IEntity target = Motivation.target;
+			//Vector8 dem = target != null ? RetrieveDemand(target) : Vector8.Zero;
+			//Vector8 mot = target != null ? RetrieveStimuli(target) : Vector8.Zero;
+			//float diff = Agent.RuntimeData.GetValue(EntityDataIdentifiers.DIFFICULTY, 0.5f);
+			//Debug.Log($"[AEMOI-DBG] {Agent.Identification.Name} diff={diff:F2} beh={ActiveBehaviour?.Name ?? "none"} " +
+			//	$"inc={Fmt(Inclination)} per={Fmt(Personality)} emo={Fmt(Emotion)} emoN={Fmt(EmotionNormalized)} " +
+			//	$"bal={Fmt(Balance)} sbal={Fmt(SignedBalance)} drv={Fmt(Drive)} dem={Fmt(dem)} mot={Fmt(mot)}");
 		}
 
 		private static string Fmt(Vector8 v) =>
