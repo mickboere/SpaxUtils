@@ -25,7 +25,13 @@ namespace SpaxUtils
 		/// </summary>
 		public TrailSettings Trail => trail;
 
-		protected float DashDuration => dashDistance / DashSpeed;
+		/// <summary>
+		/// Distance the burst actually covers: the full dash only if the bar could pay for it, shorter if not.
+		/// Speed is untouched, so a broke dash is a snappier short hop rather than a sad slow one.
+		/// </summary>
+		protected float DashDistance => dashDistance * dashAfford;
+
+		protected float DashDuration => DashDistance / DashSpeed;
 
 		protected bool Bursting => dashTime < DashDuration;
 
@@ -80,18 +86,8 @@ namespace SpaxUtils
 		// The burst runs on its own real-time clock. Performer.ChargeTime is a stat-PACED clock (it advances at
 		// Move.ChargeSpeedMultiplierStat), so timing physics off it made a second stat silently scale displacement.
 		private float dashTime;
+		private float dashAfford = 1f;
 		private bool exited;
-
-		public override bool IsMet(IDependencyManager dependencies)
-		{
-			if (!base.IsMet(dependencies))
-			{
-				return false;
-			}
-
-			return dependencies.TryGet(out AgentStatHandler statHandler) &&
-				!statHandler.ResourceStats.E.IsRecoveringFromZero;
-		}
 
 		public void InjectDependencies(AgentStatHandler statHandler, CallbackService callbackService, IAgentMovementHandler movementHandler,
 			AgentImpactHandler senseComponent, Pool<PooledAudioSource> audioPool, AgentTrailEffect agentTrailEffect,
@@ -139,6 +135,7 @@ namespace SpaxUtils
 		{
 			dashTime = 0f;
 			exited = false;
+			dashAfford = 1f;
 			SetDirection(movementHandler.InputRaw);
 
 			// Disable default movement application from interfering.
@@ -151,6 +148,11 @@ namespace SpaxUtils
 			{
 				float cost = massStat * dashSpeed * Move.ChargeCost.Cost * 0.1f / LoadMod;
 				float drained = resourceStat.Drain(cost);
+
+				// Pay what the bar holds and travel only that far. Compared against the post-multiplier ask, so a
+				// Drain multiplier changes the price without pretending the dash came up short.
+				float asked = cost * resourceStat.DrainMult;
+				dashAfford = asked > 0.0001f ? Mathf.Clamp01(drained / asked) : 1f;
 
 				// AIR: pay for the burst.
 				statHandler.RewardExpPoints(Element.Air, drained, ExpSources.DASH);

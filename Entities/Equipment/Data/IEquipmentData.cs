@@ -45,9 +45,15 @@ namespace SpaxUtils
 		IReadOnlyList<StatMap> EquipedStatMappings { get; }
 
 		/// <summary>
-		/// Scaler for the final physics rating, can be used as "coverage" for apparel.
+		/// How much of the wearer this piece accounts for; a full set totals 1.
+		/// Scales its physics rating, and is its share of the surface mix when struck.
 		/// </summary>
-		float PhysicsScaling { get; }
+		float Coverage { get; }
+
+		/// <summary>
+		/// Surface type this piece sounds like; empty contributes nothing to the mix.
+		/// </summary>
+		string Surface { get; }
 
 		/// <summary>
 		/// The normal distribution of this equipment's physics effects.

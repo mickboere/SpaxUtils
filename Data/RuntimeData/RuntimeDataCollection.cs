@@ -356,7 +356,11 @@ namespace SpaxUtils
 					return cast;
 				}
 
-				SpaxDebug.Error($"Value cast is not valid.", $"For ID '{id}', cannot cast '{entry.Value.GetType().FullName}' to {typeof(T).FullName}");
+				// A null value is not a bad cast; only report one when there is a type to report.
+				if (entry.Value != null)
+				{
+					SpaxDebug.Error($"Value cast is not valid.", $"For ID '{id}', cannot cast '{entry.Value.GetType().FullName}' to {typeof(T).FullName}");
+				}
 			}
 
 			return defaultIfNull;

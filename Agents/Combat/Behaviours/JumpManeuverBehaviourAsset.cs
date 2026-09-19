@@ -86,17 +86,6 @@ namespace SpaxUtils
 			return baseCost <= 0f ? 0f : defaultHeight * Mathf.Pow(Mathf.Max(0f, cost) / baseCost, 1f / heightCostExponent);
 		}
 
-		public override bool IsMet(IDependencyManager dependencies)
-		{
-			if (!base.IsMet(dependencies))
-			{
-				return false;
-			}
-
-			return dependencies.TryGet(out AgentStatHandler statHandler) &&
-				!statHandler.ResourceStats.E.IsRecoveringFromZero;
-		}
-
 		public void InjectDependencies(GrounderComponent grounder, IAgentMovementHandler movementHandler,
 			AgentStatHandler statHandler, Pool<PooledAudioSource> audioPool, AgentAudioHandler agentAudio)
 		{

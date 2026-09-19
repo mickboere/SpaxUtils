@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+using System.Collections.Generic;
+using UnityEngine;
 
 namespace SpaxUtils
 {
@@ -15,7 +16,9 @@ namespace SpaxUtils
 		private float pitch;
 		private float lastHealth;
 		private float pendingDamage;
-		private PooledAudioSource audioSource;
+
+		// One event may span several layers, but a new event still cuts off the one before it.
+		private List<PooledAudioSource> eventSources = new List<PooledAudioSource>();
 
 		public void InjectDependencies(AgentStatHandler agentStatHandler, Pool<PooledAudioSource> audioPool,
 			[Optional] AgentAudioProfile audioProfile, [Optional] AgentHitHandlerComponent hitHandler)
@@ -46,6 +49,7 @@ namespace SpaxUtils
 			agentStatHandler.ResourceStats.SW.Current.ValueChangedEvent -= OnHealthChangedEvent;
 			Agent.DiedEvent -= OnDiedEvent;
 			pendingDamage = 0f;
+			eventSources.Clear();
 		}
 
 		protected void Update()
@@ -68,90 +72,103 @@ namespace SpaxUtils
 				return;
 			}
 
-			// Permit only 1 sound to play at a time.
-			if (audioSource == null)
+			BeginEvent();
+			sfx.Play(RequestSource(scaledTime), volume, pitch, distance * distanceMultiplier);
+		}
+
+		/// <param name="scaledTime">Whether the entity's local timescale bends this sound's pitch.</param>
+		public void Play(TieredSFX tiered, float intensity, float volume = 1f, float distance = 1f, bool scaledTime = true)
+		{
+			if (tiered == null || !tiered.HasTiers)
 			{
-				audioSource = audioPool.Request(Agent.Targetable.Point, Agent.Transform);
-				audioSource.OnDisableEvent += OnASWDisabled;
+				return;
 			}
 
-			// The source is shared between invokes, so the timescale link is decided per play.
-			if (scaledTime)
-			{
-				audioSource.AudioSourceWrapper.SetEntityTimeScale(EntityTimeScale);
-			}
-			else
-			{
-				audioSource.AudioSourceWrapper.ClearEntityTimeScale();
-			}
-
-			sfx.Play(audioSource.AudioSourceWrapper, volume, pitch, distance * distanceMultiplier);
+			BeginEvent();
+			tiered.Play(intensity, () => RequestSource(scaledTime), volume, pitch, distance * distanceMultiplier);
 		}
 
 		public void PlayExertion(float intensity, float volume = 1f, float distance = 1f)
 		{
-			if (profile == null)
+			if (profile != null)
 			{
-				return;
+				Play(profile.Exertion, intensity, volume, distance);
 			}
-
-			SFXData sfx = profile.GetExertionSFX(intensity);
-			Play(sfx, volume, distance);
 		}
 
 		public void PlayDamage(float intensity, float volume = 1f, float distance = 1f)
 		{
-			if (profile == null)
+			if (profile != null)
 			{
-				return;
+				Play(profile.Damage, intensity, volume, distance);
 			}
-
-			SFXData sfx = profile.GetDamageSFX(intensity);
-			Play(sfx, volume, distance);
 		}
 
 		public void PlayDeath(float volume = 1f, float distance = 1f)
 		{
-			if (profile == null)
+			if (profile != null)
 			{
-				return;
+				// Exempt from the death timescale lerp to 0, which would drag the cry down with it.
+				Play(profile.GetDeathSFX(), volume, distance, false);
 			}
-
-			// Exempt from the death timescale lerp to 0, which would drag the cry down with it.
-			SFXData sfx = profile.GetDeathSFX();
-			Play(sfx, volume, distance, false);
 		}
 
 		public void PlaySatisfy(float volume = 1f, float distance = 1f)
 		{
-			if (profile == null)
+			if (profile != null)
 			{
-				return;
+				Play(profile.GetSatisfySFX(), volume, distance);
 			}
-
-			SFXData sfx = profile.GetSatisfySFX();
-			Play(sfx, volume, distance);
 		}
 
 		public void PlayAction(string act, float volume = 1f, float distance = 1f)
 		{
-			if (profile == null)
+			if (profile != null)
 			{
-				return;
+				Play(profile.GetActionSFX(act), volume, distance);
 			}
-
-			SFXData sfx = profile.GetActionSFX(act);
-			Play(sfx, volume, distance);
 		}
 
 		#endregion Public Methods
 
 		#region Private Methods
 
-		private void OnASWDisabled()
+		/// <summary>Silences the previous event, so only one sound speaks for this agent at a time.</summary>
+		private void BeginEvent()
 		{
-			audioSource.OnDisableEvent -= OnASWDisabled;
-			audioSource = null;
+			for (int i = eventSources.Count - 1; i >= 0; i--)
+			{
+				eventSources[i].AudioSourceWrapper.Stop();
+			}
+
+			eventSources.Clear();
+		}
+
+		private AudioSourceWrapper RequestSource(bool scaledTime)
+		{
+			PooledAudioSource source = audioPool.Request(Agent.Targetable.Point, Agent.Transform);
+
+			// Dropped the moment the pool reclaims it, so a later event never stops someone else's sound.
+			void OnSourceDisabled()
+			{
+				source.OnDisableEvent -= OnSourceDisabled;
+				eventSources.Remove(source);
+			}
+
+			source.OnDisableEvent += OnSourceDisabled;
+			eventSources.Add(source);
+
+			// The source is shared between invokes, so the timescale link is decided per play.
+			if (scaledTime)
+			{
+				source.AudioSourceWrapper.SetEntityTimeScale(EntityTimeScale);
+			}
+			else
+			{
+				source.AudioSourceWrapper.ClearEntityTimeScale();
+			}
+
+			return source.AudioSourceWrapper;
 		}
 
 		private void OnHealthChangedEvent()

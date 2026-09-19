@@ -6,6 +6,11 @@ namespace SpaxUtils
 	public interface IAgentBody : IEntityComponent, IHeadProvider
 	{
 		/// <summary>
+		/// What this body is made of; whatever equipment does not cover speaks with this.
+		/// </summary>
+		string Surface { get; }
+
+		/// <summary>
 		/// The unmodified default base mass of this agent body.
 		/// </summary>
 		float BaseMass { get; }

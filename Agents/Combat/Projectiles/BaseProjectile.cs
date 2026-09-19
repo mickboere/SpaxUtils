@@ -139,6 +139,7 @@ namespace SpaxUtils
 					Velocity.normalized,
 					mass,
 					0f,
+					agent.Stats.GetStat(AgentStatIdentifiers.BODY_RANK) ?? 0f,
 					Speed,
 					Speed,
 					0f,

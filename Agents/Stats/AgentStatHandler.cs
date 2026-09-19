@@ -259,6 +259,13 @@ namespace SpaxUtils
 		/// Draws the LoadPenalty stat from load versus capacity. Like the mind it is written through a modifier so the
 		/// base value stays clean and nothing derived is ever saved.
 		/// </summary>
+		/// <summary>
+		/// Carried load against what the body can carry: 0 empty, 1 exactly at capacity, above 1 overloaded.
+		/// </summary>
+		public float LoadRatio => loadCapacityStat != null && loadCapacityStat > 0.0001f
+			? Mathf.Max(0f, loadStat ?? 0f) / loadCapacityStat
+			: 0f;
+
 		private void InitializeLoadPenalty()
 		{
 			loadStat = agent.Stats.GetStat(AgentStatIdentifiers.LOAD, true, 0f);
@@ -332,15 +339,17 @@ namespace SpaxUtils
 		/// </summary>
 		/// <param name="source">Optional <see cref="ExpSources"/> identifier; carries the weight and anti-farm decay.</param>
 		/// <param name="bodyShare">Fraction rewarded to the body attribute. Spellwork feeds the soul only.</param>
-		/// <param name="soulShare">Fraction rewarded to the soul attribute.</param>
-		/// <returns>The base experience, before shares and the body/soul global multipliers.</returns>
-		public float RewardExp(Element element, float bars, string source = null, float bodyShare = 1f, float soulShare = 1f)
+		/// <param name="soulShare">Fraction rewarded to the soul attribute; a physical deed feeds it half.</param>
+		/// <returns>The base experience, before the shares and each side's gain multiplier.</returns>
+		public float RewardExp(Element element, float bars, string source = null, float bodyShare = 1f,
+			float soulShare = SpaxFormulas.SOUL_SHARE_PHYSICAL)
 		{
 			return RewardExp((int)element, bars, source, bodyShare, soulShare);
 		}
 
 		/// <inheritdoc cref="RewardExp(Element, float, string, float, float)"/>
-		public float RewardExp(int element, float bars, string source = null, float bodyShare = 1f, float soulShare = 1f)
+		public float RewardExp(int element, float bars, string source = null, float bodyShare = 1f,
+			float soulShare = SpaxFormulas.SOUL_SHARE_PHYSICAL)
 		{
 			EnsureInitialized();
 
@@ -356,22 +365,24 @@ namespace SpaxUtils
 			}
 
 			ExpSettings.Source config = expSettings.GetSource(source);
+			// A bar is priced off progression's own curve; the resource pool only ever MEASURES the deed.
 			float exp = bars * ConsumeDecay(source, config.decayTime, bars) * config.weight *
-				expSettings.GetElementWeight(element) * ResourceStats[element].Max;
+				expSettings.GetElementWeight(element) * expSettings.ExpPerBar *
+				SpaxFormulas.ExpBarScale(BodyLevels[element]);
 
 			if (exp <= 0f)
 			{
 				return 0f;
 			}
 
-			// The two global multipliers are applied per side, so the soul can be set to level slower than the body.
+			// The split is the deed's own, so spellwork can feed the soul alone without a global fighting it.
 			if (bodyShare > 0f)
 			{
-				BodyExperience[element].BaseValue += exp * bodyShare * expSettings.BodyMultiplier * bodyExpGain[element];
+				BodyExperience[element].BaseValue += exp * bodyShare * bodyExpGain[element];
 			}
 			if (soulShare > 0f)
 			{
-				SoulExperience[element].BaseValue += exp * soulShare * expSettings.SoulMultiplier * soulExpGain[element];
+				SoulExperience[element].BaseValue += exp * soulShare * soulExpGain[element];
 			}
 
 			return exp;
@@ -381,7 +392,8 @@ namespace SpaxUtils
 		/// <see cref="RewardExp(Element, float, string, float, float)"/> for an amount measured in points of
 		/// <paramref name="element"/>'s own resource; converts to bars.
 		/// </summary>
-		public float RewardExpPoints(Element element, float points, string source = null, float bodyShare = 1f, float soulShare = 1f)
+		public float RewardExpPoints(Element element, float points, string source = null, float bodyShare = 1f,
+			float soulShare = SpaxFormulas.SOUL_SHARE_PHYSICAL)
 		{
 			float max = ResourceStats[(int)element].Max;
 			return max > 0f ? RewardExp(element, points / max, source, bodyShare, soulShare) : 0f;
@@ -389,7 +401,7 @@ namespace SpaxUtils
 
 		/// <summary>
 		/// Consumes the anti-farm multiplier for <paramref name="source"/> and returns the value to reward at.
-		/// A source can never pay more than 1 bar per <paramref name="decayTime"/> seconds.
+		/// Saturating: recent bars stack up and pay at 1 / (1 + recent), so a farmed source trickles, never zeroes.
 		/// </summary>
 		private float ConsumeDecay(string source, float decayTime, float bars)
 		{
@@ -401,19 +413,19 @@ namespace SpaxUtils
 			expDecay ??= new Dictionary<string, float>();
 			expDecaying ??= new List<string>();
 
-			if (!expDecay.TryGetValue(source, out float multiplier))
+			if (!expDecay.TryGetValue(source, out float recent))
 			{
-				multiplier = 1f;
+				recent = 0f;
 			}
 
-			// Paid at the pre-drain multiplier, then drained by the amount itself: a full bar pays full and empties it.
-			expDecay[source] = Mathf.Max(0f, multiplier - bars);
+			// Paid at the pre-add rate, then the bars join the tally: the first bar pays full, the next about half.
+			expDecay[source] = recent + Mathf.Max(0f, bars);
 			if (!expDecaying.Contains(source))
 			{
 				expDecaying.Add(source);
 			}
 
-			return multiplier;
+			return 1f / (1f + Mathf.Max(0f, recent));
 		}
 
 		private void UpdateExpDecay(float delta)
@@ -427,10 +439,10 @@ namespace SpaxUtils
 			{
 				string source = expDecaying[i];
 				float decayTime = expSettings.GetSource(source).decayTime;
-				float multiplier = Mathf.Min(1f, expDecay[source] + (decayTime > 0f ? delta / decayTime : 1f));
-				expDecay[source] = multiplier;
+				float recent = Mathf.Max(0f, expDecay[source] - (decayTime > 0f ? delta / decayTime : 1f));
+				expDecay[source] = recent;
 
-				if (multiplier >= 1f)
+				if (recent <= 0f)
 				{
 					expDecaying.RemoveAt(i);
 				}

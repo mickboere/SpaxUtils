@@ -20,6 +20,9 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public bool ChargeDepleted => chargeDepleted;
 
+		/// <summary>The charge as the STORM sees it: 0 below the deadzone, ramping to 1 - the single storm gate.</summary>
+		private float StormCharge => combatComponent.StormCharge(ChargeFraction);
+
 		/// <inheritdoc/>
 		public bool Lunging => stickTravelling;
 
@@ -53,6 +56,9 @@ namespace SpaxUtils
 		[SerializeField] private float power = 50f;
 		[SerializeField] private Vector3 stormShakeMagnitude = Vector3.one * 2;
 		[SerializeField] private TrailSettings stormTrail = new TrailSettings();
+		[Header("Lunging")]
+		[SerializeField, Tooltip("Faint trail on a lunge that actually SPENT Stamina - the tell that commitment cost something. Author it like the dash trail. A storm overrides it with its own.")]
+		private TrailSettings lungeTrail = new TrailSettings();
 
 		protected IMeleeCombatMove move;
 		protected CallbackService callbackService;
@@ -104,11 +110,19 @@ namespace SpaxUtils
 		private float maxReach;
 		private bool stickTravelling;
 		private IStormFeedback stormFeedback;
+		private ILungeFeedback lungeFeedback;
 		private AgentTrailEffect agentTrailEffect;
 		private bool storming;
+		private bool trailing;
+		private bool lungePaid;
 		private float stickTravelTimer;
 		private float stickDesired;
 		private Vector3 stickHeading;
+		private Vector3 stickAim;
+		private float lungeCommit;
+		private bool stickSwung;
+		private Vector3 stickLaunchForward;
+		private float stickTurnSpeed;
 		private float stickSpeed;
 		private float stickBudget;
 		private float stickTravelled;
@@ -139,7 +153,7 @@ namespace SpaxUtils
 		private ContinuousShakeSource stormShake;
 
 		// Strength/mass derived per-swing values.
-		private float wieldRatio = 1f;
+		private float wieldShortfall;
 		private float baseStrengthSpeedFactor = 1f;
 		private float baseStrengthPowerFactor = 1f;
 
@@ -159,6 +173,7 @@ namespace SpaxUtils
 			AgentImpactHandler agentImpactHandler,
 			AgentAudioHandler agentAudioHandler,
 			[Optional] IStormFeedback stormFeedback,
+			[Optional] ILungeFeedback lungeFeedback,
 			[Optional] AgentTrailEffect agentTrailEffect)
 		{
 			this.move = move;
@@ -176,6 +191,7 @@ namespace SpaxUtils
 			this.agentImpactHandler = agentImpactHandler;
 			this.agentAudioHandler = agentAudioHandler;
 			this.stormFeedback = stormFeedback;
+			this.lungeFeedback = lungeFeedback;
 			this.agentTrailEffect = agentTrailEffect;
 
 			timescaleStat = Agent.Stats.GetStat(EntityStatIdentifiers.TIMESCALE, true, 1f);
@@ -221,27 +237,13 @@ namespace SpaxUtils
 			inertiaPending = false;
 			pendingInertia = 0f;
 
-			// Compute wield ratio and base factors once per behaviour instance.
-			if (limbMassStat != null)
-			{
-				// Armed/limbed strike: speed & power scale with how well the agent's strength wields the
-				// limb (+ any equipped weapon mass folded into the limb's MASS substat).
-				float mass = (float)limbMassStat;
-				float strength = strengthStat;
-				wieldRatio = mass > 0f ? strength / mass : 1f;
-				if (wieldRatio < 0f)
-				{
-					wieldRatio = 0f;
-				}
-			}
-			else
-			{
-				// Natural strike (kick, body ram): nothing to wield, so it swings at its designed speed & power.
-				wieldRatio = 1f;
-			}
-
-			baseStrengthSpeedFactor = combatSettings.WieldSpeedFactor(wieldRatio);
-			baseStrengthPowerFactor = combatSettings.WieldPowerFactor(wieldRatio);
+			// Wield is judged on the WEAPON alone, once per behaviour instance: the arm you were born with
+			// never counts against you, and a natural strike (kick, ram) carries no weapon at all.
+			float weaponMass = limbMassStat == null
+				? 0f : SpaxFormulas.WeaponMass((float)limbMassStat, rigidbodyWrapper.Mass);
+			wieldShortfall = combatSettings.WieldShortfall(strengthStat, weaponMass);
+			baseStrengthSpeedFactor = combatSettings.WieldSpeedFactor(strengthStat, weaponMass);
+			baseStrengthPowerFactor = combatSettings.WieldPowerFactor(strengthStat, weaponMass);
 
 			// Base strength-speed modifier (constant over the swing).
 			speedMod = new FloatFuncModifier(
@@ -300,6 +302,11 @@ namespace SpaxUtils
 			base.ExternalUpdate(delta);
 
 			Performer.Prolong = RigidbodyWrapper.Speed > move.ProlongThreshold;
+
+			if (Performer.State == PerformanceState.Preparing && !Performer.Canceled)
+			{
+				UpdateChargeAim(delta);
+			}
 
 			if (Performer.State == PerformanceState.Preparing && Performer.ChargeTime >= Move.MinCharge)
 			{
@@ -364,7 +371,12 @@ namespace SpaxUtils
 					swingPhaseSpeedMod.SetValue(1f);
 				}
 
-				stickTravelling = false;
+				// The swing can run out from under an UNTARGETED leap, whose RunTime is never paused. Dropping the
+				// drive here would strand movement disabled and skip the plant, so land it properly instead.
+				if (stickTravelling)
+				{
+					EndApproach();
+				}
 			}
 
 			// The plant outlives the drive and plays out through the swing, so it ticks in every state.
@@ -441,8 +453,7 @@ namespace SpaxUtils
 		/// </summary>
 		private float GetPhaseInertiaMultiplier(float phase)
 		{
-			float clampedRatio = Mathf.Clamp01(wieldRatio);
-			float heaviness = 1f - clampedRatio;
+			float heaviness = wieldShortfall;
 			float earlySlow = Mathf.Lerp(1f, minInertiaSpeedFactor, heaviness);
 
 			return Mathf.Lerp(earlySlow, 1f, Mathf.Clamp01(phase));
@@ -580,17 +591,43 @@ namespace SpaxUtils
 		private void UpdateStormFeedback()
 		{
 			bool active = hasStorm && stickTravelling;
+			// A BOUGHT lunge trails too - the tell that Stamina went out the door - and keeps trailing through its
+			// PLANT, since the body is still visibly sliding after the drive hands off. A storm outranks the look.
+			bool trail = active || (lungePaid && (stickTravelling || stickBraking));
+
 			if (active && !storming)
 			{
 				stormFeedback?.BeginStorm(stickHeading);
-				agentTrailEffect?.Begin(this, stormTrail);
 			}
 			else if (!active && storming)
 			{
 				stormFeedback?.EndStorm();
-				agentTrailEffect?.End(this);
 			}
 			storming = active;
+
+			// Trail and smear go together - one window, one intensity, so the two never disagree.
+			if (trail && !trailing)
+			{
+				// Faded by how much was COMMITTED, so it shows how much Stamina the lunge actually bought.
+				agentTrailEffect?.Begin(this, active ? stormTrail : lungeTrail, active ? 1f : lungeCommit);
+				if (!active)
+				{
+					lungeFeedback?.BeginLunge(stickHeading);
+				}
+			}
+			else if (!trail && trailing)
+			{
+				agentTrailEffect?.End(this);
+				lungeFeedback?.EndLunge();
+			}
+			trailing = trail;
+
+			if (trail && !active && lungeFeedback != null)
+			{
+				// Commitment is WHAT it shows; speed is only how much of it is currently on screen.
+				lungeFeedback.UpdateLunge(lungeCommit *
+					Mathf.Clamp01(rigidbodyWrapper.Speed / Mathf.Max(stickSpeed, 0.01f)));
+			}
 
 			if (storming && stormFeedback != null)
 			{
@@ -599,8 +636,142 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
-		/// Begins the leap — one mechanism for stick and storm. Drives a heading until arrival, then releases the
-		/// held swing. Nothing to leap at: the swing goes at once, carrying StickIdleInertia of a full leap.
+		/// Aims at what is about to be leapt at while the swing is held, control fading out as the charge commits.
+		/// </summary>
+		private void UpdateChargeAim(float delta)
+		{
+			float commit = Performer.ChargeTime / Mathf.Max(0.01f, combatSettings.LungeAimCommitTime);
+			float control = 1f - Mathf.Clamp01(commit);
+			if (control <= 0f)
+			{
+				return;
+			}
+
+			ITargetable locked = targeter.Target;
+			Vector3 aim = locked != null
+				? (locked.Position - rigidbodyWrapper.Position).FlattenY().normalized
+				: HeldDirection();
+			if (aim == Vector3.zero)
+			{
+				return;
+			}
+
+			// The same ceiling, spent as an allowance per commit window: unburdened covers a full reversal within
+			// it, burdened covers less - but standing still winding up is never a permanent lock.
+			float rate = combatComponent.LungeTurnLimit / Mathf.Max(0.01f, combatSettings.LungeAimCommitTime);
+			movementHandler.ForceRotation(aim, rate * control * delta / 180f);
+		}
+
+		/// <summary>
+		/// Movement input in world space with its MAGNITUDE intact (capped at 1): a half-pushed stick commits half.
+		/// </summary>
+		private Vector3 HeldInput()
+		{
+			Vector3 input = movementHandler.InputSmooth;
+			if (input.magnitude < movementHandler.MinimumInput)
+			{
+				return Vector3.zero;
+			}
+
+			Vector3 world = (Quaternion.LookRotation(movementHandler.InputAxis) * input).FlattenY();
+			return Vector3.ClampMagnitude(world, 1f);
+		}
+
+		/// <summary>
+		/// Direction being held at this instant, in world space; zero when nothing meaningful is pressed.
+		/// </summary>
+		private Vector3 HeldDirection()
+		{
+			Vector3 held = HeldInput();
+			return held == Vector3.zero ? Vector3.zero : held.normalized;
+		}
+
+		/// <summary>
+		/// Where this leap TRIES to go: the target when there is one, else the direction held, else straight on.
+		/// </summary>
+		private Vector3 LungeAim()
+		{
+			if (target != null && agentTargetable != null)
+			{
+				Vector3 to = (target.Position - rigidbodyWrapper.Position).FlattenY();
+				if (to.sqrMagnitude > 0.0001f)
+				{
+					return to.normalized;
+				}
+			}
+
+			Vector3 held = HeldDirection();
+			return held != Vector3.zero ? held : rigidbodyWrapper.Forward.FlattenY().normalized;
+		}
+
+		/// <summary>
+		/// 0-1 commitment bought for this swing. ONE rule, targeted or not: pushing toward where the leap is
+		/// going IS the commitment, sprint buys the same thing without steering, and across or away buys nothing.
+		/// Untargeted the leap goes where you push, so a full push commits fully.
+		/// </summary>
+		private float ResolveCommit(Vector3 aim)
+		{
+			// Magnitude INTACT, so the dot carries how hard you are pushing as well as which way.
+			Vector3 held = HeldInput();
+			float lean = held == Vector3.zero ? 0f : Mathf.Clamp01(Vector3.Dot(held, aim));
+			return Mathf.Max(Mathf.Clamp01(combatComponent.LungeIntent), lean);
+		}
+
+		/// <summary>
+		/// Clamps an aim to the widest angle load lets this lunge turn from the facing it launched at.
+		/// </summary>
+		private Vector3 CapTurn(Vector3 aim)
+		{
+			if (stickLaunchForward.sqrMagnitude < 0.0001f)
+			{
+				return aim;
+			}
+
+			float limit = combatComponent.LungeTurnLimit * Mathf.Deg2Rad;
+			return Vector3.RotateTowards(stickLaunchForward, aim, limit, 0f).normalized;
+		}
+
+		/// <summary>
+		/// Degrees per second the heading converges on its (already capped) aim: the turn spread across the leap's own
+		/// airtime, plus Acuity TRACKING when there is a target, lerped toward homing by the charge.
+		/// </summary>
+		private float LeapTurnRate()
+		{
+			float rate = stickTurnSpeed;
+			if (target != null)
+			{
+				rate += Mathf.Lerp(stickAimStat ?? 0f, 1f, StormCharge) * combatSettings.StickTurnRate;
+			}
+
+			return rate;
+		}
+
+		/// <summary>
+		/// Charges Stamina for the metres beyond the free lunge, returning the cover the bar could actually buy.
+		/// </summary>
+		private float PayForLunge(float cover)
+		{
+			float free = combatComponent.ComputeStickRange(move, 0f) +
+				combatComponent.ComputeStormRange(move, ChargeFraction);
+			float paid = cover - free;
+			if (paid <= 0f)
+			{
+				return cover;
+			}
+
+			ResourceStat stamina = statHandler.ResourceStats.E;
+			float spent = stamina.Drain(combatComponent.ComputeLungeCost(paid));
+			lungePaid = spent > 0f;
+			statHandler.RewardExpPoints(Element.Air, spent, ExpSources.LUNGE);
+
+			// Back through the price at the RAW rate Drain was handed, so a Drain multiplier cannot skew the metres.
+			float raw = spent / Mathf.Max(0.0001f, stamina.DrainMult);
+			return free + Mathf.Min(paid, combatComponent.ComputeLungeMetres(raw));
+		}
+
+		/// <summary>
+		/// Begins the leap — one mechanism for stick, storm and an untargeted swing. Drives a heading until arrival
+		/// or until the budget is spent, then releases the held swing.
 		/// </summary>
 		private void BeginApproach()
 		{
@@ -610,37 +781,53 @@ namespace SpaxUtils
 			float distance = toTarget.magnitude;
 			bool aimed = distance > 0.0001f;
 
-			stickHeading = aimed ? toTarget / distance : rigidbodyWrapper.Forward.FlattenY().normalized;
-			if (stickHeading.sqrMagnitude < 0.0001f)
+			// Same aim the commitment was priced against - one source, so distance paid and distance flown agree.
+			Vector3 forward = rigidbodyWrapper.Forward.FlattenY().normalized;
+			stickAim = LungeAim();
+			// It STARTS along the current facing and turns in, and load CAPS that turn - a desired angle past the
+			// ceiling is reached only as far as the ceiling goes.
+			stickHeading = forward.sqrMagnitude < 0.0001f ? stickAim : forward;
+			stickLaunchForward = stickHeading;
+			stickAim = CapTurn(stickAim);
+
+			if (stickAim.sqrMagnitude < 0.0001f || stickHeading.sqrMagnitude < 0.0001f)
 			{
-				OnSwing();
+				ReleaseSwing();
 				return;
 			}
 
 			// Land inside our own reach rather than at its very tip — StickBite deep, floored at the attack-pose
 			// margin so the leap never aims into the target's body. Shared with the AI's strike timing.
 			float desired = aimed ? combatComponent.ComputeStickDesired(move, target.Radius) : 0f;
-			float gap = aimed ? distance - desired : 0f;
+			// No target, no gap to measure: the whole budget IS the leap, spent along the held direction.
+			float gap = aimed ? distance - desired : maxStick;
 
 			if (gap <= 0f)
 			{
-				// Nothing to leap at: swing out at once, carrying a fraction of a full leap's speed. It plants
+				// Already inside the bite: swing out at once, carrying a fraction of a full leap speed. It plants
 				// exactly like a leap does — the two only differ in how they get moving, never in how they stop.
-				OnSwing();
+				ReleaseSwing();
 				BeginInertia();
 				return;
 			}
 
 			// Clamped, not gated: past the budget the leap saturates and falls short. The budget is the DRIVE;
 			// planting the feet happens once it has been crossed, so the trajectory is StickRange + a short tail.
-			float cover = Mathf.Min(gap, maxStick);
+			float cover = PayForLunge(Mathf.Min(gap, maxStick));
+			if (cover <= 0.0001f)
+			{
+				ReleaseSwing();
+				BeginInertia();
+				return;
+			}
+
 			// Leap speed is sized off stick range, not the storm's extended cover, so a long storm isn't handed an
 			// absurd speed. Max: a high Stick_Range leap can outrun StormSpeed, and a storm must never close slower.
 			float leapSpeed = LeapSpeed(Mathf.Min(cover, combatComponent.ComputeStickRange(move)));
 			stickSpeed = hasStorm
 				? Mathf.Lerp(leapSpeed,
 					Mathf.Max(combatSettings.StormSpeed * (stormSpeedStat ?? 1f), leapSpeed),
-					ChargeFraction)
+					StormCharge)
 				: leapSpeed;
 			stickSpeed = Mathf.Max(stickSpeed, 0.01f);
 			stickDesired = desired;
@@ -659,11 +846,15 @@ namespace SpaxUtils
 			stickTravelTimer = cover / stickSpeed * travelTimeoutSlack;
 			stickDriveStep = -1;
 			stickTravelling = true;
+			// Spread the whole turn across the leap's own airtime - the CAP is the stat, the pacing is just smoothing.
+			stickTurnSpeed = Vector3.Angle(stickHeading, stickAim) / Mathf.Max(0.01f, LeapTime(cover));
 
 
-			// Hold the swing across the gap — Paused freezes RunTime, so the wind-up pose holds and the
-			// hit-detection delay isn't spent in transit (else the blade sweeps mid-flight and whiffs).
 			movementHandler.AutoUpdateMovement = false;
+
+			// The swing is HELD across every approach, targeted or not - Paused freezes RunTime, so the wind-up
+			// pose holds and the hit-detection delay is never spent in transit. ONE path: the pose, the release
+			// and the timeline cannot diverge between the two cases.
 			Performer.Paused = true;
 		}
 
@@ -681,6 +872,10 @@ namespace SpaxUtils
 			stickTravelTimer -= delta;
 			bool release = stickTravelTimer <= 0f || stickTravelled >= stickBudget;
 
+			// Distance still to cover, in ONE place for both cases: the budget remainder, tightened by the real
+			// gap when there is a target. Never updated inside a branch, or the pose reads a stale leap.
+			stickRemaining = Mathf.Max(0f, stickBudget - stickTravelled);
+
 			if (!release && target != null)
 			{
 				Vector3 toTarget = (target.Position - rigidbodyWrapper.Position).FlattenY();
@@ -695,30 +890,15 @@ namespace SpaxUtils
 					stickClosingRate = Mathf.Lerp(stickClosingRate, rawClosing, Mathf.Clamp01(closingSmoothRate * delta));
 					stickLastDistance = distance;
 
-					// Storm homes outright; a leap is committed and only bent, at the Acuity-scaled turn rate.
-					if (hasStorm)
-					{
-						stickHeading = toTargetDir;
-					}
-					else
-					{
-						float aim = stickAimStat ?? 0f;
-						if (aim > 0f)
-						{
-							stickHeading = Vector3.RotateTowards(
-								stickHeading,
-								toTargetDir,
-								aim * combatSettings.StickTurnRate * Mathf.Deg2Rad * delta,
-								0f).normalized;
-						}
-					}
+					// A live target keeps moving, so the aim follows it - still bounded by the same turn ceiling.
+					stickAim = CapTurn(toTargetDir);
 
 					// Release EARLY by the hit-window delay so the blade lands WITH the body.
 					float swingLead = move.HitDetectionDelay /
 						Mathf.Max(performSpeedStat != null ? performSpeedStat.Value : 1f, 0.01f);
 					// A stalled or retreating gap gives no arrival time — budget and timeout own those cases.
 					float remaining = distance - stickDesired;
-					stickRemaining = Mathf.Max(0f, remaining);
+					stickRemaining = Mathf.Min(stickRemaining, Mathf.Max(0f, remaining));
 					float timeToArrive = remaining <= 0f ? 0f
 						: stickClosingRate > 0.01f ? remaining / stickClosingRate
 						: float.MaxValue;
@@ -732,6 +912,10 @@ namespace SpaxUtils
 				EndApproach();
 				return;
 			}
+
+			// ONE rate for heading and body: the heading is what is limited, so the body may follow it exactly.
+			stickHeading = Vector3.RotateTowards(
+				stickHeading, stickAim, LeapTurnRate() * Mathf.Deg2Rad * delta, 0f).normalized;
 
 			rigidbodyWrapper.TargetVelocity = stickHeading * stickSpeed;
 
@@ -753,7 +937,7 @@ namespace SpaxUtils
 		{
 			stickTravelling = false;
 			Performer.Paused = false;
-			OnSwing();
+			ReleaseSwing();
 
 			// Brake the LEAP immediately - a swing that hangs before releasing must not drift onward at leap
 			// speed while it waits. The swing's own lurch then arrives later and plants itself in turn.
@@ -848,30 +1032,35 @@ namespace SpaxUtils
 		{
 			stickTravelling = false;
 			stickBraking = false;
+			stickSwung = false;
+			lungePaid = false;
 
 			// Storm is the same leap with a charge-extended budget — charge buys reach on top of the stick.
 			float storm = combatComponent.ComputeStormRange(move, ChargeFraction);
 			hasStorm = storm > 0f;
-			maxStick = combatComponent.ComputeStickRange(move) + storm;
 			// ABSOLUTE maximum reach of this swing, leap included — the acquisition horizon. Taken from the combat
-			// authority so it can't drift from the reach the AI's fire gate uses.
+			// authority so it cannot drift from the reach the AI fire gate uses. Always the FULL lunge: acquisition
+			// happens before commitment is known, and an under-committed leap simply falls short.
 			maxReach = combatComponent.ComputeEffectiveReach(move) + storm;
 
 			// TARGETING: a hard lock always wins, otherwise acquire whoever the swing is aimed at. Must run
 			// BEFORE TargetVelocity is overwritten below - that vector IS the held direction.
 			target = targeter.Target ?? AcquireStickTarget();
 
+			// Commitment settles HERE, against the direction the leap will actually take.
+			lungeCommit = ResolveCommit(LungeAim());
+			maxStick = combatComponent.ComputeStickRange(move, lungeCommit) + storm;
+
 			if (target != null)
 			{
 				rigidbodyWrapper.TargetVelocity = (target.Position - RigidbodyWrapper.Position).normalized;
 			}
-			movementHandler.ForceRotation(null, Agent.Mind.Personality.E.OutQuad());
 
 			if (hasStorm && Agent.Identification.HasAll(EntityLabels.PLAYER))
 			{
 				// Scaled by the charge so a light overcharge stays subtle and a full one screams.
 				stormShake = new ContinuousShakeSource(
-					stormShakeMagnitude * ChargeFraction,
+					stormShakeMagnitude * StormCharge,
 					-rigidbodyWrapper.TargetVelocity);
 				agentImpactHandler.ReportImpact(new ImpactData
 				{
@@ -891,6 +1080,18 @@ namespace SpaxUtils
 			float drained = statHandler.ResourceStats.N.Drain(combatComponent.ComputePerformCost(move));
 			float fraction = drained / statHandler.ResourceStats.N.Reserve;
 			agentAudioHandler.PlayExertion(fraction);
+		}
+
+		/// <summary>Fires the swing once per performance; the untargeted leap releases before the drive ends.</summary>
+		private void ReleaseSwing()
+		{
+			if (stickSwung)
+			{
+				return;
+			}
+
+			stickSwung = true;
+			OnSwing();
 		}
 
 		private void OnSwing()
@@ -974,6 +1175,7 @@ namespace SpaxUtils
 						direction,
 						combatComponent.ComputeLimbMass(move),
 						move.BodyMassFraction,
+						combatComponent.Rank,
 						finalSlash,
 						finalPower,
 						finalPierce,
@@ -981,6 +1183,13 @@ namespace SpaxUtils
 						forceBand * maliceMult,
 						luckStat
 					);
+
+					// What swung it, so both lanes can voice the armament's material. Unarmed writes nothing.
+					string weaponSurface = combatComponent.GetMoveSurface(move);
+					if (!string.IsNullOrEmpty(weaponSurface))
+					{
+						hitData.Data.SetValue(HitDataIdentifiers.WEAPON_SURFACE, weaponSurface);
+					}
 
 					ProcessHit(hittable, hitData);
 					RewardHitExp(hitData, maliceDrained);
@@ -994,6 +1203,17 @@ namespace SpaxUtils
 		/// </summary>
 		private void RewardHitExp(HitData hitData, float maliceDrained)
 		{
+			// Landing costs Energy on top of the swing: resistance is what tires, so a braced target costs most.
+			// Clamped to what is in the bar — only a swing you chose to throw may overdraw into the reserve.
+			float hitCost = combatSettings.HitCost(hitData.Data.GetValue<float>(HitDataIdentifiers.FORCE));
+			if (hitCost > 0f)
+			{
+				ResourceStat energy = statHandler.ResourceStats.N;
+				float drainMult = Mathf.Max(0.0001f, energy.DrainMult);
+				float affordable = Mathf.Max(0f, energy.Current) / drainMult;
+				energy.Drain(Mathf.Min(hitCost, affordable));
+			}
+
 			float healthMax = hitData.Data.GetValue<float>(HitDataIdentifiers.HEALTH_MAX);
 			if (healthMax <= 0f)
 			{

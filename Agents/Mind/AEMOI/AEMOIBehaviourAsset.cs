@@ -34,6 +34,15 @@ namespace SpaxUtils
 		protected CombatSensesSettings CombatSensesSettings { get; private set; }
 		protected ResourceStatOctad ResourceStats => StatHandler.ResourceStats;
 
+		/// <summary>
+		/// Too winded to spend Stamina on a burst: the timed window right after the bar ran dry. Nothing is
+		/// BLOCKED any more (a broke dash still buys a short hop) - this is the agent declining, not a gate.
+		/// </summary>
+		protected bool Winded => ResourceStats.E.Exhaustion > 0f;
+
+		/// <summary>0-1 appetite for spending Stamina: what is left to draw on, and nothing at all while Winded.</summary>
+		protected float StaminaAppetite => Winded ? 0f : ResourceStats.E.PercentageRecoverable;
+
 		/// <summary>Shared skill-gated back-off distance (world units, ≥0) — the OUT reasons only, no N/S. For behaviours
 		/// that already have their own N/S band (Hostile) and just want the winded/outmatched/mercy push-out on top.</summary>
 		protected float StandoffBackoff => OutDesire * CombatSensesSettings.StandoffMax;

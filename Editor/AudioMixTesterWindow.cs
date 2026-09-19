@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
@@ -5,16 +6,39 @@ using UnityEngine;
 namespace SpaxUtils
 {
 	/// <summary>
-	/// A/B tool for finding the mix exponent at which layered clips sound as loud as one clip at full volume.
-	/// Plays 2D, so distance and rolloff are out of the picture.
+	/// A/B tool for the two mixing problems: LAYERS (different sounds at once, needing a raised exponent)
+	/// and CROSSFADE (one sound at two forces, which must stay flat along the ladder). Plays 2D.
 	/// </summary>
 	public class AudioMixTesterWindow : EditorWindow
 	{
+		private enum Mode
+		{
+			Layers = 0,
+			Crossfade = 1
+		}
+
+		private enum Reference
+		{
+			Lower = 0,
+			Upper = 1,
+			Nearest = 2
+		}
+
 		private const int MAX_LAYERS = 4;
+		private static readonly float[] FLATNESS_STEPS = new[] { 0f, 0.25f, 0.5f, 0.75f, 1f };
+
+		private Mode mode;
 
 		private AudioClip reference;
 		private List<AudioClip> layerClips = new List<AudioClip>(new AudioClip[3]);
 		private List<float> layerWeights = new List<float>(new[] { 1f, 1f, 1f });
+
+		private AudioClip lowerTier;
+		private AudioClip upperTier;
+		private float blend = 0.5f;
+		private Reference compareAgainst = Reference.Nearest;
+		private bool sweep;
+		private float sweepStep = 0.1f;
 
 		private float exponent = AudioMixUtils.EQUAL_POWER;
 		private float share = AudioMixUtils.ENERGY_SHARE;
@@ -31,7 +55,7 @@ namespace SpaxUtils
 		public static void OpenWindow()
 		{
 			AudioMixTesterWindow window = GetWindow<AudioMixTesterWindow>("Audio Mix");
-			window.minSize = new Vector2(420f, 420f);
+			window.minSize = new Vector2(420f, 460f);
 			window.Show();
 		}
 
@@ -47,6 +71,31 @@ namespace SpaxUtils
 		}
 
 		protected void OnGUI()
+		{
+			Mode previous = mode;
+			mode = (Mode)EditorGUILayout.EnumPopup("Mode", mode);
+
+			if (mode != previous)
+			{
+				// Each mode has a different right answer for the exponent; start from it.
+				exponent = mode == Mode.Crossfade ? TieredSFX.BLEND_EXPONENT : 6f;
+			}
+
+			EditorGUILayout.Space();
+
+			if (mode == Mode.Layers)
+			{
+				DrawLayers();
+			}
+			else
+			{
+				DrawCrossfade();
+			}
+		}
+
+		#region Layers
+
+		private void DrawLayers()
 		{
 			EditorGUILayout.HelpBox(
 				"A is the reference clip at volume 1. B is the layers mixed under the settings below.\n" +
@@ -95,23 +144,7 @@ namespace SpaxUtils
 			Dictionary<int, float> mix = BuildMix();
 			EditorGUILayout.LabelField("Resulting volumes", string.Join("   ", FormatVolumes(mix)));
 
-			EditorGUILayout.Space();
-			interval = EditorGUILayout.Slider("A/B interval (s)", interval, 0.3f, 4f);
-
-			EditorGUILayout.BeginHorizontal();
-			if (GUILayout.Button("Play A"))
-			{
-				PlayReference();
-			}
-			if (GUILayout.Button("Play B"))
-			{
-				PlayMix(mix);
-			}
-			if (GUILayout.Button(looping ? "Stop A/B" : "Loop A/B"))
-			{
-				ToggleLoop();
-			}
-			EditorGUILayout.EndHorizontal();
+			DrawTransport(PlayReference, () => PlayMix(mix));
 		}
 
 		private Dictionary<int, float> BuildMix()
@@ -134,6 +167,141 @@ namespace SpaxUtils
 			{
 				yield return $"{entry.Key}: {entry.Value:F2}";
 			}
+		}
+
+		#endregion Layers
+
+		#region Crossfade
+
+		private void DrawCrossfade()
+		{
+			EditorGUILayout.HelpBox(
+				"A is one tier alone at volume 1. B is both tiers crossfaded at the intensity below.\n" +
+				"The ladder is right when B never sounds louder or quieter than A, at any intensity.\n" +
+				"Exponent 2 is what TieredSFX ships; raise it and watch the readout bulge mid-ladder.",
+				MessageType.None);
+
+			EditorGUILayout.Space();
+			lowerTier = (AudioClip)EditorGUILayout.ObjectField("Lower tier", lowerTier, typeof(AudioClip), false);
+			upperTier = (AudioClip)EditorGUILayout.ObjectField("Upper tier", upperTier, typeof(AudioClip), false);
+
+			EditorGUILayout.Space();
+			blend = EditorGUILayout.Slider("Intensity", blend, 0f, 1f);
+			exponent = EditorGUILayout.Slider("Blend exponent", exponent, AudioMixUtils.EQUAL_POWER, AudioMixUtils.DOMINANT);
+			compareAgainst = (Reference)EditorGUILayout.EnumPopup("Compare against (A)", compareAgainst);
+
+			Vector2 mix = CrossfadeMix(blend);
+			EditorGUILayout.LabelField("Resulting volumes", $"lower: {mix.x:F2}   upper: {mix.y:F2}");
+
+			EditorGUILayout.Space();
+			EditorGUILayout.LabelField("Ladder flatness (dB vs one tier alone)", EditorStyles.boldLabel);
+			EditorGUILayout.LabelField(" ", string.Join("   ", FormatFlatness()));
+
+			EditorGUILayout.Space();
+			sweep = EditorGUILayout.Toggle("Sweep intensity", sweep);
+			using (new EditorGUI.DisabledScope(!sweep))
+			{
+				sweepStep = EditorGUILayout.Slider("Sweep step", sweepStep, 0.05f, 0.5f);
+			}
+
+			DrawTransport(PlayCrossfadeReference, PlayCrossfade);
+		}
+
+		/// <summary>The volumes <see cref="TieredSFX"/> resolves for a blend at <paramref name="t"/>.</summary>
+		private Vector2 CrossfadeMix(float t)
+		{
+			return AudioMixUtils.NormalizedPair(1f - t, t, 1f, exponent);
+		}
+
+		/// <summary>
+		/// Summed energy across the ladder; 0.0 at every step means the blend never bulges between tiers.
+		/// </summary>
+		private IEnumerable<string> FormatFlatness()
+		{
+			for (int i = 0; i < FLATNESS_STEPS.Length; i++)
+			{
+				Vector2 mix = CrossfadeMix(FLATNESS_STEPS[i]);
+				float energy = mix.x * mix.x + mix.y * mix.y;
+				float decibels = energy > 0.0001f ? 10f * Mathf.Log10(energy) : -80f;
+				yield return $"{FLATNESS_STEPS[i]:0.00}: {decibels:+0.0;-0.0;0.0}";
+			}
+		}
+
+		private AudioClip ReferenceTier()
+		{
+			switch (compareAgainst)
+			{
+				case Reference.Lower: return lowerTier;
+				case Reference.Upper: return upperTier;
+				default: return blend < 0.5f ? lowerTier : upperTier;
+			}
+		}
+
+		private void PlayCrossfadeReference()
+		{
+			EnsureHost();
+			AudioClip clip = ReferenceTier();
+
+			if (clip == null)
+			{
+				return;
+			}
+
+			referenceSource.clip = clip;
+			referenceSource.volume = 1f;
+			referenceSource.Play();
+		}
+
+		private void PlayCrossfade()
+		{
+			EnsureHost();
+			Vector2 mix = CrossfadeMix(blend);
+
+			PlayOn(layerSources[0], lowerTier, mix.x);
+			PlayOn(layerSources[1], upperTier, mix.y);
+
+			if (sweep)
+			{
+				blend = blend >= 1f ? 0f : Mathf.Clamp01(blend + sweepStep);
+				Repaint();
+			}
+		}
+
+		private void PlayOn(AudioSource source, AudioClip clip, float volume)
+		{
+			if (clip == null || volume <= 0f)
+			{
+				return;
+			}
+
+			source.clip = clip;
+			source.volume = volume;
+			source.Play();
+		}
+
+		#endregion Crossfade
+
+		#region Transport
+
+		private void DrawTransport(Action playA, Action playB)
+		{
+			EditorGUILayout.Space();
+			interval = EditorGUILayout.Slider("A/B interval (s)", interval, 0.3f, 4f);
+
+			EditorGUILayout.BeginHorizontal();
+			if (GUILayout.Button("Play A"))
+			{
+				playA();
+			}
+			if (GUILayout.Button("Play B"))
+			{
+				playB();
+			}
+			if (GUILayout.Button(looping ? "Stop A/B" : "Loop A/B"))
+			{
+				ToggleLoop();
+			}
+			EditorGUILayout.EndHorizontal();
 		}
 
 		private void ToggleLoop()
@@ -161,11 +329,11 @@ namespace SpaxUtils
 
 			if (playReferenceNext)
 			{
-				PlayReference();
+				if (mode == Mode.Layers) { PlayReference(); } else { PlayCrossfadeReference(); }
 			}
 			else
 			{
-				PlayMix(BuildMix());
+				if (mode == Mode.Layers) { PlayMix(BuildMix()); } else { PlayCrossfade(); }
 			}
 
 			playReferenceNext = !playReferenceNext;
@@ -191,10 +359,7 @@ namespace SpaxUtils
 
 			foreach (KeyValuePair<int, float> entry in mix)
 			{
-				AudioSource source = layerSources[entry.Key];
-				source.clip = layerClips[entry.Key];
-				source.volume = entry.Value;
-				source.Play();
+				PlayOn(layerSources[entry.Key], layerClips[entry.Key], entry.Value);
 			}
 		}
 
@@ -207,7 +372,7 @@ namespace SpaxUtils
 				layerSources.Clear();
 			}
 
-			while (layerSources.Count < layerClips.Count)
+			while (layerSources.Count < Mathf.Max(layerClips.Count, 2))
 			{
 				layerSources.Add(CreateSource());
 			}
@@ -220,5 +385,7 @@ namespace SpaxUtils
 			source.spatialBlend = 0f;
 			return source;
 		}
+
+		#endregion Transport
 	}
 }

@@ -13,8 +13,7 @@ namespace SpaxUtils
 	public class ExpSettings : ScriptableObject, IService
 	{
 		#region Tooltips
-		private const string TT_bodyMultiplier = "Global body EXP multiplier, applied last. Turns the whole body economy up or down at once.";
-		private const string TT_soulMultiplier = "Global soul EXP multiplier, applied last. Below the body's to have the soul level slower.";
+		private const string TT_expPerBar = "EXP a full bar is worth at level 0, rising with level. The pace knob: higher levels faster.";
 		private const string TT_elementWeights = "Per-element base weight in octad order (Fire, Light, Air, Spirit, Water, Nature, Earth, Void). Multiplies every reward for that element.";
 		private const string TT_sources = "Per-source weight and anti-farm decay. Sources without an entry run at weight 1 with no decay.";
 		#endregion
@@ -30,12 +29,10 @@ namespace SpaxUtils
 			[SerializeField, Min(0f), Tooltip("Seconds for a full bar's worth of decay to recover. This IS the source's sustained ceiling: it can never pay more than 1 bar per decayTime. 0 disables decay.")] public float decayTime;
 		}
 
-		public float BodyMultiplier => bodyMultiplier;
-		public float SoulMultiplier => soulMultiplier;
+		public float ExpPerBar => expPerBar;
 		public Vector8 ElementWeights => elementWeights;
 
-		[SerializeField, Min(0f), Tooltip(TT_bodyMultiplier)] private float bodyMultiplier = 1f;
-		[SerializeField, Min(0f), Tooltip(TT_soulMultiplier)] private float soulMultiplier = 1f;
+		[SerializeField, Min(0f), Tooltip(TT_expPerBar)] private float expPerBar = 150f;
 		[SerializeField, Tooltip(TT_elementWeights)] private Vector8 elementWeights = Vector8.One;
 		[SerializeField, Tooltip(TT_sources)] private List<Source> sources;
 

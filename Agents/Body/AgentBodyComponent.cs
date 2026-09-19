@@ -21,7 +21,11 @@ namespace SpaxUtils
 
 		public Transform Head => head;
 
+		/// <summary>What this body is made of; whatever equipment does not cover speaks with this.</summary>
+		public string Surface => surface;
+
 		[Header("Base Values")]
+		[SerializeField, ConstDropdown(typeof(ISurfaceTypeConstants), includeEmpty: true)] private string surface;
 		[SerializeField] private float baseMass = 100f;
 		[SerializeField] private Vector3 baseSize = new Vector3(0.5f, 1.8f, 0.5f);
 		[Header("Active Values")]

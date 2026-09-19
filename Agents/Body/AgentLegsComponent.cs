@@ -17,15 +17,11 @@ namespace SpaxUtils
 		private GrounderComponent grounderComponent;
 		private SurfaceLibrary surfaceLibrary;
 		private EntityStat elevationStat;
-		private RuntimeDataEntry feetSurfaceData;
-
 		public void InjectDependencies(GrounderComponent grounderComponent, SurfaceLibrary surfaceLibrary)
 		{
 			this.grounderComponent = grounderComponent;
 			this.surfaceLibrary = surfaceLibrary;
 			elevationStat = Entity.Stats.GetStat(AgentDataIdentifiers.ELEVATION, true, 0f);
-			feetSurfaceData = Entity.RuntimeData.GetEntry(AgentDataIdentifiers.FEET_SURFACE,
-				new RuntimeDataEntry(AgentDataIdentifiers.FEET_SURFACE, "", false));
 		}
 
 		protected void OnEnable()
@@ -37,7 +33,6 @@ namespace SpaxUtils
 			}
 
 			elevationStat.ValueChangedEvent += OnElevationChange;
-			feetSurfaceData.ValueChangedEvent += OnFeetSurfaceChange;
 			grounderComponent.LandedEvent += OnLanded;
 			OnElevationChange();
 		}
@@ -50,7 +45,6 @@ namespace SpaxUtils
 			}
 
 			elevationStat.ValueChangedEvent -= OnElevationChange;
-			feetSurfaceData.ValueChangedEvent -= OnFeetSurfaceChange;
 			grounderComponent.LandedEvent -= OnLanded;
 		}
 
@@ -109,12 +103,5 @@ namespace SpaxUtils
 			}
 		}
 
-		private void OnFeetSurfaceChange(object value)
-		{
-			foreach (Leg leg in legs)
-			{
-				leg.FootSurface = (string)value;
-			}
-		}
 	}
 }

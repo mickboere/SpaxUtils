@@ -1,18 +1,19 @@
-﻿using UnityEngine;
+using UnityEngine;
 
 namespace SpaxUtils
 {
 	[CreateAssetMenu(fileName = nameof(AgentAudioProfile), menuName = "Audio/" + nameof(AgentAudioProfile))]
 	public class AgentAudioProfile : ScriptableObject
 	{
-		[SerializeField] private ImpactSFXData[] exertionSFX;
-		[SerializeField] private ImpactSFXData[] damageSFX;
+		public TieredSFX Exertion => exertionTiers;
+		public TieredSFX Damage => damageTiers;
+
+		[SerializeField] private TieredSFX exertionTiers = new TieredSFX();
+		[SerializeField] private TieredSFX damageTiers = new TieredSFX();
 		[SerializeField] private SFXData deathSFX;
 		[SerializeField] private SFXData satisfySFX;
 		[SerializeField] private ActionSFXData[] actionSFX;
 
-		public SFXData GetExertionSFX(float intensity) => GetIntensitySFX(exertionSFX, intensity);
-		public SFXData GetDamageSFX(float intensity) => GetIntensitySFX(damageSFX, intensity);
 		public SFXData GetDeathSFX() => deathSFX;
 		public SFXData GetSatisfySFX() => satisfySFX;
 
@@ -33,11 +34,6 @@ namespace SpaxUtils
 			}
 
 			return null;
-		}
-
-		private SFXData GetIntensitySFX(ImpactSFXData[] entries, float intensity)
-		{
-			return ImpactSFXData.Select(entries, Mathf.Clamp01(intensity));
 		}
 	}
 }

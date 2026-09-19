@@ -222,7 +222,7 @@ namespace SpaxUtils
 			// ratio and the same curve the melee performer runs on, so a weapon that is sluggish to swing
 			// is sluggish to carry. Under 1 the armament outweighs the strength holding it.
 			float wieldRatio = WieldRatio();
-			float wield = Mathf.Max(combatSettings.WieldSpeedFactor(wieldRatio), 0.01f);
+			float wield = Mathf.Max(combatSettings.WieldSpeedFactor(Strength(), WeaponMass()), 0.01f);
 			float gyration = Mathf.Max(carryable == null ? referenceGyration : carryable.GyrationRadius, 0.01f);
 
 			// Lag is the reciprocal of that speed: what swings slowly, follows slowly. Turning resists by
@@ -848,19 +848,31 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
-		/// Strength against the whole limb being carried, weapon mass folded in — the same quantity the
+		/// Strength against the WEAPON being carried, the arm itself excluded — the same quantity the
 		/// melee performer wields by, read from the same stat, so the two can never disagree.
 		/// </summary>
 		private float WieldRatio()
 		{
-			float strength = agent.Stats.TryGetStat(AgentStatIdentifiers.STRENGTH, out EntityStat s) ? s : 1f;
+			float mass = WeaponMass();
+			return mass > 0f ? Mathf.Max(Strength() / mass, 0f) : 1f;
+		}
+
+		/// <summary>Strength the body carries with; 1 when the stat is missing.</summary>
+		private float Strength()
+		{
+			return agent.Stats.TryGetStat(AgentStatIdentifiers.STRENGTH, out EntityStat s) ? s : 1f;
+		}
+
+		/// <summary>Weapon mass alone, the arm's own share of the body removed.</summary>
+		private float WeaponMass()
+		{
 			if (limbMassStat == null)
 			{
-				return 1f;
+				return 0f;
 			}
-
-			float mass = limbMassStat;
-			return mass > 0f ? Mathf.Max(strength / mass, 0f) : 1f;
+			float bodyMass = agent.Body != null && agent.Body.HasRigidbody
+				? agent.Body.RigidbodyWrapper.Mass : 0f;
+			return SpaxFormulas.WeaponMass((float)limbMassStat, bodyMass);
 		}
 
 		/// <summary>

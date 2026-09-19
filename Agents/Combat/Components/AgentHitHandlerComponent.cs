@@ -135,6 +135,14 @@ namespace SpaxUtils
 			float totalDamage = result.TotalWith(critDamage);
 			hitData.Data.SetValue(HitDataIdentifiers.DAMAGE_TOTAL, totalDamage);
 
+			// What the guard turned away, as a fraction of the blow it would have taken unguarded.
+			if (guard > 0f)
+			{
+				float open = DamageResolver.Resolve(strike, defence, 0f, combatSettings).TotalWith(critDamage);
+				hitData.Data.SetValue(HitDataIdentifiers.DAMAGE_GUARDED,
+					open > 0f ? Mathf.Clamp01((open - totalDamage) / open) : 0f);
+			}
+
 			// The hitter measures its output against this; non-agent hittables report nothing and pay no EXP.
 			float healthMax = statHandler.ResourceStats.SW.Max;
 			hitData.Data.SetValue(HitDataIdentifiers.HEALTH_MAX, healthMax);

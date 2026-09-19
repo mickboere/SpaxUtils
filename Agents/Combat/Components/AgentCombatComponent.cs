@@ -53,6 +53,21 @@ namespace SpaxUtils
 		/// <summary>Total reach the agent can actually hit at right now — the active move's limb reach + lunge included (or the resting threat reach when no move is active).</summary>
 		public float ActiveReach => CurrentCombatMove == null ? RestingThreatReach : ComputeEffectiveReach(CurrentCombatMove);
 
+		/// <summary>
+		/// 0-1 lunge commitment for the next attack: the player's sprint axis, or the AI's choice. 0 = the free lunge.
+		/// </summary>
+		public float LungeIntent { get; set; }
+
+		/// <summary>
+		/// <see cref="ActiveReach"/> as an observer judges it: 1 respects the full bought lunge, 0 only the free one.
+		/// </summary>
+		public float ThreatReach(float caution)
+		{
+			float stick = CurrentCombatMove == null ? StickRange : ComputeStickRange(CurrentCombatMove);
+			float free = combatSettings == null ? 1f : Mathf.Clamp01(combatSettings.StickFreeFraction);
+			return ActiveReach - stick * (1f - free) * (1f - Mathf.Clamp01(caution));
+		}
+
 		/// <summary>The current raw POWER stat (e.g. for knockback force / mass coupling), not damage output.</summary>
 		public float Power => powerStat.Value;
 
@@ -150,25 +165,26 @@ namespace SpaxUtils
 		/// </summary>
 		public float WieldSpeedFactor(IPerformanceMove move)
 		{
-			return combatSettings != null ? combatSettings.WieldSpeedFactor(WieldRatio(move)) : 1f;
+			return combatSettings != null
+				? combatSettings.WieldSpeedFactor(Strength, WieldWeaponMass(move)) : 1f;
 		}
 
 		/// <summary>
-		/// Strength / limb-mass wield ratio for <paramref name="move"/> (mirrors the performer): a limbed/armed move
-		/// uses the limb's MASS substat (with any equipped weapon folded in); a natural strike with no such substat is
-		/// neutral (1), so a kick is never penalised by a heavy weapon it doesn't wield.
+		/// Weapon mass <paramref name="move"/> wields, the arm's own share of the body removed — what the
+		/// too-heavy check measures against Strength. A natural strike (kick, ram) carries none, so it reads 0.
 		/// </summary>
-		private float WieldRatio(IPerformanceMove move)
+		private float WieldWeaponMass(IPerformanceMove move)
 		{
 			float mass = LimbMass(move);
 			if (mass <= 0f)
 			{
-				return 1f; // natural strike: no limb/weapon mass to wield.
+				return 0f;
 			}
-			float strength = Agent.Stats.GetStat(AgentStatIdentifiers.STRENGTH) ?? 1f;
-			float ratio = strength / mass;
-			return ratio < 0f ? 0f : ratio;
+			return SpaxFormulas.WeaponMass(mass, Agent.Stats.GetStat(AgentStatIdentifiers.MASS) ?? 0f);
 		}
+
+		/// <summary>Strength available to wield with; 1 when the stat is missing.</summary>
+		private float Strength => Agent.Stats.GetStat(AgentStatIdentifiers.STRENGTH) ?? 1f;
 
 		/// <summary>
 		/// Limb+weapon mass <paramref name="move"/> swings, mirroring the performer's own lookup. Zero for a natural
@@ -207,6 +223,9 @@ namespace SpaxUtils
 		/// move-selection and the AI's affordability gate read it before the swing so all three agree.
 		/// Raw, pre-<c>SUB/Drain</c>: this is the value handed to <c>ResourceStat.Drain</c>, which applies it.
 		/// </summary>
+		/// <summary>The agent's body rank, which sets the mass a strike of theirs is expected to carry.</summary>
+		public float Rank => Agent.Stats.GetStat(AgentStatIdentifiers.BODY_RANK) ?? 0f;
+
 		public float ComputePerformCost(IPerformanceMove move)
 		{
 			if (move?.PerformCost == null)
@@ -223,11 +242,22 @@ namespace SpaxUtils
 
 			// TWO LANES. An armed strike is priced on the implement it wields; an unarmed one has no implement, so it
 			// is priced on what the body itself commits — which is exactly what StrikeMass already measures.
+			// Both are judged against the mass their RANK expects, so swings per bar hold as gear grows.
+			float rank = Rank;
 			float factor = melee.UseArmament
-				? combatSettings.ExertionFactor(LimbMass(move), combatSettings.ExertionRefMass)
-				: combatSettings.ExertionFactor(ComputeStrikeMass(move), combatSettings.ExertionRefBodyMass);
+				? combatSettings.ExertionFactor(LimbMass(move),
+					SpaxFormulas.ExpectedLimbMass(rank, SpaxFormulas.EXERTION_GEAR_SHARE))
+				: combatSettings.ExertionFactor(ComputeStrikeMass(move), SpaxFormulas.ExpectedBodyMass(rank));
 
-			return cost * combatSettings.ExertionCostAtRef * factor;
+			// Authored cost is a SHARE of the pool it drains: 1 empties the bar at parity, at any rank.
+			return cost * PoolMax(move.PerformCost.Stat) * factor;
+		}
+
+		/// <summary>Max of the resource <paramref name="stat"/> names; 1 when it names no resource.</summary>
+		private float PoolMax(string stat)
+		{
+			return StatHandler != null && StatHandler.TryGetResourceStat(stat, out ResourceStat resource)
+				? Mathf.Max(0f, resource.Max) : 1f;
 		}
 
 		/// <summary>
@@ -280,6 +310,9 @@ namespace SpaxUtils
 		private CombatSettings combatSettings;
 		private IStunHandler stunHandler;
 		private IHittable hittable;
+
+		/// <summary>The widest turn anything ever needs: a full reversal.</summary>
+		private const float FULL_TURN = 180f;
 
 		private EntityStat powerStat;
 		private EntityStat armorStat;
@@ -924,6 +957,78 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
+		/// <see cref="ComputeStickRange"/> at a 0-1 COMMIT: 0 is the free lunge every attack gets, 1 the bought maximum.
+		/// </summary>
+		public float ComputeStickRange(ICombatMove move, float commit)
+		{
+			return ComputeStickRange(move) * LungeFraction(commit);
+		}
+
+		/// <summary>
+		/// Fraction of the full stick range a 0-1 <paramref name="commit"/> buys; below the free floor is never charged.
+		/// </summary>
+		public float LungeFraction(float commit)
+		{
+			float free = combatSettings == null ? 1f : Mathf.Clamp01(combatSettings.StickFreeFraction);
+			return free + (1f - free) * Mathf.Clamp01(commit);
+		}
+
+		/// <summary>
+		/// WIDEST angle (degrees) a lunge may turn in. 180 unburdened, so any turn completes; load lowers the
+		/// ceiling and an aim beyond it is simply not reached.
+		/// </summary>
+		public float LungeTurnLimit
+		{
+			get
+			{
+				if (combatSettings == null)
+				{
+					return 0f;
+				}
+
+				float ratio = StatHandler != null ? StatHandler.LoadRatio : 0f;
+				float burden = 1f + combatSettings.LungeTurnLoadFactor *
+					Mathf.Pow(Mathf.Max(0f, ratio), combatSettings.LungeTurnLoadExponent);
+				return FULL_TURN / Mathf.Max(0.0001f, burden);
+			}
+		}
+
+		/// <summary>
+		/// Stamina price of <paramref name="metres"/> of BOUGHT lunge; the free fraction is never passed in here.
+		/// </summary>
+		public float ComputeLungeCost(float metres)
+		{
+			return metres <= 0f ? 0f : metres * LungeCostPerMetre;
+		}
+
+		/// <summary>
+		/// Inverse of <see cref="ComputeLungeCost"/>: the metres a spend actually bought, so a low bar shortens the leap.
+		/// </summary>
+		public float ComputeLungeMetres(float stamina)
+		{
+			float perMetre = LungeCostPerMetre;
+			return perMetre <= 0f ? 0f : Mathf.Max(0f, stamina) / perMetre;
+		}
+
+		/// <summary>Stamina one bought metre costs this body: priced on mass, worsened by over-capacity load.</summary>
+		private float LungeCostPerMetre
+		{
+			get
+			{
+				if (combatSettings == null)
+				{
+					return 0f;
+				}
+
+				float mass = Agent.Stats.GetStat(AgentStatIdentifiers.MASS, true, 1f) ?? 1f;
+				float load = Agent.Stats.GetStat(AgentStatIdentifiers.LOAD_PENALTY, true, 1f) ?? 1f;
+				return combatSettings.StickCostPerMetre *
+					(Mathf.Max(0f, mass) / Mathf.Max(0.0001f, combatSettings.StickCostReferenceMass)) /
+					Mathf.Max(0.01f, load);
+			}
+		}
+
+		/// <summary>
 		/// Fraction of a range knob the move's THRUST grants (<see cref="CombatSettings.StickRangeThrustScale"/>).
 		/// Shared by the stick and the storm so a sweep closes reluctantly in both.
 		/// </summary>
@@ -936,7 +1041,8 @@ namespace SpaxUtils
 
 		/// <summary>
 		/// Extra distance a storm buys on top of the stick: the global <see cref="CombatSettings.StormRange"/>,
-		/// thrust-laned and scaled by the 0..1 charge fraction — 0 uncharged, full at a pool-deep charge.
+		/// thrust-laned and scaled by <see cref="StormCharge"/> — nothing until the deadzone clears, full at a
+		/// pool-deep charge.
 		/// </summary>
 		public float ComputeStormRange(ICombatMove move, float chargeFraction)
 		{
@@ -945,8 +1051,19 @@ namespace SpaxUtils
 				return 0f;
 			}
 
-			float charge = Mathf.Clamp01(chargeFraction);
+			float charge = StormCharge(chargeFraction);
 			return charge <= 0f ? 0f : combatSettings.StormRange * ThrustLane(melee) * charge;
+		}
+
+		/// <summary>
+		/// A charge as the STORM sees it: 0 until it clears StormMinCharge, then ramping to 1. Releasing a plain
+		/// attack always banks a few points on the way out, and without this deadzone that counted as a storm.
+		/// </summary>
+		public float StormCharge(float chargeFraction)
+		{
+			return combatSettings == null
+				? 0f
+				: Mathf.InverseLerp(combatSettings.StormMinCharge, 1f, Mathf.Clamp01(chargeFraction));
 		}
 
 		/// <summary>
@@ -1044,7 +1161,7 @@ namespace SpaxUtils
 		{
 			/// <summary>Body offensive physics (x=Slash, y=Power, z=Pierce).</summary>
 			public readonly Vector3 BodyPhysics;
-			/// <summary>Weapon distribution (x=NW/Slash, y=N/Power, z=NE/Pierce) * PhysicsScaling; (1,1,1) = fists.</summary>
+			/// <summary>Weapon distribution (x=NW/Slash, y=N/Power, z=NE/Pierce) * Coverage; (1,1,1) = fists.</summary>
 			public readonly Vector3 WeaponDistribution;
 			/// <summary>Per-axis output = BodyPhysics ⊙ WeaponDistribution.</summary>
 			public readonly Vector3 Output;
@@ -1114,7 +1231,7 @@ namespace SpaxUtils
 			return v.sqrMagnitude > 0f ? v.normalized : Vector3.zero;
 		}
 
-		// (NW, N, NE) * PhysicsScaling for an equipment data; fallback when none.
+		// (NW, N, NE) * Coverage for an equipment data; fallback when none.
 		private static Vector3 DistributionOf(IEquipmentData data, Vector3 fallback)
 		{
 			if (data == null)
@@ -1122,7 +1239,7 @@ namespace SpaxUtils
 				return fallback;
 			}
 			Vector8 dis = data.PhysicsDistribution;
-			return new Vector3(dis.NW, dis.N, dis.NE) * data.PhysicsScaling;
+			return new Vector3(dis.NW, dis.N, dis.NE) * data.Coverage;
 		}
 
 		private static Vector3 DistributionOf(RuntimeEquipedData weapon, Vector3 fallback)
@@ -1189,6 +1306,13 @@ namespace SpaxUtils
 		/// <summary>Output of <paramref name="move"/> using the weapon currently equipped on its limb.</summary>
 		public MoveOutput GetMoveOutput(ICombatMove move) => GetMoveOutput(move, ResolveMoveWeapon(move));
 
+		/// <summary>Surface of the armament <paramref name="move"/> swings; empty when it is unarmed.</summary>
+		public string GetMoveSurface(ICombatMove move)
+		{
+			RuntimeEquipedData weapon = ResolveMoveWeapon(move);
+			return weapon == null || weapon.EquipmentData == null ? null : weapon.EquipmentData.Surface;
+		}
+
 		/// <summary>
 		/// Output of <paramref name="move"/> with a specific (possibly hypothetical) weapon. The single authority
 		/// for what a strike delivers — both the hit pipeline and move selection read it.
@@ -1240,7 +1364,8 @@ namespace SpaxUtils
 		public StrikeData EstimateStrike(ICombatMove move, bool includeMalice = false)
 		{
 			MoveOutput output = GetMoveOutput(move);
-			float powerScale = combatSettings == null ? 1f : combatSettings.WieldPowerFactor(WieldRatio(move));
+			float powerScale = combatSettings == null
+				? 1f : combatSettings.WieldPowerFactor(Strength, WieldWeaponMass(move));
 
 			float slash = output.Slash;
 			float power = output.Power * powerScale;
@@ -1256,6 +1381,7 @@ namespace SpaxUtils
 				ComputeLimbMass(move),
 				Agent.Body.RigidbodyWrapper.Mass,
 				move is IMeleeCombatMove melee ? melee.BodyMassFraction : 0f,
+				Rank,
 				luckStat ?? 0f);
 		}
 

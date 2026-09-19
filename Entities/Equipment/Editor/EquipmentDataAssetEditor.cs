@@ -26,7 +26,8 @@ namespace SpaxUtils
 
 			if (massProp != null && prop.propertyPath == massProp.propertyPath)
 			{
-				float effectiveMass = SpaxFormulas.EquipmentMass(eq.Mass, eq.Rank, eq.PhysicsDistribution);
+				float effectiveMass = SpaxFormulas.EquipmentMass(eq.Mass, eq.Rank, eq.PhysicsDistribution,
+					eq.Coverage, eq.SlotType == EquipmentSlotTypes.APPAREL);
 				using (new EditorGUI.IndentLevelScope(1))
 				{
 					EditorGUILayout.LabelField("Effective Mass", effectiveMass.ToString("F2"));
@@ -42,7 +43,7 @@ namespace SpaxUtils
 				return;
 			}
 
-			Vector8 physics = SpaxFormulas.EquipmentPhysics(eq.PhysicsDistribution, eq.Rank, eq.Quality, eq.PhysicsScaling);
+			Vector8 physics = SpaxFormulas.EquipmentPhysics(eq.PhysicsDistribution, eq.Rank, eq.Quality, eq.Coverage);
 
 			using (new EditorGUI.IndentLevelScope(1))
 			{

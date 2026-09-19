@@ -20,11 +20,13 @@ namespace SpaxUtils
 			public DeformSmear Smear;
 			public float PinFloor;
 			public float PinHeight;
+			public float Intensity;
 		}
 
 		private static readonly int AlphaId = Shader.PropertyToID("_Alpha");
 		private const float MATCHED_FALLOFF = 1000f;
 
+		private float intensity = 1f;
 		private EntityAppearanceHandler entityAppearanceHandler;
 		private EntityAppearanceEffectHandler appearanceEffects;
 
@@ -89,8 +91,9 @@ namespace SpaxUtils
 
 		/// <summary>
 		/// Starts a trail looking like <paramref name="settings"/>, replacing any running one.
+		/// <paramref name="intensity"/> scales every snapshot fade, so a caller can show how much it committed.
 		/// </summary>
-		public void Begin(object owner, TrailSettings settings)
+		public void Begin(object owner, TrailSettings settings, float intensity = 1f)
 		{
 			if (settings == null || settings.Material == null)
 			{
@@ -99,6 +102,7 @@ namespace SpaxUtils
 
 			this.owner = owner;
 			this.settings = settings;
+			this.intensity = Mathf.Clamp01(intensity);
 			lastCapturePosition = transform.position;
 		}
 
@@ -111,6 +115,7 @@ namespace SpaxUtils
 			{
 				this.owner = null;
 				settings = null;
+				intensity = 1f;
 			}
 		}
 
@@ -118,9 +123,9 @@ namespace SpaxUtils
 		/// Fade and smear of a snapshot <paramref name="age"/> seconds old; shared with the editor preview.
 		/// </summary>
 		public static void SetSnapshotProperties(MaterialPropertyBlock mpb, DeformSmear smear,
-			float pinFloor, float pinHeight, float age, float duration)
+			float pinFloor, float pinHeight, float age, float duration, float intensity = 1f)
 		{
-			mpb.SetFloat(AlphaId, 1f - age / Mathf.Max(duration, 0.0001f));
+			mpb.SetFloat(AlphaId, (1f - age / Mathf.Max(duration, 0.0001f)) * Mathf.Clamp01(intensity));
 			smear.Phase += age * smear.Scroll;
 			MaterialEffectRenderer.SetSmearProperties(mpb, smear, pinFloor, pinHeight);
 		}
@@ -203,6 +208,7 @@ namespace SpaxUtils
 				Duration = settings.Duration,
 				StartTime = Time.time,
 				PinHeight = 1f,
+				Intensity = intensity,
 			};
 
 			if (settings.Smear != TrailSmearMode.None && appearanceEffects != null)
@@ -237,7 +243,7 @@ namespace SpaxUtils
 				}
 
 				SetSnapshotProperties(propertyBlock, snapshot.Smear, snapshot.PinFloor, snapshot.PinHeight, age,
-					snapshot.Duration);
+					snapshot.Duration, snapshot.Intensity);
 
 				Graphics.DrawMesh(
 					snapshot.Mesh,

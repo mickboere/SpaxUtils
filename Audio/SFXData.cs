@@ -11,30 +11,13 @@ namespace SpaxUtils
 		public const float DISTANCE_MAX = 250f;
 
 		public IReadOnlyList<AudioClip> Clips => clips;
-		public AudioClip RandomClip
-		{
-			get
-			{
-				if (clips.Count > 1)
-				{
-					// Prevent clip repetition.
-					int i;
-					do { i = UnityEngine.Random.Range(0, clips.Count); }
-					while (i == lastClip);
-					lastClip = i;
-					return clips[i];
-				}
-				else
-				{
-					return clips[0];
-				}
-			}
-		}
+		public AudioClip RandomClip => SFXPlayer.PickClip(clips, ref lastClip);
 
 		public Vector2 VolumeRange => volumeRange;
 		public float RandomVolume => UnityEngine.Random.Range(volumeRange.x, volumeRange.y);
 		public Vector2 PitchRange => pitchRange;
 		public float RandomPitch => UnityEngine.Random.Range(pitchRange.x, pitchRange.y);
+		public float Distance => distance;
 		public float MinDistance => distance * DISTANCE_MIN;
 		public float MaxDistance => distance * DISTANCE_MAX;
 
@@ -56,59 +39,16 @@ namespace SpaxUtils
 			PlayClip(audioSourceWrapper, RandomVolume * volume, RandomPitch * pitch, distance);
 		}
 
-		/// <summary>
-		/// Plays a random clip with volume and pitch lerped through their ranges by <paramref name="roll"/> instead of
-		/// drawn at random, so several SFX handed the same roll come out as one event.
-		/// </summary>
-		/// <param name="roll">Position within the volume and pitch ranges (0-1).</param>
-		public void PlayRolled(AudioSourceWrapper audioSourceWrapper, float roll, float volume = 1f, float pitch = 1f, float distance = 1f)
-		{
-			roll = Mathf.Clamp01(roll);
-			PlayClip(audioSourceWrapper, volumeRange.Lerp(roll) * volume, pitchRange.Lerp(roll) * pitch, distance);
-		}
-
 		private void PlayClip(AudioSourceWrapper audioSourceWrapper, float volume, float pitch, float distance)
 		{
-			if (clips == null || clips.Count == 0)
-			{
-				//SpaxDebug.Warning("No clips defined.");
-				return;
-			}
-
-			audioSourceWrapper.Stop();
-			audioSourceWrapper.Clip = RandomClip;
-			audioSourceWrapper.Loop = false;
-
-			audioSourceWrapper.AudioSource.pitch = pitch;
-			audioSourceWrapper.Pitch.BaseValue = audioSourceWrapper.AudioSource.pitch;
-
-			audioSourceWrapper.AudioSource.volume = volume;
-			audioSourceWrapper.Volume.BaseValue = audioSourceWrapper.AudioSource.volume;
-
-			audioSourceWrapper.MinDistance = MinDistance * distance;
-			audioSourceWrapper.MaxDistance = MaxDistance * distance;
-			audioSourceWrapper.Play();
+			SFXPlayer.Play(audioSourceWrapper, RandomClip, volume, pitch,
+				MinDistance * distance, MaxDistance * distance);
 		}
 
 		public void PlayLoop(AudioSourceWrapper audioSourceWrapper, bool randomStart = false, float pitch = 1f, float volume = 1f, float distance = 1f)
 		{
-			if (clips == null || clips.Count == 0)
-			{
-				//SpaxDebug.Warning("No clips defined.");
-				return;
-			}
-
-			audioSourceWrapper.Stop();
-			audioSourceWrapper.Clip = RandomClip;
-			audioSourceWrapper.Loop = true;
-			audioSourceWrapper.AudioSource.pitch = pitch;
-			audioSourceWrapper.Pitch.BaseValue = pitch;
-			audioSourceWrapper.AudioSource.volume = volume;
-			audioSourceWrapper.Volume.BaseValue = volume;
-			audioSourceWrapper.MinDistance = MinDistance * distance;
-			audioSourceWrapper.MaxDistance = MaxDistance * distance;
-			if (randomStart) audioSourceWrapper.Time = UnityEngine.Random.value * audioSourceWrapper.Duration;
-			audioSourceWrapper.Play();
+			SFXPlayer.PlayLoop(audioSourceWrapper, RandomClip, volume, pitch,
+				MinDistance * distance, MaxDistance * distance, randomStart);
 		}
 
 		/// <summary>

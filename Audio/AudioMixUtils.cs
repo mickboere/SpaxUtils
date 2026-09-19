@@ -41,23 +41,59 @@ namespace SpaxUtils
 			float sum = 0f;
 			foreach (KeyValuePair<T, float> weight in weights)
 			{
-				sum += Mathf.Pow(Mathf.Pow(Mathf.Max(0f, weight.Value), share), exponent);
+				sum += Energy(Amplitude(weight.Value, share), exponent);
 			}
 
 			float normalization = sum > 0.0001f ? 1f / Mathf.Pow(sum, 1f / exponent) : 1f;
 
 			foreach (KeyValuePair<T, float> weight in weights)
 			{
-				float value = Mathf.Max(0f, weight.Value);
-				if (value <= 0f)
+				if (weight.Value <= 0f)
 				{
 					continue;
 				}
 
-				mix[weight.Key] = Mathf.Pow(value, share) * intensity * normalization;
+				mix[weight.Key] = Amplitude(weight.Value, share) * intensity * normalization;
 			}
 
 			return mix;
+		}
+
+		/// <summary>
+		/// Two-weight <see cref="NormalizedMix{T}"/> without the dictionary; the crossfade case.
+		/// </summary>
+		public static Vector2 NormalizedPair(float weightA, float weightB,
+			float intensity = 1f, float exponent = EQUAL_POWER, float share = ENERGY_SHARE)
+		{
+			if (intensity <= 0f)
+			{
+				return Vector2.zero;
+			}
+
+			exponent = Mathf.Max(1f, exponent);
+			share = Mathf.Clamp(share, 0.1f, 1f);
+
+			Vector2 amplitudes = new Vector2(Amplitude(weightA, share), Amplitude(weightB, share));
+			float sum = Energy(amplitudes.x, exponent) + Energy(amplitudes.y, exponent);
+
+			if (sum <= 0.0001f)
+			{
+				return Vector2.zero;
+			}
+
+			return amplitudes * intensity * (1f / Mathf.Pow(sum, 1f / exponent));
+		}
+
+		/// <summary>The volume a weight asks for, before any mix normalization.</summary>
+		public static float Amplitude(float weight, float share = ENERGY_SHARE)
+		{
+			return Mathf.Pow(Mathf.Max(0f, weight), share);
+		}
+
+		/// <summary>What an amplitude contributes to the sum under the <paramref name="exponent"/>-norm.</summary>
+		private static float Energy(float amplitude, float exponent)
+		{
+			return Mathf.Pow(amplitude, exponent);
 		}
 	}
 }

@@ -5,6 +5,9 @@ namespace SpaxUtils
 	[CreateAssetMenu(fileName = nameof(CombatSettings), menuName = "ScriptableObjects/Combat/" + nameof(CombatSettings))]
 	public class CombatSettings : ScriptableObject, IService
 	{
+		// Lightest mass any strike is priced at, so limbless strikes still cost something.
+		private const float EXERTION_FLOOR_MASS = 1f;
+
 		public Vector2 HitPauseReceiver => hitPauseReceiver;
 		public Vector2 HitPauseSender => hitPauseSender;
 		public AnimationCurve HitPauseCurve => hitPauseCurve;
@@ -31,13 +34,18 @@ namespace SpaxUtils
 		public float StickPlant => stickPlant;
 		public float StickIdleInertia => stickIdleInertia;
 		public float StickTurnRate => stickTurnRate;
+		public float StickFreeFraction => stickFreeFraction;
+		public float StickCostPerMetre => stickCostPerMetre;
+		public float StickCostReferenceMass => stickCostReferenceMass;
+		public float LungeTurnLoadFactor => lungeTurnLoadFactor;
+		public float LungeTurnLoadExponent => lungeTurnLoadExponent;
+		public float LungeAimCommitTime => lungeAimCommitTime;
 		public float StickAcquireAngle => stickAcquireAngle;
 		public float StormRange => stormRange;
+		public float StormMinCharge => stormMinCharge;
 		public float StormSpeed => stormSpeed;
 		public AnimationCurve RearExposureCurve => rearExposureCurve;
-		public float ExertionCostAtRef => exertionCostAtRef;
-		public float ExertionRefMass => exertionRefMass;
-		public float ExertionRefBodyMass => exertionRefBodyMass;
+		public float EnergyPerForce => energyPerForce;
 		public float CritPivot => critPivot;
 		public float CritMultiplier => critMultiplier;
 		public float StaggerDamageWeight => staggerDamageWeight;
@@ -75,14 +83,12 @@ namespace SpaxUtils
 		private float bluntWallExponent = 3f;
 		[SerializeField, Range(0.05f, 1f), Tooltip("How hard each channel's two contests compound. Below 1 a lopsided match hits less extreme; an even match is unchanged.")]
 		private float contestPower = 0.4f;
+		[SerializeField, Min(0f), Tooltip("Energy drained per point of resolved force when a strike lands: what the defender refused is what tires the arm that swung it.")]
+		private float energyPerForce = 1f;
 
 		[Header("Force")]
-		[SerializeField, Min(0.01f), Tooltip("Limb+weapon mass (kg) at which the LIMB share of force is exactly the power band times impact.")]
-		private float forceRefLimbMass = 2.5f;
-		[SerializeField, Min(0.01f), Tooltip("Whole-body mass (kg) at which the BODY share of force is exactly the power band times impact. The move's BodyMassFraction blends the two.")]
-		private float forceRefBodyMass = 30f;
-		[SerializeField, Range(0f, 2f), Tooltip("How hard mass scales force around each reference. 0 = mass ignored, 1 = proportional.")]
-		private float forceMassExponent = 0.8f;
+		[SerializeField, Range(0f, 2f), Tooltip("How hard excess mass scales force. 0 = mass ignored, 1 = proportional to how much heavier than its rank expects.")]
+		private float forceMassExponent = 1f;
 
 		[Header("Static / Charge Economy")]
 		// CLOSED LEDGER: every point of offence becomes Static for someone — the attacker for what got
@@ -134,12 +140,26 @@ namespace SpaxUtils
 		private float stickTurnRate = 180f;
 		[SerializeField, Range(0f, 180f), Tooltip("Half-angle of the acquisition cone around the held movement direction. An enemy outside it is never leapt at, so a deliberate swing away from someone stays a swing away.")]
 		private float stickAcquireAngle = 60f;
+		[SerializeField, Range(0f, 1f), Tooltip("Fraction of StickRange every attack lunges for FREE. Committing past it (a held direction, or the sprint button while targeted) is what costs Stamina, so a lunge is never gated - only its top half is bought.")]
+		private float stickFreeFraction = 0.5f;
+		[SerializeField, Min(0f), Tooltip("Stamina a single PAID lunge metre costs an agent of Reference Mass. Only the distance beyond StickFreeFraction is charged; a bar too low simply buys fewer metres.")]
+		private float stickCostPerMetre = 12f;
+		[SerializeField, Min(0.0001f), Tooltip("Mass (kg) the lunge cost is quoted at. Heavier bodies pay proportionally more, same convention as the jump.")]
+		private float stickCostReferenceMass = 100f;
+		[SerializeField, Min(0f), Tooltip("How hard carried load caps the angle a lunge may turn in: 180 degrees / (1 + this * (load/capacity)^exponent). At 1 an agent loaded exactly to capacity can only turn 90 degrees, and less beyond it. Unburdened is always the full 180.")]
+		private float lungeTurnLoadFactor = 1f;
+		[SerializeField, Min(0.01f), Tooltip("Shapes the load curve on the turn rate. Above 1 keeps light loads nearly free and makes the penalty bite near capacity.")]
+		private float lungeTurnLoadExponent = 2f;
+		[SerializeField, Min(0.01f), Tooltip("Seconds of charge after which the aim is fully committed and can no longer be steered. Lets you pick a direction on the press, release the stick, and still land the free lunge.")]
+		private float lungeAimCommitTime = 0.4f;
 
 		// STORM: the charged upgrade to a stick. Extends the same leap and homes instead of committing to a
 		// heading; both terms scale with the charge fraction, reaching full only on a pool-deep charge.
 		[Header("Storming")]
-		[SerializeField, Min(0f), Tooltip("Extra distance (metres) a FULLY charged storm adds on top of StickRange. Scaled by charge (0 at no overcharge) and by the same StickRangeThrustScale lane as the stick, so a sweep storms less far than a thrust.")]
+		[SerializeField, Min(0f), Tooltip("Extra distance (metres) a FULLY charged storm adds on top of StickRange. Scaled by charge past StormMinCharge (nothing below it) and by the same StickRangeThrustScale lane as the stick, so a sweep storms less far than a thrust.")]
 		private float stormRange = 6f;
+		[SerializeField, Range(0f, 1f), Tooltip("Charge fraction a storm must EXCEED to exist at all. Releasing a plain attack always banks a few points on its way out, so without this deadzone every swing registered as a hair of storm - trail, held swing and all. Past it the storm ramps up from zero, so there is no jump.")]
+		private float stormMinCharge = 0.1f;
 		[SerializeField, Min(0f), Tooltip("Speed (m/s) of a FULLY charged storm at Storm_Speed = 1; the Acuity-fed stat multiplies it. A partial charge lerps up from the ordinary leap speed, and a fast leap floors it, so a storm never closes slower than the lunge it upgrades.")]
 		private float stormSpeed = 15f;
 
@@ -156,67 +176,78 @@ namespace SpaxUtils
 		private float overStrengthFullRatio = 10f;
 		[SerializeField, Range(0f, 1f), Tooltip("Power multiplier when badly under-strength (wield ratio 0), rising to 1 at a mass-equal wield. Universal, for the same reason the speed curve is: the per-move difference is mass.")]
 		private float minWieldPowerFactor = 0.4f;
+		[SerializeField, Min(1f), Tooltip("Tenacity levels a weapon may outweigh your Strength by before the wield penalty is full. Weapon mass only — your own arm never counts against you.")]
+		private float wieldFullPenaltyLevels = 20f;
 
 		/// <summary>
-		/// Universal wield speed factor for a strength/limb-mass <paramref name="wieldRatio"/>: the multiplier a melee
-		/// swing runs at given how well the agent's strength wields the limb+weapon mass — &lt;1 when under-strength
-		/// (heavy → slow, down to <c>strengthSpeedModRange.x</c>), &gt;1 when over-strength (up to <c>.y</c>). A
-		/// mass-equal wield (ratio 1) or a natural strike (ratio 1) → 1. Single source of truth shared by the performer,
-		/// move-selection and the AI's strike-timing so they all model the same swing speed.
+		/// Swing speed for a wielder of <paramref name="strength"/> holding <paramref name="weaponMass"/>: slower the more
+		/// Tenacity levels short it is, faster when strength outstrips it. Shared by performer, selection and AI timing.
 		/// </summary>
-		public float WieldSpeedFactor(float wieldRatio)
+		public float WieldSpeedFactor(float strength, float weaponMass)
 		{
-			if (wieldRatio <= 1f)
+			float shortfall = WieldShortfall(strength, weaponMass);
+			if (shortfall > 0f)
 			{
-				return Mathf.Lerp(strengthSpeedModRange.x, 1f, Mathf.Pow(Mathf.Clamp01(wieldRatio), speedCurveExponent));
+				return Mathf.Lerp(1f, strengthSpeedModRange.x,
+					Mathf.Pow(shortfall, 1f / Mathf.Max(0.01f, speedCurveExponent)));
 			}
-			float extra = Mathf.Clamp01((wieldRatio - 1f) / (overStrengthFullRatio - 1f));
+			float ratio = weaponMass <= 0f ? overStrengthFullRatio : strength / weaponMass;
+			float extra = Mathf.Clamp01((ratio - 1f) / Mathf.Max(0.01f, overStrengthFullRatio - 1f));
 			return Mathf.Lerp(1f, strengthSpeedModRange.y, extra);
+		}
+
+		/// <summary>
+		/// How far past the wielder a weapon weighs, as 0..1 over <see cref="wieldFullPenaltyLevels"/> Tenacity levels.
+		/// 0 whenever Strength covers the weapon; distance, so a 5kg blade is as heavy at rank 1 as at rank 100.
+		/// </summary>
+		public float WieldShortfall(float strength, float weaponMass)
+		{
+			float over = weaponMass - strength;
+			if (over <= 0f)
+			{
+				return 0f;
+			}
+			float levels = over / SpaxFormulas.WEAPON_MASS_PER_RANK;
+			return Mathf.Clamp01(levels / Mathf.Max(1f, wieldFullPenaltyLevels));
 		}
 
 		/// <summary>
 		/// Universal wield POWER factor: a swing too heavy for its wielder lands softer, down to
 		/// <c>minWieldPowerFactor</c>. No over-strength bonus — extra strength buys speed, not output.
 		/// </summary>
-		public float WieldPowerFactor(float wieldRatio)
+		public float WieldPowerFactor(float strength, float weaponMass)
 		{
-			return wieldRatio >= 1f ? 1f : Mathf.Lerp(minWieldPowerFactor, 1f, Mathf.Clamp01(wieldRatio));
+			return Mathf.Lerp(1f, minWieldPowerFactor, WieldShortfall(strength, weaponMass));
 		}
 
-		// EXERTION: what a swing costs in Energy is BODILY EFFORT, never output — a weapon that pierces well is no
-		// more tiring than one that doesn't. Limb mass is the whole basis (weapon mass + 1% body, so Integrity and
-		// carried load both raise it), which keeps every damage type paying while only Tenacity funds the pool.
-		[Header("Exertion")]
-		[SerializeField, Min(0f), Tooltip("Energy drained by a move authored at PerformCost 1 when swinging a limb of exactly ExertionRefMass. Default 100 ≈ a full level-1 Energy pool, so a 0.333 move at 15kg empties one.")]
-		private float exertionCostAtRef = 100f;
-		[SerializeField, Min(0.01f), Tooltip("Limb+weapon mass (kg) at which an ARMED move costs exactly its authored PerformCost × ExertionCostAtRef. The anchor the weapon lane pivots on.")]
-		private float exertionRefMass = 2f;
-		[SerializeField, Min(0.01f), Tooltip("StrikeMass (kg) at which an UNARMED move costs exactly its authored PerformCost × ExertionCostAtRef. Far higher than the weapon reference because body mass isn't held at arm's length — a kick throws the hip, not a lever.")]
-		private float exertionRefBodyMass = 30f;
-		[SerializeField, Range(0.1f, 2f), Tooltip("How hard mass bites, both lanes. 1 = proportional, above = accelerating. Also sets how fast cost keeps up with the pool as gear ranks up, since rank adds mass. At 1.2 a hammer costs ~5x a light blade.")]
-		private float exertionMassExponent = 1.2f;
-		[SerializeField, Min(0.01f), Tooltip("Lightest mass any strike is priced at. Limbless strikes (kicks, body rams) carry no limb mass at all and are floored here, so they still cost something.")]
-		private float exertionFloorMass = 1f;
-
 		/// <summary>
-		/// Universal exertion factor: what a swing costs relative to its authored cost, as
-		/// <c>(mass / referenceMass) ^ exponent</c> — 1 at the reference. Armed strikes pass limb+weapon mass against
-		/// <see cref="ExertionRefMass"/>, unarmed ones pass StrikeMass against <see cref="ExertionRefBodyMass"/>.
-		/// Single source of truth for the performer, move-selection and the AI's affordability gate.
+		/// Exertion factor: how heavy this strike is against the mass its rank expects, so the authored cost
+		/// stays a share of the pool. One source of truth: performer, selection and the AI affordability gate.
 		/// </summary>
 		public float ExertionFactor(float mass, float referenceMass)
 		{
-			return Mathf.Pow(Mathf.Max(mass, exertionFloorMass) / Mathf.Max(referenceMass, 0.01f), exertionMassExponent);
+			return Mathf.Max(mass, EXERTION_FLOOR_MASS) / Mathf.Max(referenceMass, 0.01f);
 		}
 
 		/// <summary>
-		/// Force multiplier: the limb's ratio to <c>forceRefLimbMass</c> and the body's to <c>forceRefBodyMass</c>, each raised
-		/// to <c>forceMassExponent</c>, blended by <paramref name="bodyMassFraction"/>. Ratios keep mass relevant at every level.
+		/// Energy a landed strike costs on top of its swing: resolved <paramref name="force"/> priced by
+		/// <see cref="EnergyPerForce"/>. Resistance is what tires you, so a braced target costs the most.
 		/// </summary>
-		public float ForceMassFactor(float limbMass, float hitterMass, float bodyMassFraction)
+		public float HitCost(float force)
 		{
-			float limb = Mathf.Pow(Mathf.Max(limbMass, 1f) / forceRefLimbMass, forceMassExponent);
-			float body = Mathf.Pow(Mathf.Max(hitterMass, 1f) / forceRefBodyMass, forceMassExponent);
+			return Mathf.Max(0f, force) * energyPerForce;
+		}
+
+		/// <summary>
+		/// Force multiplier: how much heavier the strike is than what its rank is expected to swing, never below 1 —
+		/// weight only ever adds force. <paramref name="bodyMassFraction"/> blends the limb lane into the body lane.
+		/// </summary>
+		public float ForceMassFactor(float limbMass, float hitterMass, float bodyMassFraction, float rank)
+		{
+			float limb = Mathf.Pow(
+				Mathf.Max(1f, limbMass / SpaxFormulas.ExpectedLimbMass(rank)), forceMassExponent);
+			float body = Mathf.Pow(
+				Mathf.Max(1f, hitterMass / SpaxFormulas.ExpectedBodyMass(rank)), forceMassExponent);
 			return Mathf.Lerp(limb, body, bodyMassFraction);
 		}
 	}

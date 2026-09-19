@@ -82,7 +82,7 @@ namespace SpaxUtils
 				return;
 			}
 
-			Vector8 physics = SpaxFormulas.EquipmentPhysics(eq.PhysicsDistribution, runtimeItemData.Rank, runtimeItemData.Quality, eq.PhysicsScaling);
+			Vector8 physics = SpaxFormulas.EquipmentPhysics(eq.PhysicsDistribution, runtimeItemData.Rank, runtimeItemData.Quality, eq.Coverage);
 
 			for (int i = 0; i < 8; i++)
 			{
@@ -95,7 +95,8 @@ namespace SpaxUtils
 				}
 			}
 
-			float effectiveMass = SpaxFormulas.EquipmentMass(eq.Mass, runtimeItemData.Rank, eq.PhysicsDistribution);
+			float effectiveMass = SpaxFormulas.EquipmentMass(eq.Mass, runtimeItemData.Rank,
+				eq.PhysicsDistribution, eq.Coverage, eq.SlotType == EquipmentSlotTypes.APPAREL);
 			runtimeItemData.RuntimeData.SetValue(ItemDataIdentifiers.MASS, effectiveMass, createIfNull: true, dirty: false);
 		}
 	}

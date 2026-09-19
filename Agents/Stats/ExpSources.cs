@@ -22,6 +22,7 @@ namespace SpaxUtils
 		public const string JUMP = AIR + "Jump";
 		public const string DASH = AIR + "Dash";
 		public const string SPRINT = AIR + "Sprint";
+		public const string LUNGE = AIR + "Lunge"; // Stamina spent committing an attack lunge.
 
 		// Spirit
 		private const string SPIRIT = "SPIRIT/";

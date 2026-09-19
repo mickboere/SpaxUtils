@@ -83,6 +83,13 @@ namespace SpaxUtils
 		/// </summary>
 		public bool IsRecoveringFromZero => wasDrained && (Current.BaseValue.Approx(0f) || IsRecovering);
 
+		/// <summary>
+		/// 0-1 fatigue after a FULL drain: 1 the moment it empties, easing to 0 across the drained recovery delay.
+		/// </summary>
+		public float Exhaustion => exhaustionTimer != null && !exhaustionTimer.Expired
+			? 1f - exhaustionTimer.Progress
+			: 0f;
+
 		[SerializeField, ConstDropdown(typeof(IStatIdentifiers), includeEmpty: true)] private string stat;
 		[SerializeField, Tooltip(TT_defaultIsFull)] private bool defaultIsFull = true;
 		[SerializeField, Tooltip(TT_hasRecovery)] private bool hasRecovery;
@@ -100,9 +107,11 @@ namespace SpaxUtils
 		private bool wasDrained;
 
 		private TimerClass recoveryTimer;
+		private TimerClass exhaustionTimer;
 
 		// When true, the next Current.ValueChanged callback is an internal write (clamp or full recovery) and should not report.
 		private bool silentWrite;
+		private bool silentReserveWrite;
 
 		public void Initialize(IEntity entity)
 		{
@@ -282,6 +291,14 @@ namespace SpaxUtils
 				if (current.Approx(0f))
 				{
 					wasDrained = true;
+
+					// Exhaustion is TIME-based: emptying opens one window, later drains never re-arm it.
+					if (HasRecovery && (exhaustionTimer == null || exhaustionTimer.Expired))
+					{
+						float window = RecoveryDelay * drainedRecoveryDelayPenalty;
+						exhaustionTimer = exhaustionTimer?.Reset(window) ??
+							new TimerClass(window, () => timescale, true);
+					}
 				}
 
 				if (HasReserve)
@@ -309,7 +326,10 @@ namespace SpaxUtils
 				if (HasReserve && current > Reserve)
 				{
 					// Current has healed, Recoverable cannot be smaller than Current.
+					// A silent heal must not pay through the reserve either; a full Recover() is not a deed.
+					silentReserveWrite = silent;
 					Reserve.BaseValue = current;
+					silentReserveWrite = false;
 				}
 			}
 
@@ -343,7 +363,10 @@ namespace SpaxUtils
 			float reserve = Reserve;
 			float delta = reserve - lastReserve;
 			lastReserve = reserve;
-			if (initialized)
+
+			bool silent = silentReserveWrite;
+			silentReserveWrite = false;
+			if (initialized && !silent)
 			{
 				if (delta > 0f)
 				{

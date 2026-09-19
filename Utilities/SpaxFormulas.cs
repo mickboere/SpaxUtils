@@ -13,20 +13,38 @@ namespace SpaxUtils
 		public const float POWER = 2.5f;
 		public const float SCALE = 100f;
 
-		// Scale/shift constants for converting EXP levels to physics and resource values.
-		// Keep every SHIFT at 10x its SCALE, or fights grow more or less lethal as levels rise.
-		public const float RESOURCE_SCALE = 10f;
-		public const float RESOURCE_SHIFT = 100f;
-		public const float PHYSIC_SCALE = 3f;
-		public const float PHYSIC_SHIFT = 30f;
+		// A bar's EXP worth doubles every EXP_BAR_KNEE levels, making effort per level grow as ~sqrt(level).
+		// Shape only; the magnitude is ExpSettings.ExpPerBar.
+		public const float EXP_BAR_KNEE = 10f;
 
-		// Relative equipment mass growth per rank (density fiction: same shape, denser material).
-		// Also the rate at which exertion cost keeps pace with a growing Energy pool — gear is the only lane that does.
-		public const float MASS_GROWTH = 0.04f;
+		// A physical deed feeds the body whole and the soul half; spellwork inverts this per call.
+		public const float SOUL_SHARE_PHYSICAL = 0.5f;
+
+		// Scale/shift constants for converting EXP levels to physics and resource values.
+		// SCALE ratio sets the hits-to-kill ceiling; the SHIFTs are flat floors that stretch the climb to it.
+		public const float RESOURCE_SCALE = 8f;
+		public const float RESOURCE_SHIFT = 32f;
+		public const float PHYSIC_SCALE = 1f;
+		public const float PHYSIC_SHIFT = 8f;
+
+		// Gear mass per rank: a 1kg rank-1 weapon weighs 25kg by rank 100, a 5kg armour set 50kg.
+		public const float WEAPON_MASS_PER_RANK = 24f / 99f;
+		public const float APPAREL_MASS_PER_RANK = 45f / 99f;
+
+		// The body force measures against, and the share of it hanging on one hand.
+		public const float BASE_BODY_MASS = 100f;
+		public const float LIMB_MASS_FRACTION = 0.01f;
+
+		// What an average rank carries: half a physical distribution, half an armour set, a 1kg weapon.
+		// Exertion judges against a FULL-power weapon instead, so swings per bar hold at every rank.
+		public const float REFERENCE_GEAR_SHARE = 0.5f;
+		public const float EXERTION_GEAR_SHARE = 1f;
+		public const float REFERENCE_ARMOR_MASS = 5f;
+		public const float REFERENCE_WEAPON_MASS = 1f;
 
 		// How much an equipment lane leans on QUALITY. Power is weight and shape; a point needs less honing than an edge.
-		public const float QUALITY_BIAS_POWER = 0.1f;
-		public const float QUALITY_BIAS_PIERCE = 0.8f;
+		public const float QUALITY_BIAS_POWER = 0.25f;
+		public const float QUALITY_BIAS_PIERCE = 0.75f;
 
 		// Softens the quality curve: a worn item keeps more of its physics, a mythic one gains less.
 		public const float QUALITY_EXPONENT = 0.66f;
@@ -328,12 +346,58 @@ namespace SpaxUtils
 			=> level * PHYSIC_SCALE + (shift ? PHYSIC_SHIFT : 0f);
 
 		/// <summary>
-		/// Equipment's mass: the authored <paramref name="baseMass"/> grown relative to itself by rank, weighted
-		/// by the physical-mass lanes only (N Power / W Armor) - other lanes (Slash/Pierce/Ward) add no mass.
-		/// Rank-only by design - QUALITY makes gear better, not heavier.
+		/// A full resource bar's EXP worth at <paramref name="level"/>, as a multiple of its level-0 worth.
 		/// </summary>
-		public static float EquipmentMass(float baseMass, float rank, Vector8 distribution)
-			=> baseMass * (1f + MASS_GROWTH * rank * distribution[0].Max(distribution[6]));
+		public static float ExpBarScale(float level)
+			=> 1f + Mathf.Max(0f, level) / EXP_BAR_KNEE;
+
+		/// <summary>
+		/// Equipment mass. The authored <paramref name="baseMass"/> is its weight at rank 1, growing linearly by
+		/// how physical it is (Power/Armor share) and how much body it covers. QUALITY makes gear better, not heavier.
+		/// </summary>
+		public static float EquipmentMass(float baseMass, float rank, Vector8 distribution,
+			float coverage, bool apparel)
+		{
+			float perRank = apparel ? APPAREL_MASS_PER_RANK : WEAPON_MASS_PER_RANK;
+			return baseMass + perRank * Mathf.Max(0f, rank - 1f) *
+				PhysicalShare(distribution) * Mathf.Max(0f, coverage);
+		}
+
+		/// <summary>
+		/// How much of <paramref name="distribution"/> is physical mass: Power (N) and Armor (W) against all lanes.
+		/// A pure slash/pierce item reads 0 and so never gains weight with rank.
+		/// </summary>
+		public static float PhysicalShare(Vector8 distribution)
+		{
+			float sum = 0f;
+			for (int i = 0; i < 8; i++)
+			{
+				sum += Mathf.Max(0f, distribution[i]);
+			}
+			if (sum <= 0f)
+			{
+				return 0f;
+			}
+			return (Mathf.Max(0f, distribution[0]) + Mathf.Max(0f, distribution[6])) / sum;
+		}
+
+		/// <summary>Weapon mass alone: the limb substat minus the arm's own share of the body.</summary>
+		public static float WeaponMass(float limbMass, float bodyMass)
+			=> Mathf.Max(0f, limbMass - LIMB_MASS_FRACTION * Mathf.Max(0f, bodyMass));
+
+		/// <summary>Body mass expected at <paramref name="rank"/>: frame, levels and half an armour set.</summary>
+		public static float ExpectedBodyMass(float rank)
+			=> BASE_BODY_MASS + Mathf.Max(0f, rank) + (REFERENCE_ARMOR_MASS +
+				APPAREL_MASS_PER_RANK * Mathf.Max(0f, rank - 1f)) * REFERENCE_GEAR_SHARE;
+
+		/// <summary>Limb+weapon mass expected at <paramref name="rank"/> for gear of <paramref name="share"/> Power/Armor.</summary>
+		public static float ExpectedLimbMass(float rank, float share)
+			=> LIMB_MASS_FRACTION * ExpectedBodyMass(rank) + REFERENCE_WEAPON_MASS +
+				WEAPON_MASS_PER_RANK * Mathf.Max(0f, rank - 1f) * Mathf.Max(0f, share);
+
+		/// <summary>Limb+weapon mass expected at <paramref name="rank"/>; what force compares a strike against.</summary>
+		public static float ExpectedLimbMass(float rank)
+			=> ExpectedLimbMass(rank, REFERENCE_GEAR_SHARE);
 
 		/// <summary>
 		/// Per-lane weights for equipment's SHIFT: the distribution normalized to sum 1, scaled by its

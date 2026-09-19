@@ -102,7 +102,8 @@ namespace SpaxUtils
 		[Header("Stats")]
 		[SerializeField, Range(0f, 1f), Tooltip("How much running slows recovery-stat regen. 0 = no slowdown, 1 = full stop at top speed.")] protected float velocityRecoveryMod = 0.5f;
 		[SerializeField, Tooltip("Endurance drained per second while sprinting, scaled by mass, relative speed and grip.")] protected float sprintCost = 0.25f;
-		[SerializeField, Tooltip("Input magnitude cap applied while recovering from zero endurance.")] protected float tiredInputLimiter = 0.75f;
+		[SerializeField, Tooltip("Input magnitude cap at FULL exhaustion, the instant stamina empties. Eases back to 1 across the drained recovery delay, so being winded is a timed setback rather than a lock until the bar is full.")]
+		protected float tiredInputLimiter = 0.75f;
 		[SerializeField, Tooltip("Rate at which sprint speed builds up toward max sprint speed (0..1 per second).")]
 		protected float sprintRampRate = 0.5f;
 		[SerializeField, Tooltip("Rate at which sprint buildup decays when not sprinting (0..1 per second).")]
@@ -197,10 +198,11 @@ namespace SpaxUtils
 			}
 
 			// Calculate appropriate input value according to stats.
-			processedInput =
-				statHandler.ResourceStats.E.IsRecoveringFromZero && InputRaw != Vector3.zero
-					? InputRaw.ClampMagnitude(tiredInputLimiter)
-					: InputRaw;
+			// Exhaustion is a TIMED window after emptying that eases back out, not a lock until the bar refills.
+			float exhaustion = statHandler.ResourceStats.E.Exhaustion;
+			processedInput = exhaustion > 0f && InputRaw != Vector3.zero
+				? InputRaw.ClampMagnitude(Mathf.Lerp(1f, tiredInputLimiter, exhaustion))
+				: InputRaw;
 
 			// Update smooth input value.
 			InputSmooth = inputHelper.Update(processedInput, Time.deltaTime);

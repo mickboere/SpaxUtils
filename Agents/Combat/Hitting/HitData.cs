@@ -49,6 +49,11 @@ namespace SpaxUtils
 		public float BodyMassFraction { get; }
 
 		/// <summary>
+		/// The hitter's rank, which sets the mass its strike is expected to carry.
+		/// </summary>
+		public float Rank { get; }
+
+		/// <summary>
 		/// Mass behind the strike: <see cref="LimbMass"/> blended toward <see cref="HitterMass"/> by <see cref="BodyMassFraction"/>.
 		/// </summary>
 		public float StrikeMass => Mathf.Lerp(LimbMass, HitterMass, BodyMassFraction);
@@ -98,6 +103,7 @@ namespace SpaxUtils
 			Vector3 direction,
 			float limbMass,
 			float bodyMassFraction,
+			float rank,
 			float slash,
 			float power,
 			float pierce,
@@ -114,6 +120,7 @@ namespace SpaxUtils
 			Direction = direction;
 			LimbMass = limbMass;
 			BodyMassFraction = Mathf.Clamp01(bodyMassFraction);
+			Rank = rank;
 			Slash = slash;
 			Power = power;
 			Pierce = pierce;
@@ -227,6 +234,14 @@ namespace SpaxUtils
 		/// Return data defining actual amount of damage that has been subtracted from the receiver's health.
 		/// </summary>
 		public const string DAMAGE_DEALT = "Damage_Dealt";
+		/// <summary>
+		/// Return data: how much of the blow the guard turned away, as a fraction of the unguarded hit (0-1).
+		/// </summary>
+		public const string DAMAGE_GUARDED = "Damage_Guarded";
+		/// <summary>
+		/// The surface type of the armament that struck; empty when the blow was unarmed.
+		/// </summary>
+		public const string WEAPON_SURFACE = "Weapon_Surface";
 		/// <summary>
 		/// Return data defining total amount of force transfered to receiver.
 		/// </summary>
