@@ -10,9 +10,21 @@ namespace SpaxUtils
 	/// </summary>
 	public class WorldRegionService : IService
 	{
+		/// <summary>
+		/// Invoked when a tracked entity moves from one region (first, may be null) into another (second, may be null).
+		/// </summary>
+		public event Action<IEntity, IWorldRegion, IWorldRegion> EntityRegionChangedEvent;
+
+		private static readonly HashSet<IEntity> noOccupants = new HashSet<IEntity>();
+
 		private List<IWorldRegion> regions = new List<IWorldRegion>();
 		private Dictionary<Transform, List<Action<IWorldRegion>>> subscribers = new Dictionary<Transform, List<Action<IWorldRegion>>>();
 		private Dictionary<Transform, IWorldRegion> register = new Dictionary<Transform, IWorldRegion>();
+
+		// Two-way entity tracking, pinged at each entity's own optimization priority.
+		private Dictionary<IEntity, Action<float>> tracked = new Dictionary<IEntity, Action<float>>();
+		private Dictionary<IEntity, IWorldRegion> entityRegions = new Dictionary<IEntity, IWorldRegion>();
+		private Dictionary<IWorldRegion, HashSet<IEntity>> occupants = new Dictionary<IWorldRegion, HashSet<IEntity>>();
 
 		public WorldRegionService(CallbackService callbackService)
 		{
@@ -58,6 +70,16 @@ namespace SpaxUtils
 		public void Remove(IWorldRegion region)
 		{
 			regions.Remove(region);
+
+			// Evict its occupants so no entity keeps pointing at a dead region.
+			if (occupants.TryGetValue(region, out HashSet<IEntity> inside))
+			{
+				foreach (IEntity entity in new List<IEntity>(inside))
+				{
+					SetEntityRegion(entity, null);
+				}
+				occupants.Remove(region);
+			}
 		}
 
 		/// <summary>
@@ -127,5 +149,86 @@ namespace SpaxUtils
 				register.Remove(transform);
 			}
 		}
+
+		#region Entity Tracking
+
+		/// <summary>
+		/// Starts tracking <paramref name="entity"/>'s region, rechecked at the entity's optimization priority.
+		/// </summary>
+		public void Track(IEntity entity)
+		{
+			if (tracked.ContainsKey(entity))
+			{
+				return;
+			}
+
+			Action<float> ping = (delta) => SetEntityRegion(entity, GetRegion(entity.Transform.position));
+			tracked.Add(entity, ping);
+			entity.SubscribeOptimizedUpdate(ping);
+			ping(0f);
+		}
+
+		/// <summary>
+		/// Stops tracking <paramref name="entity"/> and removes it from its region's occupants.
+		/// </summary>
+		public void Untrack(IEntity entity)
+		{
+			if (!tracked.TryGetValue(entity, out Action<float> ping))
+			{
+				return;
+			}
+
+			entity.UnsubscribeOptimizedUpdate(ping);
+			tracked.Remove(entity);
+			SetEntityRegion(entity, null);
+			entityRegions.Remove(entity);
+		}
+
+		/// <summary>
+		/// Returns the region <paramref name="entity"/> was last found in, or null when outside all regions or untracked.
+		/// </summary>
+		public IWorldRegion GetRegion(IEntity entity)
+		{
+			return entityRegions.TryGetValue(entity, out IWorldRegion region) ? region : null;
+		}
+
+		/// <summary>
+		/// Returns the tracked entities last found within <paramref name="region"/>.
+		/// </summary>
+		public IReadOnlyCollection<IEntity> GetOccupants(IWorldRegion region)
+		{
+			return region != null && occupants.TryGetValue(region, out HashSet<IEntity> inside) ? inside : noOccupants;
+		}
+
+		private void SetEntityRegion(IEntity entity, IWorldRegion region)
+		{
+			IWorldRegion previous = GetRegion(entity);
+			if (previous == region && entityRegions.ContainsKey(entity))
+			{
+				return;
+			}
+
+			if (previous != null && occupants.TryGetValue(previous, out HashSet<IEntity> left))
+			{
+				left.Remove(entity);
+			}
+			if (region != null)
+			{
+				if (!occupants.TryGetValue(region, out HashSet<IEntity> entered))
+				{
+					entered = new HashSet<IEntity>();
+					occupants.Add(region, entered);
+				}
+				entered.Add(entity);
+			}
+
+			entityRegions[entity] = region;
+			if (previous != region)
+			{
+				EntityRegionChangedEvent?.Invoke(entity, previous, region);
+			}
+		}
+
+		#endregion Entity Tracking
 	}
 }

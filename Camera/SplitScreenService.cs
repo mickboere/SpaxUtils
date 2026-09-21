@@ -36,20 +36,77 @@ namespace SpaxUtils
 		/// </summary>
 		public int FullscreenOwner { get; private set; } = -1;
 
+		/// <summary>
+		/// Index of the player whose view swallows the other while merged, or -1.
+		/// </summary>
+		public int MergeOwner { get; private set; } = -1;
+
+		/// <summary>
+		/// How far the divider has wiped towards <see cref="MergeOwner"/> taking the whole screen, 0-1.
+		/// </summary>
+		public float Merge { get; private set; }
+
+		/// <summary>
+		/// Whether the wipe completed and <see cref="MergeOwner"/> holds the whole screen.
+		/// </summary>
+		public bool IsMerged => MergeOwner >= 0 && Merge >= 1f;
+
 		private readonly object fullscreenLock = new object();
 		private readonly CameraManager cameraManager;
 		private readonly PlayerInputService playerInputService;
+		private readonly CallbackService callbackService;
 
-		public SplitScreenService(CameraManager cameraManager, PlayerInputService playerInputService)
+		private float mergeTarget;
+		private float mergeSpeed;
+
+		public SplitScreenService(CameraManager cameraManager, PlayerInputService playerInputService,
+			CallbackService callbackService)
 		{
 			this.cameraManager = cameraManager;
 			this.playerInputService = playerInputService;
+			this.callbackService = callbackService;
 			cameraManager.PlayerCamerasChangedEvent += Relayout;
+			callbackService.UpdateCallback += OnUpdate;
 		}
 
 		public void Dispose()
 		{
 			cameraManager.PlayerCamerasChangedEvent -= Relayout;
+			callbackService.UpdateCallback -= OnUpdate;
+		}
+
+		/// <summary>
+		/// Wipes the divider away over <paramref name="duration"/> until player <paramref name="playerIndex"/>
+		/// holds the whole screen. Only has effect with exactly two player cameras.
+		/// </summary>
+		public void MergeInto(int playerIndex, float duration)
+		{
+			if (MergeOwner != playerIndex)
+			{
+				MergeOwner = playerIndex;
+				Merge = 0f;
+			}
+			mergeTarget = 1f;
+			mergeSpeed = duration > 0f ? 1f / duration : float.MaxValue;
+			Relayout();
+		}
+
+		/// <summary>
+		/// Wipes the divider back in over <paramref name="duration"/>, restoring the regular split.
+		/// </summary>
+		public void Unmerge(float duration)
+		{
+			if (MergeOwner < 0)
+			{
+				return;
+			}
+			if (Merge <= 0f)
+			{
+				MergeOwner = -1;
+			}
+			mergeTarget = 0f;
+			mergeSpeed = duration > 0f ? 1f / duration : float.MaxValue;
+			Relayout();
 		}
 
 		public void SetLayout(SplitLayout layout)
@@ -117,14 +174,42 @@ namespace SpaxUtils
 				ClearFullscreen();
 			}
 
+			// The merge owner left, or there are no longer exactly two views to merge.
+			if (MergeOwner >= 0 && (players.Count != 2 || !players.Exists((p) => p.Key == MergeOwner)))
+			{
+				MergeOwner = -1;
+				Merge = 0f;
+				mergeTarget = 0f;
+			}
+			int mergePosition = players.FindIndex((p) => p.Key == MergeOwner);
+
 			for (int i = 0; i < players.Count; i++)
 			{
 				bool owner = players[i].Key == FullscreenOwner;
-				Rect rect = owner ? new Rect(0f, 0f, 1f, 1f) : CalculateViewport(i, players.Count, Layout);
-				Apply(players[i].Value.Camera, rect, FullscreenOwner < 0 || owner);
+				Rect rect = owner ? new Rect(0f, 0f, 1f, 1f) : mergePosition >= 0 ?
+					CalculateMergedViewport(i, mergePosition, Merge, Layout) :
+					CalculateViewport(i, players.Count, Layout);
+				bool visible = FullscreenOwner >= 0 ? owner : rect.width > 0.001f && rect.height > 0.001f;
+				Apply(players[i].Value.Camera, rect, visible);
 			}
 
 			LayoutChangedEvent?.Invoke();
+		}
+
+		private void OnUpdate()
+		{
+			if (MergeOwner < 0 || Merge == mergeTarget)
+			{
+				return;
+			}
+
+			// Unscaled, so a pause can't freeze the wipe halfway.
+			Merge = Mathf.MoveTowards(Merge, mergeTarget, mergeSpeed * Time.unscaledDeltaTime);
+			if (Merge <= 0f && mergeTarget <= 0f)
+			{
+				MergeOwner = -1;
+			}
+			Relayout();
 		}
 
 		private void ClearFullscreen()
@@ -165,9 +250,34 @@ namespace SpaxUtils
 				new Rect(position * size, 0f, size, 1f); // First player on the left.
 		}
 
+		/// <summary>
+		/// Two-view split whose divider slides away from the view at <paramref name="ownerPosition"/>.
+		/// </summary>
+		private static Rect CalculateMergedViewport(int position, int ownerPosition, float merge, SplitLayout layout)
+		{
+			// Divider runs from the middle to the far edge of the non-owner, the owner's side of which is position 0.
+			float divider = Mathf.Lerp(0.5f, ownerPosition == 0 ? 1f : 0f, merge);
+			if (layout == SplitLayout.Horizontal)
+			{
+				// Position 0 is on top, so its share is measured down from the top edge.
+				return position == 0 ?
+					new Rect(0f, 1f - divider, 1f, divider) :
+					new Rect(0f, 0f, 1f, 1f - divider);
+			}
+			return position == 0 ?
+				new Rect(0f, 0f, divider, 1f) :
+				new Rect(divider, 0f, 1f - divider, 1f);
+		}
+
 		private static void Apply(Camera camera, Rect rect, bool visible)
 		{
 			camera.enabled = visible;
+
+			// A wiped-away view keeps its last rect: canvases sized from a zero rect produce invalid (NaN) bounds.
+			if (!visible && (rect.width <= 0.001f || rect.height <= 0.001f))
+			{
+				return;
+			}
 			camera.rect = rect;
 
 			// Overlays render into the base viewport, but a Screen Space - Camera canvas

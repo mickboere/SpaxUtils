@@ -29,6 +29,7 @@ namespace SpaxUtils
 		private readonly PlayerInputService playerInputService;
 		private readonly List<object> owners = new List<object>();
 		private Func<bool> canJoin;
+		private bool listening; // Whether we hold one count of the shared unpaired-activity counter.
 
 		// Player one's own pad. With others present player one may only switch back to this one: a pad's input
 		// can also surface on a device nobody owns, and grabbing that would hand player one someone else's pad.
@@ -79,7 +80,11 @@ namespace SpaxUtils
 			InputUser.onUnpairedDeviceUsed += OnUnpairedDeviceUsed;
 			InputUser.onChange -= OnInputUserChange;
 			InputUser.onChange += OnInputUserChange;
-			InputUser.listenForUnpairedDeviceActivity++;
+			if (!listening)
+			{
+				InputUser.listenForUnpairedDeviceActivity++;
+				listening = true;
+			}
 
 			Log("Routing started");
 		}
@@ -107,10 +112,12 @@ namespace SpaxUtils
 		{
 			InputUser.onUnpairedDeviceUsed -= OnUnpairedDeviceUsed;
 			InputUser.onChange -= OnInputUserChange;
-			if (InputUser.listenForUnpairedDeviceActivity > 0)
+			// Only release our own count: PlayerInput shares the counter and throws if it goes negative.
+			if (listening && InputUser.listenForUnpairedDeviceActivity > 0)
 			{
 				InputUser.listenForUnpairedDeviceActivity--;
 			}
+			listening = false;
 		}
 
 		private void OnUnpairedDeviceUsed(InputControl control, InputEventPtr eventPtr)

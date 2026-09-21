@@ -338,10 +338,25 @@ namespace SpaxUtils
 			List<MethodInfo> methods = type.GetMethodsNamed(dependencyMethod);
 			foreach (MethodInfo method in methods)
 			{
-				if (!TryResolveArguments(method, out object[] arguments))
+				// Tracked as a label, not a key, so the "While resolving" chain names method injections too.
+				string label = $"{type.Name}.{method.Name}()";
+				currentlyResolving.Add(label);
+				bool resolved;
+				object[] arguments;
+				try
+				{
+					resolved = TryResolveArguments(method, out arguments);
+				}
+				finally
+				{
+					currentlyResolving.Remove(label);
+				}
+
+				if (!resolved)
 				{
 					SpaxDebug.Error(IdentifierPrefix + "Could not resolve arguments", $"for {type}");
 					SpaxDebug.Log(GetDebugOutput());
+					context = null;
 					return;
 				}
 
@@ -499,6 +514,7 @@ namespace SpaxUtils
 			{
 				SpaxDebug.Error(IdentifierPrefix + "Could not resolve arguments ", $"for \"{type}\"." +
 					$"\nWhile resolving:\n\t-{string.Join("\n\t-", currentlyResolving)}");
+				currentlyResolving.Remove(type);
 				instance = null;
 				return false;
 			}

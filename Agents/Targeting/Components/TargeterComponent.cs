@@ -22,9 +22,9 @@ namespace SpaxUtils
 		{
 			get
 			{
-				if (_target != null && _target is MonoBehaviour mono && !mono)
+				if (_target != null && ((_target is MonoBehaviour mono && !mono) || !_target.IsTargetable))
 				{
-					// Fixes bug where target isn't null even though its destroyed.
+					// Drops targets that were destroyed or became untargetable, e.g. died.
 					Target = null;
 				}
 				return _target;
@@ -36,6 +36,21 @@ namespace SpaxUtils
 			}
 		}
 		private ITargetable _target;
+
+		/// <inheritdoc/>
+		public ITargetable PreferredTarget
+		{
+			get
+			{
+				if (_preferredTarget != null && _preferredTarget is MonoBehaviour mono && !mono)
+				{
+					_preferredTarget = null;
+				}
+				return _preferredTarget;
+			}
+			set { _preferredTarget = value; }
+		}
+		private ITargetable _preferredTarget;
 
 		/// <inheritdoc/>
 		public IEntityComponentFilter<ITargetable> Enemies => enemies;
@@ -111,9 +126,9 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public void SetTarget(ITargetable targetable)
 		{
+			// Untargetable (e.g. just died) is a normal case, not an error: clear instead.
 			if (targetable != null && !targetable.IsTargetable)
 			{
-				SpaxDebug.Error("Can't set target", "Target isn't targetable.");
 				targetable = null;
 			}
 

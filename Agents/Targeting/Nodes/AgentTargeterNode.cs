@@ -59,6 +59,10 @@ namespace SpaxUtils
 				{
 					agent.Targeter.SetTarget(null);
 				}
+				else if (IsValid(agent.Targeter.PreferredTarget))
+				{
+					agent.Targeter.SetTarget(agent.Targeter.PreferredTarget);
+				}
 				else
 				{
 					ITargetable best = visionComponent.GetMostLikelyTarget(entityCollection.GetComponents<ITargetable>(agent), true);
@@ -68,6 +72,11 @@ namespace SpaxUtils
 					}
 				}
 			}
+		}
+
+		private static bool IsValid(ITargetable targetable)
+		{
+			return targetable != null && targetable.IsTargetable && targetable.Entity.GameObject.activeInHierarchy;
 		}
 	}
 }

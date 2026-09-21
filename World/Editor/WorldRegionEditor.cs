@@ -15,6 +15,7 @@ namespace SpaxUtils
 		private int selectedRegionIndex = -1;
 		private bool regionsFoldout = true;
 
+		private SerializedProperty identificationProperty;
 		private SerializedProperty prioProperty;
 		private SerializedProperty activityProperty;
 		private SerializedProperty regionsProperty;
@@ -26,6 +27,7 @@ namespace SpaxUtils
 		private void OnEnable()
 		{
 			worldRegion = (WorldRegion)target;
+			identificationProperty = serializedObject.FindProperty("identification");
 			prioProperty = serializedObject.FindProperty("prio");
 			activityProperty = serializedObject.FindProperty("activity");
 			regionsProperty = serializedObject.FindProperty("regions");
@@ -44,6 +46,7 @@ namespace SpaxUtils
 
 			DrawTiltWarning();
 
+			EditorGUILayout.PropertyField(identificationProperty, true);
 			EditorGUILayout.PropertyField(prioProperty);
 			EditorGUILayout.PropertyField(activityProperty);
 			EditorGUILayout.PropertyField(gizmosColorProperty);

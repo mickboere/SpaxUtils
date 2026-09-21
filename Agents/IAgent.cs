@@ -76,6 +76,11 @@ namespace SpaxUtils
 		/// </summary>
 		ICommunicationChannel Comms { get; }
 
+		/// <summary>
+		/// The region this agent is currently within, rechecked at its optimization priority. Null when outside all.
+		/// </summary>
+		IWorldRegion CurrentRegion { get; }
+
 		#endregion
 
 		/// <summary>

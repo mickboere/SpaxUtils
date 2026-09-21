@@ -54,7 +54,7 @@ namespace SpaxUtils
 			size;
 
 		/// <inheritdoc/>
-		public bool IsTargetable { get; private set; } = true;
+		public bool IsTargetable => !(Entity is IAgent agent) || agent.Alive; // The dead can't be targeted.
 
 		[SerializeField] private bool debug;
 		[SerializeField] private bool useSizeAtStart;

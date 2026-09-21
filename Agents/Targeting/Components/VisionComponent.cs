@@ -90,7 +90,7 @@ namespace SpaxUtils
 					continue;
 				}
 
-				if (targetable is MonoBehaviour mb && !mb)
+				if ((targetable is MonoBehaviour mb && !mb) || !targetable.IsTargetable)
 				{
 					continue;
 				}

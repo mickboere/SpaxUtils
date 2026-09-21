@@ -4,7 +4,7 @@ namespace SpaxUtils
 {
 	public class CameraSpeedSense : EntityComponentMono
 	{
-		protected Vector3 Position => useAgentAsSource ? agent.Transform.position : cameraWrapper.Position;
+		protected Vector3 Position => useAgentAsSource && agent != null ? agent.Transform.position : cameraWrapper.Position;
 
 		[SerializeField] private bool useAgentAsSource;
 
@@ -34,7 +34,7 @@ namespace SpaxUtils
 		private float lastVelocity;
 		private SmoothFloat acceleration;
 
-		public void InjectDependencies(IAgent agent, CineCameraWrapper cameraWrapper)
+		public void InjectDependencies([Optional] IAgent agent, CineCameraWrapper cameraWrapper)
 		{
 			this.agent = agent;
 			this.cameraWrapper = cameraWrapper;

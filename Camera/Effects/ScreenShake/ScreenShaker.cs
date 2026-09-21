@@ -23,7 +23,7 @@ namespace SpaxUtils
 
 		private List<IShakeSource> sources = new List<IShakeSource>();
 
-		public void InjectDependencies(CinemachineShakeExtension shakeExtension, AgentImpactHandler awarenessComponent)
+		public void InjectDependencies(CinemachineShakeExtension shakeExtension, [Optional] AgentImpactHandler awarenessComponent)
 		{
 			this.shakeExtension = shakeExtension;
 			this.agentSenseComponent = awarenessComponent;
@@ -43,12 +43,18 @@ namespace SpaxUtils
 
 		protected void OnEnable()
 		{
-			agentSenseComponent.ImpactEvent += OnImpactEvent;
+			if (agentSenseComponent != null)
+			{
+				agentSenseComponent.ImpactEvent += Shake;
+			}
 		}
 
 		protected void OnDisable()
 		{
-			agentSenseComponent.ImpactEvent -= OnImpactEvent;
+			if (agentSenseComponent != null)
+			{
+				agentSenseComponent.ImpactEvent -= Shake;
+			}
 
 			if (shakeExtension != null)
 			{
@@ -146,7 +152,7 @@ namespace SpaxUtils
 		/// <summary>
 		/// Converts impact data to a screenshake.
 		/// </summary>
-		private void OnImpactEvent(ImpactData impact)
+		public void Shake(ImpactData impact)
 		{
 			if (impact.ShakeSource == null)
 			{

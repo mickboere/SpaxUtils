@@ -40,6 +40,11 @@ namespace SpaxUtils
 		bool Targeting => Target != null;
 
 		/// <summary>
+		/// Target to acquire on a manual target request instead of picking from view, when valid. Null clears it.
+		/// </summary>
+		ITargetable PreferredTarget { get; set; }
+
+		/// <summary>
 		/// A collection of all the agent's enemy targets.
 		/// </summary>
 		IEntityComponentFilter<ITargetable> Enemies { get; }

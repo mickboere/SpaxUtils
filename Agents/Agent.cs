@@ -47,6 +47,9 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public ICommunicationChannel Comms { get; private set; }
 
+		/// <inheritdoc/>
+		public IWorldRegion CurrentRegion => worldRegionService?.GetRegion(this);
+
 		#endregion Properties
 
 		protected override string GameObjectNamePrefix => "[Agent]";
@@ -56,14 +59,16 @@ namespace SpaxUtils
 		[SerializeField] private List<BrainGraph> brainGraphs;
 
 		private IRelationData[] relationData;
-		private WorldRegion region;
+		private WorldRegion region; // Home region from the spawnpoint, not the current one.
+		private WorldRegionService worldRegionService;
 
 		public void InjectDependencies(
 			IAgentBody body, ITargetable targetableComponent, ITargeter targeterComponent, ICommunicationChannel comms,
-			CallbackService callbackService, InputToActMap inputToActMap,
+			CallbackService callbackService, InputToActMap inputToActMap, WorldRegionService worldRegionService,
 			IPerformer[] performers, IRelationData[] relationData, BrainGraph[] brainGraphs,
 			[Optional] IMind mind, [Optional] ISpawnpoint spawnpoint)
 		{
+			this.worldRegionService = worldRegionService;
 			Body = body;
 			Targetable = targetableComponent;
 			Targeter = targeterComponent;
@@ -117,6 +122,34 @@ namespace SpaxUtils
 			{
 				region.ActivityChangedEvent += OnRegionActivityChanged;
 			}
+		}
+
+		protected override void OnEnable()
+		{
+			base.OnEnable();
+
+#if UNITY_EDITOR
+			if (!Application.isPlaying)
+			{
+				return;
+			}
+#endif
+
+			worldRegionService?.Track(this);
+		}
+
+		protected override void OnDisable()
+		{
+#if UNITY_EDITOR
+			if (!Application.isPlaying)
+			{
+				base.OnDisable();
+				return;
+			}
+#endif
+
+			worldRegionService?.Untrack(this);
+			base.OnDisable();
 		}
 
 		protected override void Update()

@@ -47,6 +47,9 @@ namespace SpaxUtils
 			[SerializeField] private Vector3 rotation;
 		}
 
+		/// <inheritdoc/>
+		public IIdentification Identification => identification;
+
 		public int Prio => prio;
 
 		/// <summary>Current activity level; agents bound to this region mirror it via <see cref="ActivityChangedEvent"/>.</summary>
@@ -61,6 +64,7 @@ namespace SpaxUtils
 		/// <summary>All POIs belonging to this region.</summary>
 		public IReadOnlyList<PointOfInterest> POIs => pois;
 
+		[SerializeField] private Identification identification;
 		[SerializeField] private int prio;
 		[SerializeField] private RegionActivity activity = RegionActivity.Active;
 		[SerializeField] private List<Region> regions = new List<Region>();

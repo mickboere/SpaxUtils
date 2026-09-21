@@ -6,6 +6,11 @@ namespace SpaxUtils
 	public interface IWorldRegion
 	{
 		/// <summary>
+		/// Name and labels of this region. Its <see cref="IIdentification.Entity"/> is always null.
+		/// </summary>
+		IIdentification Identification { get; }
+
+		/// <summary>
 		/// The priority of this region. Higher priority takes precedence when regions overlap.
 		/// </summary>
 		int Prio { get; }
