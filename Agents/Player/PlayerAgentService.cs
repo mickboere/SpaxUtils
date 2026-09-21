@@ -1,7 +1,10 @@
 ﻿using SpaxUtils.UI;
 using System;
 using System.Collections.Generic;
+using Unity.Cinemachine;
 using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.InputSystem.UI;
 using UnityEngine.Rendering.Universal;
 
 namespace SpaxUtils
@@ -18,6 +21,11 @@ namespace SpaxUtils
 		public event Action<IAgent> PlayerDeregisteredEvent;
 
 		/// <summary>
+		/// Invoked when a player asks to leave the game, with that player's index.
+		/// </summary>
+		public event Action<int> LeaveRequestedEvent;
+
+		/// <summary>
 		/// All currently marked player agents.
 		/// </summary>
 		public IReadOnlyList<IAgent> Agents => agents;
@@ -32,17 +40,22 @@ namespace SpaxUtils
 		private WorldService cycleService;
 		private CameraManager cameraManager;
 		private PlayerInputService playerInputService;
+		private SplitScreenService splitScreenService;
 
 		// Reverse lookup so we can unmark by IEntity/IAgent in lifecycle callbacks without scanning the list.
 		// Keyed by entity ID so we don't rely on interface refs behaving nicely with Unity's fake-null.
 		private Dictionary<string, int> agentIdToIndex = new Dictionary<string, int>();
 
-		public PlayerAgentService(RuntimeDataService runtimeDataService, WorldService cycleService, CameraManager cameraManager, PlayerInputService playerInputService)
+		private List<EventSystem> playerEventSystems = new List<EventSystem>();
+
+		public PlayerAgentService(RuntimeDataService runtimeDataService, WorldService cycleService, CameraManager cameraManager,
+			PlayerInputService playerInputService, SplitScreenService splitScreenService)
 		{
 			this.runtimeDataService = runtimeDataService;
 			this.cycleService = cycleService;
 			this.cameraManager = cameraManager;
 			this.playerInputService = playerInputService;
+			this.splitScreenService = splitScreenService;
 		}
 
 		public static string GetPlayerId(int playerIndex)
@@ -59,6 +72,14 @@ namespace SpaxUtils
 			}
 
 			return PLAYER_ID + $"_{playerIndex + 1}";
+		}
+
+		/// <summary>
+		/// The name a joined player goes by until renamed.
+		/// </summary>
+		public static string GetDefaultName(int playerIndex)
+		{
+			return $"Player {playerIndex + 1}";
 		}
 
 		/// <summary>
@@ -199,18 +220,40 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
-		/// Spawns a new player agent.
+		/// Asks whoever maintains the players to remove player <paramref name="playerIndex"/> from the game.
+		/// </summary>
+		public void RequestLeave(int playerIndex)
+		{
+			LeaveRequestedEvent?.Invoke(playerIndex);
+		}
+
+		/// <summary>
+		/// Writes every active player's data into the current profile, optionally skipping <paramref name="except"/>.
+		/// </summary>
+		public void SaveAllPlayers(IAgent except = null)
+		{
+			foreach (IAgent agent in agents)
+			{
+				if (agent != except && agent.Exists())
+				{
+					agent.SaveData();
+				}
+			}
+		}
+
+		/// <summary>
+		/// Spawns player <paramref name="playerIndex"/>, adding every created instance to <paramref name="instances"/>.
 		/// </summary>
 		public IAgent SpawnPlayer(
 			IDependencyManager dependencyManager,
 			PlayerConfig config,
 			AgentSpawnData spawnData,
-			Transform spawnpoint,
-			out List<GameObject> instances,
+			Vector3 position,
+			Quaternion rotation,
+			int playerIndex,
+			List<GameObject> instances,
 			Camera inputCamOverride = null)
 		{
-			instances = new List<GameObject>();
-
 			// Ensure all the required assets are present.
 			if (config.AgentSetup == null ||
 				config.InputActionAsset == null)
@@ -219,8 +262,20 @@ namespace SpaxUtils
 				return null;
 			}
 
-			int playerIndex = 0; // SINGLE PLAYER ONLY. When split screen exists, revisit.
 			string deterministicPlayerId = GetPlayerId(playerIndex);
+
+			// A joining player without data of their own starts as a copy of player one. Resolved before anything is
+			// instantiated: falling through to the ID fallback below would give them player one's ID.
+			RuntimeDataCollection seedData = null;
+			if (playerIndex > 0 && !TryRetrievePlayerEntityData(playerIndex, out _))
+			{
+				seedData = CreateSeedData(playerIndex);
+				if (seedData == null)
+				{
+					SpaxDebug.Error("Can't spawn player.", $"Player {playerIndex + 1} has no data and there is no player one to copy.");
+					return null;
+				}
+			}
 
 			// Create dependency managers for entities.
 			DependencyManager playerDependencies = new DependencyManager(dependencyManager, "Player");
@@ -229,19 +284,38 @@ namespace SpaxUtils
 			// Create deactivated instances.
 			GameObject camRigInstance = null;
 			Camera cameraComponent = null;
+			MainCameraHandler cameraHandler = null;
 			if (config.CameraPrefab != null)
 			{
-				camRigInstance = DependencyUtils.InstantiateDeactivated(config.CameraPrefab, spawnpoint.position, spawnpoint.rotation);
+				camRigInstance = DependencyUtils.InstantiateDeactivated(config.CameraPrefab, position, rotation);
 				instances.Add(camRigInstance);
 
-				//cameraComponent = camRigInstance.GetComponentInChildren<Camera>();
-				cameraComponent = cameraManager.MainCamera; // SINGLE PLAYER ONLY.
+				// The rig is inactive until it's injected, so every lookup must include inactive children.
+				cameraHandler = camRigInstance.GetComponentInChildren<MainCameraHandler>(true);
+				if (cameraHandler != null && cameraHandler.Camera != null)
+				{
+					cameraComponent = cameraHandler.Camera;
+					foreach (CinemachineVirtualCameraBase vcam in camRigInstance.GetComponentsInChildren<CinemachineVirtualCameraBase>(true))
+					{
+						vcam.OutputChannel = CameraManager.GetPlayerChannel(playerIndex);
+					}
+				}
+				else
+				{
+					cameraHandler = null;
+					cameraComponent = cameraManager.PrimaryCamera;
+					SpaxDebug.Error("Player camera rig has no camera of its own.",
+						$"'{config.CameraPrefab.name}' needs a child with Camera, CinemachineBrain and MainCameraHandler. Using the main camera.");
+				}
+
 				cameraDependencies = new DependencyManager(playerDependencies, "PlayerCamera");
 				playerDependencies.Bind(EntityLabels.CAMERA, cameraComponent);
 				playerDependencies.Bind(cameraComponent);
-				if (camRigInstance.TryGetComponentInChildren(out CineCameraWrapper cameraHandler))
+
+				CineCameraWrapper cineCameraWrapper = camRigInstance.GetComponentInChildren<CineCameraWrapper>(true);
+				if (cineCameraWrapper != null)
 				{
-					playerDependencies.Bind(cameraHandler);
+					playerDependencies.Bind(cineCameraWrapper);
 				}
 			}
 			UIRoot hudInstance = null;
@@ -263,13 +337,29 @@ namespace SpaxUtils
 				playerDependencies.Bind(playerInputWrapper.PlayerInput);
 			}
 
+			// Per-player UI: own selection/navigation and own dialogue box, so simultaneous menus don't collide.
+			// Player one keeps the global dialogue box, which world-side flows (NPC dialogue) also show in.
+			if (hudInstance != null)
+			{
+				CreatePlayerEventSystem(config, hudInstance, playerInputWrapper, playerDependencies, instances);
+				if (playerIndex > 0)
+				{
+					playerDependencies.Bind(new DialogueBoxService());
+				}
+			}
+
 			// Bind necessary data to dependency managers.
 			RuntimeDataCollection entityData;
-			if (TryRetrievePlayerEntityData(playerInputWrapper.PlayerIndex, out entityData))
+			if (TryRetrievePlayerEntityData(playerIndex, out entityData))
 			{
 				playerDependencies.Bind(entityData);
 			}
-			else if (playerInputWrapper.PlayerIndex == 0)
+			else if (seedData != null)
+			{
+				entityData = seedData;
+				playerDependencies.Bind(entityData);
+			}
+			else if (playerIndex == 0)
 			{
 				// The main player character is being spawned for the first time, give it deterministic ID and profile-based name.
 				entityData = new RuntimeDataCollection(
@@ -285,7 +375,7 @@ namespace SpaxUtils
 			}
 
 			// Create player setup with deterministic ID and profile-based name.
-			string desiredPlayerName = runtimeDataService.CurrentProfile != null ? runtimeDataService.GetProfileName() : config.AgentSetup.Identification.Name;
+			string desiredPlayerName = GetDisplayName(playerIndex, config);
 
 			IIdentification identification =
 				entityData == null ?
@@ -295,18 +385,23 @@ namespace SpaxUtils
 			AgentSetup setup = new AgentSetup(config.AgentSetup, identification, data: entityData);
 
 			// Create player agent.
-			Agent playerAgent = spawnData.Spawn(setup, playerDependencies, spawnpoint.position, spawnpoint.rotation);
+			Agent playerAgent = spawnData.Spawn(setup, playerDependencies, position, rotation);
 			instances.Add(playerAgent.gameObject);
 
 			// Set up player camera.
 			if (camRigInstance != null)
 			{
-				string camName = "PLAYER_CAMERA_" + playerInputWrapper.PlayerIndex;
-				var cameraIdentification = new Identification(camName, camName, new List<string>() { EntityLabels.CAMERA }, camRigInstance.GetComponent<IEntity>());
+				string camName = "PLAYER_CAMERA_" + playerIndex;
+				var cameraIdentification = new Identification(camName, camName, new List<string>() { EntityLabels.CAMERA }, camRigInstance.GetComponentInChildren<IEntity>(true));
 				cameraDependencies.Bind(cameraIdentification);
 				DependencyUtils.BindMonoBehaviours(camRigInstance, cameraDependencies, includeChildren: true);
 				DependencyUtils.Inject(camRigInstance, cameraDependencies, includeChildren: true, bindComponents: false);
 				camRigInstance.SetActive(true);
+
+				if (cameraHandler != null)
+				{
+					cameraManager.RegisterPlayerCamera(playerIndex, cameraHandler);
+				}
 			}
 
 			// Set up UI.
@@ -318,7 +413,7 @@ namespace SpaxUtils
 				hudInstance.gameObject.SetActive(true);
 
 				Camera uiCamera = hudInstance.GetComponentInChildren<Camera>();
-				if (uiCamera != null)
+				if (uiCamera != null && cameraComponent != null)
 				{
 					// Add UI camera to main camera stack.
 					var cameraData = cameraComponent.GetUniversalAdditionalCameraData();
@@ -326,7 +421,12 @@ namespace SpaxUtils
 				}
 			}
 
-			MarkPlayerAgent(playerAgent, playerInputWrapper.PlayerIndex);
+			MarkPlayerAgent(playerAgent, playerIndex);
+			SetPlayersHostile();
+
+			// Reapply viewports now the UI camera is stacked too.
+			splitScreenService.Relayout();
+
 			return playerAgent;
 		}
 
@@ -388,6 +488,97 @@ namespace SpaxUtils
 		public float GetDistanceToClosestPlayer(Vector3 point, out IAgent closest)
 		{
 			return GetSqrDistanceToClosestPlayer(point, out closest).Sqrt();
+		}
+
+		private string GetDisplayName(int playerIndex, PlayerConfig config)
+		{
+			if (playerIndex > 0)
+			{
+				return GetDefaultName(playerIndex);
+			}
+
+			return runtimeDataService.CurrentProfile != null ? runtimeDataService.GetProfileName() : config.AgentSetup.Identification.Name;
+		}
+
+		/// <summary>
+		/// Copies player one's live data for a joining player; live because gear and stats aren't written on save.
+		/// </summary>
+		private RuntimeDataCollection CreateSeedData(int playerIndex)
+		{
+			RuntimeDataCollection source = PlayerAgent.Exists() ? PlayerAgent.RuntimeData : null;
+			if (source == null && !TryRetrievePlayerEntityData(0, out source))
+			{
+				return null;
+			}
+
+			RuntimeDataCollection seed = source.CloneCollection(GetPlayerId(playerIndex));
+			seed.SetValue(EntityDataIdentifiers.NAME, GetDefaultName(playerIndex));
+
+			// Dead in data: skips the saved-position restore (the spawn position wins) and triggers a full recover.
+			seed.SetValue(EntityDataIdentifiers.ALIVE, false);
+			return seed;
+		}
+
+		private void CreatePlayerEventSystem(PlayerConfig config, UIRoot hudInstance, PlayerInputWrapper playerInputWrapper,
+			DependencyManager playerDependencies, List<GameObject> instances)
+		{
+			if (config.PlayerEventSystemPrefab == null)
+			{
+				return;
+			}
+
+			GameObject instance = DependencyUtils.InstantiateDeactivated(config.PlayerEventSystemPrefab.gameObject);
+			instances.Add(instance);
+
+			MultiplayerEventSystem eventSystem = instance.GetComponent<MultiplayerEventSystem>();
+			eventSystem.playerRoot = hudInstance.gameObject;
+			if (instance.TryGetComponent(out InputSystemUIInputModule inputModule) && playerInputWrapper.PlayerInput != null)
+			{
+				// Points the module at this player's own (cloned) actions.
+				playerInputWrapper.PlayerInput.uiInputModule = inputModule;
+			}
+			playerDependencies.Bind(typeof(EventSystem), eventSystem);
+
+			playerEventSystems.Add(eventSystem);
+			DestroyNotifier.Get(instance).DestroyedEvent += () =>
+			{
+				playerEventSystems.Remove(eventSystem);
+				RefreshGlobalEventSystem();
+			};
+			RefreshGlobalEventSystem();
+
+			instance.SetActive(true);
+		}
+
+		// A plain EventSystem has no player root and would raycast into every player's HUD.
+		private void RefreshGlobalEventSystem()
+		{
+			if (!GlobalDependencyManager.HasInstance ||
+				!GlobalDependencyManager.Instance.TryGet(out GameService gameService) ||
+				gameService.EventSystem == null)
+			{
+				return;
+			}
+
+			playerEventSystems.RemoveAll((eventSystem) => eventSystem == null);
+			gameService.EventSystem.enabled = playerEventSystems.Count == 0;
+		}
+
+		/// <summary>
+		/// Makes every pair of players enemies, keyed by ID since all players share the same labels.
+		/// </summary>
+		private void SetPlayersHostile()
+		{
+			foreach (IAgent a in agents)
+			{
+				foreach (IAgent b in agents)
+				{
+					if (a != b && a.Exists() && b.Exists())
+					{
+						a.Relations.Set(b.Identification.ID, -1f);
+					}
+				}
+			}
 		}
 
 		private void HookAgent(IAgent agent, int index)

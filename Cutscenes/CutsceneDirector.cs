@@ -50,11 +50,7 @@ namespace SpaxUtils
 			cameraManager = GlobalDependencyManager.Instance.Get<CameraManager>();
 			entityService = GlobalDependencyManager.Instance.Get<EntityService>();
 
-			// Bind the persistent CinemachineBrain to any Cinemachine tracks on the timeline.
-			if (cameraManager != null && cameraManager.Brain != null)
-			{
-				BindCinemachineBrain(cameraManager.Brain);
-			}
+			BindBrain();
 
 			// Register as notification receiver once the playable graph is created.
 			director.played += OnDirectorPlayed;
@@ -83,6 +79,18 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
+		/// Binds the primary camera brain to the timeline's Cinemachine tracks. The primary brain changes
+		/// once players own their cameras, so this is called again right before playing.
+		/// </summary>
+		public void BindBrain()
+		{
+			if (cameraManager != null && cameraManager.PrimaryBrain != null)
+			{
+				BindCinemachineBrain(cameraManager.PrimaryBrain);
+			}
+		}
+
+		/// <summary>
 		/// Resets any scene-side state owned by this director (e.g. fade overlay, camera blend).
 		/// Called by <see cref="CutsceneService"/> during completion.
 		/// </summary>
@@ -94,9 +102,9 @@ namespace SpaxUtils
 			}
 
 			// Cancel any active Cinemachine blend so the next vcam cuts in instantly.
-			if (cameraManager != null && cameraManager.Brain != null)
+			if (cameraManager != null && cameraManager.PrimaryBrain != null)
 			{
-				cameraManager.Brain.ActiveBlend = null;
+				cameraManager.PrimaryBrain.ActiveBlend = null;
 			}
 
 			// Auto-vacate any agents that were commanded to occupy a POI during the cutscene.

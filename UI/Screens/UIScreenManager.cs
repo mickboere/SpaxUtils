@@ -27,16 +27,19 @@ namespace SpaxUtils.UI
 		private TimeService timeService;
 		private PlayerInputWrapper playerInputWrapper;
 		private CursorService cursorService;
+		private SplitScreenService splitScreenService;
 
 		private UIScreen[] screens;
 		private List<Option> shortcuts = new List<Option>();
 
-		public void InjectDependencies(ICommunicationChannel comms, TimeService timeService, PlayerInputWrapper playerInputWrapper, CursorService cursorService)
+		public void InjectDependencies(ICommunicationChannel comms, TimeService timeService, PlayerInputWrapper playerInputWrapper,
+			CursorService cursorService, SplitScreenService splitScreenService)
 		{
 			this.comms = comms;
 			this.timeService = timeService;
 			this.playerInputWrapper = playerInputWrapper;
 			this.cursorService = cursorService;
+			this.splitScreenService = splitScreenService;
 		}
 
 		protected void Awake()
@@ -61,6 +64,7 @@ namespace SpaxUtils.UI
 		{
 			playerInputWrapper.CompleteActionMapRequest(subscriberA);
 			playerInputWrapper.CompleteActionMapRequest(subscriberB);
+			splitScreenService.ReleaseFullscreen(playerInputWrapper);
 			timeService.CompletePauseRequest(this);
 			cursorService.CompleteRequest(this);
 			comms.StopListening(this);
@@ -77,6 +81,14 @@ namespace SpaxUtils.UI
 			{
 				// Toggle.
 				context = baseContextOverride ?? defaultContext;
+			}
+
+			// In split-screen a pausing screen takes the whole screen, refused while another player has it.
+			UIScreen target = screens.FirstOrDefault((s) => s.Context == context);
+			bool pausing = target != null && target.Pause;
+			if (pausing && !splitScreenService.TryClaimFullscreen(playerInputWrapper, shortcutActionMap))
+			{
+				return;
 			}
 
 			float hideDelay = screens.Max(s => s.TransitionSettings.OutTime * s.Transition.Progress);
@@ -123,6 +135,11 @@ namespace SpaxUtils.UI
 				{
 					screen.Hide();
 				}
+			}
+
+			if (!pausing)
+			{
+				splitScreenService.ReleaseFullscreen(playerInputWrapper);
 			}
 
 			this.context = context;

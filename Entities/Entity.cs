@@ -369,7 +369,7 @@ namespace SpaxUtils
 		private void OnOptimizationPing(float delta)
 		{
 			// Automatically change priority depending on distance to nearest camera.
-			Priority = entityOptimizationSettings.GetPriorityBySqrDistance(cameraService.GetSqrDistanceToMainCamera(Transform.position));
+			Priority = entityOptimizationSettings.GetPriorityBySqrDistance(cameraService.GetSqrDistanceToClosestCamera(Transform.position));
 		}
 
 		#endregion Optimization

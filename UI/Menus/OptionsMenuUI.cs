@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using TMPro;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace SpaxUtils.UI
@@ -45,7 +46,7 @@ namespace SpaxUtils.UI
 		[SerializeField] private MenuItem menuItemTemplate;
 		[SerializeField] private TMP_Text menuTitle;
 
-		private GameService gameService;
+		private EventSystem eventSystem;
 		private PlayerInputWrapper playerInputWrapper;
 		private ICommunicationChannel comms;
 
@@ -58,11 +59,11 @@ namespace SpaxUtils.UI
 		// Minimal "next-frame reselect" to survive Unity clearing selection after Destroy().
 		private Coroutine reselectionCoroutine;
 
-		public void InjectDependencies(GameService gameService, PlayerInputWrapper playerInputWrapper, ICommunicationChannel comms)
+		public void InjectDependencies(PlayerInputWrapper playerInputWrapper, ICommunicationChannel comms, EventSystem eventSystem)
 		{
-			this.gameService = gameService;
 			this.playerInputWrapper = playerInputWrapper;
 			this.comms = comms;
+			this.eventSystem = eventSystem;
 		}
 
 		protected void OnEnable()
@@ -146,9 +147,8 @@ namespace SpaxUtils.UI
 		{
 			foreach (KeyValuePair<string, (Option data, MenuItem visual)> item in Menu.Items)
 			{
-				if (gameService != null &&
-					gameService.EventSystem != null &&
-					gameService.EventSystem.currentSelectedGameObject == item.Value.visual.Button.gameObject)
+				if (eventSystem != null &&
+					eventSystem.currentSelectedGameObject == item.Value.visual.Button.gameObject)
 				{
 					item.Value.visual.Button.onClick.Invoke();
 					return;
@@ -215,13 +215,13 @@ namespace SpaxUtils.UI
 		private void ForceSelectFirstIfNeeded()
 		{
 			// If no EventSystem reference, fall back to UIGroup helper.
-			if (gameService == null || gameService.EventSystem == null)
+			if (eventSystem == null)
 			{
 				UIGroup.SelectFirstSelectable();
 				return;
 			}
 
-			GameObject currentSelected = gameService.EventSystem.currentSelectedGameObject;
+			GameObject currentSelected = eventSystem.currentSelectedGameObject;
 
 			// If current selection is already inside this menu, keep it.
 			if (currentSelected != null && currentSelected.transform.IsChildOf(transform))
@@ -242,8 +242,8 @@ namespace SpaxUtils.UI
 				return;
 			}
 
-			gameService.EventSystem.SetSelectedGameObject(null);
-			gameService.EventSystem.SetSelectedGameObject(first.gameObject);
+			eventSystem.SetSelectedGameObject(null);
+			eventSystem.SetSelectedGameObject(first.gameObject);
 			first.Select();
 		}
 	}

@@ -18,7 +18,6 @@ namespace SpaxUtils
 	{
 		// Large sample range so NavMesh.SamplePosition succeeds across big flat regions.
 		private const float NAVMESH_REGION_SAMPLE = 10f;
-		private const float NAVMESH_RADIUS_SAMPLE = 5f;
 
 		// Maximum weighted selection attempts before giving up and reverting to Idle.
 		private const int MAX_SELECTION_ATTEMPTS = 5;
@@ -418,52 +417,39 @@ namespace SpaxUtils
 		{
 			bool hasRegion = spawnpoint?.Region != null;
 
-			for (int attempt = 0; attempt < MAX_SELECTION_ATTEMPTS; attempt++)
+			// Case 1 & 2: wander within radius around current position, constrained to region.
+			// Case 3: wander within radius around spawnpoint (no region constraint).
+			Vector3 center = hasRegion ? agent.Transform.position : spawnpoint.Position;
+
+			// Region-bound: samples must land inside it, and must not snap into another region (e.g. underground overlap).
+			System.Func<Vector3, bool> insideRegion = null;
+			System.Func<Vector3, bool> sameRegion = null;
+			if (hasRegion)
 			{
-				// Case 1 & 2: wander within radius around current position, constrained to region.
-				// Case 3: wander within radius around spawnpoint (no region constraint).
-				Vector3 center = hasRegion ? agent.Transform.position : spawnpoint.Position;
-				Vector3 offset = Quaternion.AngleAxis(Random.Range(0f, 360f), Vector3.up) * Vector3.forward * wanderRadius;
-				Vector3 sample = center + offset;
-
-				if (hasRegion && !spawnpoint.Region.IsInside(sample))
-				{
-					// Sample landed outside the region boundary, try again.
-					continue;
-				}
-
-				targetPOI = null;
-
-				// Always try NavMesh first regardless of region; only fall back to raw steering if it fails.
-				if (NavMesh.SamplePosition(sample, out NavMeshHit hit, NAVMESH_RADIUS_SAMPLE, NavMesh.AllAreas))
-				{
-					// If there is a region, reject points that snap into a different one (e.g. underground overlap).
-					if (hasRegion && worldRegionService.GetRegion(hit.position) != spawnpoint.Region)
-					{
-						continue;
-					}
-
-					// Reject destinations that are not fully reachable via the NavMesh.
-					PathQueryResult pathQuery = navigation.QueryPath(hit.position, moveSpeed);
-					if (!pathQuery.Complete)
-					{
-						continue;
-					}
-
-					currentDestination = hit.position;
-					activity = WanderActivity.Moving;
-					moveTimer = Mathf.Max(pathQuery.EstimatedTime * moveTimeoutMultiplier, moveTimeoutFloor);
-					return true;
-				}
-
-				// No NavMesh available - use raw steering toward the sampled point.
-				currentDestination = sample;
-				activity = WanderActivity.MovingRaw;
-				moveTimer = CalculateFallbackTimeout(currentDestination);
-				return true;
+				insideRegion = (sample) => spawnpoint.Region.IsInside(sample);
+				sameRegion = (hit) => worldRegionService.GetRegion(hit) == spawnpoint.Region;
 			}
 
-			return false;
+			if (!navigation.TrySampleReachablePoint(center, wanderRadius, out Vector3 point, out PathQueryResult pathQuery,
+				moveSpeed, insideRegion, sameRegion, allowOffMesh: true, attempts: MAX_SELECTION_ATTEMPTS))
+			{
+				return false;
+			}
+
+			targetPOI = null;
+			currentDestination = point;
+			if (pathQuery.Complete)
+			{
+				activity = WanderActivity.Moving;
+				moveTimer = Mathf.Max(pathQuery.EstimatedTime * moveTimeoutMultiplier, moveTimeoutFloor);
+			}
+			else
+			{
+				// No NavMesh available - use raw steering toward the sampled point.
+				activity = WanderActivity.MovingRaw;
+				moveTimer = CalculateFallbackTimeout(currentDestination);
+			}
+			return true;
 		}
 
 		/// <summary>

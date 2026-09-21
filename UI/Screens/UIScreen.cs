@@ -7,7 +7,7 @@ namespace SpaxUtils.UI
 		public string Context => context;
 		public string Shortcut => shortcut;
 		public bool Pause => pauseGame;
-		public bool RequireInput => requireInput;
+		public bool RequireInput => requireInputOverride ?? requireInput;
 		public bool EnableShortcuts => enableShortcuts;
 
 		[Header("Screen")]
@@ -16,5 +16,15 @@ namespace SpaxUtils.UI
 		[SerializeField] private bool pauseGame;
 		[SerializeField] private bool requireInput;
 		[SerializeField] private bool enableShortcuts;
+
+		private bool? requireInputOverride;
+
+		/// <summary>
+		/// Overrides the serialized input requirement at runtime; null restores it.
+		/// </summary>
+		public void OverrideRequireInput(bool? require)
+		{
+			requireInputOverride = require;
+		}
 	}
 }

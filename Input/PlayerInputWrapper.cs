@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.Users;
 using CallbackContext = UnityEngine.InputSystem.InputAction.CallbackContext;
 
 namespace SpaxUtils
@@ -89,20 +90,96 @@ namespace SpaxUtils
 
 		private bool switchingActionMaps;
 		private bool ateInput;
+		private bool autoSwitchControlSchemes = true;
 
-		public static PlayerInputWrapper Create(InputActionAsset inputActionAsset, Camera camera = null)
+		/// <summary>
+		/// Creates a new wrapper. Pass <paramref name="devices"/> to pair them exclusively and disable scheme auto-switching.
+		/// </summary>
+		public static PlayerInputWrapper Create(InputActionAsset inputActionAsset, Camera camera = null,
+			string controlScheme = null, params InputDevice[] devices)
 		{
+			// Built deactivated so PlayerInput.OnEnable initializes (and clones) its actions before pairing devices.
 			GameObject go = new GameObject();
-//			GameObject.DontDestroyOnLoad(go);
+			go.SetActive(false);
 
 			PlayerInput playerInput = go.AddComponent<PlayerInput>();
 			playerInput.camera = camera;
 			playerInput.notificationBehavior = PlayerNotifications.InvokeCSharpEvents;
 			playerInput.actions = inputActionAsset;
 
+			bool paired = devices != null && devices.Length > 0;
 			PlayerInputWrapper wrapper = go.AddComponent<PlayerInputWrapper>();
+			wrapper.autoSwitchControlSchemes = !paired;
+			go.SetActive(true);
+
+			if (paired)
+			{
+				wrapper.PairDevices(controlScheme, devices);
+			}
+
 			go.name = $"PlayerInput ({inputActionAsset.name})[{wrapper.PlayerIndex}]";
 			return wrapper;
+		}
+
+		/// <summary>
+		/// Enables or disables Unity's automatic control scheme switching for this player.
+		/// </summary>
+		public void SetAutoSwitch(bool autoSwitch)
+		{
+			autoSwitchControlSchemes = autoSwitch;
+			if (PlayerInput != null)
+			{
+				PlayerInput.neverAutoSwitchControlSchemes = !autoSwitch;
+			}
+		}
+
+		/// <summary>
+		/// Pairs exactly <paramref name="devices"/> to this player under <paramref name="controlScheme"/>.
+		/// </summary>
+		public void PairDevices(string controlScheme, params InputDevice[] devices)
+		{
+			PlayerInput.SwitchCurrentControlScheme(controlScheme, devices);
+		}
+
+		/// <summary>
+		/// Switches to the best control scheme that includes <paramref name="device"/>, like Unity's auto-switch does.
+		/// </summary>
+		public bool TrySwitchToDevice(InputDevice device)
+		{
+			// Not a using-block: its variable is read-only, and this struct list would be mutated as a copy.
+			InputControlList<InputDevice> available = InputUser.GetUnpairedInputDevices();
+			try
+			{
+				int index = available.IndexOf(device);
+				if (index > 0)
+				{
+					available.SwapElements(0, index);
+				}
+				foreach (InputDevice paired in PlayerInput.devices)
+				{
+					available.Add(paired);
+				}
+
+				if (!InputControlScheme.FindControlSchemeForDevices(available, PlayerInput.actions.controlSchemes,
+					out InputControlScheme scheme, out InputControlScheme.MatchResult match, mustIncludeDevice: device))
+				{
+					return false;
+				}
+
+				try
+				{
+					PlayerInput.SwitchCurrentControlScheme(scheme.name, match.devices.ToArray());
+				}
+				finally
+				{
+					match.Dispose();
+				}
+				return true;
+			}
+			finally
+			{
+				available.Dispose();
+			}
 		}
 
 		public void SetCamera(Camera camera)
@@ -128,7 +205,7 @@ namespace SpaxUtils
 		protected void OnEnable()
 		{
 			PlayerInput = GetComponent<PlayerInput>();
-			PlayerInput.neverAutoSwitchControlSchemes = false;
+			PlayerInput.neverAutoSwitchControlSchemes = !autoSwitchControlSchemes;
 
 			CollectActionMaps();
 

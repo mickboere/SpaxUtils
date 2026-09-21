@@ -1,27 +1,130 @@
+using System;
+using System.Collections.Generic;
 using UnityEngine;
 using Unity.Cinemachine;
 
 namespace SpaxUtils
 {
 	/// <summary>
-	/// Global camera service that spawns and tracks the persistent main camera rig.
+	/// Global camera service that spawns the persistent main camera rig and tracks per-player camera rigs.
 	/// </summary>
 	[CreateAssetMenu(fileName = nameof(CameraManager), menuName = "ScriptableObjects/Camera/" + nameof(CameraManager))]
 	public class CameraManager : ScriptableObject, IService
 	{
-		public Camera MainCamera => handler != null ? handler.Camera : null;
-		public CinemachineBrain Brain => handler != null ? handler.Brain : null;
+		/// <summary>
+		/// Invoked whenever a player camera is registered or unregistered.
+		/// </summary>
+		public event Action PlayerCamerasChangedEvent;
+
+		/// <summary>
+		/// The primary player's camera when one is registered, else the persistent main camera.
+		/// </summary>
+		public Camera PrimaryCamera => PrimaryHandler != null ? PrimaryHandler.Camera : null;
+
+		/// <summary>
+		/// The primary player's brain when one is registered, else the persistent main brain.
+		/// </summary>
+		public CinemachineBrain PrimaryBrain => PrimaryHandler != null ? PrimaryHandler.Brain : null;
+
 		public Transform Root => instance != null ? instance.transform : null;
+
+		/// <summary>
+		/// The persistent main camera rig, which also carries the audio listener.
+		/// </summary>
 		public MainCameraHandler Handler => handler;
+
+		/// <summary>
+		/// Camera rigs owned by players, keyed by player index.
+		/// </summary>
+		public IReadOnlyDictionary<int, MainCameraHandler> PlayerCameras => playerCameras;
+
+		private MainCameraHandler PrimaryHandler =>
+			TryGetPrimaryPlayerCamera(out MainCameraHandler primary, out _) ? primary : handler;
 
 		[SerializeField] private MainCameraHandler mainCameraPrefab;
 
 		private MainCameraHandler handler;
 		private GameObject instance;
+		private OutputChannels defaultChannelMask;
+		private SortedDictionary<int, MainCameraHandler> playerCameras = new SortedDictionary<int, MainCameraHandler>();
 
 		public void InjectDependencies()
 		{
 			Initialize();
+		}
+
+		/// <summary>
+		/// The Cinemachine channel owned by player <paramref name="playerIndex"/>; player 0 keeps Default.
+		/// </summary>
+		public static OutputChannels GetPlayerChannel(int playerIndex)
+		{
+			return (OutputChannels)(1 << playerIndex);
+		}
+
+		/// <summary>
+		/// Registers <paramref name="cameraHandler"/> as the camera rig of player <paramref name="playerIndex"/>.
+		/// Unregisters automatically when its GameObject is destroyed.
+		/// </summary>
+		public void RegisterPlayerCamera(int playerIndex, MainCameraHandler cameraHandler)
+		{
+			if (cameraHandler == null)
+			{
+				SpaxDebug.Error("Can't register player camera.", $"Camera handler for player {playerIndex} is null.");
+				return;
+			}
+
+			playerCameras[playerIndex] = cameraHandler;
+			if (cameraHandler.Brain != null)
+			{
+				cameraHandler.Brain.ChannelMask = GetPlayerChannel(playerIndex);
+			}
+			DestroyNotifier.Get(cameraHandler.gameObject).DestroyedEvent += () => OnPlayerCameraDestroyed(cameraHandler);
+
+			RefreshPersistentRig();
+			PlayerCamerasChangedEvent?.Invoke();
+		}
+
+		/// <summary>
+		/// Removes player <paramref name="playerIndex"/>'s camera rig from the registry.
+		/// </summary>
+		public void UnregisterPlayerCamera(int playerIndex)
+		{
+			if (playerCameras.Remove(playerIndex))
+			{
+				RefreshPersistentRig();
+				PlayerCamerasChangedEvent?.Invoke();
+			}
+		}
+
+		/// <summary>
+		/// Returns the squared distance to the closest player camera, or to the main camera when there are none.
+		/// </summary>
+		public float GetSqrDistanceToClosestCamera(Vector3 point)
+		{
+			float closest = float.MaxValue;
+			foreach (MainCameraHandler playerCamera in playerCameras.Values)
+			{
+				if (playerCamera != null && playerCamera.Camera != null)
+				{
+					closest = Mathf.Min(closest, (playerCamera.Camera.transform.position - point).sqrMagnitude);
+				}
+			}
+
+			if (closest == float.MaxValue && PrimaryCamera)
+			{
+				closest = (PrimaryCamera.transform.position - point).sqrMagnitude;
+			}
+
+			return closest;
+		}
+
+		/// <summary>
+		/// Returns the distance to the closest player camera, or to the main camera when there are none.
+		/// </summary>
+		public float GetDistanceToClosestCamera(Vector3 point)
+		{
+			float sqr = GetSqrDistanceToClosestCamera(point);
+			return sqr == float.MaxValue ? float.MaxValue : Mathf.Sqrt(sqr);
 		}
 
 		private void Initialize()
@@ -50,30 +153,59 @@ namespace SpaxUtils
 			{
 				SpaxDebug.Error("MainCamera prefab has no CinemachineBrain in children.", "", instance);
 			}
+			else
+			{
+				defaultChannelMask = handler.Brain.ChannelMask;
+			}
 		}
 
-		/// <summary>
-		/// Returns the squared distance to the main camera.
-		/// </summary>
-		public float GetSqrDistanceToMainCamera(Vector3 point)
+		private bool TryGetPrimaryPlayerCamera(out MainCameraHandler primary, out int playerIndex)
 		{
-			if (!MainCamera)
+			foreach (KeyValuePair<int, MainCameraHandler> playerCamera in playerCameras)
 			{
-				return float.MaxValue;
+				if (playerCamera.Value != null)
+				{
+					primary = playerCamera.Value;
+					playerIndex = playerCamera.Key;
+					return true;
+				}
 			}
-			return (MainCamera.transform.position - point).sqrMagnitude;
+
+			primary = null;
+			playerIndex = -1;
+			return false;
 		}
 
-		/// <summary>
-		/// Returns the distance to the main camera.
-		/// </summary>
-		public float GetDistanceToMainCamera(Vector3 point)
+		private void OnPlayerCameraDestroyed(MainCameraHandler cameraHandler)
 		{
-			if (!MainCamera)
+			foreach (KeyValuePair<int, MainCameraHandler> playerCamera in playerCameras)
 			{
-				return float.MaxValue;
+				if (ReferenceEquals(playerCamera.Value, cameraHandler))
+				{
+					UnregisterPlayerCamera(playerCamera.Key);
+					return;
+				}
 			}
-			return (MainCamera.transform.position - point).magnitude;
+		}
+
+		// While players own cameras the persistent rig stops rendering, but keeps following the primary
+		// player's channel so the audio listener it carries stays with that player.
+		private void RefreshPersistentRig()
+		{
+			if (handler == null)
+			{
+				return;
+			}
+
+			bool hasPlayers = TryGetPrimaryPlayerCamera(out _, out int primaryIndex);
+			if (handler.Camera != null)
+			{
+				handler.Camera.enabled = !hasPlayers;
+			}
+			if (handler.Brain != null)
+			{
+				handler.Brain.ChannelMask = hasPlayers ? GetPlayerChannel(primaryIndex) : defaultChannelMask;
+			}
 		}
 	}
 }

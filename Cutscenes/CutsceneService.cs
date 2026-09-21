@@ -88,6 +88,7 @@ namespace SpaxUtils
 
 			director.Director.stopped += OnDirectorStopped;
 			CutsceneStartedEvent?.Invoke();
+			director.BindBrain();
 			director.Director.Play();
 		}
 

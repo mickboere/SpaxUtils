@@ -15,9 +15,12 @@ namespace SpaxUtils.UI
 		private UIScreenManager screenManager;
 		private GameService gameService;
 		private DialogueBoxService dialogueBoxService;
+		private PlayerAgentService playerAgentService;
+		private int playerIndex;
 
 		public void InjectDependencies(IAgent agent, ICommunicationChannel comms, RuntimeDataService runtimeDataService,
-			UIScreenManager screenManager, GameService gameService, DialogueBoxService dialogueBoxService)
+			UIScreenManager screenManager, GameService gameService, DialogueBoxService dialogueBoxService,
+			PlayerAgentService playerAgentService, PlayerInputWrapper playerInputWrapper, PlayerInputService playerInputService)
 		{
 			this.screenManager = screenManager;
 			this.agent = agent;
@@ -25,6 +28,8 @@ namespace SpaxUtils.UI
 			this.runtimeDataService = runtimeDataService;
 			this.gameService = gameService;
 			this.dialogueBoxService = dialogueBoxService;
+			this.playerAgentService = playerAgentService;
+			playerIndex = playerInputService.GetPlayerIndex(playerInputWrapper);
 		}
 
 		protected void Awake()
@@ -59,11 +64,18 @@ namespace SpaxUtils.UI
 					dialogueBoxService.ShowConfirmCancel("Save Data", null, "All existing data will be overwritten.\n\nContinue?",
 						() =>
 						{
-							agent.SaveData();
+							playerAgentService.SaveAllPlayers();
 							runtimeDataService.SaveProfileToDisk();
 							screenManager.SwitchContext(null);
 						});
 				}));
+
+				// Joined players get Disconnect instead of the session-wide options, which would end everyone's game.
+				if (playerIndex > 0)
+				{
+					msg.AddOption(new Option("Disconnect", "", (option) => playerAgentService.RequestLeave(playerIndex)));
+					return;
+				}
 
 				// Add Reload option.
 				msg.AddOption(new Option("Reload", "", (option) =>

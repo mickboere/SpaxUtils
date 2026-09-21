@@ -181,6 +181,62 @@ namespace SpaxUtils
 			return result;
 		}
 
+		/// <summary>
+		/// Picks a random NavMesh point on a ring of <paramref name="radius"/> around <paramref name="center"/>
+		/// that this agent can fully walk to.
+		/// </summary>
+		public bool TrySampleReachablePoint(Vector3 center, float radius, out Vector3 point, int attempts = 5)
+		{
+			return TrySampleReachablePoint(center, radius, out point, out _, attempts: attempts);
+		}
+
+		/// <summary>
+		/// <see cref="TrySampleReachablePoint(Vector3, float, out Vector3, int)"/> with filters on the raw sample and the snapped point.
+		/// With <paramref name="allowOffMesh"/>, a sample with no NavMesh nearby is returned as-is (<paramref name="path"/> incomplete).
+		/// </summary>
+		public bool TrySampleReachablePoint(Vector3 center, float radius, out Vector3 point, out PathQueryResult path,
+			float speed = 1f, Func<Vector3, bool> acceptSample = null, Func<Vector3, bool> acceptPoint = null,
+			bool allowOffMesh = false, int attempts = 5)
+		{
+			for (int attempt = 0; attempt < attempts; attempt++)
+			{
+				Vector3 offset = Quaternion.AngleAxis(UnityEngine.Random.Range(0f, 360f), Vector3.up) * Vector3.forward * radius;
+				Vector3 sample = center + offset;
+				if (acceptSample != null && !acceptSample(sample))
+				{
+					continue;
+				}
+
+				if (NavMesh.SamplePosition(sample, out NavMeshHit hit, QUERY_SAMPLE_RANGE, NavMesh.AllAreas))
+				{
+					if (acceptPoint != null && !acceptPoint(hit.position))
+					{
+						continue;
+					}
+
+					path = QueryPath(hit.position, speed);
+					if (!path.Complete)
+					{
+						continue;
+					}
+
+					point = hit.position;
+					return true;
+				}
+
+				if (allowOffMesh)
+				{
+					path = default;
+					point = sample;
+					return true;
+				}
+			}
+
+			path = default;
+			point = center;
+			return false;
+		}
+
 		#endregion
 
 		#region Targeting

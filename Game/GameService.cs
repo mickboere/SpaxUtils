@@ -73,6 +73,9 @@ namespace SpaxUtils
 			EventSystem = GameObject.Instantiate(gameData.EventSystem);
 			GameObject.DontDestroyOnLoad(EventSystem.gameObject);
 
+			// Global fallback; players bind their own in their scope.
+			dependencyManager.Bind(typeof(EventSystem), EventSystem);
+
 			// Keep the brain purely for gameplay-level state (GAME/LOBBY/etc).
 			Brain = new Brain(
 				dependencyManager,
