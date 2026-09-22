@@ -11,5 +11,8 @@
 
 		// Basic game data.
 		public const string LAST_SPAWN = PROFILE + "LastSpawn";
+
+		// Per-save settings overrides.
+		public const string SETTINGS = PROFILE + "Settings";
 	}
 }

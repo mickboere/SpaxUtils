@@ -20,12 +20,15 @@ namespace SpaxUtils
 
 		private CinemachineShakeExtension shakeExtension;
 		private AgentImpactHandler agentSenseComponent;
+		private CameraManager cameraManager;
 
 		private List<IShakeSource> sources = new List<IShakeSource>();
 
-		public void InjectDependencies(CinemachineShakeExtension shakeExtension, [Optional] AgentImpactHandler awarenessComponent)
+		public void InjectDependencies(CinemachineShakeExtension shakeExtension, CameraManager cameraManager,
+			[Optional] AgentImpactHandler awarenessComponent)
 		{
 			this.shakeExtension = shakeExtension;
+			this.cameraManager = cameraManager;
 			this.agentSenseComponent = awarenessComponent;
 		}
 
@@ -131,8 +134,10 @@ namespace SpaxUtils
 
 			if (shakeExtension != null)
 			{
-				shakeExtension.SetRotationEuler(angles.Clamp(-maxAngle, maxAngle));
-				shakeExtension.SetPositionLocal(positionOffset);
+				// Scale after the clamp so the player setting always reads as a proportion of the full shake.
+				float scale = cameraManager.ScreenShake;
+				shakeExtension.SetRotationEuler(angles.Clamp(-maxAngle, maxAngle) * scale);
+				shakeExtension.SetPositionLocal(positionOffset * scale);
 			}
 		}
 

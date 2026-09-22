@@ -9,8 +9,14 @@ namespace SpaxUtils
 	/// Global camera service that spawns the persistent main camera rig and tracks per-player camera rigs.
 	/// </summary>
 	[CreateAssetMenu(fileName = nameof(CameraManager), menuName = "ScriptableObjects/Camera/" + nameof(CameraManager))]
-	public class CameraManager : ScriptableObject, IService
+	public class CameraManager : ScriptableObject, IService, ISettingsSupplier
 	{
+		private const string CAMERA_SETTINGS = "Gameplay/Camera";
+
+		// The persistent camera is a backdrop: base cameras at the default depth (lobby, menus) always draw over it,
+		// regardless of it being re-enabled after them when the last player camera goes away.
+		private const float PERSISTENT_CAMERA_DEPTH = -1f;
+
 		/// <summary>
 		/// Invoked whenever a player camera is registered or unregistered.
 		/// </summary>
@@ -38,10 +44,26 @@ namespace SpaxUtils
 		/// </summary>
 		public IReadOnlyDictionary<int, MainCameraHandler> PlayerCameras => playerCameras;
 
+		/// <summary>
+		/// Multiplier on all screen shake output.
+		/// </summary>
+		public float ScreenShake => screenShake.Value;
+
+		/// <summary>
+		/// Whether cameras widen their FOV with speed.
+		/// </summary>
+		public bool SpeedSense => speedSense.Value;
+
 		private MainCameraHandler PrimaryHandler =>
 			TryGetPrimaryPlayerCamera(out MainCameraHandler primary, out _) ? primary : handler;
 
 		[SerializeField] private MainCameraHandler mainCameraPrefab;
+
+		[Setting("gameplay.screenShake", CAMERA_SETTINGS, "Screen Shake", 0f, 1f, Format = "0%")]
+		[SerializeField] private FloatSetting screenShake = new FloatSetting(1f);
+		[Setting("gameplay.speedSense", CAMERA_SETTINGS, "Speed Sense")]
+		[SerializeField, Tooltip("FOV widening with movement speed.")]
+		private BoolSetting speedSense = new BoolSetting(true);
 
 		private MainCameraHandler handler;
 		private GameObject instance;
@@ -147,6 +169,10 @@ namespace SpaxUtils
 			if (handler.Camera == null)
 			{
 				SpaxDebug.Error("MainCamera prefab has no Camera in children.", "", instance);
+			}
+			else
+			{
+				handler.Camera.depth = PERSISTENT_CAMERA_DEPTH;
 			}
 
 			if (handler.Brain == null)

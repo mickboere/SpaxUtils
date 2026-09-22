@@ -22,6 +22,7 @@ namespace SpaxUtils
 		public const string SEEDED_PROFILES = GLOBAL + "SeededProfiles";
 
 
-		//private const string SETTINGS = "SETTINGS/";
+		// Settings overrides; per-player overrides live in a child collection per index.
+		public const string SETTINGS = GLOBAL + "Settings";
 	}
 }

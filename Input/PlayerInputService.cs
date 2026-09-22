@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -10,6 +11,11 @@ namespace SpaxUtils
 	/// </summary>
 	public class PlayerInputService : IService
 	{
+		/// <summary>
+		/// Invoked once a wrapper is registered under its player index; its actions are initialized by then.
+		/// </summary>
+		public event Action<int, PlayerInputWrapper> WrapperRegisteredEvent;
+
 		/// <summary>
 		/// All live wrappers, keyed by player index.
 		/// </summary>
@@ -79,7 +85,7 @@ namespace SpaxUtils
 				{
 					// Deactivate first: PlayerInput frees its index and devices in OnDisable, Destroy is deferred.
 					wrapper.gameObject.SetActive(false);
-					Object.Destroy(wrapper.gameObject);
+					UnityEngine.Object.Destroy(wrapper.gameObject);
 				}
 			}
 		}
@@ -95,6 +101,7 @@ namespace SpaxUtils
 				SpaxDebug.Error("PlayerInputService", $"Created wrapper index mismatch. Requested={playerIndex}, Got={wrapper.PlayerIndex}");
 			}
 
+			WrapperRegisteredEvent?.Invoke(playerIndex, wrapper);
 			return wrapper;
 		}
 	}

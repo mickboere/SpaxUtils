@@ -28,16 +28,18 @@ namespace SpaxUtils
 
 		private IAgent agent;
 		private CineCameraWrapper cameraWrapper;
+		private CameraManager cameraManager;
 		private FloatOperationModifier fovMod;
 		private Vector3 lastPos;
 		private SmoothFloat velocity;
 		private float lastVelocity;
 		private SmoothFloat acceleration;
 
-		public void InjectDependencies([Optional] IAgent agent, CineCameraWrapper cameraWrapper)
+		public void InjectDependencies([Optional] IAgent agent, CineCameraWrapper cameraWrapper, CameraManager cameraManager)
 		{
 			this.agent = agent;
 			this.cameraWrapper = cameraWrapper;
+			this.cameraManager = cameraManager;
 		}
 
 		protected void Start()
@@ -58,7 +60,8 @@ namespace SpaxUtils
 			lastVelocity = velocity;
 			float vi = CalculateInfluence(velocity, upperVelocity, velocityCurve, velocityInfluence);
 			float ai = CalculateInfluence(acceleration, upperAcceleration, accelerationCurve, accelerationInfluence);
-			float target = 1f + vi + ai;
+			// Keep sampling while disabled so re-enabling does not spike on a stale position.
+			float target = cameraManager.SpeedSense ? 1f + vi + ai : 1f;
 			float speed = target > fovMod.Value ? fovRampUp : fovRampDown;
 			fovMod.Value = Mathf.Lerp(fovMod.Value, target, speed * Time.fixedDeltaTime);
 			//SpaxDebug.Log($"fovMod={fovMod.Value}", $"v={velocity.GetValue()}, vi={vi}, a={acceleration.GetValue()}, ai={ai}");

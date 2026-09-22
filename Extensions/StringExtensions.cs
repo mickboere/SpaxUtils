@@ -155,6 +155,24 @@ namespace SpaxUtils
 		#region Sanitization
 
 		/// <summary>
+		/// Runtime counterpart of the editor's NicifyVariableName: "SideBySide" → "Side By Side".
+		/// </summary>
+		public static string Nicify(this string s)
+		{
+			StringBuilder sb = new StringBuilder(s.Length + 4);
+			for (int i = 0; i < s.Length; i++)
+			{
+				char c = s[i];
+				if (i > 0 && char.IsUpper(c) && !char.IsUpper(s[i - 1]))
+				{
+					sb.Append(' ');
+				}
+				sb.Append(i == 0 ? char.ToUpper(c) : c);
+			}
+			return sb.ToString();
+		}
+
+		/// <summary>
 		/// Sanitizes a string to only leave letters and single spaces with all special characters and leading/trailing/double spaces removed.
 		/// </summary>
 		public static string Sanitize(this string s)
