@@ -363,7 +363,7 @@ namespace SpaxUtils
 
 			// Velocity & Output
 			VelocityUpdateMode = AudioVelocityUpdateMode.Auto;
-			OutputAudioMixerGroup = null;
+			// Mixer routing is the prefab's own fixed configuration, not playback state - never reset it.
 
 			// Playback (resets on clip reset)
 			//Time = 0f;

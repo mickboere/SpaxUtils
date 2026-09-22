@@ -8,6 +8,9 @@ namespace SpaxUtils
 		[SerializeField] private AgentAudioProfile profile;
 		[SerializeField] private float distanceMultiplier = 1f;
 
+		// Disabled FOR NOW while hunting the warped hit sounds; flip back on to restore timescaled agent audio.
+		private static readonly bool timescaleAudio = false;
+
 		private AgentStatHandler agentStatHandler;
 		private Pool<PooledAudioSource> audioPool;
 
@@ -159,7 +162,7 @@ namespace SpaxUtils
 			eventSources.Add(source);
 
 			// The source is shared between invokes, so the timescale link is decided per play.
-			if (scaledTime)
+			if (scaledTime && timescaleAudio)
 			{
 				source.AudioSourceWrapper.SetEntityTimeScale(EntityTimeScale);
 			}

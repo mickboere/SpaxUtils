@@ -476,9 +476,9 @@ namespace SpaxUtils
 
 				foreach (string location in entityApparel.Locations)
 				{
-					if (body.ContainsKey(location))
+					if (body.TryGetValue(location, out SkinnedMeshRenderer covered) && covered != null)
 					{
-						body[location].gameObject.SetActive(false);
+						covered.gameObject.SetActive(false);
 					}
 				}
 			}

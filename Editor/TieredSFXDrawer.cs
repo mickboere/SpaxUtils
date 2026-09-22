@@ -140,8 +140,8 @@ namespace SpaxUtils
 				defaults.FindPropertyRelative("volumeRange").vector2Value;
 			settings.FindPropertyRelative("pitchRange").vector2Value =
 				defaults.FindPropertyRelative("pitchRange").vector2Value;
-			settings.FindPropertyRelative("distance").floatValue =
-				defaults.FindPropertyRelative("distance").floatValue;
+			settings.FindPropertyRelative("distanceRange").vector2Value =
+				defaults.FindPropertyRelative("distanceRange").vector2Value;
 
 			list.index = index;
 		}

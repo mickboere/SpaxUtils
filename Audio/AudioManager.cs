@@ -13,6 +13,7 @@ namespace SpaxUtils
 		private const string VOLUME = "Audio/Volume";
 		private const float MIN_LINEAR = 0.0001f; // -80dB, the mixer floor.
 		private const string VOLUME_SUFFIX = "Volume";
+		private const float VERIFY_TIME = 2f;
 
 		public AudioListener Listener
 		{
@@ -52,11 +53,15 @@ namespace SpaxUtils
 		[SerializeField] private FloatSetting uiVolume = new FloatSetting(1f);
 
 		private bool quitting;
+		private CallbackService callbackService;
+		private float verifyTimer;
 		private (FloatSetting setting, string group)[] volumes;
 		private readonly List<string> exposed = new List<string>();
 
-		public void InjectDependencies()
+		public void InjectDependencies(CallbackService callbackService)
 		{
+			this.callbackService = callbackService;
+
 			// Track application quit explicitly (instead of frameCount hacks).
 			// This prevents creating new audio objects during shutdown.
 			Application.quitting -= OnApplicationQuitting;
@@ -69,6 +74,10 @@ namespace SpaxUtils
 		protected void OnDestroy()
 		{
 			Application.quitting -= OnApplicationQuitting;
+			if (callbackService != null)
+			{
+				callbackService.UnsubscribeUpdates(this);
+			}
 
 			// The mixer asset keeps exposed values across play sessions; hand them back to the snapshot.
 			foreach (string parameter in exposed)
@@ -143,6 +152,30 @@ namespace SpaxUtils
 					SpaxDebug.Error("Mixer parameter is not exposed.", group + VOLUME_SUFFIX);
 				}
 			}
+
+			// The mixer loads its start snapshot on its first audio update, wiping values set before that.
+			verifyTimer = VERIFY_TIME;
+			callbackService.SubscribeUpdate(UpdateMode.Update, this, VerifyVolumes);
+		}
+
+		private void VerifyVolumes(float delta)
+		{
+			bool applied = true;
+			foreach ((FloatSetting setting, string group) in volumes)
+			{
+				float target = ToDecibels(setting.Value);
+				if (mixer.GetFloat(group + VOLUME_SUFFIX, out float db) && !Mathf.Approximately(db, target))
+				{
+					mixer.SetFloat(group + VOLUME_SUFFIX, target);
+					applied = false;
+				}
+			}
+
+			verifyTimer -= delta;
+			if (applied || verifyTimer <= 0f)
+			{
+				callbackService.UnsubscribeUpdates(this);
+			}
 		}
 
 		private void OnVolumeChanged(Setting setting, int player)
@@ -162,12 +195,11 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
-		/// Squared slider → amplitude spreads perceived loudness evenly: 100% = 0dB, 50% ≈ -12dB.
+		/// The slider is the amplitude: 100% = 0dB, 50% = -6dB, 10% = -20dB, 0% = silent.
 		/// </summary>
 		private static float ToDecibels(float slider)
 		{
-			float amplitude = slider * slider;
-			return Mathf.Max(20f * Mathf.Log10(Mathf.Max(amplitude, MIN_LINEAR)), -80f);
+			return Mathf.Max(20f * Mathf.Log10(Mathf.Max(slider, MIN_LINEAR)), -80f);
 		}
 
 #if UNITY_EDITOR
