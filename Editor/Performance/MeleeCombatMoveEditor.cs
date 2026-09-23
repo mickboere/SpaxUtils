@@ -16,7 +16,8 @@ namespace SpaxUtils
 			Group("Hit Detection")
 				.Field("hitBoxes")
 				.Field("hitDetectionDelay", () => !Move.UseTimeline)
-				.Custom(() => Readout("Hit Delay", Melee.HitDetectionDelay), () => Move.UseTimeline);
+				.Custom(() => Readout("Hit Delay", Melee.HitDetectionDelay), () => Move.UseTimeline)
+				.Custom(() => Readout("Contact", Melee.ContactTime), () => Move.UseTimeline);
 
 			Group("Momentum")
 				.Field("sweep")

@@ -135,10 +135,16 @@ namespace SpaxUtils
 			float totalDamage = result.TotalWith(critDamage);
 			hitData.Data.SetValue(HitDataIdentifiers.DAMAGE_TOTAL, totalDamage);
 
+			// How much of what was swung actually connected as damage, whatever the reason it fell short.
+			float offense = strike.Slash + strike.Power + strike.Pierce;
+			float effectiveness = offense > 0f ? Mathf.Clamp01((slashDamage + bluntDamage + pierceDamage + critDamage) / offense) : 0f;
+			hitData.Data.SetValue(HitDataIdentifiers.EFFECTIVENESS, effectiveness);
+
 			// What the guard turned away, as a fraction of the blow it would have taken unguarded.
 			if (guard > 0f)
 			{
 				float open = DamageResolver.Resolve(strike, defence, 0f, combatSettings).TotalWith(critDamage);
+				hitData.Data.SetValue(HitDataIdentifiers.DAMAGE_UNGUARDED, open);
 				hitData.Data.SetValue(HitDataIdentifiers.DAMAGE_GUARDED,
 					open > 0f ? Mathf.Clamp01((open - totalDamage) / open) : 0f);
 			}
@@ -178,7 +184,7 @@ namespace SpaxUtils
 			}
 
 			// --- KNOCKBACK ---
-			// CLASH = the collision, FORCE = the strike. Both scale by impact and by the target's footing.
+			// MOMENTUM = our body carried into them, FORCE = the strike. Both scale by impact and the target's footing.
 			Vector3 normal = (rigidbodyWrapper.Position - hitData.Hitter.Transform.position)
 				.FlattenY().normalized;
 
@@ -193,15 +199,19 @@ namespace SpaxUtils
 			float spent = statHandler.ResourceStats.W.PercentageRecoverable.InvertClamped();
 			float footing = 1f - spent;
 
-			// Closing speed less our own outbound share — full relative speed would double-count a mutual clash.
+			// Closing speed less our own outbound share — full relative speed would double-count a mutual hit.
 			float receiverOut = Mathf.Max(0f, Vector3.Dot(rigidbodyWrapper.PredictedVelocity, normal));
 			float closing = Mathf.Max(0f, Vector3.Dot(hitData.Inertia, normal) - receiverOut) * impact;
-			float totalMass = hitData.HitterMass + rigidbodyWrapper.Mass;
-			Vector3 clashPush = totalMass > 0f
-				? normal * (closing * Mathf.Lerp(1f, hitData.HitterMass / totalMass, footing) * elasticity)
-				: Vector3.zero;
-			Vector3 clashBrake = totalMass > 0f
-				? -normal * (closing * (rigidbodyWrapper.Mass / totalMass) * footing * elasticity)
+
+			// Only the mass behind the blade carries that closing in: mostly arm for a swing, the whole body for a thrust.
+			float strikeMass = hitData.StrikeMass;
+			float totalMass = strikeMass + rigidbodyWrapper.Mass;
+			float strikeShare = totalMass > 0f ? strikeMass / totalMass : 0f;
+			Vector3 momentumPush = normal * (closing * Mathf.Lerp(1f, strikeShare, footing) * elasticity);
+
+			// The recoil is that same impulse, borne by the hitter's whole body.
+			Vector3 momentumBrake = hitData.HitterMass > 0f
+				? -normal * (closing * strikeShare * rigidbodyWrapper.Mass / hitData.HitterMass * footing * elasticity)
 				: Vector3.zero;
 
 			// FORCE — an even split while they hold their stance, all theirs when spent.
@@ -209,12 +219,12 @@ namespace SpaxUtils
 			float receiverShare = neglect ? 0f : Mathf.Lerp(Mathf.Lerp(0.5f, 1f, spent), 0f, parryQuality);
 			float impulse = force * elasticity;
 
-			rigidbodyWrapper.Push(clashPush + push * (impulse * receiverShare / rigidbodyWrapper.Mass));
+			rigidbodyWrapper.Push(momentumPush + push * (impulse * receiverShare / rigidbodyWrapper.Mass));
 
 			// Hitter's half is applied on its side in ProcessHit.
 			hitData.Data.SetValue(HitDataIdentifiers.INERTIA_BRAKE, hitData.HitterMass > 0f
-				? clashBrake - push * (impulse * (1f - receiverShare) / hitData.HitterMass)
-				: clashBrake);
+				? momentumBrake - push * (impulse * (1f - receiverShare) / hitData.HitterMass)
+				: momentumBrake);
 
 			// --- HP DAMAGE & MALICE ---
 			if (!Invulnerable)
@@ -293,7 +303,7 @@ namespace SpaxUtils
 			// Crits pause for a fixed beat, parries earn their advantage by quality; the rest scales with impact.
 			float pauseTime = parried ? Mathf.Lerp(combatSettings.ParriedHitPause, combatSettings.ParrierHitPause, parryQuality)
 				: isCrit ? combatSettings.CritReceiverHitPause
-				: combatSettings.HitPauseReceiver.Lerp(impact);
+				: combatSettings.HitPauseReceiver.Lerp(impact * hitData.Data.GetValue(HitDataIdentifiers.CARRY, 1f));
 
 			hitPauseMod?.Dispose();
 			hitPauseMod = new TimedCurveModifier(

@@ -16,6 +16,7 @@ namespace SpaxUtils
 		public float HitDetectionDelay => UseTimeline
 			? Mathf.Max(0f, Timeline.TimeOf(TimelineMarkerIdentifiers.HIT, PerformOrigin) - PerformOrigin)
 			: hitDetectionDelay;
+		public float ContactTime => UseTimeline ? TimelineContactTime() : hitDetectionDelay;
 		/// <inheritdoc/>
 		/// <remarks>
 		/// Assembled from the three axis sliders. Clamped to unit length so a move using several axes at once
@@ -46,6 +47,7 @@ namespace SpaxUtils
 			TimelineMarkerIdentifiers.LUNGING,
 			TimelineMarkerIdentifiers.PERFORMING,
 			TimelineMarkerIdentifiers.HIT,
+			TimelineMarkerIdentifiers.CONTACT,
 			TimelineMarkerIdentifiers.INERTIA,
 			TimelineMarkerIdentifiers.FINISHING
 		};
@@ -81,5 +83,16 @@ namespace SpaxUtils
 		[SerializeField, Tooltip("When enabled, this move uses its own balance values below instead of the global defaults in CombatSettings.")] private bool overrideBalance = false;
 		[SerializeField, Range(0.01f, 1f), Tooltip("How much balance is maintained while charging.")] private float chargeBalance = 1f;
 		[SerializeField, Range(0.01f, 1f), Tooltip("How much balance is maintained while performing.")] private float performBalance = 1f;
+
+		/// <summary>An authored CONTACT marker, else the middle of the Hit region, relative to Performing.</summary>
+		private float TimelineContactTime()
+		{
+			float time = Timeline.TryGetMarker(TimelineMarkerIdentifiers.CONTACT, out ResolvedMarker contact)
+				? contact.Start
+				: Timeline.TryGetMarker(TimelineMarkerIdentifiers.HIT, out ResolvedMarker hit)
+					? hit.Start + hit.Length * 0.5f
+					: PerformOrigin;
+			return Mathf.Max(0f, time - PerformOrigin);
+		}
 	}
 }

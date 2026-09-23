@@ -139,6 +139,8 @@ namespace SpaxUtils
 		private bool stickBrakeMoving;
 		private int stickDriveStep = -1;
 		private bool hasStorm;
+		private bool contactReached;
+		private float contactSpeed; // Forward speed as the blade reached its contact point.
 
 		/// <summary>Multiple of the ideal travel time before the approach's hard backstop fires.</summary>
 		private const float travelTimeoutSlack = 2f;
@@ -442,10 +444,38 @@ namespace SpaxUtils
 			wasScanning = detectHits;
 			lastRunTime = Performer.RunTime;
 
+			// What a late hit is measured against: the body's speed as the blade reached its contact point.
+			if (!contactReached && !stickTravelling && Performer.State == PerformanceState.Performing &&
+				Performer.RunTime >= move.ContactTime)
+			{
+				contactReached = true;
+				contactSpeed = HeadingSpeed();
+			}
+
 			if (hitDetector.Update(detectHits, sweepStart, out List<HitScanHitData> newHits))
 			{
 				OnNewHitDetected(newHits);
 			}
+		}
+
+		/// <summary>Forward speed along the lunge heading; predicted, so this frame's queued plant and clash count.</summary>
+		private float HeadingSpeed() => Vector3.Dot(rigidbodyWrapper.PredictedVelocity.FlattenY(), stickHeading);
+
+		/// <summary>
+		/// Output the strike still delivers: a lunge's forward body share (BMF × thrust) rides on its momentum once
+		/// the arm has fully extended at contact. Never above 1.
+		/// </summary>
+		private float MomentumCarry()
+		{
+			float bodyShare = move.BodyMassFraction * Mathf.Clamp01(move.StrikeDirection.z);
+
+			// Never lunged, or already standing by contact: it hits like a planted swing, with no momentum to lose.
+			if (bodyShare <= 0f || stickGap <= 0f || !contactReached || contactSpeed <= brakeHandback)
+			{
+				return 1f;
+			}
+
+			return 1f - bodyShare * (1f - Mathf.Clamp01(HeadingSpeed() / contactSpeed));
 		}
 
 		/// <summary>
@@ -583,6 +613,38 @@ namespace SpaxUtils
 		private float LeapSpeed(float distance)
 		{
 			return distance / LeapTime(distance);
+		}
+
+		/// <summary>The forward lurch every swing throws its body into, whether or not it leapt.</summary>
+		private float LurchSpeed => LeapSpeed(combatComponent.ComputeStickRange(move)) * combatSettings.StickIdleInertia;
+
+		/// <summary>Drag length (m) of the plant; see <see cref="UpdateBrake"/>.</summary>
+		private float PlantLength => combatSettings.StickPlant * combatSettings.StickRange;
+
+		private float PerformSpeed => Mathf.Max(performSpeedStat != null ? performSpeedStat.Value : 1f, 0.01f);
+
+		/// <summary>
+		/// Ground covered <paramref name="time"/> seconds after release: the plant's drag from <paramref name="speed"/>,
+		/// topped up once by the swing's lurch — the same two things <see cref="EndApproach"/> sets off.
+		/// </summary>
+		private float PredictPlantTravel(float speed, float time)
+		{
+			float length = PlantLength;
+			if (length <= 0.0001f)
+			{
+				return speed * time;
+			}
+
+			// Drag covers L·ln(1 + v·t/L); the lurch is a push, so it only ever raises the speed to its own.
+			float lurchAt = Mathf.Clamp(move.InertiaDelay / PerformSpeed, 0f, time);
+			float before = length * Mathf.Log(1f + speed * lurchAt / length);
+			float after = speed / (1f + speed * lurchAt / length);
+			if (lurchAt < time)
+			{
+				after = Mathf.Max(after, LurchSpeed);
+			}
+
+			return before + length * Mathf.Log(1f + after * (time - lurchAt) / length);
 		}
 
 		/// <summary>
@@ -893,17 +955,17 @@ namespace SpaxUtils
 					// A live target keeps moving, so the aim follows it - still bounded by the same turn ceiling.
 					stickAim = CapTurn(toTargetDir);
 
-					// Release EARLY by the hit-window delay so the blade lands WITH the body.
-					float swingLead = move.HitDetectionDelay /
-						Mathf.Max(performSpeedStat != null ? performSpeedStat.Value : 1f, 0.01f);
-					// A stalled or retreating gap gives no arrival time — budget and timeout own those cases.
+					// Release so the body, braked by the plant it lands in, reaches the bite as the blade reaches contact.
+					float lead = move.ContactTime / PerformSpeed;
 					float remaining = distance - stickDesired;
 					stickRemaining = Mathf.Min(stickRemaining, Mathf.Max(0f, remaining));
-					float timeToArrive = remaining <= 0f ? 0f
-						: stickClosingRate > 0.01f ? remaining / stickClosingRate
-						: float.MaxValue;
 
-					release = timeToArrive <= swingLead;
+					// Only our share of the closing brakes; the target's share keeps coming at its own pace.
+					float ownSpeed = Mathf.Max(0f, Vector3.Dot(rigidbodyWrapper.PredictedVelocity.FlattenY(), toTargetDir));
+					float covered = PredictPlantTravel(ownSpeed, lead) + (stickClosingRate - ownSpeed) * lead;
+
+					// A stalled or retreating gap never gets covered — budget and timeout own those cases.
+					release = remaining <= 0f || remaining <= covered;
 				}
 			}
 
@@ -953,7 +1015,7 @@ namespace SpaxUtils
 		{
 			// A PUSH, not an add: it cannot stack, so a swing following a fast leap is simply a no-op rather
 			// than launching the agent. That is why the same value is used whether or not there was a leap.
-			pendingInertia = LeapSpeed(combatComponent.ComputeStickRange(move)) * combatSettings.StickIdleInertia;
+			pendingInertia = LurchSpeed;
 
 			if (move.InertiaDelay <= 0f)
 			{
@@ -979,7 +1041,7 @@ namespace SpaxUtils
 		/// </summary>
 		private void BeginPlant(float entrySpeed)
 		{
-			stickBrakeLength = combatSettings.StickPlant * combatSettings.StickRange;
+			stickBrakeLength = PlantLength;
 
 			if (entrySpeed <= brakeHandback || stickBrakeLength <= 0.0001f)
 			{
@@ -1140,7 +1202,9 @@ namespace SpaxUtils
 					AgentCombatComponent.MoveOutput moveOutput = combatComponent.GetMoveOutput(move);
 					Vector3 baseOutput = moveOutput.Output;
 
-					float powerScale = baseStrengthPowerFactor * totalCharge * phaseMult;
+					// Reaching past its contact point, a strike only lands what its body's momentum still carries.
+					float carry = MomentumCarry();
+					float powerScale = baseStrengthPowerFactor * totalCharge * phaseMult * carry;
 					float powerValue = baseOutput.y * powerScale;
 
 					// Both bands take the same runtime scaling as Power.
@@ -1148,8 +1212,8 @@ namespace SpaxUtils
 					float forceBand = moveOutput.ForceBand * powerScale;
 
 					// Assemble the offence vector's runtime-modified channels before Malice.
-					float slashValue = baseOutput.x;
-					float pierceValue = baseOutput.z + (chargePoints * combatSettings.ChargePiercePerPoint);
+					float slashValue = baseOutput.x * carry;
+					float pierceValue = (baseOutput.z + chargePoints * combatSettings.ChargePiercePerPoint) * carry;
 
 					// MALICE: spite scales the WHOLE offence vector. Coverage = the fraction the pool pays for
 					// (Drain applies the Hostility-driven DrainMult). Symmetrical to Grace.
@@ -1190,6 +1254,7 @@ namespace SpaxUtils
 					{
 						hitData.Data.SetValue(HitDataIdentifiers.WEAPON_SURFACE, weaponSurface);
 					}
+					hitData.Data.SetValue(HitDataIdentifiers.CARRY, carry);
 
 					ProcessHit(hittable, hitData);
 					RewardHitExp(hitData, maliceDrained);
@@ -1285,7 +1350,8 @@ namespace SpaxUtils
 				float impact = hitData.Data.GetValue<float>(HitDataIdentifiers.IMPACT);
 				float hitPause = hitData.Data.GetValue<bool>(HitDataIdentifiers.PARRIED) ? combatSettings.ParriedHitPause
 					: hitData.Data.GetValue<bool>(HitDataIdentifiers.CRIT) ? combatSettings.CritSenderHitPause
-					: combatSettings.HitPauseSender.Lerp(impact * (1f / performSpeedStat.Value));
+					: combatSettings.HitPauseSender.Lerp(impact * hitData.Data.GetValue(HitDataIdentifiers.CARRY, 1f) *
+						(1f / performSpeedStat.Value));
 
 				float remainingPause = hitPauseMod == null ? 0f : Mathf.Max(0f, hitPauseMod.Timer.Remaining);
 				if (hitPauseMod == null || hitPause > remainingPause)

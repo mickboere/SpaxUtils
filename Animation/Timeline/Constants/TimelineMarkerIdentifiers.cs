@@ -17,6 +17,10 @@ namespace SpaxUtils
 		public const string FINISHING = ITimelineMarkerIdentifiers.PERFORMANCE + "Finishing";
 
 		public const string HIT = ITimelineMarkerIdentifiers.PERFORMANCE + "Hit";
+
+		/// <summary>Optional: the frame the strike should meet its target. Defaults to the middle of Hit.</summary>
+		public const string CONTACT = ITimelineMarkerIdentifiers.PERFORMANCE + "Contact";
+
 		public const string INERTIA = ITimelineMarkerIdentifiers.PERFORMANCE + "Inertia";
 	}
 }

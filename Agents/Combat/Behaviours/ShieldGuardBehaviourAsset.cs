@@ -12,6 +12,7 @@ namespace SpaxUtils
 	{
 		private IAgent agent;
 		private RuntimeItemData runtimeItemData;
+		private RuntimeEquipedData equipedData;
 		private AgentStatHandler agentStatHandler;
 
 		private float physic_W;
@@ -30,16 +31,20 @@ namespace SpaxUtils
 		private FloatFuncModifier wardMod;
 		private FloatFuncModifier comfortMod;
 
-		public void InjectDependencies(IAgent agent, RuntimeItemData runtimeItemData, AgentStatHandler agentStatHandler)
+		public void InjectDependencies(IAgent agent, RuntimeItemData runtimeItemData,
+			RuntimeEquipedData equipedData, AgentStatHandler agentStatHandler)
 		{
 			this.agent = agent;
 			this.runtimeItemData = runtimeItemData;
+			this.equipedData = equipedData;
 			this.agentStatHandler = agentStatHandler;
 		}
 
 		public override void Start()
 		{
 			base.Start();
+
+			agent.RuntimeData.SetValue(AgentDataIdentifiers.GUARD_SURFACE, equipedData.EquipmentData.Surface ?? string.Empty, dirty: false);
 
 			CachePhysics();
 			runtimeItemData.RuntimeData.DataUpdatedEvent += OnDataUpdated;
@@ -66,6 +71,8 @@ namespace SpaxUtils
 		public override void Stop()
 		{
 			base.Stop();
+
+			agent.RuntimeData.SetValue(AgentDataIdentifiers.GUARD_SURFACE, string.Empty, dirty: false);
 
 			runtimeItemData.RuntimeData.DataUpdatedEvent -= OnDataUpdated;
 

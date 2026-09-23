@@ -231,6 +231,10 @@ namespace SpaxUtils
 		/// </summary>
 		public const string DAMAGE_TOTAL = "Damage_Total";
 		/// <summary>
+		/// Return data: how much of the raw offense (Slash+Power+Pierce) actually landed as damage (0-1).
+		/// </summary>
+		public const string EFFECTIVENESS = "Effectiveness";
+		/// <summary>
 		/// Return data defining actual amount of damage that has been subtracted from the receiver's health.
 		/// </summary>
 		public const string DAMAGE_DEALT = "Damage_Dealt";
@@ -239,9 +243,17 @@ namespace SpaxUtils
 		/// </summary>
 		public const string DAMAGE_GUARDED = "Damage_Guarded";
 		/// <summary>
+		/// Return data: total damage the blow would have dealt unguarded. Only written when a guard was up.
+		/// </summary>
+		public const string DAMAGE_UNGUARDED = "Damage_Unguarded";
+		/// <summary>
 		/// The surface type of the armament that struck; empty when the blow was unarmed.
 		/// </summary>
 		public const string WEAPON_SURFACE = "Weapon_Surface";
+		/// <summary>
+		/// Written by the hitter: 0-1 share of the strike its momentum still delivered; scales both hit pauses.
+		/// </summary>
+		public const string CARRY = "Carry";
 		/// <summary>
 		/// Return data defining total amount of force transfered to receiver.
 		/// </summary>

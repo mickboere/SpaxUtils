@@ -1381,6 +1381,7 @@ namespace SpaxUtils
 				ComputeLimbMass(move),
 				Agent.Body.RigidbodyWrapper.Mass,
 				move is IMeleeCombatMove melee ? melee.BodyMassFraction : 0f,
+				move is IMeleeCombatMove lifting ? lifting.StrikeDirection.y : 0f,
 				Rank,
 				luckStat ?? 0f);
 		}

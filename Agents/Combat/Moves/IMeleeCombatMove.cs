@@ -18,6 +18,11 @@ namespace SpaxUtils
 		/// </summary>
 		float HitDetectionDelay { get; }
 
+		/// <summary>
+		/// Time into combat performance at which the strike should meet its target.
+		/// </summary>
+		float ContactTime { get; }
+
 		#region Momentum
 
 		/// <summary>

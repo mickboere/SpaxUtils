@@ -241,8 +241,10 @@ namespace SpaxUtils
 
 			if (!exited && State == PerformanceState.Preparing && !Bursting && resourceStat != null)
 			{
-				// Gliding, drain stat. Physical factors only, same reasoning as the burst cost.
-				float cost = massStat * glideSpeed * Move.ChargeCost.Cost * delta * 0.1f / LoadMod;
+				// Gliding is priced like the burst: its momentum per dash-length of ground actually covered, so a faster
+				// glide goes further per second but never gets cheaper per metre.
+				float lengths = RigidbodyWrapper.Speed * delta / Mathf.Max(dashDistance, 0.01f);
+				float cost = massStat * glideSpeed * Move.ChargeCost.Cost * 0.1f / LoadMod * lengths;
 				float spent = resourceStat.Drain(cost, out bool drained);
 				statHandler.RewardExpPoints(Element.Air, spent, ExpSources.DASH);
 				if (drained)

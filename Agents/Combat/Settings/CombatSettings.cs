@@ -239,16 +239,17 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
-		/// Force multiplier: how much heavier the strike is than what its rank is expected to swing, never below 1 —
-		/// weight only ever adds force. <paramref name="bodyMassFraction"/> blends the limb lane into the body lane.
+		/// Mass the strike's effort moves vs what its rank swings, never below 1: the limb, blended toward the body by
+		/// the share its legs LIFT. Forward body mass rides the hit's momentum knockback instead.
 		/// </summary>
-		public float ForceMassFactor(float limbMass, float hitterMass, float bodyMassFraction, float rank)
+		public float ForceMassFactor(float limbMass, float hitterMass, float liftedBodyShare, float rank)
 		{
-			float limb = Mathf.Pow(
-				Mathf.Max(1f, limbMass / SpaxFormulas.ExpectedLimbMass(rank)), forceMassExponent);
+			// One scale for both, so committing the body adds its mass instead of trading one excess for another.
+			float expected = SpaxFormulas.ExpectedLimbMass(rank);
+			float limb = Mathf.Pow(Mathf.Max(1f, limbMass / expected), forceMassExponent);
 			float body = Mathf.Pow(
-				Mathf.Max(1f, hitterMass / SpaxFormulas.ExpectedBodyMass(rank)), forceMassExponent);
-			return Mathf.Lerp(limb, body, bodyMassFraction);
+				Mathf.Max(1f, hitterMass * SpaxFormulas.BODY_DRIVE_RATIO / expected), forceMassExponent);
+			return Mathf.Lerp(limb, body, Mathf.Clamp01(liftedBodyShare));
 		}
 	}
 }

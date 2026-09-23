@@ -53,10 +53,11 @@ namespace SpaxUtils
 
 		/// <summary>
 		/// Equipment at its <see cref="IEquipmentData.Coverage"/> plus <paramref name="bodySurface"/> for
-		/// whatever is left. Pieces without a surface contribute nothing, letting the body through.
+		/// whatever is left, which share <c>1 - guardFraction</c> with <paramref name="guardSurface"/> at <paramref name="guardFraction"/>.
 		/// </summary>
 		public static Dictionary<SurfaceConfiguration, float> BuildBodyMix(SurfaceLibrary library,
-			IReadOnlyCollection<RuntimeEquipedData> equiped, string bodySurface, float intensity = 1f)
+			IReadOnlyCollection<RuntimeEquipedData> equiped, string bodySurface,
+			string guardSurface = null, float guardFraction = 0f, float intensity = 1f)
 		{
 			Dictionary<SurfaceConfiguration, float> weights = new Dictionary<SurfaceConfiguration, float>();
 
@@ -64,6 +65,11 @@ namespace SpaxUtils
 			{
 				return weights;
 			}
+
+			SurfaceConfiguration guard = null;
+			bool guarding = guardFraction > 0f && !string.IsNullOrEmpty(guardSurface) &&
+				library.TryGet(guardSurface, out guard);
+			float bodyShare = guarding ? 1f - guardFraction : 1f;
 
 			float covered = 0f;
 
@@ -84,16 +90,22 @@ namespace SpaxUtils
 					}
 
 					covered += coverage;
-					weights[config] = weights.TryGetValue(config, out float existing) ? existing + coverage : coverage;
+					float share = coverage * bodyShare;
+					weights[config] = weights.TryGetValue(config, out float existing) ? existing + share : share;
 				}
 			}
 
 			// Whatever nothing covers is bare body; past full coverage there is none left to hear.
-			float bare = Mathf.Max(0f, 1f - covered);
+			float bare = Mathf.Max(0f, 1f - covered) * bodyShare;
 			if (bare > 0f && !string.IsNullOrEmpty(bodySurface) &&
 				library.TryGet(bodySurface, out SurfaceConfiguration body))
 			{
 				weights[body] = weights.TryGetValue(body, out float existing) ? existing + bare : bare;
+			}
+
+			if (guarding)
+			{
+				weights[guard] = weights.TryGetValue(guard, out float merged) ? merged + guardFraction : guardFraction;
 			}
 
 			return AudioMixUtils.NormalizedMix(weights, intensity, EXPONENT);

@@ -11,6 +11,7 @@ namespace SpaxUtils
 		public const string FEET_SURFACE = AGENT + "FeetSurface"; // String
 
 		public const string GUARD_WEIGHT = AGENT + "GuardWeight"; // Float: current guard weight (0 when not guarding).
+		public const string GUARD_SURFACE = AGENT + "GuardSurface"; // String: surface of the equipped shield (empty when none).
 
 		// AI DATA
 		private const string AI = "AI/";

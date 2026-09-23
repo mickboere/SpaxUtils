@@ -35,6 +35,10 @@ namespace SpaxUtils
 		public const float BASE_BODY_MASS = 100f;
 		public const float LIMB_MASS_FRACTION = 0.01f;
 
+		// Legs drive the body ~1/12 as fast as an arm swings a weapon, so a lifted kg of body lands 1/12 as hard.
+		// Vertical body speed is never simulated, so this is read off the pre-ladder force references (2.5kg / 30kg).
+		public const float BODY_DRIVE_RATIO = 1f / 12f;
+
 		// What an average rank carries: half a physical distribution, half an armour set, a 1kg weapon.
 		// Exertion judges against a FULL-power weapon instead, so swings per bar hold at every rank.
 		public const float REFERENCE_GEAR_SHARE = 0.5f;

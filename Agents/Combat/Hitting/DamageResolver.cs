@@ -16,11 +16,13 @@ namespace SpaxUtils
 		public readonly float LimbMass;
 		public readonly float HitterMass;
 		public readonly float BodyMassFraction;
+		/// <summary>How much of the strike's travel is vertical (0-1): the share of its body mass the legs drive.</summary>
+		public readonly float Lift;
 		public readonly float Rank;
 		public readonly float Luck;
 
 		public StrikeData(float slash, float power, float pierce, float powerBand, float forceBand,
-			float limbMass, float hitterMass, float bodyMassFraction, float rank, float luck)
+			float limbMass, float hitterMass, float bodyMassFraction, float lift, float rank, float luck)
 		{
 			Slash = slash;
 			Power = power;
@@ -30,13 +32,14 @@ namespace SpaxUtils
 			LimbMass = limbMass;
 			HitterMass = hitterMass;
 			BodyMassFraction = Mathf.Clamp01(bodyMassFraction);
+			Lift = Mathf.Clamp01(Mathf.Abs(lift));
 			Rank = rank;
 			Luck = luck;
 		}
 
 		public StrikeData(HitData hitData) : this(hitData.Slash, hitData.Power, hitData.Pierce,
 			hitData.PowerBand, hitData.ForceBand, hitData.LimbMass, hitData.HitterMass,
-			hitData.BodyMassFraction, hitData.Rank, hitData.Luck)
+			hitData.BodyMassFraction, hitData.Direction.y, hitData.Rank, hitData.Luck)
 		{ }
 	}
 
@@ -192,7 +195,7 @@ namespace SpaxUtils
 			// The force band, scaled by mass as ratios so a heavy club outpushes a light one at any level.
 			float force = strike.ForceBand * impact *
 				(settings == null ? 1f : settings.ForceMassFactor(strike.LimbMass, strike.HitterMass,
-					strike.BodyMassFraction, strike.Rank));
+					strike.BodyMassFraction * strike.Lift, strike.Rank));
 			float stagger = SpaxFormulas.CalculateDamage(force, defence.MeanDefence);
 
 			return new DamageResult(slashDamage, pierceDamage, pierceOpen, bluntDamage, critChance, critDamage,
