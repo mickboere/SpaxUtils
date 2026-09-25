@@ -60,9 +60,9 @@ namespace SpaxUtils
 		[SerializeField, Tooltip("Minimum duration (s) of a stun from depleted endurance.")]
 		private float minStunTime = 0.5f;
 		[SerializeField] private float blockedStunTime = 1.25f;
-		[SerializeField, Tooltip("Fixed hit-pause (s) for the agent who parried. Shorter than the attacker's, so recovering first is the reward.")]
+		[SerializeField, Tooltip("Hit-pause (s) for the agent who parried, at a perfect parry; worse parries fall back toward the normal hit-pause.")]
 		private float parrierHitPause = 0.5f;
-		[SerializeField, Tooltip("Fixed hit-pause (s) for the attacker whose blow was parried. Ignores impact.")]
+		[SerializeField, Tooltip("Hit-pause (s) for the attacker whose blow was parried, at a perfect parry; worse parries fall back toward the normal hit-pause.")]
 		private float parriedHitPause = 1f;
 		[SerializeField, Tooltip("Fixed hit-pause (s) for the attacker who landed a crit. Ignores impact.")]
 		private float critSenderHitPause = 0.5f;
@@ -174,8 +174,6 @@ namespace SpaxUtils
 		private float speedCurveExponent = 2f;
 		[SerializeField, Min(1f), Tooltip("Wield ratio (strength / limb mass) at which the over-strength speed bonus reaches strengthSpeedModRange.y. E.g. 10 = need 10x the limb mass in strength.")]
 		private float overStrengthFullRatio = 10f;
-		[SerializeField, Range(0f, 1f), Tooltip("Power multiplier when badly under-strength (wield ratio 0), rising to 1 at a mass-equal wield. Universal, for the same reason the speed curve is: the per-move difference is mass.")]
-		private float minWieldPowerFactor = 0.4f;
 		[SerializeField, Min(1f), Tooltip("Tenacity levels a weapon may outweigh your Strength by before the wield penalty is full. Weapon mass only — your own arm never counts against you.")]
 		private float wieldFullPenaltyLevels = 20f;
 
@@ -209,15 +207,6 @@ namespace SpaxUtils
 			}
 			float levels = over / SpaxFormulas.WEAPON_MASS_PER_RANK;
 			return Mathf.Clamp01(levels / Mathf.Max(1f, wieldFullPenaltyLevels));
-		}
-
-		/// <summary>
-		/// Universal wield POWER factor: a swing too heavy for its wielder lands softer, down to
-		/// <c>minWieldPowerFactor</c>. No over-strength bonus — extra strength buys speed, not output.
-		/// </summary>
-		public float WieldPowerFactor(float strength, float weaponMass)
-		{
-			return Mathf.Lerp(1f, minWieldPowerFactor, WieldShortfall(strength, weaponMass));
 		}
 
 		/// <summary>

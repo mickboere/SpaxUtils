@@ -57,8 +57,14 @@ namespace SpaxUtils
 		private const float MIN_LAUNCH_VERTICAL = 0.25f;
 
 		private float totalDrained;
+		private bool staminaDry;
 		private bool hasJumped;
 		private float landingWait;
+
+		/// <summary>Stamina spent on this jump, 0..1 of the whole pool.</summary>
+		private float SpentFraction => staminaStat != null && staminaStat.Max > 0f
+			? Mathf.Clamp01(totalDrained / staminaStat.Max)
+			: 0f;
 
 		/// <summary>Encumberment multiplier; LoadPenalty is the shared authority, the exponent is how much jumping cares.</summary>
 		private float LoadMod => Mathf.Max(0.01f, Mathf.Pow(loadPenaltyStat ?? 1f, loadSensitivity));
@@ -105,6 +111,7 @@ namespace SpaxUtils
 			base.Start();
 
 			totalDrained = 0f;
+			staminaDry = false;
 			hasJumped = false;
 			landingWait = 0f;
 
@@ -125,6 +132,7 @@ namespace SpaxUtils
 		{
 			base.Stop();
 			movementHandler.AutoUpdateMovement = true;
+			agentAudio.StopStrain(this);
 
 			// Cancelled before launch: the charge bought nothing, so hand every point back. Exact refund, no gain
 			// multiplier — totalDrained already records what was actually removed, multiplier included.
@@ -154,11 +162,20 @@ namespace SpaxUtils
 
 				// Pay for the height charged toward so far. Charging opens at the default-height price, so a tap is
 				// never a cheap jump, and climbs from there for as long as the bar holds out.
-				if (ChargeTo(TargetHeight))
+				if (!staminaDry && ChargeTo(TargetHeight))
 				{
-					// Stamina depleted, force release.
-					Performer.TryPerform();
+					// Stamina depleted: the jump holds the height it bought until released, and the strain ends.
+					staminaDry = true;
+					agentAudio.StopStrain(this);
 				}
+				else if (!staminaDry && Performer.ChargeTime >= Move.MinCharge)
+				{
+					agentAudio.Strain(this, SpentFraction);
+				}
+			}
+			else
+			{
+				agentAudio.StopStrain(this);
 			}
 
 			if (State == PerformanceState.Performing && !hasJumped && !Performer.Canceled)
@@ -219,8 +236,11 @@ namespace SpaxUtils
 			Performer.Prolong = false;
 
 			// Settle up before launching: a tap goes straight to Performing, so the default-height price may not have
-			// been drawn yet. Whatever the bar could cover is what gets bought.
-			ChargeTo(TargetHeight);
+			// been drawn yet. Whatever the bar could cover is what gets bought; a dry hold already bought its height.
+			if (!staminaDry)
+			{
+				ChargeTo(TargetHeight);
+			}
 
 			// AIR: pay once per jump, for the stamina it cost to charge and launch.
 			statHandler.RewardExpPoints(Element.Air, totalDrained, ExpSources.JUMP);
@@ -229,9 +249,6 @@ namespace SpaxUtils
 			// out — mass is expressed in the price, not a second time in the launch.
 			float height = HeightForCost(totalDrained);
 			float jumpForce = Mathf.Sqrt(2f * Mathf.Max(0f, grounder.Gravity) * height) * Mass;
-			float chargeFraction = staminaStat != null && staminaStat.Max > 0f
-				? Mathf.Clamp01(totalDrained / staminaStat.Max)
-				: 0f;
 
 			// Direction: blend surface/terrain normal with input direction.
 			Vector3 baseDirection = grounder.Sliding ? grounder.TerrainNormal : Vector3.up;
@@ -279,8 +296,9 @@ namespace SpaxUtils
 				jumpSFX.Play(audioPool.Request(Agent.Transform.position, Agent.Transform).AudioSourceWrapper);
 			}
 
-			// Play exertion SFX.
-			agentAudio.PlayExertion(chargeFraction.OutSine());
+			// Play exertion SFX; the strain has to end first, as nothing is voiced over it.
+			agentAudio.StopStrain(this);
+			agentAudio.PlayExertion(SpentFraction.OutSine());
 		}
 	}
 }

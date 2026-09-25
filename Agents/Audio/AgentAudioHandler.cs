@@ -23,6 +23,13 @@ namespace SpaxUtils
 		// One event may span several layers, but a new event still cuts off the one before it.
 		private List<PooledAudioSource> eventSources = new List<PooledAudioSource>();
 
+		private const float STRAIN_FADE = 0.1f;
+		private AudioSourceWrapper strainSource;
+		private object strainOwner;
+
+		/// <summary>Whether a strain holds the voice; nothing else is voiced over it.</summary>
+		public bool Straining => strainSource != null;
+
 		public void InjectDependencies(AgentStatHandler agentStatHandler, Pool<PooledAudioSource> audioPool,
 			[Optional] AgentAudioProfile audioProfile, [Optional] AgentHitHandlerComponent hitHandler)
 		{
@@ -53,6 +60,7 @@ namespace SpaxUtils
 			Agent.DiedEvent -= OnDiedEvent;
 			pendingDamage = 0f;
 			eventSources.Clear();
+			EndStrain(0f);
 		}
 
 		protected void Update()
@@ -70,7 +78,7 @@ namespace SpaxUtils
 		/// <param name="scaledTime">Whether the entity's local timescale bends this sound's pitch.</param>
 		public void Play(SFXData sfx, float volume = 1f, float distance = 1f, bool scaledTime = true)
 		{
-			if (sfx == null)
+			if (sfx == null || Straining)
 			{
 				return;
 			}
@@ -82,7 +90,7 @@ namespace SpaxUtils
 		/// <param name="scaledTime">Whether the entity's local timescale bends this sound's pitch.</param>
 		public void Play(TieredSFX tiered, float intensity, float volume = 1f, float distance = 1f, bool scaledTime = true)
 		{
-			if (tiered == null || !tiered.HasTiers)
+			if (tiered == null || !tiered.HasTiers || Straining)
 			{
 				return;
 			}
@@ -111,7 +119,8 @@ namespace SpaxUtils
 		{
 			if (profile != null)
 			{
-				// Exempt from the death timescale lerp to 0, which would drag the cry down with it.
+				// Death breaks any strain. Exempt from the death timescale lerp to 0, which would drag the cry down.
+				EndStrain(STRAIN_FADE);
 				Play(profile.GetDeathSFX(), volume, distance, false);
 			}
 		}
@@ -132,6 +141,46 @@ namespace SpaxUtils
 			}
 		}
 
+		/// <summary>
+		/// Voices the sustained strain at <paramref name="stretch"/> (0..1 of the charge), starting it on first call.
+		/// Only its current <paramref name="owner"/> can stop it.
+		/// </summary>
+		public void Strain(object owner, float stretch)
+		{
+			SFXData sfx = profile != null ? profile.Strain : null;
+			if (sfx == null || sfx.Clips == null || sfx.Clips.Count == 0)
+			{
+				return;
+			}
+
+			if (strainSource == null)
+			{
+				// Takes the voice over from any grunt still sounding.
+				BeginEvent();
+				AudioSourceWrapper source = ClaimSource(true).AudioSourceWrapper;
+				sfx.PlayLoop(source, randomStart: true, volume: 0f, distance: distanceMultiplier);
+				if (!source.IsPlaying)
+				{
+					// Never held idle: the pool would hand it to someone else while we still write to it.
+					return;
+				}
+				strainSource = source;
+				strainSource.FadeIn(STRAIN_FADE);
+			}
+
+			strainOwner = owner;
+			strainSource.Volume.BaseValue = sfx.VolumeRange.Lerp(stretch);
+			strainSource.Pitch.BaseValue = pitch * sfx.PitchRange.Lerp(stretch);
+		}
+
+		public void StopStrain(object owner)
+		{
+			if (owner == strainOwner)
+			{
+				EndStrain(STRAIN_FADE);
+			}
+		}
+
 		#endregion Public Methods
 
 		#region Private Methods
@@ -147,9 +196,29 @@ namespace SpaxUtils
 			eventSources.Clear();
 		}
 
+		private void EndStrain(float fade)
+		{
+			if (strainSource == null)
+			{
+				return;
+			}
+
+			if (fade > 0f)
+			{
+				strainSource.FadeOut(fade, EasingMethod.InOutSine);
+			}
+			else
+			{
+				strainSource.Stop();
+			}
+
+			strainSource = null;
+			strainOwner = null;
+		}
+
 		private AudioSourceWrapper RequestSource(bool scaledTime)
 		{
-			PooledAudioSource source = audioPool.Request(Agent.Targetable.Point, Agent.Transform);
+			PooledAudioSource source = ClaimSource(scaledTime);
 
 			// Dropped the moment the pool reclaims it, so a later event never stops someone else's sound.
 			void OnSourceDisabled()
@@ -161,6 +230,13 @@ namespace SpaxUtils
 			source.OnDisableEvent += OnSourceDisabled;
 			eventSources.Add(source);
 
+			return source.AudioSourceWrapper;
+		}
+
+		private PooledAudioSource ClaimSource(bool scaledTime)
+		{
+			PooledAudioSource source = audioPool.Request(Agent.Targetable.Point, Agent.Transform);
+
 			// The source is shared between invokes, so the timescale link is decided per play.
 			if (scaledTime && timescaleAudio)
 			{
@@ -171,7 +247,7 @@ namespace SpaxUtils
 				source.AudioSourceWrapper.ClearEntityTimeScale();
 			}
 
-			return source.AudioSourceWrapper;
+			return source;
 		}
 
 		private void OnHealthChangedEvent()

@@ -43,6 +43,7 @@ namespace SpaxUtils.UI
 				if (_transition == null)
 				{
 					_transition = new CanvasGroupTransitionHelper(CanvasGroup, transitionSettings);
+					_transition.ProgressedEvent += OnProgressed;
 					_transition.FilledEvent += OnFilled;
 					_transition.EmptiedEvent += OnEmptied;
 				}
@@ -54,6 +55,8 @@ namespace SpaxUtils.UI
 		[Header("Group")]
 		[SerializeField] protected TransitionSettings transitionSettings;
 		[SerializeField, Tooltip(TT_FS)] protected GameObject firstSelectable;
+
+		private bool selectPending;
 
 		protected virtual void OnDestroy()
 		{
@@ -73,22 +76,21 @@ namespace SpaxUtils.UI
 
 		public virtual void HideImmediately()
 		{
+			selectPending = false;
 			Transition.EmptyImmediately();
 		}
 
 		public virtual void Show(Action callback = null, float delay = 0f, float overrideTime = -1f)
 		{
 			OnShow();
-			Transition.Fill(() =>
-			{
-				SelectFirstSelectable();
-				callback?.Invoke();
-			}, delay, overrideTime);
+			selectPending = true;
+			Transition.Fill(callback, delay, overrideTime);
 		}
 
 		public virtual void Hide(Action callback = null, float delay = 0f, float overrideTime = -1f)
 		{
 			OnHide();
+			selectPending = false;
 			Transition.Empty(() =>
 			{
 				callback?.Invoke();
@@ -118,6 +120,16 @@ namespace SpaxUtils.UI
 		protected virtual void OnEmptied()
 		{
 			EmptiedEvent?.Invoke();
+		}
+
+		private void OnProgressed()
+		{
+			// Select as input unlocks, not once full, so a stale selection is never live.
+			if (selectPending && CanvasGroup.interactable)
+			{
+				selectPending = false;
+				SelectFirstSelectable();
+			}
 		}
 	}
 }

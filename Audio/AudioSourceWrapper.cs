@@ -6,6 +6,10 @@ namespace SpaxUtils
 	[RequireComponent(typeof(AudioSource))]
 	public class AudioSourceWrapper : MonoBehaviour
 	{
+		/// <summary>Unity's cutoff limits: a high-pass at MIN and a low-pass at MAX pass everything.</summary>
+		public const float MIN_CUTOFF = 10f;
+		public const float MAX_CUTOFF = 22000f;
+
 		public AudioSource AudioSource
 		{
 			get
@@ -31,6 +35,10 @@ namespace SpaxUtils
 		public CompositeFloat Pitch { get; } = new CompositeFloat(1f);
 		public bool Mute { get { return AudioSource.mute; } set { audioSource.mute = value; } }
 		public int Priority { get { return AudioSource.priority; } set { audioSource.priority = value; } }
+
+		// Filters (Hz). Modifiers multiply the cutoff, so muffling sources stack in octaves.
+		public CompositeFloat LowPass { get; } = new CompositeFloat(MAX_CUTOFF, null, MIN_CUTOFF, MAX_CUTOFF);
+		public CompositeFloat HighPass { get; } = new CompositeFloat(MIN_CUTOFF, null, MIN_CUTOFF, MAX_CUTOFF);
 
 		// Stereo & Spatialization
 		public float StereoPan { get { return AudioSource.panStereo; } set { audioSource.panStereo = value; } }
@@ -94,6 +102,10 @@ namespace SpaxUtils
 		[SerializeField] private AudioSource audioSource;
 		[SerializeField] private bool useScaledTime;
 
+		// Added on first use, so sources that never filter carry no DSP.
+		private AudioLowPassFilter lowPassFilter;
+		private AudioHighPassFilter highPassFilter;
+
 		// Fade state
 		private TimerClass timer;
 		private FloatFuncModifier mod;
@@ -111,6 +123,17 @@ namespace SpaxUtils
 			Volume.BaseValue = audioSource.volume;
 			Pitch.BaseValue = audioSource.pitch;
 
+			lowPassFilter = GetComponent<AudioLowPassFilter>();
+			highPassFilter = GetComponent<AudioHighPassFilter>();
+			if (lowPassFilter && lowPassFilter.enabled)
+			{
+				LowPass.BaseValue = lowPassFilter.cutoffFrequency;
+			}
+			if (highPassFilter && highPassFilter.enabled)
+			{
+				HighPass.BaseValue = highPassFilter.cutoffFrequency;
+			}
+
 			UpdateTimeScaleModifier();
 		}
 
@@ -118,6 +141,7 @@ namespace SpaxUtils
 		{
 			audioSource.pitch = Pitch.Value;
 			audioSource.volume = Volume.Value;
+			ApplyFilters();
 
 			if (timer != null && timer.Update(UnityEngine.Time.deltaTime))
 			{
@@ -250,6 +274,10 @@ namespace SpaxUtils
 			Volume.BaseValue = source.Volume.BaseValue;
 			Pitch.BaseValue = source.Pitch.BaseValue;
 
+			// Filters (base values)
+			LowPass.BaseValue = source.LowPass.BaseValue;
+			HighPass.BaseValue = source.HighPass.BaseValue;
+
 			CopySharedSettings(source.audioSource);
 		}
 
@@ -336,6 +364,13 @@ namespace SpaxUtils
 			Mute = false;
 			Priority = 128;
 
+			// Filters: applied now, since a disabled source gets no Update before its next play.
+			LowPass.ClearModifiers();
+			HighPass.ClearModifiers();
+			LowPass.BaseValue = MAX_CUTOFF;
+			HighPass.BaseValue = MIN_CUTOFF;
+			ApplyFilters();
+
 			// General
 			Loop = false;
 			PlayOnAwake = false;
@@ -374,6 +409,26 @@ namespace SpaxUtils
 			if (!audioSource) audioSource = GetComponent<AudioSource>();
 			if (!audioSource) audioSource = gameObject.AddComponent<AudioSource>();
 			return audioSource;
+		}
+
+		/// <summary>Pushes the cutoffs to the filters, switching each off while it is fully open.</summary>
+		private void ApplyFilters()
+		{
+			float lowPass = LowPass.Value;
+			if (lowPass < MAX_CUTOFF || lowPassFilter)
+			{
+				if (!lowPassFilter) lowPassFilter = gameObject.AddComponent<AudioLowPassFilter>();
+				lowPassFilter.enabled = lowPass < MAX_CUTOFF;
+				lowPassFilter.cutoffFrequency = lowPass;
+			}
+
+			float highPass = HighPass.Value;
+			if (highPass > MIN_CUTOFF || highPassFilter)
+			{
+				if (!highPassFilter) highPassFilter = gameObject.AddComponent<AudioHighPassFilter>();
+				highPassFilter.enabled = highPass > MIN_CUTOFF;
+				highPassFilter.cutoffFrequency = highPass;
+			}
 		}
 
 		private void Cleanup()

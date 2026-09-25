@@ -124,12 +124,11 @@ namespace SpaxUtils
 
 		private void ResolveAgent()
 		{
-			// Revive at the last safe location instead of where we died (a pit, hazard or void) — same position the
-			// cairn uses. Done before the fade-in below, which starts fully faded out, so the move is never seen.
+			// Revive at the last safe location (same as the cairn) before the fade-in, so the move is never seen.
 			// The grounder picks the jump up on its own and re-bases its smoothed state accordingly.
-			if (grounder != null)
+			if (Agent.RuntimeData.TryGetValue(EntityDataIdentifiers.SAFE_POSITION, out Vector3 safePosition))
 			{
-				rigidbodyWrapper.Position = grounder.LastSafePosition;
+				rigidbodyWrapper.Position = safePosition;
 			}
 
 			// Clear momentum from the death: TargetVelocity survives the death (AutoUpdateMovement was off, so nothing
@@ -310,7 +309,7 @@ namespace SpaxUtils
 			}
 
 			// Retrieve last safe position to place cairn at.
-			Vector3 pos = grounder != null ? grounder.LastSafePosition : Agent.Transform.position;
+			Vector3 pos = Agent.RuntimeData.GetValue(EntityDataIdentifiers.SAFE_POSITION, Agent.Transform.position);
 
 			// Register cairn with cairn service, providing lost data and position.
 			cairnService.RegisterCairn(Agent, pos, lost);

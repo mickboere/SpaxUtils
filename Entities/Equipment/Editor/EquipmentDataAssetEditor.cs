@@ -36,7 +36,7 @@ namespace SpaxUtils
 					EditorGUILayout.LabelField("Effective Mass", effectiveMass.ToString("F2"));
 					if (eq.SlotType != EquipmentSlotTypes.APPAREL)
 					{
-						EditorGUILayout.LabelField("Required Tenacity", RequiredTenacity(effectiveMass));
+						EditorGUILayout.LabelField("Recommended Tenacity", RequiredTenacity(effectiveMass));
 					}
 				}
 			}

@@ -20,6 +20,11 @@ namespace SpaxUtils
 		public const string OFF = ENTITY + "Off";
 
 		/// <summary>
+		/// Vector3 last position where the entity stood safely; used to revive and place cairns.
+		/// </summary>
+		public const string SAFE_POSITION = ENTITY + "SafePos";
+
+		/// <summary>
 		/// Float entity height in meters.
 		/// </summary>
 		public const string HEIGHT = ENTITY + "Height";

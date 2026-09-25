@@ -15,5 +15,11 @@ namespace SpaxUtils
 
 		/// <summary>Whether the pool ran dry — the charge is over and the auto-release is counting down.</summary>
 		bool ChargeDepleted { get; }
+
+		/// <summary>How much of the whole Static pool this charge has spent, 0..1.</summary>
+		float ChargeSpent { get; }
+
+		/// <summary>0..1 through the wait between the pool running dry and the auto-release; 0 before.</summary>
+		float AutoReleaseProgress { get; }
 	}
 }

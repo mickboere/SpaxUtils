@@ -27,21 +27,27 @@ namespace SpaxUtils
 		public bool Routing => owners.Count > 0;
 
 		private readonly PlayerInputService playerInputService;
+		private readonly PlayerInputSettings inputSettings;
 		private readonly List<object> owners = new List<object>();
 		private Func<bool> canJoin;
 		private bool listening; // Whether we hold one count of the shared unpaired-activity counter.
 
-		// Player one's own pad. With others present player one may only switch back to this one: a pad's input
-		// can also surface on a device nobody owns, and grabbing that would hand player one someone else's pad.
+		// Player one's own pad, the only one it may switch to while connected. Input can also surface on a mirror
+		// device nobody owns, so without a home pad player one only adopts a new one while alone.
 		private Gamepad homePad;
+
+		private bool HasHomePad => homePad != null && homePad.added;
+		private bool PlayerOneKeepsPad => inputSettings.PlayerOneInput.Value == PlayerOneDevices.KeyboardMouseAndGamepad;
 
 		// Device/pairing trace for Debuddy, tag [DEVROUTE]. Hooked outside routing so auto-switch shows up too.
 		private static readonly bool logDevices = false;
 		private const string LOG_TAG = "[DEVROUTE]";
 
-		public PlayerDeviceRouter(PlayerInputService playerInputService)
+		public PlayerDeviceRouter(PlayerInputService playerInputService, PlayerInputSettings inputSettings)
 		{
 			this.playerInputService = playerInputService;
+			this.inputSettings = inputSettings;
+			inputSettings.PlayerOneInput.ChangedEvent += OnPlayerOneInputChanged;
 
 			if (logDevices)
 			{
@@ -54,6 +60,7 @@ namespace SpaxUtils
 		{
 			owners.Clear();
 			Unhook();
+			inputSettings.PlayerOneInput.ChangedEvent -= OnPlayerOneInputChanged;
 			InputSystem.onDeviceChange -= LogDeviceChange;
 			InputUser.onChange -= LogUserChange;
 		}
@@ -74,6 +81,10 @@ namespace SpaxUtils
 			{
 				main.SetAutoSwitch(false);
 				homePad = main.PlayerInput.devices.OfType<Gamepad>().FirstOrDefault() ?? homePad;
+				if (!PlayerOneKeepsPad)
+				{
+					ReleasePad(main);
+				}
 			}
 
 			InputUser.onUnpairedDeviceUsed -= OnUnpairedDeviceUsed;
@@ -122,9 +133,10 @@ namespace SpaxUtils
 
 		private void OnUnpairedDeviceUsed(InputControl control, InputEventPtr eventPtr)
 		{
+			// While player one may keep a pad but has none, the first pad used is its own, even via Start.
 			// The pad stays unpaired until the join is processed, so the press can't trigger anyone's actions.
-			if (control.device is Gamepad gamepad && control == gamepad.startButton && gamepad != homePad &&
-				canJoin != null && canJoin())
+			if (control.device is Gamepad gamepad && control == gamepad.startButton &&
+				(!PlayerOneKeepsPad || (HasHomePad && gamepad != homePad)) && canJoin != null && canJoin())
 			{
 				Log($"Join requested by {Describe(gamepad)}");
 				JoinRequestedEvent?.Invoke(gamepad);
@@ -154,13 +166,42 @@ namespace SpaxUtils
 			{
 				return true;
 			}
-			if (!(device is Gamepad) || main.PlayerInput.devices.Any((paired) => paired is Gamepad))
+			if (!PlayerOneKeepsPad || !(device is Gamepad) || main.PlayerInput.devices.Any((paired) => paired is Gamepad))
 			{
 				return false;
 			}
 
-			bool alone = playerInputService.Wrappers.Values.Count((wrapper) => wrapper != null) <= 1;
-			return alone || device == homePad;
+			// A connected home pad is final, else a joiner's stick nudge before Start would hand their pad to player one.
+			if (HasHomePad)
+			{
+				return device == homePad;
+			}
+			return playerInputService.Wrappers.Values.Count((wrapper) => wrapper != null) <= 1;
+		}
+
+		// Moves player one onto keyboard & mouse, freeing its gamepad to join with Start.
+		private void ReleasePad(PlayerInputWrapper main)
+		{
+			Gamepad[] pads = main.PlayerInput.devices.OfType<Gamepad>().ToArray();
+			if (pads.Length == 0 || (Keyboard.current != null && main.TrySwitchToDevice(Keyboard.current)))
+			{
+				return;
+			}
+
+			foreach (Gamepad pad in pads)
+			{
+				main.PlayerInput.user.UnpairDevice(pad);
+			}
+		}
+
+		private void OnPlayerOneInputChanged(Setting setting, int player)
+		{
+			// Only levels are routed; menus keep Unity's auto-switch, so a pad-only player can always get back here.
+			if (Routing && !PlayerOneKeepsPad && playerInputService.TryGet(0, out PlayerInputWrapper main))
+			{
+				ReleasePad(main);
+				Log("Player 1 set to keyboard & mouse only, gamepad released");
+			}
 		}
 
 		private void OnInputUserChange(InputUser user, InputUserChange change, InputDevice device)

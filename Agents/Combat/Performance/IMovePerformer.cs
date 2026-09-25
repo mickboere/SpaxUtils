@@ -29,6 +29,12 @@ namespace SpaxUtils
 		/// <summary>Whether the charge drained the pool dry and is waiting out its auto-release.</summary>
 		bool ChargeDepleted { get; }
 
+		/// <summary>How much of the whole Static pool the charge has spent, 0..1; 0 when none.</summary>
+		float ChargeSpent { get; }
+
+		/// <summary>0..1 through the wait between the pool running dry and the auto-release; 0 when none.</summary>
+		float AutoReleaseProgress { get; }
+
 		/// <summary>
 		/// Whether the current performance should halt its the runtime once minimum duration has been reached.
 		/// </summary>

@@ -13,12 +13,19 @@ namespace SpaxUtils
 		/// <param name="modifiers">The list of modifiers to be applied to the input.</param>
 		public static T Modify<T>(T input, IEnumerable<IModifier<T>> modifiers)
 		{
-			var sortedModifiers = modifiers.OrderBy((mod) => mod.Method);
+			return ModifySorted(input, modifiers.OrderBy((mod) => mod.Method).ToList());
+		}
 
+		/// <summary>
+		/// <see cref="Modify{T}"/> for <paramref name="modifiers"/> already in ascending order of <see cref="ModMethod"/>; allocation-free.
+		/// </summary>
+		public static T ModifySorted<T>(T input, IReadOnlyList<IModifier<T>> modifiers)
+		{
 			T baseValue = input;
 			T output = input;
-			foreach (IModifier<T> modifier in sortedModifiers)
+			for (int i = 0; i < modifiers.Count; i++)
 			{
+				IModifier<T> modifier = modifiers[i];
 				if (modifier.Method == ModMethod.Base)
 				{
 					baseValue = ApplyMod(input, baseValue, modifier);

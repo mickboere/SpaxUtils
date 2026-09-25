@@ -9,6 +9,9 @@ namespace SpaxUtils.UI
 	/// </summary>
 	public class CanvasGroupTransitionHelper : TransitionHelper
 	{
+		// Visibility at which a filling group starts accepting input.
+		private const float INTERACTABLE_VISIBILITY = 0.5f;
+
 		private readonly CanvasGroup canvasGroup;
 
 		public CanvasGroupTransitionHelper(CanvasGroup canvasGroup, bool realtime = true, float relativeDelay = 1f, float inTime = 1f, float outTime = 1f, AnimationCurve intro = null, AnimationCurve outro = null)
@@ -35,9 +38,11 @@ namespace SpaxUtils.UI
 		{
 			if (canvasGroup != null)
 			{
+				// Emptying drops input at once, so a closing group can't take a second press.
+				bool interactable = IsFull || Control > 0f && Evaluation >= INTERACTABLE_VISIBILITY;
 				canvasGroup.alpha = Evaluation;
-				canvasGroup.interactable = IsFull;
-				canvasGroup.blocksRaycasts = IsFull;
+				canvasGroup.interactable = interactable;
+				canvasGroup.blocksRaycasts = interactable;
 				canvasGroup.gameObject.SetActive(!IsEmpty);
 			}
 

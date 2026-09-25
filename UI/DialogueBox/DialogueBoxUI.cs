@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using TMPro;
 
@@ -23,6 +24,9 @@ namespace SpaxUtils.UI
 		/// </summary>
 		public event Action<Option> OptionPickedEvent;
 
+		// The owning player's event system in split-screen, else the global one.
+		private EventSystem ActiveEventSystem => eventSystem != null ? eventSystem : EventSystem.current;
+
 		[Header("Visuals")]
 		[SerializeField] private UIGroup uiGroup;
 		[SerializeField] private GameObject titleObject;
@@ -44,12 +48,14 @@ namespace SpaxUtils.UI
 		private PlayerInputWrapper playerInputWrapper;
 		private CursorService cursorService;
 		private TimeService timeService;
+		private EventSystem eventSystem;
 
 		private enum BoxState { Hidden, Showing, Visible, Hiding }
 		private BoxState state = BoxState.Hidden;
 		private OptionsMenuUI activeOptionsMenu;
 		private bool currentPause;
 		private object inputSubscriber = new object();
+		private GameObject returnSelection;
 
 		private struct BoxContent
 		{
@@ -73,12 +79,14 @@ namespace SpaxUtils.UI
 
 		private BoxContent? pending;
 
-		public void InjectDependencies(DialogueBoxService manager, PlayerInputWrapper playerInputWrapper, CursorService cursorService, TimeService timeService)
+		public void InjectDependencies(DialogueBoxService manager, PlayerInputWrapper playerInputWrapper, CursorService cursorService,
+			TimeService timeService, [Optional] EventSystem eventSystem)
 		{
 			this.manager = manager;
 			this.playerInputWrapper = playerInputWrapper;
 			this.cursorService = cursorService;
 			this.timeService = timeService;
+			this.eventSystem = eventSystem;
 
 			manager.Register(this);
 		}
@@ -113,6 +121,7 @@ namespace SpaxUtils.UI
 			switch (state)
 			{
 				case BoxState.Hidden:
+					returnSelection = ActiveEventSystem != null ? ActiveEventSystem.currentSelectedGameObject : null;
 					uiGroup.gameObject.SetActive(true);
 					Populate(content);
 					state = BoxState.Showing;
@@ -278,6 +287,19 @@ namespace SpaxUtils.UI
 			}
 		}
 
+		private void RestoreSelection()
+		{
+			// Hand the selection back from the hidden box, unless something else has taken it meanwhile.
+			EventSystem events = ActiveEventSystem;
+			GameObject selected = events != null ? events.currentSelectedGameObject : null;
+			if (events != null && returnSelection != null && returnSelection.activeInHierarchy &&
+				(selected == null || !selected.activeInHierarchy))
+			{
+				events.SetSelectedGameObject(returnSelection);
+			}
+			returnSelection = null;
+		}
+
 		private void OnShowComplete()
 		{
 			state = BoxState.Visible;
@@ -298,6 +320,7 @@ namespace SpaxUtils.UI
 				state = BoxState.Hidden;
 				ReleaseServices();
 				uiGroup.gameObject.SetActive(false);
+				RestoreSelection();
 				ClosedEvent?.Invoke();
 			}
 		}

@@ -42,6 +42,12 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public bool ChargeDepleted => Charger != null && Charger.ChargeDepleted;
 
+		/// <inheritdoc/>
+		public float ChargeSpent => Charger != null ? Charger.ChargeSpent : 0f;
+
+		/// <inheritdoc/>
+		public float AutoReleaseProgress => Charger != null ? Charger.AutoReleaseProgress : 0f;
+
 		/// <summary>The behaviour accumulating this performance's charge, if any.</summary>
 		private IChargeProvider Charger
 		{

@@ -116,7 +116,7 @@ namespace SpaxUtils.UI
 
 		public void Initialize(IEnumerable<Option> options, string title, bool addCancel = false)
 		{
-			CleanMenu();
+			ReleaseOptions();
 
 			// Collect Options.
 			menuOptions = new List<Option>(options);
@@ -138,7 +138,8 @@ namespace SpaxUtils.UI
 				menuTitle.text = string.IsNullOrEmpty(title) ? string.Empty : title;
 			}
 
-			Menu.Populate(menuOptions);
+			// In place: entries whose option persists keep their button, and with it the selection.
+			Menu.Sync(menuOptions);
 
 			EnsureValidSelection();
 		}
@@ -164,7 +165,7 @@ namespace SpaxUtils.UI
 			}
 		}
 
-		private void CleanMenu()
+		private void ReleaseOptions()
 		{
 			// Unsubscribe.
 			foreach (Option option in menuOptions)
@@ -172,7 +173,6 @@ namespace SpaxUtils.UI
 				option.PickedEvent -= OnPickedOption;
 				option.Dispose();
 			}
-			Menu.Clear();
 		}
 
 		private void OnSelectedItem(Option option)

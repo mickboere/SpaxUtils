@@ -1,6 +1,7 @@
 ﻿using SpaxUtils;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 namespace SpaxUtils.UI
@@ -78,6 +79,46 @@ namespace SpaxUtils.UI
 			{
 				Add(item);
 			}
+			bypassUpdateEvent = false;
+			OnMenuUpdated();
+		}
+
+		/// <summary>
+		/// Updates the menu to <paramref name="data"/> in place; items whose identifier persists keep their visual.
+		/// </summary>
+		public void Sync(IEnumerable<T> data)
+		{
+			bypassUpdateEvent = true;
+			List<T> list = data == null ? new List<T>() : new List<T>(data);
+
+			HashSet<string> keep = new HashSet<string>(list.Select(itemIdentifier));
+			foreach (string identifier in items.Keys.ToList())
+			{
+				if (!keep.Contains(identifier))
+				{
+					Remove(identifier);
+				}
+			}
+
+			HashSet<string> synced = new HashSet<string>();
+			foreach (T item in list)
+			{
+				string identifier = itemIdentifier(item);
+				if (synced.Add(identifier) && items.TryGetValue(identifier, out (T data, MenuItem visual) entry))
+				{
+					// Rebind the kept visual (not re-injected) so its button acts on the new data.
+					entry.visual.SetData(item);
+					entry.visual.Visualize(identifier, itemSprite(item), itemLabel(item));
+					entry.visual.transform.SetAsLastSibling();
+					items[identifier] = (item, entry.visual);
+				}
+				else
+				{
+					// New, or a duplicate that Add rejects.
+					Add(item);
+				}
+			}
+
 			bypassUpdateEvent = false;
 			OnMenuUpdated();
 		}

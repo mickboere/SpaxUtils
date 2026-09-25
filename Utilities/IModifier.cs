@@ -20,6 +20,7 @@ namespace SpaxUtils
 
 		/// <summary>
 		/// Whether this mod will always require recalculation, if it changes every frame for example.
+		/// Composites count it once on add, so it must never change afterwards.
 		/// </summary>
 		bool AlwaysRecalculate { get; }
 

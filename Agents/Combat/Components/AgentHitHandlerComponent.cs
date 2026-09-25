@@ -300,10 +300,12 @@ namespace SpaxUtils
 			}
 
 			// --- HIT PAUSE ---
-			// Crits pause for a fixed beat, parries earn their advantage by quality; the rest scales with impact.
-			float pauseTime = parried ? Mathf.Lerp(combatSettings.ParriedHitPause, combatSettings.ParrierHitPause, parryQuality)
+			// Scales with impact; crits pause for a fixed beat, and a parry pulls it toward its perfect-parry pause
+			// by quality, the same way the attacker's does.
+			float normalPause = combatSettings.HitPauseReceiver.Lerp(impact * hitData.Data.GetValue(HitDataIdentifiers.CARRY, 1f));
+			float pauseTime = parried ? Mathf.Lerp(normalPause, combatSettings.ParrierHitPause, parryQuality)
 				: isCrit ? combatSettings.CritReceiverHitPause
-				: combatSettings.HitPauseReceiver.Lerp(impact * hitData.Data.GetValue(HitDataIdentifiers.CARRY, 1f));
+				: normalPause;
 
 			hitPauseMod?.Dispose();
 			hitPauseMod = new TimedCurveModifier(

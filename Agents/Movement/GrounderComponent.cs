@@ -93,6 +93,11 @@ namespace SpaxUtils
 		public float StepSupport { get; private set; }
 
 		/// <summary>
+		/// Raw 0-1 fraction of step rays that landed on valid ground; <see cref="StepSupport"/> is this remapped.
+		/// </summary>
+		public float StepCoverage { get; private set; }
+
+		/// <summary>
 		/// The amount of gravitational force applied to the agent.
 		/// </summary>
 		public CompositeFloat Gravity { get; private set; }
@@ -173,11 +178,6 @@ namespace SpaxUtils
 		/// The average elevation point of the grounding terrain.
 		/// </summary>
 		public Vector3 StepPoint { get; private set; }
-
-		/// <summary>
-		/// The last position where the agent was safely grounded.
-		/// </summary>
-		public Vector3 LastSafePosition { get; private set; }
 
 		/// <summary>What counts as world geometry. Shared so anything probing the ground agrees with the feet.</summary>
 		public LayerMask LayerMask => layerMask;
@@ -281,7 +281,6 @@ namespace SpaxUtils
 			Gravity = new CompositeFloat(gravity);
 			SurfaceNormal = rigidbodyWrapper.Up;
 			TerrainNormal = rigidbodyWrapper.Up;
-			LastSafePosition = rigidbodyWrapper.Position;
 			StepSupport = 1f;
 		}
 
@@ -296,7 +295,6 @@ namespace SpaxUtils
 			CalculateSurface();
 			UpdateSlidingState();
 			ApplyForces();
-			CheckIfSafe();
 
 			// Sampled last, after the ground snap, so next step's delta is purely what happened since.
 			lastKnownPosition = rigidbodyWrapper.Position;
@@ -457,6 +455,8 @@ namespace SpaxUtils
 
 		private void StepCheck()
 		{
+			StepCoverage = 0f;
+
 			if (IsJumping || !groundContact)
 			{
 				StepSupport = 0f;
@@ -598,9 +598,8 @@ namespace SpaxUtils
 
 			// Estimate footprint support from surviving filtered hits vs intended ray count.
 			// This prevents a tiny rear sliver of valid hits from fully supporting the whole body at a ledge.
-			StepSupport = rayCount > 0 ? (float)filteredCount / rayCount : 0f;
-			StepSupport = Mathf.Clamp01(StepSupport);
-			StepSupport = Mathf.InverseLerp(STEP_SUPPORT_MIN, STEP_SUPPORT_MAX, StepSupport);
+			StepCoverage = rayCount > 0 ? Mathf.Clamp01((float)filteredCount / rayCount) : 0f;
+			StepSupport = Mathf.InverseLerp(STEP_SUPPORT_MIN, STEP_SUPPORT_MAX, StepCoverage);
 
 			// Calculate surface normals from filtered hits only.
 			if (stepNormals == null || stepNormals.Length != filteredCount)
@@ -819,19 +818,6 @@ namespace SpaxUtils
 			else
 			{
 				rigidbodyWrapper.AddForce(Vector3.down * Gravity, ForceMode.Acceleration);
-			}
-		}
-
-		private void CheckIfSafe()
-		{
-			if (Ground &&
-				Grounded &&
-				rigidbodyWrapper.Control.Value.Approx(1f) &&
-				TerrainSlope < 0.33f &&
-				!Sliding &&
-				GroundedAmount.Approx(1f))
-			{
-				LastSafePosition = rigidbodyWrapper.Position;
 			}
 		}
 

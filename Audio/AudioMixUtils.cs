@@ -90,6 +90,27 @@ namespace SpaxUtils
 			return Mathf.Pow(Mathf.Max(0f, weight), share);
 		}
 
+		/// <summary>A 0..1 curve of <see cref="Amplitude"/> at <see cref="ENERGY_SHARE"/> (√x): a default for authored fades.</summary>
+		public static AnimationCurve EnergyCurve()
+		{
+			float[] roots = { 0f, 0.125f, 0.25f, 0.5f, 0.75f, 1f };
+			Keyframe[] keys = new Keyframe[roots.Length];
+			for (int i = 0; i < roots.Length; i++)
+			{
+				// The slope of √x is 1 / 2√x; infinite at 0, so the first key takes its secant to the next.
+				float slope = roots[i] > 0f ? 0.5f / roots[i] : 1f / roots[1];
+				keys[i] = new Keyframe(roots[i] * roots[i], roots[i], slope, slope);
+			}
+			return new AnimationCurve(keys);
+		}
+
+		/// <summary>Sweeps a frequency <paramref name="range"/> (Hz, x at 0, y at 1) on a log scale, so every step sounds even.</summary>
+		public static float FrequencyLerp(Vector2 range, float t)
+		{
+			float from = Mathf.Max(1f, range.x);
+			return from * Mathf.Pow(Mathf.Max(1f, range.y) / from, Mathf.Clamp01(t));
+		}
+
 		/// <summary>What an amplitude contributes to the sum under the <paramref name="exponent"/>-norm.</summary>
 		private static float Energy(float amplitude, float exponent)
 		{

@@ -7,9 +7,12 @@ namespace SpaxUtils
 	{
 		public TieredSFX Exertion => exertionTiers;
 		public TieredSFX Damage => damageTiers;
+		public SFXData Strain => strainSFX;
 
 		[SerializeField] private TieredSFX exertionTiers = new TieredSFX();
 		[SerializeField] private TieredSFX damageTiers = new TieredSFX();
+		[SerializeField, Tooltip("Sustained effort loop while charging; volume and pitch ranges follow the charge. No grunt plays over it.")]
+		private SFXData strainSFX;
 		[SerializeField] private SFXData deathSFX;
 		[SerializeField] private SFXData satisfySFX;
 		[SerializeField] private ActionSFXData[] actionSFX;

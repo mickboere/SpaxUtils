@@ -1364,11 +1364,8 @@ namespace SpaxUtils
 		public StrikeData EstimateStrike(ICombatMove move, bool includeMalice = false)
 		{
 			MoveOutput output = GetMoveOutput(move);
-			float powerScale = combatSettings == null
-				? 1f : combatSettings.WieldPowerFactor(Strength, WieldWeaponMass(move));
-
 			float slash = output.Slash;
-			float power = output.Power * powerScale;
+			float power = output.Power;
 			float pierce = output.Pierce;
 			float malice = includeMalice ? ExpectedMaliceMultiplier(slash + power + pierce) : 1f;
 
@@ -1376,8 +1373,8 @@ namespace SpaxUtils
 				slash * malice,
 				power * malice,
 				pierce * malice,
-				output.PowerBand * powerScale * malice,
-				output.ForceBand * powerScale * malice,
+				output.PowerBand * malice,
+				output.ForceBand * malice,
 				ComputeLimbMass(move),
 				Agent.Body.RigidbodyWrapper.Mass,
 				move is IMeleeCombatMove melee ? melee.BodyMassFraction : 0f,

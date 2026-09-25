@@ -4,19 +4,28 @@ using UnityEngine.InputSystem;
 namespace SpaxUtils
 {
 	/// <summary>
-	/// Per-player input settings: camera look response and binding overrides.
+	/// Input settings: player one's devices, plus per-player camera look response and binding overrides.
 	/// </summary>
 	[CreateAssetMenu(fileName = nameof(PlayerInputSettings), menuName = "ScriptableObjects/Input/" + nameof(PlayerInputSettings))]
 	public class PlayerInputSettings : ScriptableObject, IService, ISettingsSupplier
 	{
+		private const string DEVICES = "Input/Devices";
 		private const string CAMERA = "Input/Camera";
 		private const string CONTROLS = "Input/Controls";
+
+		/// <summary>
+		/// Whether player one also owns a gamepad, applied by the <see cref="PlayerDeviceRouter"/>.
+		/// </summary>
+		public EnumSetting<PlayerOneDevices> PlayerOneInput => playerOneInput;
 
 		/// <summary>
 		/// Every player's binding overrides, as JSON.
 		/// </summary>
 		public BindingsSetting Bindings => bindings;
 
+		[Setting("input.playerOneInput", DEVICES, "Player 1 Input")]
+		[SerializeField] private EnumSetting<PlayerOneDevices> playerOneInput =
+			new EnumSetting<PlayerOneDevices>(PlayerOneDevices.KeyboardMouseAndGamepad);
 		[Setting("input.sensitivityX", CAMERA, "Sensitivity X", 0.1f, 3f, Scope = SettingScope.Player, Format = "0.00x")]
 		[SerializeField] private FloatSetting sensitivityX = new FloatSetting(1f);
 		[Setting("input.sensitivityY", CAMERA, "Sensitivity Y", 0.1f, 3f, Scope = SettingScope.Player, Format = "0.00x")]

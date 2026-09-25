@@ -39,6 +39,10 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public bool ChargeDepleted => MainPerformer != null && MainPerformer.ChargeDepleted;
 		/// <inheritdoc/>
+		public float ChargeSpent => MainPerformer != null ? MainPerformer.ChargeSpent : 0f;
+		/// <inheritdoc/>
+		public float AutoReleaseProgress => MainPerformer != null ? MainPerformer.AutoReleaseProgress : 0f;
+		/// <inheritdoc/>
 		public bool Prolong
 		{
 			get { return MainPerformer != null ? MainPerformer.Prolong : false; }

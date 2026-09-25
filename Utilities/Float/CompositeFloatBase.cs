@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace SpaxUtils
 {
@@ -33,7 +32,23 @@ namespace SpaxUtils
 		/// <summary>
 		/// Returns the <see cref="BaseValue"/> but with all "Base" modifiers applied.
 		/// </summary>
-		public virtual float ModdedBaseValue => ModUtil.Modify(BaseValue, modifiers.Values.Where(m => m.Method == ModMethod.Base).ToList());
+		public virtual float ModdedBaseValue
+		{
+			get
+			{
+				// Base mods add onto the base, so their order does not matter and nothing needs sorting.
+				float input = BaseValue;
+				float value = input;
+				foreach (IModifier<float> modifier in modifiers.Values)
+				{
+					if (modifier.Method == ModMethod.Base)
+					{
+						value = ModUtil.ApplyMod(input, value, modifier);
+					}
+				}
+				return value;
+			}
+		}
 
 		/// <summary>
 		/// Returns true if there are any modifiers.
@@ -57,6 +72,9 @@ namespace SpaxUtils
 
 		protected Dictionary<object, IModifier<float>> modifiers;
 
+		// Reused by every recalculation, so reading a value never allocates.
+		private List<IModifier<float>> sortedModifiers = new List<IModifier<float>>();
+		private int alwaysRecalculateCount;
 		private bool recalculate;
 		private float lastCalculatedValue;
 
@@ -85,14 +103,34 @@ namespace SpaxUtils
 		/// </summary>
 		public virtual float GetValue()
 		{
-			if (recalculate || modifiers.Values.Any((m) => m.AlwaysRecalculate))
+			if (recalculate || alwaysRecalculateCount > 0)
 			{
-				// Recalculation is required, apply all modifiers to base value. (Mod ordering is handled internally)
-				lastCalculatedValue = ModUtil.Modify(BaseValue, modifiers.Values);
+				// Recalculation is required, apply all modifiers to base value.
+				lastCalculatedValue = ModUtil.ModifySorted(BaseValue, SortModifiers());
 				recalculate = false;
 			}
 
 			return lastCalculatedValue;
+		}
+
+		/// <summary>
+		/// Modifiers in ascending <see cref="ModMethod"/>, stable since Absolute mods depend on their order.
+		/// Re-sorted each time, as a mod's method can change.
+		/// </summary>
+		private List<IModifier<float>> SortModifiers()
+		{
+			sortedModifiers.Clear();
+			foreach (IModifier<float> modifier in modifiers.Values)
+			{
+				ModMethod method = modifier.Method;
+				int index = sortedModifiers.Count;
+				while (index > 0 && sortedModifiers[index - 1].Method > method)
+				{
+					index--;
+				}
+				sortedModifiers.Insert(index, modifier);
+			}
+			return sortedModifiers;
 		}
 
 		/// <summary>
@@ -127,6 +165,10 @@ namespace SpaxUtils
 
 			// Add the mod and request a recalculation.
 			modifiers[modIdentifier] = modifier;
+			if (modifier.AlwaysRecalculate)
+			{
+				alwaysRecalculateCount++;
+			}
 			modifier.RecalculateEvent += OnModifierRecalculateEvent;
 			modifier.DisposeEvent += OnModifierDisposeEvent;
 			ValueChanged();
@@ -138,11 +180,9 @@ namespace SpaxUtils
 		/// <param name="modIdentifier">The identifier of the mod to remove.</param>
 		public void RemoveModifier(object modIdentifier)
 		{
-			if (HasModifier(modIdentifier))
+			if (modifiers.Remove(modIdentifier, out IModifier<float> mod))
 			{
-				modifiers.Remove(modIdentifier, out IModifier<float> mod);
-				mod.RecalculateEvent -= OnModifierRecalculateEvent;
-				ValueChanged();
+				OnRemoved(mod);
 			}
 		}
 
@@ -152,11 +192,9 @@ namespace SpaxUtils
 		/// <param name="modifier">The modifier to remove from the composite.</param>
 		public void RemoveModifier(IModifier<float> modifier)
 		{
-			if (HasModifier(modifier))
+			if (modifiers.Remove(modifier, out IModifier<float> mod))
 			{
-				modifiers.Remove(modifier, out IModifier<float> mod);
-				mod.RecalculateEvent -= OnModifierRecalculateEvent;
-				ValueChanged();
+				OnRemoved(mod);
 				return;
 			}
 
@@ -181,6 +219,19 @@ namespace SpaxUtils
 				modifier.DisposeEvent -= OnModifierDisposeEvent;
 			}
 			modifiers.Clear();
+			alwaysRecalculateCount = 0;
+			ValueChanged();
+		}
+
+		private void OnRemoved(IModifier<float> modifier)
+		{
+			if (modifier.AlwaysRecalculate)
+			{
+				alwaysRecalculateCount--;
+			}
+			modifier.RecalculateEvent -= OnModifierRecalculateEvent;
+			// Unhooked too, else a removed mod keeps this composite alive until it is disposed.
+			modifier.DisposeEvent -= OnModifierDisposeEvent;
 			ValueChanged();
 		}
 

@@ -155,6 +155,7 @@ namespace SpaxUtils
 
 				RuntimeDataCollection meta = profile.GetEntry<RuntimeDataCollection>(META_DATA_ID, new RuntimeDataCollection(META_DATA_ID));
 				meta.SetValue(ProfileDataIdentifiers.NAME, name);
+				meta.SetValue(GlobalDataIdentifiers.BUILD_VERSION, Application.version);
 
 				Profiles.Add(id, profile);
 				profileFilePaths[id] = GetCanonicalProfilePath(name, id);
@@ -187,6 +188,52 @@ namespace SpaxUtils
 
 			// Set the profile and allow event to be fired.
 			CurrentProfile = profile;
+		}
+
+		/// <summary>
+		/// Unloads profile <paramref name="profileId"/> and permanently deletes its save file.
+		/// </summary>
+		public bool DeleteProfile(string profileId)
+		{
+			if (profileId == GLOBAL_DATA_ID || !profileFilePaths.TryGetValue(profileId, out string path))
+			{
+				SpaxDebug.Error("Couldn't delete profile.", $"No profile file known for ID \"{profileId}\".");
+				return false;
+			}
+
+			UnloadProfile(profileId);
+			if (File.Exists(path))
+			{
+				File.Delete(path);
+			}
+
+			Profiles.Remove(profileId);
+			profileFilePaths.Remove(profileId);
+			ProfilesMetaData.TryRemove(profileId, true);
+			SpaxDebug.Log("Deleted profile:", path);
+			return true;
+		}
+
+		/// <summary>
+		/// Whether the profile described by <paramref name="meta"/> was saved by a compatible build.
+		/// </summary>
+		public static bool IsProfileCompatible(RuntimeDataCollection meta)
+		{
+			return IsVersionCompatible(meta?.GetValue<string>(GlobalDataIdentifiers.BUILD_VERSION));
+		}
+
+		/// <summary>
+		/// Saves open only within the same major.minor version; the patch number may differ either way.
+		/// </summary>
+		public static bool IsVersionCompatible(string version)
+		{
+			return !string.IsNullOrEmpty(version) && MajorMinor(version) == MajorMinor(Application.version);
+		}
+
+		private static string MajorMinor(string version)
+		{
+			string[] parts = version.Split('.');
+			return parts.Length >= 2 ? $"{parts[0]}.{parts[1]}" : version;
 		}
 
 		#endregion Profiles
@@ -365,7 +412,7 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
-		/// Returns the profile with the most recent save time, if any.
+		/// Returns the version-compatible profile with the most recent save time, if any.
 		/// </summary>
 		public bool TryGetLastSavedMetaData(out RuntimeDataCollection result, bool loadResultAsCurrent = false)
 		{
@@ -379,6 +426,11 @@ namespace SpaxUtils
 			DateTime lastSave = new DateTime(0);
 			foreach (RuntimeDataCollection metaData in ProfilesMetaData.Data)
 			{
+				if (!IsProfileCompatible(metaData))
+				{
+					continue;
+				}
+
 				RuntimeDataEntry saveTimeEntry = metaData.GetEntry(GlobalDataIdentifiers.LAST_SAVE);
 				if (saveTimeEntry == null)
 				{

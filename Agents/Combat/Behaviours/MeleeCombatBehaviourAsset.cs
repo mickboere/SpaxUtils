@@ -20,6 +20,13 @@ namespace SpaxUtils
 		/// <inheritdoc/>
 		public bool ChargeDepleted => chargeDepleted;
 
+		/// <inheritdoc/>
+		public float ChargeSpent => chargePool > 0f ? Mathf.Clamp01(rawChargeSpent / chargePool) : 0f;
+
+		/// <inheritdoc/>
+		public float AutoReleaseProgress => !chargeDepleted ? 0f
+			: combatSettings.ChargeEmptyGrace > 0f ? Mathf.Clamp01(chargeGraceTimer / combatSettings.ChargeEmptyGrace) : 1f;
+
 		/// <summary>The charge as the STORM sees it: 0 below the deadzone, ramping to 1 - the single storm gate.</summary>
 		private float StormCharge => combatComponent.StormCharge(ChargeFraction);
 
@@ -49,6 +56,14 @@ namespace SpaxUtils
 		[SerializeField] private float swingShakeMagnitude = 1.5f;
 
 		// The whole charge economy (power, pierce, efficiency, grace) lives in CombatSettings.
+
+		[Header("Charging")]
+		[SerializeField, Tooltip("Player camera rumble strength while Static is drawn in, scaled by the pool spent. 0 = none.")]
+		private float chargeShakeStrength = 0.5f;
+		[SerializeField, Tooltip("Player camera kick on release, scaled by the pool spent. X/Y push along the storm, so a release without one uses Z only.")]
+		private Vector3 releaseShakeMagnitude = Vector3.one * 2f;
+		[SerializeField, Tooltip("Seconds the release kick takes to fade out, linearly.")]
+		private float releaseShakeDuration = 0.3f;
 
 		[Header("Storming")]
 		[SerializeField] private float maxAcceleration = 20000f;
@@ -102,6 +117,7 @@ namespace SpaxUtils
 		private float rawChargeSpent; // Raw Static paid for them; the deed EXP is priced off this.
 		private float chargeReference; // Points per efficiency halving, pool-scaled.
 		private float chargeCeiling; // Most points this pool could ever store.
+		private float chargePool; // Static max the charge is measured against.
 		private bool chargeDepleted;
 		private float chargeGraceTimer;
 		private bool chargeRewarded; // Whether this swing's charge has already paid Light EXP.
@@ -153,11 +169,14 @@ namespace SpaxUtils
 		private const float closingSmoothRate = 20f;
 		private ContinuousShakeSource swingShake;
 		private ContinuousShakeSource stormShake;
+		private ContinuousShakeSource chargeShake;
+		private ContinuousShakeSource releaseShake;
+		private float releaseShakeTimer;
 
 		// Strength/mass derived per-swing values.
 		private float wieldShortfall;
+		private float appliedPhaseMult = 1f;
 		private float baseStrengthSpeedFactor = 1f;
-		private float baseStrengthPowerFactor = 1f;
 
 		public void InjectDependencies(
 			IMeleeCombatMove move,
@@ -230,6 +249,7 @@ namespace SpaxUtils
 
 			// Pool-scaled, so the efficiency curve and the time to burn the pool are the same at any rank.
 			float staticMax = statHandler.ResourceStats.NE.Max;
+			chargePool = staticMax;
 			chargeReference = CombatUtils.ChargeReference(staticMax, combatSettings.ChargeEfficiencyDecay);
 			chargeCeiling = CombatUtils.ChargeCeiling(staticMax, chargeReference);
 			maxStick = 0f;
@@ -245,7 +265,6 @@ namespace SpaxUtils
 				? 0f : SpaxFormulas.WeaponMass((float)limbMassStat, rigidbodyWrapper.Mass);
 			wieldShortfall = combatSettings.WieldShortfall(strengthStat, weaponMass);
 			baseStrengthSpeedFactor = combatSettings.WieldSpeedFactor(strengthStat, weaponMass);
-			baseStrengthPowerFactor = combatSettings.WieldPowerFactor(strengthStat, weaponMass);
 
 			// Base strength-speed modifier (constant over the swing).
 			speedMod = new FloatFuncModifier(
@@ -257,6 +276,7 @@ namespace SpaxUtils
 
 			// Phase-based inertia modifier (varies during swing).
 			swingPhaseSpeedMod = new FloatOperationModifier(ModMethod.Absolute, Operation.Multiply, 1f);
+			appliedPhaseMult = 1f;
 			performSpeedStat?.AddModifier(swingPhaseSpeedMod);
 
 			enduranceCostMod = new FloatOperationModifier(ModMethod.Absolute, Operation.Multiply, 1f);
@@ -296,6 +316,11 @@ namespace SpaxUtils
 
 			stormShake?.Dispose();
 			swingShake?.Dispose();
+			chargeShake?.Dispose();
+			releaseShake?.Dispose();
+			chargeShake = null;
+			releaseShake = null;
+			agentAudioHandler.StopStrain(this);
 			UpdateStormFeedback();
 		}
 
@@ -308,6 +333,11 @@ namespace SpaxUtils
 			if (Performer.State == PerformanceState.Preparing && !Performer.Canceled)
 			{
 				UpdateChargeAim(delta);
+			}
+			else
+			{
+				// Released or interrupted: the strain ends now, so a stun's grunt isn't swallowed by it.
+				agentAudioHandler.StopStrain(this);
 			}
 
 			if (Performer.State == PerformanceState.Preparing && Performer.ChargeTime >= Move.MinCharge)
@@ -336,20 +366,28 @@ namespace SpaxUtils
 
 					if (drained)
 					{
+						// The strain is the effort of drawing Static in, so it ends the moment the pool is dry.
 						chargeDepleted = true;
 						chargeGraceTimer = 0f;
+						agentAudioHandler.StopStrain(this);
+					}
+					else if (ChargeSpent > 0f)
+					{
+						agentAudioHandler.Strain(this, ChargeSpent);
 					}
 				}
+
+				UpdateChargeShake();
 			}
 
 			if (Performer.State == PerformanceState.Performing)
 			{
 				// Phase-based inertia: heavy swings start slow, then catch up.
-				float phase = Mathf.Clamp01(Performer.RunTime / Move.MinDuration).InSine();
-				float phaseMult = GetPhaseInertiaMultiplier(phase);
+				float phaseMult = GetPhaseInertiaMultiplier(SwingPhase(Performer.RunTime));
 				if (swingPhaseSpeedMod != null)
 				{
 					swingPhaseSpeedMod.SetValue(phaseMult);
+					appliedPhaseMult = phaseMult;
 				}
 
 				// The swing's own forward lurch, fired off RunTime rather than a wall clock so it lands on
@@ -407,6 +445,20 @@ namespace SpaxUtils
 				stormShake.Direction = -rigidbodyWrapper.Velocity.normalized;
 				stormShake.Intensity = Mathf.Clamp01(rigidbodyWrapper.Speed / Mathf.Max(stickSpeed, 0.01f));
 				stormShake.Frequency = IShakeSource.DEFAULT_FREQUENCY * (0.5f + 0.5f * stormShake.Intensity);
+			}
+			if (releaseShake != null)
+			{
+				releaseShakeTimer += delta;
+				float fade = releaseShakeDuration > 0f ? 1f - releaseShakeTimer / releaseShakeDuration : 0f;
+				if (fade > 0f)
+				{
+					releaseShake.Intensity = ChargeSpent * fade;
+				}
+				else
+				{
+					releaseShake.Dispose();
+					releaseShake = null;
+				}
 			}
 
 			float chargeBalance = move.OverrideBalance ? move.ChargeBalance : combatSettings.ChargeBalance;
@@ -479,7 +531,7 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
-		/// Returns a phase-based multiplier for swing speed/power:
+		/// Swing speed by phase: a heavy swing starts slow, then catches up. Speed only, never power.
 		/// </summary>
 		private float GetPhaseInertiaMultiplier(float phase)
 		{
@@ -487,6 +539,34 @@ namespace SpaxUtils
 			float earlySlow = Mathf.Lerp(1f, minInertiaSpeedFactor, heaviness);
 
 			return Mathf.Lerp(earlySlow, 1f, Mathf.Clamp01(phase));
+		}
+
+		/// <summary>Eased swing phase at <paramref name="runTime"/>; what the phase inertia is driven by.</summary>
+		private float SwingPhase(float runTime)
+			=> Mathf.Clamp01(runTime / Mathf.Max(Move.MinDuration, 0.0001f)).InSine();
+
+		/// <summary>
+		/// Real seconds until the swing's RunTime reaches <paramref name="runTime"/>, integrating the phase
+		/// speed-up rather than assuming the current (slowest) speed holds.
+		/// </summary>
+		private float TimeUntilRunTime(float runTime)
+		{
+			float from = Performer.RunTime;
+			if (runTime <= from)
+			{
+				return 0f;
+			}
+
+			const int STEPS = 8;
+			float baseSpeed = PerformSpeed / Mathf.Max(appliedPhaseMult, 0.01f);
+			float step = (runTime - from) / STEPS;
+			float time = 0f;
+			for (int i = 0; i < STEPS; i++)
+			{
+				float mid = from + (i + 0.5f) * step;
+				time += step / Mathf.Max(baseSpeed * GetPhaseInertiaMultiplier(SwingPhase(mid)), 0.01f);
+			}
+			return time;
 		}
 
 		/// <summary>
@@ -636,7 +716,7 @@ namespace SpaxUtils
 			}
 
 			// Drag covers L·ln(1 + v·t/L); the lurch is a push, so it only ever raises the speed to its own.
-			float lurchAt = Mathf.Clamp(move.InertiaDelay / PerformSpeed, 0f, time);
+			float lurchAt = Mathf.Clamp(TimeUntilRunTime(move.InertiaDelay), 0f, time);
 			float before = length * Mathf.Log(1f + speed * lurchAt / length);
 			float after = speed / (1f + speed * lurchAt / length);
 			if (lurchAt < time)
@@ -826,6 +906,12 @@ namespace SpaxUtils
 			lungePaid = spent > 0f;
 			statHandler.RewardExpPoints(Element.Air, spent, ExpSources.LUNGE);
 
+			// A storm already grunted by its stretch; a plain lunge grunts by the stamina it bought.
+			if (lungePaid && !hasStorm && stamina.Max > 0f)
+			{
+				agentAudioHandler.PlayExertion(Mathf.Clamp01(spent / stamina.Max));
+			}
+
 			// Back through the price at the RAW rate Drain was handed, so a Drain multiplier cannot skew the metres.
 			float raw = spent / Mathf.Max(0.0001f, stamina.DrainMult);
 			return free + Mathf.Min(paid, combatComponent.ComputeLungeMetres(raw));
@@ -898,8 +984,9 @@ namespace SpaxUtils
 			// cover, so a leap that falls short still reads as partway rather than complete.
 			stickGap = gap;
 			stickRemaining = gap;
-			// Before the gap has moved, we are the only thing closing it.
-			stickClosingRate = stickSpeed;
+			// Seeded from our REAL speed: the intended leap speed would count as the target walking in.
+			stickClosingRate = aimed
+				? Vector3.Dot(rigidbodyWrapper.PredictedVelocity.FlattenY(), toTarget / distance) : 0f;
 			// THE range cap: sizing speed to 'cover' doesn't bound distance, so meter real ground against a budget.
 			stickBudget = cover;
 			stickTravelled = 0f;
@@ -956,7 +1043,7 @@ namespace SpaxUtils
 					stickAim = CapTurn(toTargetDir);
 
 					// Release so the body, braked by the plant it lands in, reaches the bite as the blade reaches contact.
-					float lead = move.ContactTime / PerformSpeed;
+					float lead = TimeUntilRunTime(move.ContactTime);
 					float remaining = distance - stickDesired;
 					stickRemaining = Mathf.Min(stickRemaining, Mathf.Max(0f, remaining));
 
@@ -1133,15 +1220,36 @@ namespace SpaxUtils
 				});
 			}
 
+			// The charge rumble hands over to a kick: along the storm if there is one, else undirected.
+			chargeShake?.Dispose();
+			chargeShake = null;
+			// Undirected, X/Y would be a constant camera lean rather than a push; a zero magnitude means the default.
+			Vector3 kick = hasStorm ? -rigidbodyWrapper.TargetVelocity : Vector3.zero;
+			Vector3 kickMagnitude = hasStorm ? releaseShakeMagnitude : new Vector3(0f, 0f, releaseShakeMagnitude.z);
+			if (ChargeSpent > 0f && kickMagnitude != Vector3.zero && Agent.Identification.HasAll(EntityLabels.PLAYER))
+			{
+				releaseShake?.Dispose();
+				releaseShake = new ContinuousShakeSource(kickMagnitude, kick, intensity: ChargeSpent);
+				releaseShakeTimer = 0f;
+				agentImpactHandler.ReportImpact(new ImpactData
+				{
+					Source = Agent,
+					Direction = kick,
+					Location = Agent.Transform.position,
+					ShakeSource = releaseShake
+				});
+			}
+			agentAudioHandler.StopStrain(this);
+
+			// A storm launch is its own effort, voiced by the stretch; a plain lunge grunts by its stamina instead.
+			if (hasStorm)
+			{
+				agentAudioHandler.PlayExertion(ChargeSpent);
+			}
+
 			// Closing the gap starts the moment the swing is released. InertiaDelay used to gate this, but it
 			// marks where the swing's own momentum carries the body - which is after the approach, not before.
 			BeginApproach();
-
-			// Exertion: priced on LIMB mass by the combat authority, not the strike's mass — what a swing costs the
-			// body is what it wields, while StrikeMass is what the hit lands with. Play the audio off the drain.
-			float drained = statHandler.ResourceStats.N.Drain(combatComponent.ComputePerformCost(move));
-			float fraction = drained / statHandler.ResourceStats.N.Reserve;
-			agentAudioHandler.PlayExertion(fraction);
 		}
 
 		/// <summary>Fires the swing once per performance; the untargeted leap releases before the drive ends.</summary>
@@ -1158,6 +1266,11 @@ namespace SpaxUtils
 
 		private void OnSwing()
 		{
+			// Energy: priced on LIMB mass by the combat authority, not the strike's mass — what a swing costs the body
+			// is what it wields. Paid at the swing, not the release, so a cancelled lunge or storm costs none.
+			float drained = statHandler.ResourceStats.N.Drain(combatComponent.ComputePerformCost(move));
+			agentAudioHandler.PlayExertion(Mathf.Clamp01(drained / statHandler.ResourceStats.N.Reserve));
+
 			if (Agent.Identification.HasAll(EntityLabels.PLAYER))
 			{
 				swingShake = new ContinuousShakeSource(
@@ -1172,6 +1285,36 @@ namespace SpaxUtils
 					ShakeSource = swingShake
 				});
 			}
+		}
+
+		/// <summary>Player camera rumble that grows with the pool spent, holding once it runs dry.</summary>
+		private void UpdateChargeShake()
+		{
+			// A zero magnitude would fall back to the shaker's default, so none is none.
+			if (ChargeSpent <= 0f || chargeShakeStrength <= 0f)
+			{
+				return;
+			}
+
+			if (chargeShake == null)
+			{
+				if (!Agent.Identification.HasAll(EntityLabels.PLAYER))
+				{
+					return;
+				}
+
+				// Undirected, so Z only: X/Y would lean the camera instead of shaking it.
+				chargeShake = new ContinuousShakeSource(
+					new Vector3(0f, 0f, chargeShakeStrength), Vector3.zero, intensity: 0f);
+				agentImpactHandler.ReportImpact(new ImpactData
+				{
+					Source = Agent,
+					Location = Agent.Transform.position,
+					ShakeSource = chargeShake
+				});
+			}
+
+			chargeShake.Intensity = ChargeSpent;
 		}
 
 		protected void OnNewHitDetected(List<HitScanHitData> newHits)
@@ -1190,21 +1333,18 @@ namespace SpaxUtils
 						? move.StrikeDirection.Look(lookDir)
 						: hit.Direction;
 
-					float phase = Mathf.Clamp01(Performer.RunTime / Move.MinDuration);
-					float phaseMult = GetPhaseInertiaMultiplier(phase);
-
 					// BODY momentum only. The strike's force is the receiver's second channel — it needs their
 					// coupling and endurance wear to size it. Predicted, so the plant's queued braking counts.
 					Vector3 inertia = rigidbodyWrapper.PredictedVelocity;
 
 					// Per-axis base output (x=Slash, y=Power, z=Pierce) from AgentCombatComponent.
-					// Runtime modifiers (strength, charge, phase, malice) are applied below.
+					// Runtime modifiers (charge, carry, malice) are applied below. Weight costs speed, never power.
 					AgentCombatComponent.MoveOutput moveOutput = combatComponent.GetMoveOutput(move);
 					Vector3 baseOutput = moveOutput.Output;
 
 					// Reaching past its contact point, a strike only lands what its body's momentum still carries.
 					float carry = MomentumCarry();
-					float powerScale = baseStrengthPowerFactor * totalCharge * phaseMult * carry;
+					float powerScale = totalCharge * carry;
 					float powerValue = baseOutput.y * powerScale;
 
 					// Both bands take the same runtime scaling as Power.
@@ -1346,12 +1486,16 @@ namespace SpaxUtils
 				// Applied after the outcome so a block or parry reset can't swallow the bounce.
 				rigidbodyWrapper.Push(hitData.Data.GetValue(HitDataIdentifiers.INERTIA_BRAKE, Vector3.zero));
 
-				// Parries and crits pause for a fixed beat; everything else scales with impact.
+				// Scales with impact; crits pause for a fixed beat, and a parry pulls it toward its perfect-parry
+				// pause by how well it was timed, so a clean one reads as a longer freeze.
 				float impact = hitData.Data.GetValue<float>(HitDataIdentifiers.IMPACT);
-				float hitPause = hitData.Data.GetValue<bool>(HitDataIdentifiers.PARRIED) ? combatSettings.ParriedHitPause
+				float normalPause = combatSettings.HitPauseSender.Lerp(
+					impact * hitData.Data.GetValue(HitDataIdentifiers.CARRY, 1f) * (1f / performSpeedStat.Value));
+				float hitPause = hitData.Data.GetValue<bool>(HitDataIdentifiers.PARRIED)
+					? Mathf.Lerp(normalPause, combatSettings.ParriedHitPause,
+						Mathf.Clamp01(hitData.Data.GetValue<float>(HitDataIdentifiers.PARRY_QUALITY)))
 					: hitData.Data.GetValue<bool>(HitDataIdentifiers.CRIT) ? combatSettings.CritSenderHitPause
-					: combatSettings.HitPauseSender.Lerp(impact * hitData.Data.GetValue(HitDataIdentifiers.CARRY, 1f) *
-						(1f / performSpeedStat.Value));
+					: normalPause;
 
 				float remainingPause = hitPauseMod == null ? 0f : Mathf.Max(0f, hitPauseMod.Timer.Remaining);
 				if (hitPauseMod == null || hitPause > remainingPause)

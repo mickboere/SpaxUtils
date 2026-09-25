@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Reflection;
 using UnityEngine;
 
 namespace SpaxUtils
@@ -73,10 +74,18 @@ namespace SpaxUtils
 	public class EnumSetting<TEnum> : Setting<TEnum>, IOptionSetting where TEnum : struct, Enum
 	{
 		private static readonly TEnum[] values = (TEnum[])Enum.GetValues(typeof(TEnum));
-		private static readonly string[] labels = Array.ConvertAll(values, v => v.ToString().Nicify());
+		private static readonly string[] labels = Array.ConvertAll(values, GetLabel);
 
 		public EnumSetting() : base(default) { }
 		public EnumSetting(TEnum defaultValue) : base(defaultValue) { }
+
+		// Unity's InspectorName doubles as the label, for names an identifier can't spell ("&", ",").
+		private static string GetLabel(TEnum value)
+		{
+			InspectorNameAttribute name =
+				typeof(TEnum).GetField(value.ToString())?.GetCustomAttribute<InspectorNameAttribute>();
+			return name != null ? name.displayName : value.ToString().Nicify();
+		}
 
 		public IReadOnlyList<string> GetLabels()
 		{
