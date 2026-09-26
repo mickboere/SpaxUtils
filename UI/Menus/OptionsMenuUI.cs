@@ -242,9 +242,9 @@ namespace SpaxUtils.UI
 				return;
 			}
 
+			// Not first.Select(): that goes through the first global event system, i.e. another player's in split-screen.
 			eventSystem.SetSelectedGameObject(null);
 			eventSystem.SetSelectedGameObject(first.gameObject);
-			first.Select();
 		}
 	}
 }

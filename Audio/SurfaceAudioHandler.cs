@@ -24,6 +24,11 @@ namespace SpaxUtils
 			}
 			else if (!source.isPlaying)
 			{
+				// Every loop enters at a random point, so repeated starts never sound identical.
+				if (source.clip != null)
+				{
+					source.time = Random.value * source.clip.length;
+				}
 				source.Play();
 			}
 

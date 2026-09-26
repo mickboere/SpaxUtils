@@ -474,7 +474,7 @@ namespace SpaxUtils.UI
 			}
 			else
 			{
-				selectable.Select();
+				SelectionUtils.Select(selectable.gameObject);
 			}
 		}
 	}

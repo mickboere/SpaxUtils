@@ -176,6 +176,18 @@ namespace SpaxUtils
 		private float overStrengthFullRatio = 10f;
 		[SerializeField, Min(1f), Tooltip("Tenacity levels a weapon may outweigh your Strength by before the wield penalty is full. Weapon mass only — your own arm never counts against you.")]
 		private float wieldFullPenaltyLevels = 20f;
+		[SerializeField, Range(0f, 1f), Tooltip("Swing speed at the very start of a fully too-heavy swing; it catches up to full by the end.")]
+		private float minInertiaSpeedFactor = 0.4f;
+
+		/// <summary>Eased swing phase at <paramref name="runTime"/>; what the heavy slow start is driven by.</summary>
+		public static float SwingPhase(float runTime, float minDuration)
+			=> Mathf.Clamp01(runTime / Mathf.Max(minDuration, 0.0001f)).InSine();
+
+		/// <summary>Swing speed by phase for a <paramref name="shortfall"/>: heavy swings start slow, then catch up.</summary>
+		public float PhaseSpeedFactor(float shortfall, float phase)
+		{
+			return Mathf.Lerp(Mathf.Lerp(1f, minInertiaSpeedFactor, shortfall), 1f, Mathf.Clamp01(phase));
+		}
 
 		/// <summary>
 		/// Swing speed for a wielder of <paramref name="strength"/> holding <paramref name="weaponMass"/>: slower the more
@@ -229,16 +241,17 @@ namespace SpaxUtils
 
 		/// <summary>
 		/// Mass the strike's effort moves vs what its rank swings, never below 1: the limb, blended toward the body by
-		/// the share its legs LIFT. Forward body mass rides the hit's momentum knockback instead.
+		/// the share the effort drives (lifted, or the whole commitment for a limbless kick). Travel is the knockback's.
+		/// The limb half is momentum: scaled by <paramref name="swingSpeed"/>, the arm's speed at contact.
 		/// </summary>
-		public float ForceMassFactor(float limbMass, float hitterMass, float liftedBodyShare, float rank)
+		public float ForceMassFactor(float limbMass, float swingSpeed, float hitterMass, float drivenBodyShare, float rank)
 		{
 			// One scale for both, so committing the body adds its mass instead of trading one excess for another.
 			float expected = SpaxFormulas.ExpectedLimbMass(rank);
-			float limb = Mathf.Pow(Mathf.Max(1f, limbMass / expected), forceMassExponent);
+			float limb = Mathf.Pow(Mathf.Max(1f, limbMass / expected), forceMassExponent) * Mathf.Max(0f, swingSpeed);
 			float body = Mathf.Pow(
 				Mathf.Max(1f, hitterMass * SpaxFormulas.BODY_DRIVE_RATIO / expected), forceMassExponent);
-			return Mathf.Lerp(limb, body, Mathf.Clamp01(liftedBodyShare));
+			return Mathf.Lerp(limb, body, Mathf.Clamp01(drivenBodyShare));
 		}
 	}
 }

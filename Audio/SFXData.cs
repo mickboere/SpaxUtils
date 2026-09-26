@@ -45,7 +45,8 @@ namespace SpaxUtils
 				MinDistance * distance, MaxDistance * distance);
 		}
 
-		public void PlayLoop(AudioSourceWrapper audioSourceWrapper, bool randomStart = false, float pitch = 1f, float volume = 1f, float distance = 1f)
+		/// <summary>Loops a random clip, entering at a random point by default so repeated starts never sound identical.</summary>
+		public void PlayLoop(AudioSourceWrapper audioSourceWrapper, bool randomStart = true, float pitch = 1f, float volume = 1f, float distance = 1f)
 		{
 			SFXPlayer.PlayLoop(audioSourceWrapper, RandomClip, volume, pitch,
 				MinDistance * distance, MaxDistance * distance, randomStart);

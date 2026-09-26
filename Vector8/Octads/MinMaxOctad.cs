@@ -76,8 +76,10 @@ namespace SpaxUtils
 		/// <returns>A randomized <see cref="Vector8"/> ranging between this class' min/max values.</returns>
 		public Vector8 Randomize(int seed)
 		{
+			// The shared generator is restored afterwards, so seeding here never repeats anyone else's rolls.
+			Random.State state = Random.state;
 			Random.InitState(seed);
-			return new Vector8(
+			Vector8 result = new Vector8(
 				Random.Range(north.x, north.y),
 				Random.Range(northEast.x, northEast.y),
 				Random.Range(east.x, east.y),
@@ -86,6 +88,8 @@ namespace SpaxUtils
 				Random.Range(southWest.x, southWest.y),
 				Random.Range(west.x, west.y),
 				Random.Range(northWest.x, northWest.y));
+			Random.state = state;
+			return result;
 		}
 	}
 }

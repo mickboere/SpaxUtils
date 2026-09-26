@@ -99,7 +99,11 @@ namespace SpaxUtils.UI
 
 		public virtual void SelectFirstSelectable()
 		{
-			FirstSelectable?.Select();
+			Selectable first = FirstSelectable;
+			if (first != null)
+			{
+				SelectionUtils.Select(first.gameObject);
+			}
 		}
 
 		protected virtual void OnShow()

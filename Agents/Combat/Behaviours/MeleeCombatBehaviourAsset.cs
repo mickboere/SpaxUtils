@@ -47,12 +47,7 @@ namespace SpaxUtils
 		[SerializeField] private LayerMask hitDetectionMask;
 
 		[Header("Swinging")]
-		// Wield speed curve (strengthSpeedModRange / speedCurveExponent / overStrengthFullRatio) lifted to CombatSettings
-		// — it's a universal mechanic and the AI's move-selection + strike-timing need to read it before the swing.
-		// Exertion cost (mass curve + its constants) lives in CombatSettings — the AI has to price a swing before
-		// performing it, same reason the wield speed curve moved there.
-		[SerializeField, Range(0f, 1f), Tooltip("Minimum swing speed factor at the start of a very heavy swing.")]
-		private float minInertiaSpeedFactor = 0.4f;
+		// Wield speed, heavy slow start and exertion cost live in CombatSettings: the AI reads them before the swing.
 		[SerializeField] private float swingShakeMagnitude = 1.5f;
 
 		// The whole charge economy (power, pierce, efficiency, grace) lives in CombatSettings.
@@ -534,16 +529,11 @@ namespace SpaxUtils
 		/// Swing speed by phase: a heavy swing starts slow, then catches up. Speed only, never power.
 		/// </summary>
 		private float GetPhaseInertiaMultiplier(float phase)
-		{
-			float heaviness = wieldShortfall;
-			float earlySlow = Mathf.Lerp(1f, minInertiaSpeedFactor, heaviness);
-
-			return Mathf.Lerp(earlySlow, 1f, Mathf.Clamp01(phase));
-		}
+			=> combatSettings.PhaseSpeedFactor(wieldShortfall, phase);
 
 		/// <summary>Eased swing phase at <paramref name="runTime"/>; what the phase inertia is driven by.</summary>
 		private float SwingPhase(float runTime)
-			=> Mathf.Clamp01(runTime / Mathf.Max(Move.MinDuration, 0.0001f)).InSine();
+			=> CombatSettings.SwingPhase(runTime, Move.MinDuration);
 
 		/// <summary>
 		/// Real seconds until the swing's RunTime reaches <paramref name="runTime"/>, integrating the phase
@@ -1385,7 +1375,8 @@ namespace SpaxUtils
 						finalPierce,
 						powerBand * maliceMult,
 						forceBand * maliceMult,
-						luckStat
+						luckStat,
+						baseStrengthSpeedFactor * appliedPhaseMult
 					);
 
 					// What swung it, so both lanes can voice the armament's material. Unarmed writes nothing.

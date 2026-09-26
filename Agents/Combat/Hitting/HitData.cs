@@ -90,6 +90,11 @@ namespace SpaxUtils
 		public float Luck { get; }
 
 		/// <summary>
+		/// The limb's swing speed at contact (1 = normal): a slow, too-heavy swing carries less momentum.
+		/// </summary>
+		public float SwingSpeed { get; }
+
+		/// <summary>
 		/// Runtime data container used to store additional hit data.
 		/// </summary>
 		public RuntimeDataCollection Data;
@@ -110,8 +115,10 @@ namespace SpaxUtils
 			float powerBand,
 			float forceBand,
 			float luck,
+			float swingSpeed = 1f,
 			RuntimeDataCollection data = null)
 		{
+			SwingSpeed = swingSpeed;
 			Receiver = receiver;
 			Hitter = hitter;
 			HitterMass = hitterMass;
@@ -147,6 +154,7 @@ namespace SpaxUtils
 				$"\nPierce={Pierce}," +
 				$"\nPowerBand={PowerBand}," +
 				$"\nForceBand={ForceBand}," +
+				$"\nSwingSpeed={SwingSpeed}," +
 				$"\n\nData:\n{Data},";
 		}
 	}

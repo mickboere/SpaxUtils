@@ -146,8 +146,11 @@ namespace SpaxUtils
 		/// </summary>
 		private float GenerateNoise(int seed, float offset, float time)
 		{
+			// Seeded per source for stable noise; the shared generator is restored so every other roll stays random.
+			Random.State state = Random.state;
 			Random.InitState(seed);
 			float off = Random.value * OFFSET + offset;
+			Random.state = state;
 			float a = Mathf.PerlinNoise1D(off + time).Clamp01().Remap(-1f, 1f) * SPECTRE;
 			float b = Mathf.PerlinNoise1D(off * 2f + time * 2f).Clamp01().Remap(-1f, 1f) * SPECTRE * 0.5f;
 			float c = Mathf.PerlinNoise1D(off * 4f + time * 4f).Clamp01().Remap(-1f, 1f) * SPECTRE * 0.25f;

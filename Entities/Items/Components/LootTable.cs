@@ -12,6 +12,8 @@ namespace SpaxUtils
 		public List<RuntimeItemData> GenerateLoot(int seed, float oddsMultiplier = 1f)
 		{
 			List<RuntimeItemData> result = new List<RuntimeItemData>();
+			// Seeded per item; the shared generator is restored afterwards so no one else's rolls repeat.
+			Random.State state = Random.state;
 			foreach (Loot l in loot)
 			{
 				if (l.Odds.Approx(1f))
@@ -28,6 +30,7 @@ namespace SpaxUtils
 				}
 			}
 
+			Random.state = state;
 			return result;
 		}
 	}

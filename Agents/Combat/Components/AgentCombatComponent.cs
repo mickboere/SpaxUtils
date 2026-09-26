@@ -170,6 +170,21 @@ namespace SpaxUtils
 		}
 
 		/// <summary>
+		/// The limb's swing speed as <paramref name="move"/> reaches contact: wield speed times the heavy slow start.
+		/// What the performer hands its hit, predicted before the swing.
+		/// </summary>
+		public float ContactSwingSpeed(IPerformanceMove move)
+		{
+			if (combatSettings == null || move is not IMeleeCombatMove melee)
+			{
+				return 1f;
+			}
+			float shortfall = combatSettings.WieldShortfall(Strength, WieldWeaponMass(move));
+			float phase = CombatSettings.SwingPhase(melee.ContactTime, melee.MinDuration);
+			return WieldSpeedFactor(move) * combatSettings.PhaseSpeedFactor(shortfall, phase);
+		}
+
+		/// <summary>
 		/// Weapon mass <paramref name="move"/> wields, the arm's own share of the body removed — what the
 		/// too-heavy check measures against Strength. A natural strike (kick, ram) carries none, so it reads 0.
 		/// </summary>
@@ -1380,7 +1395,8 @@ namespace SpaxUtils
 				move is IMeleeCombatMove melee ? melee.BodyMassFraction : 0f,
 				move is IMeleeCombatMove lifting ? lifting.StrikeDirection.y : 0f,
 				Rank,
-				luckStat ?? 0f);
+				luckStat ?? 0f,
+				ContactSwingSpeed(move));
 		}
 
 		/// <summary>

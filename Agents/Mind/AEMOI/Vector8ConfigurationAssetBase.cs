@@ -70,7 +70,7 @@ namespace SpaxUtils
 			}
 			else
 			{
-				baseValue = fixedValues.Vector8; // already clamped 0–1
+				baseValue = fixedValues.Vector8; // already clamped 0ï¿½1
 			}
 
 			// ----- Deterministic random sample in same domain -----
@@ -100,8 +100,10 @@ namespace SpaxUtils
 
 		private static Vector8 RandomUnitVector8(int seed)
 		{
+			// The shared generator is restored afterwards, so seeding here never repeats anyone else's rolls.
+			Random.State state = Random.state;
 			Random.InitState(seed);
-			return new Vector8(
+			Vector8 result = new Vector8(
 				Random.value,
 				Random.value,
 				Random.value,
@@ -110,6 +112,8 @@ namespace SpaxUtils
 				Random.value,
 				Random.value,
 				Random.value);
+			Random.state = state;
+			return result;
 		}
 	}
 }

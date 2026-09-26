@@ -49,7 +49,7 @@ namespace SpaxUtils
 
 		/// <summary>Loops <paramref name="clip"/>, optionally entering at a random point in it.</summary>
 		public static void PlayLoop(AudioSourceWrapper wrapper, AudioClip clip, float volume, float pitch,
-			float minDistance, float maxDistance, bool randomStart = false)
+			float minDistance, float maxDistance, bool randomStart = true)
 		{
 			if (wrapper == null || clip == null)
 			{
